@@ -1,0 +1,307 @@
+/* ============================================================================
+   CodeWeave · M4 全站统一 · 代码编辑器基座（src/components/code-editor.tsx）
+   ----------------------------------------------------------------------------
+   为什么有本文件：M3 做学习工作台时，为了让四区黑场分栏成立，把外观全部限定在
+   页面容器作用域内（learning-workspace-view.css 的 169 条规则全部以 `.cw-workspace`
+   起头、全局裸选择器 0 条，见 docs/01-应用前端与交互重构方案.md §3），编辑器**自身的
+   基座**仍散落在 styles.css 的 `.code-editor` 一族里。编辑器一旦被挑战页 / 项目页 /
+   壳外复用，就会露出基座旧形态。本文件把基座本身切到 --ds-* 令牌。
+
+   取值出处（行号 = app/src/design/tokens.css）：
+   - 黑场实底 #000 → L25/L26；暖白文字 L27；次级文字 0.56 L28；点缀只用于主操作 L50
+   - 发丝线 0.14 / 1px → L37/L40；抬起档 0.16 → L38；输入与焦点边界 → L73-L77
+   - 圆角只有三档：0 → L118/L121、50% → L119、100px → L120；零投影 → L123
+   - 等宽字栈（含 Windows 中文回退）→ L88；语义状态恒定不插值 → L60-L63
+   - 缓动 cubic-bezier(0.22,1,0.36,1) → L147；普通交互 150ms → L153
+   规格依据：docs/00-CodeWeave三合一总工程方案.md §5.1（黑场 + 发丝线，移除玻璃卡/渐变/泛光）、
+   §5.3 第 1 条（**编辑器默认静态或低动态**）、§5.4（编辑器保留用户字号、长代码行）；
+   形态裁定：src/design/geometry.md §2（学习工作台行：禁任何装饰性持续动画）。
+   页面侧的同名形态已在 M3 验收：learning-workspace-view.css L345-L468。
+
+   层叠约定（改本文件前必读 —— 这是这里每条选择器都带类型名前缀的唯一原因）：
+   1) styles.css 由 main.tsx 引入，实测在产物里排在组件样式**之后**
+    （dist/assets/index-*.css：组件样式占 0–95k，styles.css 的 `:root` 起于 94879），
+    所以同特异度时 styles.css 赢，只写 `.code-editor` 压不住它。
+   2) 本文件只在 (c) 档（类型选择器）上抬一位、(b) 档（类）与 styles.css 保持相等，
+    于是：styles.css `.code-editor`(0,1,0) < 本文件 `div.code-editor`(0,1,1)
+    < 页面覆写 `.cw-workspace .code-editor`(0,2,0)。页面作用域覆写永远赢，
+    **基座改动不会把工作台的观感带偏**（工作台那 39 条用例是这一条的证据）。
+   3) 本文件不写任何全局裸选择器，不碰 :root / html / body / *，不新增任何赋值给
+    `--editor-font-size` / `--line-height-editor`（§5.4：字号是用户设置，只读取）。
+   ========================================================================== */
+
+/* ── 编辑器整体：黑场内凹 + 一圈 1px 发丝线（§5.1 形态） ─────────────────── */
+div.code-editor {
+  position: relative;
+  display: flex;
+  min-height: 300px;
+  max-height: 62vh;
+  padding: var(--ds-space-12, 12px) 0;
+  color: var(--ds-text-primary, #f4f1ee); /* tokens L27 */
+  background: var(--ds-canvas, #000); /* tokens L25：黑场分区，不铺玻璃底 */
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37 */
+  border-radius: var(--ds-radius-panel, 0); /* L121：面板直角 */
+  box-shadow: var(--ds-shadow-panel, none); /* L123：零投影（原 16px 泛光已停用） */
+  backdrop-filter: none; /* §5.1：移除玻璃拟态 */
+  -webkit-backdrop-filter: none;
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace); /* L88 */
+  /* §5.4：编辑器**保留用户字号设置**。下面三处（容器 / 行号层 / 输入层 / 高亮层）
+     必须读同一个变量，这是行号与代码逐行对齐的前提；本文件不给它赋值。 */
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+}
+
+/* ── 行号层：与输入层同字号同行高，滚动位移由组件行内 transform 驱动 ─────── */
+div.line-numbers {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 44px;
+  flex: 0 0 44px;
+  padding-right: var(--ds-space-10, 10px);
+  overflow: hidden;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28，5.86:1 可读 */
+  background: transparent; /* 黑场分区靠右边界那条发丝线，不靠底色 */
+  border-right: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--editor-font-size, 13px); /* 只读取（§5.4） */
+  line-height: var(--line-height-editor, 1.55); /* 只读取：与 textarea 同一行高 = 逐行对齐 */
+  user-select: none;
+}
+div.line-numbers-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+div.line-numbers span {
+  white-space: pre; /* 行号不折行：折一行就把下面所有行号推歪 */
+}
+div.line-numbers span.active {
+  color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50：当前行 = 固定场景档，工作台内不逐帧变色 */
+  font-weight: 700; /* 颜色不是唯一载体（§5.1 末段） */
+}
+
+/* ── 代码面：overflow hidden + 行内 translate 跟随，textarea 才是滚动主体 ── */
+div.code-surface {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 高亮叠层（纯展示）：字号/行高/左内边距必须与输入层逐项相同，否则逐行错位 */
+pre.code-tokens {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px); /* 与下面 div.code-editor textarea 的左右内边距成对，改动必须同时改 */
+  overflow: hidden;
+  color: var(--ds-text-primary, #f4f1ee);
+  background: transparent;
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--editor-font-size, 13px); /* 只读取（§5.4） */
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre; /* §5.4 长代码行：横向滚动而不是折行挤压 */
+  word-break: normal;
+  overflow-wrap: normal;
+  pointer-events: none; /* §5.3 第 6 条：装饰层不截获鼠标 */
+  user-select: none;
+}
+
+/* 输入层：真实 textarea，文本透明、光标与选区可见（输入 / IME / 复制不受影响） */
+div.code-editor textarea {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 272px;
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px); /* 与上面 pre.code-tokens 成对：左偏移不同步就会逐列错位 */
+  resize: none;
+  overflow: auto; /* 两个方向都能滚：长行走横向滚动条，不挤压折行 */
+  color: transparent;
+  caret-color: var(--ds-text-primary, #f4f1ee); /* L27：光标实色，看得见 */
+  background: transparent;
+  border: 0;
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--editor-font-size, 13px); /* 只读取（§5.4） */
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  tab-size: 2;
+}
+/* styles.css 的 `.code-editor textarea { outline: 0 }` 会把输入区的焦点环一起抹掉
+   （同特异度、且 styles.css 在后）。基座自己把环要回来：暖白 0.72 档，2px + 内偏。 */
+div.code-editor textarea:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72)); /* L74 / L73 */
+  outline-offset: -2px; /* 内偏：环不会被 .code-surface 的 overflow hidden 切掉 */
+}
+
+/* 当前执行行：一层遮光带 + 左侧 2px 实心场景线。
+   高度取**整数一个行高** —— 多给哪怕 4px，带子就比行高，视觉上压住下一行。
+   本规则是 .code-highlight 的唯一定义处（基座 styles.css 不再声明同名规则）。
+   §5.3 第 1 条：编辑器为静态环境 —— 这里显式 `transition: none`，
+   单步回放时行带直接跳到位，不做逐帧滑行；层级走 --ds-glow-inset 内高光，
+   不用 styles.css 那类 16px 模糊泛光（模糊位恒为 0，见 tokens §4.5）。 */
+div.code-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  height: calc(var(--editor-font-size, 13px) * var(--line-height-editor, 1.55));
+  background: var(--ds-wash-inset, rgba(220, 233, 251, 0.06)); /* 产品派生遮光档：暖白一族（tokens L27 的 α 阶梯），模板无对应令牌 */
+  border-left: 2px solid var(--ds-scene-active, rgb(34, 211, 238));
+  box-shadow: var(--ds-glow-inset, none); /* 当前行：顶部内高光 */
+  pointer-events: none;
+  transition: none; /* §5.3 第 1 条：静态 */
+}
+
+/* 语法色：语义固定，不随场景插值（§5.1 末段），取值全部来自 tokens §4 状态档 */
+span.tok-keyword {
+  color: var(--ds-status-info, #4f7cff); /* L63 */
+  font-weight: 600;
+}
+span.tok-string {
+  color: var(--ds-status-success, #3fd3a4); /* L60 */
+}
+span.tok-comment {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28 */
+  font-style: italic;
+}
+span.tok-number {
+  color: var(--ds-status-warning, #ffc457); /* L61 */
+}
+span.tok-function {
+  color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50：函数名是本页的主强调，用固定场景档 */
+}
+
+/* 选区：低饱和遮光带，不整片霓虹（原为场景色 0.26 实底） */
+div.code-editor textarea::selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22)); /* 暖白一族，同上 */
+  color: transparent; /* 文本仍由高亮层着色，选区不能把文字刷成实色 */
+}
+div.code-editor textarea::-moz-selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: transparent;
+}
+
+/* ── 页脚：运行时与语言名 + 一次性操作，黑场上用发丝线与编辑器分区 ───────── */
+div.code-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap; /* 320px 下长运行时名换行，不溢出分区（§5.4 最小宽度） */
+  height: auto; /* styles.css 给的是固定 30px，换行会被裁（§5.4 长运行时名） */
+  min-height: 34px;
+  margin-top: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  background: var(--ds-canvas, #000);
+  border-top: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  box-shadow: var(--ds-shadow-panel, none);
+  /* §5.4：模板 9.5–10.5px 的 HUD 档只留给非关键装饰，这里是必读信息 → 12px */
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+}
+span.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+span.editor-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-4, 4px);
+  min-height: 32px; /* 次级文字按钮：不到主操作 44px 档（§5.4），但不能是 19px 的行内小字 */
+  position: relative; /* 命中区外扩的锚：下面 ::before 要贴着本按钮 */
+  padding: 0 var(--ds-space-8, 8px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  background: transparent;
+  border: 0;
+  box-shadow: var(--ds-shadow-panel, none);
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L153 / L147 */
+}
+/* §5.4 触控目标 ≥44px：视觉 32 不动，命中区按本库通用写法用伪元素外扩到 44
+   （同 .streak-more、控制台页脚动作）；量的一直是命中区而不是可见盒。 */
+span.editor-actions button::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+span.editor-actions button:hover {
+  color: var(--ds-text-primary, #f4f1ee);
+}
+
+/* ── §5.3 第 3 条：两条降级路径都真停（不是放慢） ─────────────────────────
+   本文件不含 @keyframes、不含 infinite 动画，保留的只有悬停/焦点的一次颜色过渡；
+   系统偏好与应用内「减少动效」各自成文，停成**可读的静态终态**（geometry.md §3）。
+   这是本文件唯一允许 !important 的两处。 */
+@media (prefers-reduced-motion: reduce) {
+  div.code-editor,
+  div.code-editor *,
+  div.code-editor *::before,
+  div.code-editor *::after,
+  div.code-footer,
+  div.code-footer *,
+  div.code-footer *::before,
+  div.code-footer *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.code-editor,
+.reduce-motion div.code-editor *,
+.reduce-motion div.code-editor *::before,
+.reduce-motion div.code-editor *::after,
+.reduce-motion div.code-footer,
+.reduce-motion div.code-footer *,
+.reduce-motion div.code-footer *::before,
+.reduce-motion div.code-footer *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── 强制颜色模式（EDIT-01 第 5 条：不能因为透明 textarea 让文字消失） ──────
+   基座的做法是「输入层文字涂透明、由它下面那层高亮层负责看得见」。而强制颜色模式会把
+   系统调色板直接套到 `color` 上——`transparent` 不再透明，同一个字符于是被画两遍并逐列
+   错位成重影；反过来只保高亮层，输入层又可能整片看不见。
+   这里不再玩叠层：文字只由真实 textarea 承担（CanvasText），高亮层整层隐掉。
+   代价如实写清：强制颜色下**没有语法着色**——该模式下系统本就覆盖自定义色，
+   留着叠层只会重影，不会多出信息量。 */
+@media (forced-colors: active) {
+  div.code-editor textarea { color: CanvasText; background: Canvas; }
+  pre.code-tokens { visibility: hidden; }
+  /* 当前行不靠颜色与遮光带表达：左侧一道系统色实线 + 行号加粗（字重本就是 700）。 */
+  div.code-highlight { background: transparent; border-left: 2px solid CanvasText; }
+  div.line-numbers span.active { color: CanvasText; }
+  div.line-numbers { border-right-color: CanvasText; }
+  div.code-editor { border-color: CanvasText; }
+  div.code-footer { border-top-color: CanvasText; }
+}
+
+/* ── 自动换行（EDIT-01 第 2 条的设置项） ────────────────────────────────
+   默认**不开**：§5.4 的「长代码行」取证形态量的就是不开时的横向滚动。
+   开了要两层一起改，否则高亮层折行、输入层不折，逐行立刻错位。 */
+div.code-editor--wrap pre.code-tokens,
+div.code-editor--wrap textarea {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+div.code-editor--wrap pre.code-tokens { overflow-x: hidden; }
+
+/* 页脚那句键盘模式与复制结果是必读信息：用次级文字色 + 12px，不降到装饰档。 */
+span.editor-keyhint { color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); }
+span.editor-copy-ok { color: var(--ds-status-success, #3fd3a4); }
+span.editor-copy-fail { color: var(--ds-status-danger, #ff6b6b); font-weight: 600; }

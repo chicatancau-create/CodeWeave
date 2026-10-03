@@ -1,0 +1,63 @@
+{
+  "name": "codeweave-desktop-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeWeave 本地应用端：Electron 窗口、菜单、生命周期与本机服务编排（只消费发布产物）",
+  "author": "CodeWeave",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/main/main.mjs",
+  "engines": {
+    "node": "^22.13.0 || >=24.0.0"
+  },
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run audit:boundary && node --check src/main/main.mjs && node --check src/runtime/runtime.mjs && node --check src/runtime/artifacts.mjs && node --check src/runtime/server-worker.mjs && node --check src/api/loopback.mjs && node --check scripts/package.mjs",
+    "package": "node scripts/package.mjs",
+    "package:dry": "node scripts/package.mjs --dry-run --skip-build",
+    "audit:boundary": "node scripts/audit-boundary.mjs",
+    "native:configure": "cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release",
+    "native:build": "cmake --build native/build --config Release",
+    "native:test": "ctest --test-dir native/build --output-on-failure"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.codeweave.desktop",
+    "productName": "CodeWeave",
+    "asar": true,
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "src/**",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "stage/runtime/renderer", "to": "renderer", "filter": ["**/*"] },
+      { "from": "stage/runtime/backend", "to": "runtime/backend", "filter": ["**/*"] },
+      { "from": "stage/runtime/config", "to": "runtime/config", "filter": ["**/*"] }
+    ],
+    "npmRebuild": false,
+    "publish": null,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "CodeWeave.exe",
+      "requestedExecutionLevel": "asInvoker",
+      "signExecutable": false
+    },
+    "portable": {
+      "requestExecutionLevel": "user"
+    }
+  }
+}

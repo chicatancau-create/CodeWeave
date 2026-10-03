@@ -1,0 +1,1393 @@
+/* ============================================================================
+   CodeWeave · 证据写回页（LINK-09）· M3 视觉竖切（01 号方案 §4 写回拆分目标 + §5 不可逆动作二次确认）
+   ----------------------------------------------------------------------------
+   - 只作用于 `.evidence-writeback` 子树；不写全局文件、不改 styles.css。
+   - 全部取值走 `--ds-*` 令牌并带兜底（app/src/design/tokens.css 有行号出处）：
+     黑场 L14 / 暖白 L15 / 发丝线三档 L18·L176·L94 / 语义状态恒定 L55-L68。
+   - 形态（§5.1 表「形态」行）：黑场 + 发丝线 + 编号；玻璃卡、渐变按钮、泛光在本页删除。
+   - 细线表格取自模板 ledger（site.css L361-L379）与 specs（L287-L307）的
+     「上下 1px 发丝线 + 无竖线 + 无底色」结构，压成产品字号（§5.4 正文 16px）。
+   - 语义状态双通道（§5.1 末段）：图标 + 文字，颜色只是第三重提示，
+     且只用 --ds-status-*，永不引用 --ds-scene-* / --accent。
+   ========================================================================== */
+
+.evidence-writeback {
+  /* 局部别名：令牌缺席时也能拿到与 tokens.css 同值的兜底 */
+  --ewb-canvas: var(--ds-canvas, #000);
+  --ewb-ink: var(--ds-text-primary, #f4f1ee);
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     装饰性，不参与语义状态。 */
+  --ewb-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --ewb-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --ewb-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --ewb-ink-2: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  /* 三级色 0.34 在纯黑上只有 2.69:1（design/README §6），不能承载必读信息，
+     这里抬到 0.49（≥4.5:1）用于禁用态与次要说明。 */
+  --ewb-ink-3: rgba(220, 233, 251, 0.49);
+  --ewb-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  --ewb-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  --ewb-hair-frame: var(--ds-line-frame, rgba(220, 233, 251, 0.07));
+  /* 边界与焦点必须是可辨识的独立档位，发丝线（1.32:1）承担不了（tokens §5 注释） */
+  --ewb-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));
+  --ewb-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62));
+  --ewb-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  /* 语义状态：固定值，不随场景点缀变化 */
+  --ewb-ok: var(--ds-status-success, #3fd3a4);
+  --ewb-warn: var(--ds-status-warning, #ffc457);
+  --ewb-bad: var(--ds-status-danger, #ff8371);
+  --ewb-info: var(--ds-status-info, #4f7cff);
+  --ewb-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --ewb-warn-wash: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+  --ewb-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --ewb-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+  --ewb-body: var(--ds-size-body, 16px);
+  --ewb-leading: var(--ds-leading-body, 1.7);
+  --ewb-meta: 13px; /* §5.4 反对 9.5–10.5px HUD 用于必读信息 */
+  --ewb-tap: var(--ds-tap-min, 44px);
+  --ewb-mono: var(--ds-font-mono, ui-monospace, Consolas, monospace);
+  --ewb-play: var(--ds-anim-play-state, running);
+
+  /* 覆写 .profile-overview-card 的玻璃面板（§5.1 形态：去大面积卡片与投影） */
+  position: relative; /* 让私有的 .sr-only 定位留在本页内 */
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.4vw, var(--ds-space-24, 24px)) 0 0;
+  border: 0;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ds-shadow-panel, none);
+  color: var(--ewb-ink);
+  font-family: var(--ds-font-display, 'Geist Mono', 'Microsoft YaHei', ui-monospace, monospace);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere; /* 长中文标题与长路径在 320px 下不破版（§5.4） */
+  word-break: normal;
+}
+
+/* 让全局的 `word-break: break-all`（.evidence-writeback code / .vault-progress-notice）
+   回到「必要时才断行」，避免中长文件路径被硬切断。 */
+.evidence-writeback code {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: var(--ewb-mono);
+  font-size: 0.86em;
+  color: var(--ewb-ink);
+}
+
+/* ── 1. 标题与编号（§5.1 形态：编号 + 细字重，正文标题按阅读密度适配） ───── */
+.evidence-writeback .ewb-head {
+  padding-bottom: var(--ds-space-12, 12px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+/* 字重取正文档而不是 --ds-weight-display(200)：§5.1 只让入口与概览沿用展示字重，
+   本页是正文区卡片标题；Windows 中文回退在 200 下笔画几乎消失。 */
+.evidence-writeback .security-card-title,
+.evidence-writeback .ewb-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-8, 8px);
+  color: var(--ewb-ink);
+  font-family: inherit;
+  font-size: clamp(1.24rem, 2.4vw, 1.6rem);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15); /* 多行中文标题不用 line-height:1（README §3 C2） */
+  text-transform: none;
+}
+
+.evidence-writeback .ewb-num,
+.evidence-writeback .ewb-td-num {
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  color: var(--ewb-ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.evidence-writeback .ewb-title-icon {
+  width: 1em;
+  height: 1em;
+  color: var(--ewb-ink-2);
+}
+
+.evidence-writeback .vault-progress-notice,
+.evidence-writeback .ewb-lede {
+  max-width: var(--ds-measure-lead, 60ch);
+  margin: 0;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  word-break: normal;
+}
+
+.evidence-writeback .ewb-lede strong {
+  color: var(--ewb-ink);
+  font-weight: 600;
+}
+
+/* ── 2. 状态标识：图标 + 文字双通道（§5.1 末段） ─────────────────────────── */
+.evidence-writeback .ewb-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px) var(--ds-space-2, 2px) var(--ds-space-6, 6px);
+  border: var(--ds-line-width, 1px) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  line-height: 1.4;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  white-space: nowrap;
+  background: none;
+  box-shadow: var(--ewb-glow-inset);
+}
+
+.evidence-writeback .ewb-mark-icon {
+  flex: 0 0 auto;
+}
+
+.evidence-writeback summary .ewb-mark {
+  margin-inline-start: auto;
+}
+
+/* 每档状态固定一种图形 + 一种文字，颜色只是第三重提示（--ds-status-*，非场景点缀）。
+   conflict 与 failed 同用危险色：靠图形（盾牌 / 叉）与文字区分，不靠色相。 */
+.evidence-writeback .ewb-mark--pending {
+  color: var(--ewb-info);
+  background: var(--ewb-info-wash);
+}
+.evidence-writeback .ewb-mark--partial {
+  color: var(--ewb-warn);
+  background: var(--ewb-warn-wash);
+}
+.evidence-writeback .ewb-mark--synced {
+  color: var(--ewb-ok);
+  background: var(--ewb-ok-wash);
+}
+.evidence-writeback .ewb-mark--conflict {
+  color: var(--ewb-bad);
+  background: var(--ewb-bad-wash);
+}
+.evidence-writeback .ewb-mark--failed {
+  color: var(--ewb-bad);
+  background: var(--ewb-bad-wash);
+}
+.evidence-writeback .ewb-mark--loading {
+  color: var(--ewb-ink-2);
+  background: none;
+}
+.evidence-writeback .ewb-mark--empty {
+  color: var(--ewb-ink-3);
+  background: none;
+}
+.evidence-writeback .ewb-mark--notice {
+  color: var(--ewb-warn);
+  background: none;
+}
+.evidence-writeback .ewb-mark--result {
+  color: var(--ewb-info);
+  background: none;
+}
+
+/* ── 3. 表单步骤（发丝线分区，不再是卡片） ───────────────────────────────── */
+.evidence-writeback .ewb-step {
+  margin-top: var(--ds-space-14, 14px);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.evidence-writeback .evidence-form-block details {
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .evidence-form-block summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: var(--ewb-tap); /* §5.4 触控目标 ≥44px */
+  padding: var(--ds-space-10, 10px) var(--ds-space-2, 2px);
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.evidence-writeback .evidence-form-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.evidence-writeback .evidence-form-block summary::after {
+  content: '＋';
+  margin-inline-start: var(--ds-space-4, 4px);
+  color: var(--ewb-ink-2);
+}
+
+.evidence-writeback .evidence-form-block details[open] > summary::after {
+  content: '－';
+}
+
+.evidence-writeback .evidence-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  margin: var(--ds-space-4, 4px) 0 var(--ds-space-14, 14px);
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+}
+
+.evidence-writeback .field-label {
+  min-width: 0;
+  gap: var(--ds-space-6, 6px);
+  margin: 0;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: none;
+}
+
+.evidence-writeback .field-label input,
+.evidence-writeback .field-label textarea,
+.evidence-writeback .field-label select {
+  min-width: 0;
+  min-height: var(--ewb-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ewb-glow-inset);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-body);
+  line-height: 1.5;
+  caret-color: var(--ewb-ink);
+  transition: border-color var(--ewb-quick, 150ms) var(--ewb-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.evidence-writeback .field-label textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.evidence-writeback .field-label input:hover:not(:disabled),
+.evidence-writeback .field-label textarea:hover:not(:disabled),
+.evidence-writeback .field-label select:hover:not(:disabled) {
+  border-color: var(--ewb-edge-active);
+}
+
+.evidence-writeback .field-label input:disabled,
+.evidence-writeback .field-label textarea:disabled,
+.evidence-writeback .field-label select:disabled {
+  color: var(--ewb-ink-3);
+  border-color: var(--ewb-hair);
+  opacity: 1; /* 用色值而非透明度控制禁用态，保证仍可辨读 */
+}
+
+/* ── 3.5 按钮禁用档与条件说明（01 号方案 §4 disabled 行）────────────────────
+   共享层对 :disabled 只写 `opacity:.5`，那是「只降低透明度」的根源：名字读不出、
+   条件也没人说。本页按已验证过的形态（挑战页 / 工作台 / 账户域）改成不透明度保持 1、
+   禁用交给**虚线描边**这个非颜色通道，条件另由 .ewb-disabled-hint 那句真实文字说明。 */
+.evidence-writeback .primary-action:disabled,
+.evidence-writeback .subtle-button:disabled,
+.evidence-writeback .danger-button:disabled {
+  opacity: 1;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.evidence-writeback .ewb-disabled-hint {
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-disabled-hint-lead {
+  color: var(--ewb-ink);
+}
+
+/* ── 4. 三类状态区块：待处理 / 部分成功 / 已同步（§5.2 明确分开） ─────────── */
+.evidence-writeback .evidence-queue,
+.evidence-writeback .ewb-states {
+  margin-top: var(--ds-space-20, 20px);
+}
+
+.evidence-writeback .ewb-ledger-total {
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-zone {
+  margin: 0 0 var(--ds-space-16, 16px);
+  padding: var(--ds-space-12, 12px) 0 var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: 0;
+  border-inline-start: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  box-shadow: var(--ewb-glow-panel);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-zone--pending {
+  border-inline-start-color: var(--ewb-info);
+}
+.evidence-writeback .ewb-zone--partial {
+  border-inline-start-color: var(--ewb-warn);
+}
+.evidence-writeback .ewb-zone--synced {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .ewb-zone-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+}
+
+.evidence-writeback .ewb-zone-title {
+  color: var(--ewb-ink);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.evidence-writeback .evidence-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .evidence-list li,
+.evidence-writeback .ewb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  min-width: 0;
+  padding: var(--ds-space-6, 6px) var(--ds-space-2, 2px);
+  border: 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-radius: 0;
+  background: none;
+}
+
+/* 条目级再叠一层形状通道（3px 起始缺口）：状态已经由「图形 + 文字」表达，
+   这里的颜色只是第三重加强，单独看颜色不成立。 */
+.evidence-writeback .ewb-row {
+  border-inline-start: 3px solid transparent;
+}
+
+.evidence-writeback .ewb-row--pending {
+  border-inline-start-color: var(--ewb-info);
+}
+
+.evidence-writeback .ewb-row--partial {
+  border-inline-start-color: var(--ewb-warn);
+}
+
+.evidence-writeback .ewb-row--synced {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .evidence-list label,
+.evidence-writeback .ewb-row-static {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+  min-height: var(--ewb-tap);
+}
+
+/* 只有可勾选的行才是指针态；已同步行是只读账目 */
+.evidence-writeback .evidence-list label {
+  cursor: pointer;
+}
+
+/* 勾选框：视觉保持 22×22 的自绘方框，命中区用 ::before 外扩到 44×44（§5.4）。
+   这一组共用规则同时覆盖本页两颗复选框：待处理列表 .evidence-list 与
+   「由我独立完成 / 我已核对确认」两颗 .vault-binding-toggle（见 §8 的说明）。
+
+   为什么必须 appearance:none、而不是给原生框加 ::before——
+   原生外观的复选框是**替换元素**，伪元素根本不参与命中。本轮已用**受信点击**实测：
+     · appearance:auto + ::before{inset:-11px}：computed style 报 44×44，
+       但框外 8px 处 document.elementFromPoint 给的是 MAIN.content-wrap，点下去 checked 不翻；
+     · 退而点包裹它的 <label>：命中的又是盖在上面的兄弟节点 P.ewb-state，同样不翻。
+   只有 appearance:none 让 input 不再是替换元素，::before 才真正撑出命中区，
+   命中点回落到 INPUT 自身（复核脚本 tmp-m6-visual/probe-checkbox-v2.mjs 记有 before/after 两态）。
+   写法与 styles.css 的 .setting-row 开关同源：小视觉框 + ::before 外扩命中 + ::after 自绘图形。
+   另：§5.4 量的是**目标自身**的命中区，label 包裹只让「点文字」也能勾选，
+   验收探针（tools/visual/probes.mjs 的 hitBox）不认它，此前这一档就是 22×22。
+   左右 ±11px 落在 label 自身的 10–12px gap / ≥44px 行高内，不越到相邻文字的字形上。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge-active);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ewb-canvas);
+  cursor: pointer;
+}
+
+/* 命中区：::before 外扩 ±11px（22 → 44），appearance:none 后才是真的可点。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  inset: -11px;
+}
+
+/* 勾：::after 用右/下两条 2px 边旋转 45° 自绘，只在 :checked 现形，
+   压在暖白实心底上的反色（黑）。未勾选是空心描边框——「勾 / 空框」是颜色之外的第二重通道。
+   pointer-events:none 保证命中区只由 ::before 决定，::after 纯装饰。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 11px;
+  border: 2px solid transparent;
+  transform: rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 勾选态：描边与底一并抬到暖白 --ewb-ink，勾取反色（画布黑）。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']:checked {
+  border-color: var(--ewb-ink);
+  background: var(--ewb-ink);
+}
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']:checked::after {
+  border-right-color: var(--ewb-canvas);
+  border-bottom-color: var(--ewb-canvas);
+  opacity: 1;
+}
+
+/* 禁用态（「由我独立完成」在 AI 运行 / L3·L4 提示下禁用）：
+   自绘后不再继承原生的置灰，这里显式压一档，不改变 22×22 视觉与 44×44 命中尺寸。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.evidence-writeback .evidence-topic {
+  min-width: 0;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .evidence-list small,
+.evidence-writeback .ewb-synced-meta {
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.evidence-writeback .ewb-synced-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  min-width: 0;
+  width: 100%;
+  padding-left: var(--ds-space-32, 32px);
+}
+
+.evidence-writeback .ewb-meta-key {
+  color: var(--ewb-ink-3);
+}
+
+.evidence-writeback .ewb-meta-value {
+  color: var(--ewb-ink-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 5. 加载 / 空 / 失败三态（§5.4 各有清晰外观） ────────────────────────── */
+/* 挂账②修复后，队列「读取失败」是独立的一态：由组件给出 .ewb-state--failed，
+   不再借用 .ewb-state--loading 的外观（读失败不等于还在读）。 */
+.evidence-writeback .ewb-state {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-12, 12px) var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) var(--ewb-hair-raised) dashed;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-state-line {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+}
+
+.evidence-writeback .ewb-state--empty {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+}
+
+.evidence-writeback .ewb-state--loading {
+  border-style: solid;
+  border-color: var(--ewb-hair);
+}
+
+/* 队列读取失败：与加载态同等分量的一态（挂账②）。边界取危险色但仍是 1px 线，
+   不加卡片、不加投影；语义仍由「图标 + 文字」双通道承担。 */
+.evidence-writeback .ewb-state--failed {
+  border-style: solid;
+  border-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-state--failed .ewb-state-text {
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .ewb-banner-body .subtle-button {
+  margin-inline-start: var(--ds-space-8, 8px);
+}
+
+.evidence-writeback .ewb-state-text,
+.evidence-writeback .vault-progress-empty {
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  margin: 0;
+}
+
+/* 骨架行：静态发丝线，不闪不循环，reduce 下无需额外处理 */
+.evidence-writeback .ewb-skeleton {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+}
+
+.evidence-writeback .ewb-skeleton-bar {
+  display: block;
+  height: 12px;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  background: none;
+}
+
+.evidence-writeback .ewb-skeleton-bar + .ewb-skeleton-bar {
+  width: 62%;
+}
+
+/* ── 6. 按钮：直角细线，无渐变无泛光（§5.1 形态） ────────────────────────── */
+.evidence-writeback .evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-10, 10px) 0 0;
+}
+
+/* 共享按钮层是 white-space: nowrap（styles.css:866），320px 下「导出待保存 Markdown」
+   这种长标签量到 227.7px 而容器只剩 211px，nowrap 让它缩不下去，整格溢出 1px。
+   这里放开换行只在真放不下时生效：宽视口下按钮仍按 max-content 排，一像素都不变。 */
+.evidence-writeback :is(.primary-action, .subtle-button) {
+  white-space: normal;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.evidence-writeback .primary-action,
+.evidence-writeback .subtle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--ewb-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-20, 20px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge);
+  border-radius: var(--ds-shape-none, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ewb-glow-inset);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: none;
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    background-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+
+/* 主操作沿用模板唯一的药丸形态（site.css L393），但去掉渐变与发光 */
+.evidence-writeback .primary-action {
+  border-radius: var(--ds-shape-pill, 100px);
+  border-color: var(--ewb-ink);
+  font-weight: 600;
+}
+
+.evidence-writeback .primary-action:active:not(:disabled),
+.evidence-writeback .subtle-button:active:not(:disabled) {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+  border-color: var(--ewb-ink);
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .primary-action:hover:not(:disabled),
+.evidence-writeback .subtle-button:hover:not(:disabled) {
+  filter: none;
+  transform: none;
+  box-shadow: var(--ewb-glow-near);
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+  border-color: var(--ewb-ink);
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .primary-action:disabled,
+.evidence-writeback .subtle-button:disabled {
+  opacity: 1; /* 透明度会让文字跌破 4.5:1，改用色值表达禁用 */
+  color: var(--ewb-ink-3);
+  border-color: var(--ewb-hair);
+  background: none;
+  border-style: dashed;
+}
+
+.evidence-writeback .primary-action:disabled:hover,
+.evidence-writeback .subtle-button:disabled:hover {
+  filter: none;
+  transform: none;
+  background: none;
+}
+
+/* ── 7. 提示横幅（成功 / 失败 / 受限） ───────────────────────────────────── */
+.evidence-writeback .ewb-banner {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-inline-start-width: 3px;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  box-shadow: var(--ewb-glow-inset);
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-banner-body {
+  min-width: 0;
+  flex: 1 1 24ch;
+}
+
+.evidence-writeback .ewb-banner--ok {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .ewb-banner--bad {
+  border-inline-start-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-banner--notice {
+  border-inline-start-color: var(--ewb-warn);
+}
+
+.evidence-writeback .ewb-banner--partial {
+  border: 0;
+  padding: 0;
+  color: var(--ewb-ink-2);
+}
+
+.evidence-writeback .ewb-final-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-14, 14px) 0 0;
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* ── 8. 细线差异预览（ledger / specs 表格化，§5.2） ──────────────────────── */
+.evidence-writeback .evidence-preview,
+.evidence-writeback .ewb-preview,
+.evidence-writeback .evidence-conflict,
+.evidence-writeback .ewb-conflict {
+  margin-top: var(--ds-space-20, 20px);
+  padding: var(--ds-space-14, 14px) 0 0;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ewb-glow-panel);
+  min-width: 0;
+}
+
+.evidence-writeback .evidence-conflict,
+.evidence-writeback .ewb-conflict {
+  border-top-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-head-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+}
+
+.evidence-writeback .vault-progress-subtitle,
+.evidence-writeback .evidence-subtitle {
+  margin: var(--ds-space-14, 14px) 0 var(--ds-space-8, 8px);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.evidence-writeback .ewb-head-row .vault-progress-subtitle {
+  margin: 0;
+}
+
+.evidence-writeback .ewb-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto; /* 长代码 / 长路径横向滚动而不撑破版心（§5.4） */
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.evidence-writeback .ewb-table {
+  width: 100%;
+  min-width: 460px; /* 320px 视口下靠滚动容器，不压缩到不可读 */
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  table-layout: auto;
+}
+
+.evidence-writeback .ewb-table caption {
+  text-align: left;
+}
+
+/* ledger / specs 式：只有上下 1px 发丝线，无竖线、无底色 */
+.evidence-writeback .ewb-table th,
+.evidence-writeback .ewb-table td {
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px) var(--ds-space-10, 10px) 0;
+  border: 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  text-align: left;
+  vertical-align: top;
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .ewb-table thead th {
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-bottom-color: var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.evidence-writeback .ewb-table tbody tr:last-child th,
+.evidence-writeback .ewb-table tbody tr:last-child td {
+  border-bottom-color: var(--ewb-hair-raised);
+}
+
+.evidence-writeback .ewb-table strong {
+  font-weight: 600;
+  color: var(--ewb-ink);
+}
+
+/* 差异行：固定语义色 + 文字前缀双通道（§5.1 末段） */
+.evidence-writeback .ewb-sign {
+  display: inline-block;
+  min-width: 2.4em;
+  margin-right: var(--ds-space-8, 8px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 700;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  white-space: nowrap;
+}
+
+.evidence-writeback .ewb-sign--minus {
+  color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-sign--plus {
+  color: var(--ewb-ok);
+}
+
+.evidence-writeback .evidence-before {
+  color: var(--ewb-ink-2);
+  text-decoration: none; /* 删除线不承担语义：已有前缀 + 颜色 + 列标题 */
+}
+
+.evidence-writeback .evidence-after {
+  color: var(--ewb-ink);
+  font-weight: 600;
+}
+
+/* 追加行区域 */
+.evidence-writeback .ewb-diff {
+  border: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+}
+
+.evidence-writeback .ewb-diff-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.evidence-writeback .ewb-diff-legend-text {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.evidence-writeback .ewb-diff-body {
+  max-height: 320px;
+  overflow: auto; /* 长行横向滚动、长段纵向滚动 */
+  padding: var(--ds-space-8, 8px) 0;
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-body);
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.evidence-writeback .ewb-diff-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  min-width: max-content; /* 长代码行不折行、不被裁切，横向滚动交给 .ewb-diff-body */
+  width: max-content;
+  max-width: none;
+  padding: 0 var(--ds-space-12, 12px);
+}
+
+.evidence-writeback .ewb-diff-text {
+  min-width: max-content;
+  white-space: pre; /* 代码与 Markdown 原样呈现，不折行破版 */
+  color: var(--ewb-ink);
+}
+
+/* 被阻止项 / 说明清单：同样走细线，不用彩色卡片 */
+.evidence-writeback .evidence-blocked,
+.evidence-writeback .evidence-notices {
+  display: grid;
+  gap: 0;
+  margin: var(--ds-space-8, 8px) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  font-size: var(--ewb-body);
+}
+
+.evidence-writeback .evidence-blocked li,
+.evidence-writeback .evidence-notices li {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .evidence-blocked li {
+  color: var(--ewb-warn);
+}
+
+.evidence-writeback .evidence-blocked .ewb-mark {
+  border-color: currentColor;
+}
+
+.evidence-writeback .ewb-li-text {
+  min-width: 0;
+  flex: 1 1 30ch;
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .ewb-index-note {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-10, 10px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-index-key {
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+}
+
+.evidence-writeback .ewb-index-value {
+  min-width: 0;
+  flex: 1 1 30ch;
+}
+
+.evidence-writeback .ewb-conflict-file {
+  margin-top: var(--ds-space-14, 14px);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-conflict-path {
+  margin: 0 0 var(--ds-space-6, 6px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-opid {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px);
+  margin: var(--ds-space-10, 10px) 0 0;
+  color: var(--ewb-ink-3);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.evidence-writeback .ewb-opid-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ewb-ink-2);
+}
+
+/* 勾选确认：整行 ≥44px，边框为可辨识边界而非装饰线 */
+.evidence-writeback .ewb-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  min-height: var(--ewb-tap);
+  margin-top: var(--ds-space-14, 14px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge);
+  border-radius: var(--ds-shape-none, 0);
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.evidence-writeback .evidence-independent {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  min-height: var(--ewb-tap);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: 1.5;
+}
+
+/* §5.4 触控目标 ≥44px：本页命中探针量到 22×22 的复选框共三颗——
+   「由我独立完成」（evidence-writeback-view.tsx 的 .vault-binding-toggle.evidence-independent）、
+   最后一步的确认勾选（.vault-binding-toggle.ewb-confirm），以及待处理列表 .evidence-list 的逐条勾选。
+   前两颗由 .vault-binding-toggle、第三颗由 .evidence-list 命中，二者共用 §4 的那组自绘规则，
+   这里不再重复写一遍（避免两处漂移）。
+   订正：此处旧注释曾写「原生外观 + ::before 已用受信点击实测：盒外 8px 点下去 checked 会翻」——
+   那句是错的，原生框是替换元素，::before 不撑命中区；本轮 appearance:none 自绘后才是真的生效。 */
+
+/* ── 9. 焦点可见（§5.1「关键输入/焦点边界单独提高可辨识度」+ §5.4） ───────── */
+/* 特异性高于 styles.css 末尾的 `html button:focus-visible`，但不改全局文件 */
+.evidence-writeback :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ewb-focus);
+  outline-offset: var(--ds-focus-offset, 2px);
+  box-shadow: var(--ewb-glow-inset);
+}
+
+.evidence-writeback .ewb-scroll:focus-visible,
+.evidence-writeback .ewb-diff-body:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ewb-focus);
+  outline-offset: -2px;
+}
+
+/* ── 10. 窄视口与 320px 最小宽度（§5.4） ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .evidence-writeback .evidence-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .evidence-writeback .ewb-synced-meta {
+    padding-left: 0;
+  }
+
+  .evidence-writeback .ewb-table th,
+  .evidence-writeback .ewb-table td {
+    padding-right: var(--ds-space-10, 10px);
+  }
+}
+
+/* ── 11. 动效降级：持续动画真正停止（§5.3.3） ────────────────────────────── */
+/* 本页只保留一条循环动画：确认写入按钮在请求真正在途时的转圈。
+   加载/失败标识一律静态图形 + 文字：读取失败现在有自己的失败态（挂账②已修），
+   加载态只代表「这一次还没读回来」，两者都不需要用循环动画掩盖。
+   模板原实现只把时间流速乘 0.35（main.js L315），循环仍满帧跑；
+   这里在系统偏好与应用内「减少动效」两个通道下都把 animation-name 归零，
+   是真正停止，而不是放慢。 */
+@keyframes ewb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.evidence-writeback .ewb-icon-spin {
+  animation: ewb-spin 1.1s linear infinite;
+  animation-play-state: var(--ewb-play);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidence-writeback .ewb-icon-spin {
+    animation: none !important; /* 名称归零 = 不产生任何持续动画 */
+    transform: none;
+  }
+}
+
+/* 应用内「减少动效」设置：.reduce-motion 挂在根壳上（app.tsx 的 shellClassName），
+   与系统偏好任一成立即停止。两种挂载位置都写，避免根元素换位后失效。 */
+.reduce-motion .evidence-writeback .ewb-icon-spin,
+.evidence-writeback.reduce-motion .ewb-icon-spin {
+  animation: none !important;
+  transform: none;
+}
+
+/* 悬停位移与滤镜类效果在降级下一律取消 */
+@media (prefers-reduced-motion: reduce) {
+  .evidence-writeback :is(.primary-action, .subtle-button) {
+    transition: none;
+  }
+}
+
+.reduce-motion .evidence-writeback :is(.primary-action, .subtle-button),
+.evidence-writeback.reduce-motion :is(.primary-action, .subtle-button) {
+  transition: none;
+}
+
+/* ── 12. 事务账本与回滚（挂账 #35）────────────────────────────────────────
+   新增区块，不复用 01 / 03 两区的行类名：取证闸门按 `.ewb-row--synced` 与
+   `.evidence-list .ewb-row` 数行数，账本另起一套 `.ewb-tx-*` 才不会把它们的行数改掉。
+   形态沿用本页既有口径：黑场、1px 发丝线、无卡片无投影，语义仍走「图形 + 文字」。 */
+
+.evidence-writeback .ewb-zone--ledger {
+  border-inline-start-color: var(--ewb-info);
+}
+
+/* 两档新状态：颜色仍是第三重提示，认状态靠图标 + 文字。
+   已回滚是中性终止态（不是成功也不是失败），写入中断与「加载中」共用 ink-2，
+   两者的文字通道分别是「已回滚」「写入中断」。 */
+.evidence-writeback .ewb-mark--rolledback {
+  color: var(--ewb-ink-2);
+  background: none;
+}
+.evidence-writeback .ewb-mark--interrupted {
+  color: var(--ewb-warn);
+  background: var(--ewb-warn-wash);
+}
+
+.evidence-writeback .ewb-tx-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.evidence-writeback .ewb-tx-summary .subtle-button {
+  margin-inline-start: var(--ds-space-4, 4px);
+}
+
+/* 数量与「读不出来」的诚实说明：用次要色 +  dashed 边，不冒充条目本身的状态 */
+.evidence-writeback .ewb-tx-note {
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  border: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* 重读失败但仍留着上一次的结果（与队列同一口径） */
+.evidence-writeback .ewb-tx-reread {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-bad);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-tx-reread-text {
+  min-width: 0;
+  flex: 1 1 30ch;
+}
+
+.evidence-writeback .ewb-tx-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-tx-item {
+  padding: var(--ds-space-6, 6px) 0 var(--ds-space-10, 10px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-tx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-tx-topic {
+  min-width: 0;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-tx-detail {
+  margin-top: var(--ds-space-10, 10px);
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-tx-facts {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+/* 六列在 320px 下靠 .ewb-scroll 横向滚动，不压缩到不可读（与目标清单同一处置） */
+.evidence-writeback .ewb-table--steps {
+  min-width: 620px;
+}
+
+.evidence-writeback .ewb-tx-outcome {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-inline-start-width: 3px;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-tx-outcome--done {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .ewb-tx-outcome--blocked {
+  border-inline-start-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-tx-outcome--failed {
+  border-inline-start-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-tx-outcome-text {
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-tx-outcome-extra {
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-meta);
+  line-height: 1.6;
+}
+
+.evidence-writeback .ewb-tx-blockers {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-tx-blockers li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  padding: var(--ds-space-8, 8px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-blocker-kind {
+  color: var(--ewb-ink);
+  font-size: var(--ewb-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+}
+
+.evidence-writeback .ewb-blocker-path {
+  min-width: 0;
+  color: var(--ewb-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-blocker-reason {
+  min-width: 0;
+  flex: 1 1 20ch;
+  color: var(--ewb-ink);
+}
+
+/* 回滚确认块：危险边界用 1px 危险色实线（与 .ewb-state--failed 同档），不加卡片不加投影 */
+.evidence-writeback .ewb-rollback {
+  margin-top: var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-bad);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-rollback-lead {
+  margin: 0;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-rollback-list {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  margin: var(--ds-space-8, 8px) 0 0;
+  padding-inline-start: var(--ds-space-24, 24px);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-rollback-limit {
+  margin: var(--ds-space-10, 10px) 0 0;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* 「这笔不能回滚」的说明是只读文字，不是禁用的假按钮：少一个可点却不做事的控件 */
+.evidence-writeback .ewb-rollback-none {
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* ── 13. 工具类（本文件私有，不动全局样式表）────────────────────────────── */
+.evidence-writeback .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: var(--ds-space-seam, -1px);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  color: var(--ewb-ink-2);
+}
+
+/* 高对比模式：发丝线全部提到可辨阈值 */
+@media (forced-colors: active) {
+  .evidence-writeback .ewb-table th,
+  .evidence-writeback .ewb-table td,
+  .evidence-writeback .ewb-mark,
+  .evidence-writeback .ewb-banner,
+  .evidence-writeback .evidence-list li,
+  .evidence-writeback .ewb-confirm {
+    border-color: CanvasText;
+  }
+}

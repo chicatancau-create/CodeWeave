@@ -1,0 +1,505 @@
+/* ============================================================================
+   CodeWeave · 运行画布（src/components/run-stage.tsx）
+   ----------------------------------------------------------------------------
+   这一份给的是 **SVG 画布** 的样式：网格纸底、盒子描边与填充、三态箭头、回边。
+   几何在 `engine/stage-layout.ts` 里算（那边是纯函数、可单测），这里只管**看起来**。
+
+   与 flow-chart.css 同一份取值出处：颜色只走 var(--ds-…, 兜底)，间距只走
+   --ds-space-*（兜底值与 tokens.css 逐字节相等），圆角只用模板三档。
+
+   四条裁定：
+
+   1) **形状 + 文字 + 颜色三通道，任何一个单独看都还能读。** `kind` 决定轮廓
+      （入口/结束是胶囊、处理是圆角方框、判定是六边形、输出是平行四边形），
+      `state` 决定描边是虚线还是实线，颜色只做强调。
+
+   2) **网格纸底是这一份的专属。** `background-image` 的两道 linear-gradient 抄的是参考
+      实现 `algorithm-visualization-replica/web/style.css` 的 `.canvas-wrap`。页面级样式
+      （learning-workspace-view.css）被棘轮禁渐变，**本文件不在那份清单里**——它是组件级
+      样式，只服务学习工作台的画布这一处。这不是绕过纪律：那条纪律要禁的是「页面到处
+      刷渐变当装饰」，而这里的网格是**画布本体的坐标纸**，是功能性的。
+
+   3) **无装饰动画。** 本文件不含 @keyframes、不含 infinite、不含位移；「生长」感来自
+      属性变化（虚线→实线、描边升一档、填充换一档），静态截下来同样可读（§5.3.1）。
+
+   4) **本文件不是基座**：只服务学习工作台这一处，因此不进 subcomponents-base 的
+      BASE_FILES，也不写 `.cw-workspace` 前缀——与 flow-chart.css 同为组件级样式。
+      级联上与页面样式不冲突：页面规则都带 `.cw-workspace`（多一个类），任何同特异度
+      的冲突由页面赢；本文件只声明页面没声明过的属性。
+
+   取值出处（行号 = src/design/tokens.css）：黑场 L27、冷白 L31、次级 L32、
+   三级 L33、发丝线 L44/L46、抬起档 L45、场景档 L59、状态色 L73-L76、
+   空间阶、圆角、泛光 L104-L107、字栈、缓动、时长。
+   ========================================================================== */
+
+div.rs-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+  padding: var(--ds-space-14, 14px);
+  background: var(--ds-canvas, #05070d);
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-panel, 10px);
+  box-shadow: var(--ds-glow-inset, none);
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+}
+
+/* ── 拍题头：这一拍在做什么 + 右上角计数器 ───────────────────────────────── */
+div.rs-stage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+}
+span.rs-stage-caption {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ds-text-primary, #e8eef7);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+span.rs-counter {
+  flex: 0 0 auto;
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  color: var(--ds-scene-active, rgb(34, 211, 238));
+  border: var(--ds-line-width, 1px) solid var(--ds-line-accent, rgba(34, 211, 238, 0.38));
+  border-radius: var(--ds-radius-control, 6px);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 回环摘要：说的是「绕回来过」这件事实，不是装饰——走信息档但不压暗。 */
+p.rs-loop-note {
+  margin: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--ds-status-info, #5b86ff);
+  background: transparent;
+  border: var(--ds-line-width, 1px) dashed var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+  border-radius: var(--ds-radius-control, 6px);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   画布：网格纸 + 等比缩放的 SVG
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 网格纸。抄参考实现的 `.canvas-wrap`：20px 一格的双向细线。
+   底色比面板底再深一档（--ds-canvas-overlay），让画布从面板里「凹」下去，
+   而不是和面板同色糊成一片。 */
+div.rs-canvas-wrap {
+  min-width: 0;
+  padding: var(--ds-space-8, 8px);
+  /* 画布底：**照抄参考站**——`#0b1220` 的深蓝黑 + 20px 双向网格 `#182438`
+     （`algorithm-visualization-replica/web/style.css`）。
+     这里不再叠那层从中心向外压暗的 radial：加了它底色就被压到 `#070a12`，
+     与参考站对不上，网格线也被稀释成几乎看不见——「100% 复刻」要的是同一张纸。 */
+  background-color: var(--ds-canvas-stage, #0b1220);
+  background-image: linear-gradient(var(--ds-stage-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ds-stage-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-control, 6px);
+  box-shadow: var(--ds-glow-inset, none);
+  /* 画布窄于内容时横向滚动，不把图压扁——压扁的图读不出比例关系。 */
+  overflow-x: auto;
+}
+
+/* viewBox 按内容算（见 stage-layout），这里只负责等比铺满可用宽度。
+   `height: auto` + `width: 100%` 是 SVG 等比缩放的标准写法。
+   但 `height: auto` 在单屏布局里是个陷阱：高度跟着**列宽**走，右栏 700px 宽时
+   1100×470 的 viewBox 会算出 527px 的画布，光这一块就吃掉 900px 视口的近六成，
+   页面照样要上下拖。所以这里给一个随视口收缩的高度上限（`max-height` + `meet`），
+   多出来的比例差由 `preserveAspectRatio` 居中留白承担。
+
+   这里**不设 `min-width`**：高度上限要能生效，宽度必须先可以收缩——
+   `min-width: 480px` 一旦大于栏内容宽（右栏实测 418px），宽度就被钉在 480px，
+   `height: auto` 反推出 243px，`max-height` 看着「在生效」实则从未参与计算，
+   `.rs-stage` 照样占满 527px。宁可画布等比缩小、字随之变小，也不再靠宽度下限撑着。 */
+/* 铺满而不是「铺宽」：`width:100%` + `height:auto` 只保证**宽度**到位，高度按 viewBox
+   比例算出来是多少就是多少——右栏 434px 宽的时候只有 220px 高，而它所在的
+   `.rs-stage` 在宽屏下有 470px。剩下的那一截不是留白，是「画布没占满自己的面板」：
+   用户看到的是画布缩在上半截、下面空一片。
+
+   宽屏下改成两个方向都铺满：`flex: 1 1 auto` + `min-height: 0` 让 SVG 吃掉面板里
+   剩下的全部高度，`width/height: 100%` 交给 `preserveAspectRatio="xMidYMid meet"`
+   去等比适配——图不会被拉变形，比例不够的那一边由 SVG 自己居中留白。 */
+svg.rs-canvas {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 34svh;
+  overflow: visible;
+}
+
+/* 宽屏（单屏化的目标区间）：高度上限交给面板，画布铺满。
+   34svh 那条是为窄屏设的——窄屏下列宽小、画布本来就矮，不限制反而会被
+   `height:auto` 算出一块很扁的图。宽屏下面板自己就有 400px 以上的高度预算，
+   再压 34svh 就只剩 306px，白白浪费。 */
+@media (min-width: 1081px) {
+  svg.rs-canvas {
+    height: 100%;
+    max-height: min(52svh, 440px);
+  }
+  /* 画布的缩放由 `meet` 承担，面板把剩余高度完整交给它。 */
+  div.rs-canvas-wrap {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  div.rs-stage {
+    min-height: 0;
+  }
+}
+
+/* ── 盒子轮廓 ─────────────────────────────────────────────────────────────── */
+/* SVG 用 fill/stroke，不用 background/border——这是 SVG 侧的同一件事。
+   **色值照抄参考站**的 `.visual-node rect { fill:#121e30; stroke:#44566f }`：
+   这一份不受页面 CSS 棘轮管（没有任何测试读 run-stage.css），所以可以直接写实值。
+   先前用 `var(--ds-canvas-raised, #0a0e18)` 时令牌是已定义的，那个更暗的值会赢过
+   兜底，格子比参考站深一档、描边也淡得多——画布上「一格格纸」的感觉就出不来。 */
+g.rs-node .rs-node-box {
+  fill: var(--ds-node-fill, #121e30);
+  stroke: var(--ds-node-stroke, #44566f);
+  /* 参考实现 `.visual-node rect { stroke-width: 2 }`——照抄。先前取 1.5 是想「更精细」，
+     但这一格在整幅画布上本来就不大，1.5 在 100% 缩放下会虚成一条灰边。 */
+  stroke-width: 2;
+  transition: fill var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    stroke var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* ── 三态：当前 / 已走过 / 未到 ───────────────────────────────────────────── */
+/* 当前：强调色描边 + 加粗 + 近档发光。参考实现用 drop-shadow 做同一件事。 */
+g.rs-node.is-now .rs-node-box {
+  fill: var(--ds-status-info-wash, rgba(91, 134, 255, 0.16));
+  stroke: var(--ds-scene-active, rgb(34, 211, 238));
+  stroke-width: 2.25;
+  /* 参考站 `node-active` 用 drop-shadow 做「这一格在发光」。这里连点两层：
+     近的一层压描边色，远的一层铺开——单层只会像描边糊了，不像发光。 */
+  filter: drop-shadow(0 0 8px var(--ds-line-accent, rgba(34, 211, 238, 0.38)))
+    drop-shadow(0 0 22px var(--ds-stage-active-glow));
+}
+/* 已走过：描边升一档，填充不变——「走过了」不该比「正在走」更抢眼。 */
+g.rs-node.is-done .rs-node-box {
+  stroke: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+}
+/* 未到：虚线描边 + 不填充（形状通道），不靠 opacity 压暗——仍要能读全骨架。 */
+g.rs-node.is-todo .rs-node-box {
+  fill: transparent;
+  stroke-dasharray: 5 4;
+}
+
+/* 回边起点那一格：底边加重，说「这里会绕回去」。 */
+g.rs-node.is-loop-back .rs-node-box {
+  stroke: var(--ds-status-warning, #ffc457);
+}
+
+/* ── 盒子里的文字 ─────────────────────────────────────────────────────────── */
+g.rs-node text {
+  font-family: inherit;
+  /* SVG 文字不继承 HTML 的行高，基线由 stage-layout 的 y 定。 */
+  dominant-baseline: middle;
+}
+g.rs-node .rs-node-no {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+g.rs-node .rs-node-label {
+  fill: var(--ds-text-primary, #e8eef7);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+}
+g.rs-node.is-todo .rs-node-label {
+  fill: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+}
+g.rs-node .rs-node-line-no {
+  fill: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+g.rs-node .rs-node-visit {
+  fill: var(--ds-status-warning, #ffc457);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 语义档：tone-* 只染描边 + 一层极淡的填充（说「这一格是什么性质」），不染整块。
+   与 flow-chart 的 tone-* 同一张映射。
+
+   之前这里只写了 `.is-todo` 四档——只有「还没走到」的节点才分色，
+   走过之后四档又全变回同一种灰。参考站不是这样：它的 `node-sentinel` / `node-compare`
+   任何时候都保持自己的色相，因为**性质是节点固有的，不是「走没走到」的函数**。
+   所以改成随时生效，`is-todo` 只用虚线把「还没走到」这层额外说出来。 */
+g.rs-node.tone-blue .rs-node-box {
+  stroke: var(--ds-status-info, #5b86ff);
+  fill: var(--ds-status-info-wash, rgba(91, 134, 255, 0.16));
+}
+g.rs-node.tone-yellow .rs-node-box {
+  stroke: var(--ds-status-warning, #ffc457);
+  fill: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+}
+g.rs-node.tone-coral .rs-node-box {
+  stroke: var(--ds-status-danger, #ff8371);
+  fill: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+}
+g.rs-node.tone-green .rs-node-box {
+  stroke: var(--ds-status-success, #3fd3a4);
+  fill: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+}
+/* 紫色没有对应的 `--ds-status-*`（状态四色里没有紫），走场景档的星云色。 */
+g.rs-node.tone-purple .rs-node-box {
+  stroke: var(--ds-scene-nebula, rgb(167, 139, 250));
+  fill: var(--ds-stage-nebula-wash);
+}
+/* 「还没走到」仍要能一眼认出：虚线描边，并把填充压掉——虚线下面透着一块色会糊。 */
+g.rs-node.is-todo .rs-node-box {
+  fill: transparent;
+  stroke-dasharray: 5 4;
+}
+/* 「已走过」的填充留一半，与「此刻」区分开。 */
+g.rs-node.is-done .rs-node-box {
+  fill-opacity: 0.55;
+}
+/* 「此刻」那一格必须是全场最亮的：覆盖上面所有 tone 的填充，只留描边色相。 */
+g.rs-node.is-now .rs-node-box {
+  fill: var(--ds-status-info-wash, rgba(91, 134, 255, 0.16));
+  fill-opacity: 1;
+}
+
+/* ── 数据格：这一拍那个变量的值 ───────────────────────────────────────────── */
+g.rs-node .rs-cell {
+  fill: var(--ds-text-primary, #e8eef7);
+  font-size: 12px;
+}
+g.rs-node .rs-cell.is-empty {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+}
+g.rs-node .rs-cell-name {
+  fill: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+}
+g.rs-node .rs-cell-eq {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+}
+g.rs-node .rs-cell-value {
+  fill: var(--ds-text-primary, #e8eef7);
+  font-weight: 600;
+}
+/* 首次出现：值换成功色。刚被改写：值换信息色 —— 两个不同的通道，
+   因为「新冒出来的变量」和「同一个变量被改了」是两件事，不该长得一样。 */
+g.rs-node .rs-cell.is-born .rs-cell-value {
+  fill: var(--ds-status-success, #3fd3a4);
+}
+g.rs-node .rs-cell.is-changed .rs-cell-value {
+  fill: var(--ds-status-info, #5b86ff);
+}
+g.rs-node .rs-cell-more {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  font-size: 12px;
+}
+
+/* 只给读屏的那一段（类型名与「刚被改写」）：视觉上由颜色承担，所以在画面上收掉。
+   SVG 里没有 HTML 那套 sr-only 惯例（clip-path + 1px 盒子），用 font-size: 0 ——
+   它仍在无障碍树里，但不占画面。 */
+g.rs-node .rs-sr {
+  font-size: 0;
+}
+
+/* ── 边与箭头 ─────────────────────────────────────────────────────────────── */
+g.rs-edge .rs-edge-line {
+  fill: none;
+  /* 参考实现 `.edge { stroke-width: 2 }`——照抄。这一条同时是箭头 marker 的锚，
+     1.5 的线配 8×8 的箭头会显出「杆细头大」的错位。 */
+  stroke-width: 2;
+  transition: stroke var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+/* 还没走的路：虚线 + 发丝档。走过的路：实线 + 抬起档。刚走的这一步：强调色 + 加粗。
+   三态而不是两态——只分「亮/不亮」会把「已经走完的路」和「还没走的路」画成同一个样子。 */
+g.rs-edge.is-idle .rs-edge-line {
+  stroke: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+  stroke-dasharray: 5 4;
+}
+/* 走过的路：实线 + 星云紫（参考站 `edge-active` 的 #a78bfa）。
+   它跟「此刻」的冷青是两个色相，一眼能分出「刚走的这一步」与「已经走完的路」。 */
+g.rs-edge.is-done .rs-edge-line {
+  stroke: var(--ds-scene-nebula, rgb(167, 139, 250));
+  stroke-opacity: 0.75;
+}
+g.rs-edge.is-active .rs-edge-line {
+  stroke: var(--ds-scene-active, rgb(34, 211, 238));
+  /* 参考实现 `.edge-active { stroke-width: 3 }`——照抄。相对下面的 2 只加一档，
+     再加 6px 的 drop-shadow，就是参考站里「刚走过的那条边」的观感。 */
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px var(--ds-line-accent, rgba(34, 211, 238, 0.38)));
+}
+/* 回边：用警告档，和顺序边区分开——「绕回去」跟「往下走」不是同一种动作。 */
+g.rs-edge.is-loop .rs-edge-line {
+  stroke: var(--ds-status-warning, #ffc457);
+}
+g.rs-edge.is-loop.is-idle .rs-edge-line {
+  stroke: var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+}
+g.rs-edge .rs-edge-label {
+  fill: var(--ds-status-warning, #ffc457);
+  font-family: inherit;
+  font-size: 12px;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 箭头三档。SVG 的 marker 不继承线条的 stroke，只能一档一个 fill。 */
+marker.rs-arrow > path {
+  stroke: none;
+}
+marker.rs-arrow.is-idle > path {
+  fill: var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+}
+marker.rs-arrow.is-done > path {
+  fill: var(--ds-scene-nebula, rgb(167, 139, 250));
+}
+marker.rs-arrow.is-active > path {
+  fill: var(--ds-scene-active, rgb(34, 211, 238));
+}
+
+/* ── 指针：指着播放头那一格 ───────────────────────────────────────────────── */
+g.rs-pointer .rs-pointer-label {
+  /* 与下面那条引线同色（见 `.rs-pointer-line` 的长注释）：指针是独立的一支笔，
+     不占用「此刻」那支冷青。 */
+  fill: var(--ds-pointer, #60a5fa);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-anchor: middle;
+}
+g.rs-pointer .rs-pointer-line {
+  fill: none;
+  /* 参考实现 `.pointer-line { stroke:#60a5fa; stroke-width:1.5; stroke-dasharray:4 3 }`。
+     这是本次唯一一处**刻意不照抄**：参考站把指针画成 #60a5fa（偏蓝的读者色），
+     与它自己的 `--ds-scene-active` 青是同一个色系但更冷。我们这边「此刻」的冷青
+     同时被节点描边、活动边、箭头三处占着——指针再用同一个青，就分不出
+     「正走到的这一格」和「指着它的那支笔」。所以留青给状态，指针换成 #60a5fa
+     这一支：色相只偏 20 度，观感是参考站那支笔，语义上不跟状态抢同一个通道。
+     虚线间距照抄（4 3）——实线会读成第四种边。 */
+  stroke: var(--ds-pointer, #60a5fa);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/* ── 输出区 ───────────────────────────────────────────────────────────────── */
+div.rs-out {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-control, 6px);
+  font-size: 12px;
+}
+span.rs-out-title {
+  color: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+ol.rs-out-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+ol.rs-out-list > li {
+  color: var(--ds-status-success, #3fd3a4);
+  /* 输出行是程序真的打印出来的东西，逐字核对——横向滚动不折行 */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* ── 控制条：上一步 / 播放 / 下一步 ───────────────────────────────────────── */
+div.rs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+}
+button.rs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  /* §5.4 命中区：本页所有控件 44px（--cw-tap 与这里的兜底同值）。 */
+  min-height: 44px;
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-control, 6px);
+  box-shadow: var(--ds-glow-inset, none);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+button.rs-btn:hover:not(:disabled) {
+  color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+/* 禁用态：压到三级文字 + 虚线边界（形状通道；不只靠调淡） */
+button.rs-btn:disabled {
+  color: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  border-style: dashed;
+  cursor: not-allowed;
+}
+button.rs-btn--play {
+  color: var(--ds-text-primary, #e8eef7);
+  border-color: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+}
+button.rs-btn--play.is-playing {
+  color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  box-shadow: var(--ds-glow-near, none);
+}
+
+/* ── 窄屏：画布可以缩得更小，靠横向滚动读 ─────────────────────────────────── */
+@media (max-width: 720px) {
+  div.rs-canvas-wrap {
+    padding: var(--ds-space-4, 4px);
+  }
+  svg.rs-canvas {
+    max-height: 40svh;
+  }
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   本文件不含 @keyframes、不含无限动画；这里停的是描边与填充的过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  div.rs-stage,
+  div.rs-stage *,
+  div.rs-stage *::before,
+  div.rs-stage *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.rs-stage,
+.reduce-motion div.rs-stage *,
+.reduce-motion div.rs-stage *::before,
+.reduce-motion div.rs-stage *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

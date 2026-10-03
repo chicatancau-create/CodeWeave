@@ -1,0 +1,329 @@
+/* ============================================================================
+   CodeWeave · 错误态（ErrorBoundary 默认视图）· M4 全站统一
+   ----------------------------------------------------------------------------
+   规格：`docs/00-CodeWeave三合一总工程方案.md` §5.2 末行（错误态与全站同一体系）、
+   §11.2「缺失/损坏/断连 → 有明确错误、有效旧快照或恢复入口，不空数据覆盖」。
+   形态裁定：geometry.md §2 表末行「弹层 / 遮罩 / 账户与设置」——不得自成一套装。
+
+   要点：
+   - 错误文本是**必读信息**，因此一律 16px 正文档 + 1.7 行高，禁用模板 9.5–10.5px
+     HUD 档（§5.4 明确该档仅用于非关键装饰）。
+   - 堆栈可选中、可复制（user-select: text + 长行不断词），左对齐不居中。
+   - 语义状态用「固定标识 + 文字 + 边框样式」三重通道，颜色只是第三重，
+     且只取 --ds-status-*，绝不引用 --ds-scene-* / --accent（§5.1 末段）。
+   - 圆角只有三档：本文件全部取 --ds-shape-none（0）。
+   - 黑场 + 1px 发丝线；无渐变、无 backdrop-filter；投影走 `--ds-shadow-panel`，
+     它在 tokens L179 已指向 `--ds-glow-panel`（科技档冷色外发光，§4.5）。
+   - 全局裸选择器 0 条：所有规则以 `.error-boundary.cw-error` 起头（复合选择器
+     ≥ (0,2,0)，避免被后引入的 styles.css 反压 —— 见 main.tsx 的 import 顺序）。
+   ========================================================================== */
+
+.error-boundary.cw-error {
+  --ce-canvas: var(--ds-canvas, #000);
+  --ce-canvas-solid: var(--ds-canvas-solid, #000);
+  --ce-ink: var(--ds-text-primary, #f4f1ee);                      /* 18.66:1 */
+  --ce-ink-2: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* 5.86:1 */
+  --ce-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  --ce-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  --ce-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));
+  --ce-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62));
+  --ce-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  --ce-ok: var(--ds-status-success, #3fd3a4);
+  --ce-bad: var(--ds-status-danger, #ff8371);
+  --ce-info: var(--ds-status-info, #4f7cff);
+  --ce-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --ce-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --ce-body: var(--ds-size-body, 16px);
+  --ce-leading: var(--ds-leading-body, 1.7);
+  --ce-meta: 13px;
+  --ce-tap: var(--ds-tap-min, 44px);
+  --ce-line: var(--ds-line-width, 1px);
+  --ce-radius: var(--ds-shape-none, 0);
+  --ce-mono: var(--ds-font-mono, ui-monospace, Consolas, monospace);
+  --ce-ui: var(--ds-font-display, 'Geist Mono', 'Microsoft YaHei', ui-monospace, monospace);
+
+  /* 覆写全局 .error-boundary 的 min-height:100vh：内层边界只占一块区域，
+     撑满视口会在主内容里留下一大片空白。 */
+  display: block;
+  min-height: 0;
+  padding: clamp(var(--ds-space-14, 14px), 3.4vw, var(--ds-space-40, 40px)) clamp(var(--ds-space-10, 10px), 3vw, var(--ds-space-32, 32px));
+  background: var(--ce-canvas);
+  color: var(--ce-ink);
+  font-family: var(--ce-ui);
+  font-size: var(--ce-body);
+  line-height: var(--ce-leading);
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.error-boundary .cw-error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-20, 20px);
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: clamp(var(--ds-space-16, 16px), 3vw, var(--ds-space-28, 28px));
+  border: var(--ce-line) solid var(--ce-edge);
+  border-left-width: 3px;                /* 危险侧边：非颜色通道之一（错误 vs 说明） */
+  border-radius: var(--ce-radius);
+  background: var(--ce-canvas-solid);
+  box-shadow: var(--ds-shadow-panel, none);
+  text-align: left;                      /* 长堆栈居中会读不齐 */
+}
+
+/* ── 1. 眉标 + 标题 + 导语 ─────────────────────────────────────────────────── */
+.error-boundary .cw-error-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  color: var(--ce-ink-2);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);
+  text-transform: uppercase;
+}
+/* 固定语义标识：错误态的三角符号，颜色取恒定的 danger 档（不跟场景色） */
+.error-boundary .cw-error-mark {
+  flex: 0 0 auto;
+  color: var(--ce-bad);
+}
+.error-boundary .cw-error-title {
+  margin: var(--ds-space-4, 4px) 0 var(--ds-space-10, 10px);
+  color: var(--ce-ink);
+  font-family: var(--ce-ui);
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+.error-boundary .cw-error-lede {
+  margin: 0;
+  color: var(--ce-ink-2);
+  font-size: var(--ce-body);
+  line-height: var(--ce-leading);
+}
+
+/* ── 2. 三个分区：01 出了什么错 / 02 数据现状 / 03 下一步 ─────────────────── */
+.error-boundary .cw-error-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-12, 12px);
+  padding-top: var(--ds-space-16, 16px);
+  border-top: var(--ce-line) solid var(--ce-hair);
+}
+.error-boundary .cw-error-block-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  color: var(--ce-ink);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--ce-leading);
+}
+/* 编号取模板「编号眉标」形态（geometry.md §2）：真实 DOM 文本，不用 CSS counter
+   注入（counter 生成的文字会进辅助技术朗读顺序，违反 §5.3 第 6 条）。 */
+.error-boundary .cw-error-step {
+  flex: 0 0 auto;
+  min-width: var(--ce-tap);
+  padding: var(--ds-space-2, 2px) 0;
+  color: var(--ce-ink-2);
+  border-bottom: var(--ce-line) solid var(--ce-hair-raised);
+  font-size: var(--ce-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-align: center;
+}
+.error-boundary .cw-error-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px) var(--ds-space-24, 24px);
+  margin: 0;
+}
+.error-boundary .cw-error-kv {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+}
+.error-boundary .cw-error-key {
+  color: var(--ce-ink-2);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.error-boundary .cw-error-value {
+  color: var(--ce-ink);
+  font-size: var(--ce-body);
+}
+
+/* 错误消息与堆栈：等宽、可整段选中、长行不截断 */
+.error-boundary .cw-error-message,
+.error-boundary .cw-error-stack {
+  margin: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  color: var(--ce-ink);
+  border: var(--ce-line) solid var(--ce-hair);
+  border-radius: var(--ce-radius);
+  background: var(--ce-canvas);
+  font-family: var(--ce-mono);
+  font-size: 14px;                       /* 堆栈不是正文段落，但仍要 ≥13px 可读 */
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;                     /* 关键：错误文本必须能选中复制 */
+  -webkit-user-select: text;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.error-boundary .cw-error-stack {
+  color: var(--ce-ink-2);
+  font-size: var(--ds-size-control, 13px);
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* 折叠区：summary 自己是键盘可聚焦的 44px 命中区 */
+.error-boundary .cw-error-details {
+  border: var(--ce-line) solid var(--ce-hair);
+  border-radius: var(--ce-radius);
+  background: var(--ce-canvas);
+}
+.error-boundary .cw-error-details summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--ce-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--ce-ink-2);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-meta);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.error-boundary .cw-error-details summary {
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.error-boundary .cw-error-details summary:hover {
+  color: var(--ce-ink);
+}
+.error-boundary .cw-error-details summary:active {
+  color: var(--ce-ink);
+  text-decoration: underline;
+}
+.error-boundary .cw-error-details > .cw-error-stack {
+  margin: 0 var(--ds-space-14, 14px) var(--ds-space-14, 14px);
+  border: 0;
+  background: transparent;
+}
+
+/* ── 3. 复制状态：三种状态各有固定标识 + 文字 + 边框样式 ─────────────────── */
+.error-boundary .cw-error-copy,
+.error-boundary .cw-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+}
+.error-boundary .cw-error-copy-state {
+  min-height: var(--ce-tap);
+  display: inline-flex;
+  align-items: center;
+  padding: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  border: var(--ce-line) solid var(--ce-hair);
+  font-size: var(--ce-body);             /* 复制结果与手动复制指引是必读信息 */
+  line-height: 1.5;
+}
+.error-boundary .cw-error-copy-state--idle {
+  color: var(--ce-ink-2);
+  border-style: dashed;
+  background: transparent;
+}
+.error-boundary .cw-error-copy-state--copied {
+  color: var(--ce-ok);                   /* 成功档 11.07:1（对 #000） */
+  border-color: var(--ce-ok);
+  border-style: solid;
+  background: var(--ce-ok-wash);
+}
+.error-boundary .cw-error-copy-state--failed {
+  color: var(--ce-bad);
+  border-color: var(--ce-bad);
+  border-style: solid;
+  background: var(--ce-bad-wash);
+}
+
+/* ── 4. 数据现状与下一步清单 ─────────────────────────────────────────────── */
+.error-boundary .cw-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding-left: var(--ds-space-20, 20px);
+  color: var(--ce-ink-2);
+  font-size: var(--ce-body);
+  line-height: var(--ce-leading);
+}
+.error-boundary .cw-error-list li {
+  overflow-wrap: anywhere;
+}
+.error-boundary .cw-error-list li::marker {
+  color: var(--ce-info);                 /* 信息档 5.66:1；列表符号只是装饰 */
+}
+
+/* 按钮：≥44px 触控、直角、细线；主操作沿用全局 .primary-action */
+.error-boundary .cw-error-btn {
+  min-height: var(--ce-tap);
+  padding-inline: var(--ds-space-16, 16px);
+  font-size: var(--ce-meta);
+  border-radius: var(--ce-radius);
+}
+
+/* ── 5. 焦点可见（§5.4） ─────────────────────────────────────────────────── */
+.error-boundary.cw-error :is(button, summary, a, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ce-focus);
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 6. §5.4 窄视口：320px 不破版 ────────────────────────────────────────── */
+@media (max-width: 420px) {
+  .error-boundary.cw-error {
+    padding-inline: var(--ds-space-8, 8px);
+  }
+  .error-boundary .cw-error-panel {
+    gap: var(--ds-space-14, 14px);
+  }
+  .error-boundary .cw-error-copy,
+  .error-boundary .cw-error-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .error-boundary .cw-error-btn {
+    width: 100%;
+  }
+}
+
+/* ── 7. §5.3 减动效：两条路径各自真停（本态无循环动画，只取消过渡） ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .error-boundary.cw-error :is(button, summary) {
+    transition: none !important;
+  }
+}
+.reduce-motion .error-boundary.cw-error :is(button, summary),
+.error-boundary.cw-error.reduce-motion :is(button, summary) {
+  transition: none !important;
+}
+
+/* ── 8. 高对比模式：边界抬到系统描边 ─────────────────────────────────────── */
+@media (forced-colors: active) {
+  .error-boundary .cw-error-panel,
+  .error-boundary .cw-error-message,
+  .error-boundary .cw-error-stack,
+  .error-boundary .cw-error-details,
+  .error-boundary .cw-error-copy-state {
+    border-color: CanvasText;
+  }
+}

@@ -1,0 +1,337 @@
+/* ============================================================================
+   CodeWeave · 执行流程图（src/components/flow-chart.tsx）· 2026-09-30 重做为横向拍轨
+   ----------------------------------------------------------------------------
+   特异度与层叠约定见 code-editor.css 头部注释：只在 (c) 档抬一位，页面作用域
+   `.cw-workspace …`（恰好多一个类）永远赢 → 工作台仍由 learning-workspace-view.css 决定。
+
+   本文件的三条裁定：
+   1) **横向拍轨 + 单拍展开**：一拍一格横向排；每一拍在 DOM 里**都带着自己那份数据栏**
+      （`div.flow-data`，M4 基座契约按 per-step 钉着），但只有当前那一拍的数据栏
+      （`.flow-data.is-shown`）显示，其余 `display: none`。2026-09-29 那版把五张数据卡
+      竖着摞起来，实测 6 拍 607px——900px 的视口里光流程图就占掉三分之二，而且逐字重复
+      画布已经画过的内容。展开态收在一处后，同一屏里「这一步的数据是什么」仍然常驻。
+      超出宽度的拍横向滚动；滚出去的是已走过的拍，当前拍靠高亮 + 泛光定位。
+   2) **三态靠形状 + 文字 + 颜色**：已走过（实线 + 编号实框）、当前（冷色近档泛光 +
+      实心竖条 + `aria-current`）、未到（虚线 + 次级文字）。发光只表「现在在哪」，
+      不表「对错」——语义状态一律 tokens §4 的固定 --ds-status-*，不引用 --ds-scene-*（§5.1 末段）。
+   3) 零装饰动画：不做循环 keyframes、不做位移。当前态由泛光与竖条表达，静态可读。
+
+   取值出处（行号 = app/src/design/tokens.css）：黑场 L25、暖白 L27、次级 L28、
+   发丝线 L37/L40、抬起档 L38、场景档 L50、环宽 L51、状态色 L60-L63、
+   圆角三档 L118-L120、零投影 L123（L179 起指向 --ds-glow-panel）、字栈 L88、
+   缓动 L147、时长 L153。
+   规格：§5.1（黑场 + 发丝线，去玻璃卡/渐变）、§5.3（回放时不做弹跳动画）、
+   §5.4（行号与变量是必读文字：等宽 13px 起，长值横向滚动不折行挤压）。
+   ========================================================================== */
+
+div.flow-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  min-height: 0;
+  padding: var(--ds-space-12, 12px);
+  background: var(--ds-canvas, #000); /* L25：独立复用时自己也是一个分区 */
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37 */
+  border-radius: var(--ds-radius-panel, 0); /* L121 */
+  box-shadow: var(--ds-glow-panel, none); /* 科技档：冷色面板发光（原零投影，tokens §4.5） */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 轨道：横向一排格子，超宽自己横滚 ─────────────────────────────────────── */
+ol.flow-track {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+ol.flow-track > li.flow-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* ── 连接线：横向主干的一段。实线 = 已走到，虚线 = 还没到 ─────────────────── */
+span.flow-rail {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  /* 与节点编号行垂直居中：编号徽记高约 20px，节点上内衬 10px */
+  margin-top: calc(var(--ds-space-10, 10px) + var(--ds-space-10, 10px));
+  width: var(--ds-space-20, 20px);
+  border-block-start: var(--ds-line-width, 1px) dashed var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+}
+/* 每格起点的那颗圆点：靠描边成立（geometry.md §2 裁定 2），不铺实底 */
+span.flow-rail::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  inline-size: 7px;
+  block-size: 7px;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  border-radius: var(--ds-shape-circle, 50%);
+  background: var(--ds-canvas, #000);
+}
+/* 首尾各收一半，主干不通到格列外 */
+ol.flow-track > li.flow-step:first-child span.flow-rail {
+  width: var(--ds-space-10, 10px);
+}
+ol.flow-track > li.flow-step:last-child::after {
+  content: '';
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: calc(var(--ds-space-10, 10px) + var(--ds-space-10, 10px));
+  width: var(--ds-space-10, 10px);
+  border-block-start: var(--ds-line-width, 1px) dashed var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+}
+
+li.flow-step.is-done span.flow-rail,
+li.flow-step.is-now span.flow-rail {
+  border-block-start-style: solid;
+  border-block-start-color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50 */
+}
+li.flow-step.is-now span.flow-rail::before {
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  background: var(--ds-scene-active, rgb(34, 211, 238));
+}
+li.flow-step.is-done span.flow-rail::before {
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+
+/* ── 节点格 ───────────────────────────────────────────────────────────────── */
+div.flow-node {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+  /* 拍轨要能一屏放下 5—6 格：格子有宽度上限，标签溢出用省略号（完整标签在
+     展开态的数据栏里原样给出，不丢信息） */
+  width: 176px;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--ds-text-primary, #f4f1ee); /* L27 */
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L38 */
+  border-block-start-width: 2px; /* 状态竖条槽位：当前态点亮，其余保持透明 */
+  border-radius: var(--ds-radius-panel, 0); /* L121：节点不是卡片 */
+  box-shadow: var(--ds-glow-inset, none);
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+div.flow-node-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+span.flow-node-no {
+  flex: 0 0 auto;
+  min-inline-size: 26px;
+  /* 与 styles.css 的 `.nav-item__index` / 日历头同一个编号徽记写法：2 / 6 两档内衬，
+     不用 1px（§2.2 间距棘轮：margin/padding/gap 上不得出现硬编码 px）。 */
+  padding: var(--ds-space-2, 2px) var(--ds-space-6, 6px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  border: var(--ds-line-width, 1px) solid var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  border-radius: var(--ds-radius-control, 0);
+  /* §5.4：步序号是「这一步是第几拍」的必读定位信息，不是装饰——走 12px 下限，
+     不占模板的 10px 装饰微字档（tests/design.tokens.discipline.test.mjs §2.2/§8）。
+     序号感由等宽 + 字距 + tabular-nums 承担，不靠缩小字号。 */
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+span.flow-node-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ds-text-primary, #f4f1ee);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  /* 横排格宽有限：这里省略，完整标签在展开态数据栏的 `flow-data-title` 里原样给出 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 语义档标签：固定 --ds-status-*，不跟场景色（§5.1 末段） */
+/* 语义档标签（信息 / 注意 / 危险 / 成功）：它说的是「这一拍会不会出事」，
+   是必读文字而不是 HUD 装饰，所以走 12px；大写字距为它保留 HUD 观感。 */
+span.flow-node-kind {
+  flex: 0 0 auto;
+  font-size: 12px;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-transform: uppercase;
+}
+span.flow-node-kind.tone-blue { color: var(--ds-status-info, #4f7cff); }
+span.flow-node-kind.tone-yellow { color: var(--ds-status-warning, #ffc457); }
+span.flow-node-kind.tone-coral { color: var(--ds-status-danger, #ff8371); }
+span.flow-node-kind.tone-green { color: var(--ds-status-success, #3fd3a4); }
+span.flow-node-kind.tone-purple { color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); }
+
+/* 源码行：行号 + 这一步对应的那行代码 */
+div.flow-node-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+  font-size: 12px;
+}
+span.flow-node-line-no {
+  flex: 0 0 auto;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  font-size: 12px; /* 「L94」是要和编辑器行号对齐核对的必读数字，不占装饰微字档 */
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+div.flow-node-line code {
+  min-width: 0;
+  color: var(--ds-text-primary, #f4f1ee);
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 数据栏：每一拍各带一份，只有当前那一拍显示 ─────────────────────────────
+   `.is-shown` 挂在当前拍上（游标停在起点时退到最后一拍已走过的）。其余拍的数据栏
+   仍在 DOM 里（M4 基座契约按 per-step 查 `div.flow-data`），只是不占屏幕高度。 */
+div.flow-data {
+  display: none;
+  min-width: 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  border-radius: var(--ds-radius-panel, 0); /* L121 */
+  box-shadow: var(--ds-glow-inset, none);
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: 12px;
+}
+div.flow-data.is-shown {
+  display: block;
+  margin-top: var(--ds-space-6, 6px);
+  border-color: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  /* 数据栏就长在它所属那一格的列里（跟着节点一起被撑宽），不绝对定位骑到轨道上——
+     绝对定位要找一个 position:relative 的祖先，而最近的祖先正是这一格 176px 宽的
+     节点，摊不开反而更挤。宽出来的地方由 `.is-expanded` 把那一格放宽解决。 */
+}
+
+/* 展开的那一格比别格宽一档：变量能横着铺开读，不用在 176px 里折成五段。
+   宽度只加在展开格上，所以轨道总宽不变（多出的一格吃掉同格的空白），
+   其余格仍保持 176px 的整齐节奏。宽度值仍需走令牌（§2.2 间距棘轮）。 */
+li.flow-step.is-expanded div.flow-node {
+  width: 360px;
+}
+
+ul.flow-data-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-6, 6px) var(--ds-space-16, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+ul.flow-data-list > li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  /* 长值横向滚动而不是折行挤压：值与类型是必读文字（§5.4） */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+span.flow-data-name {
+  flex: 0 0 auto;
+  color: var(--ds-text-primary, #f4f1ee);
+  font-weight: 600;
+}
+span.flow-data-eq {
+  flex: 0 0 auto;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+}
+span.flow-data-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--ds-text-primary, #f4f1ee);
+}
+li.is-coral span.flow-data-value { color: var(--ds-status-danger, #ff8371); } /* L62 */
+li.is-blue span.flow-data-value { color: var(--ds-status-info, #4f7cff); } /* L63 */
+span.flow-data-type {
+  flex: 0 0 auto;
+  color: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* L29 */
+  /* 类型名（int / list[str]）是变量卡的一部分，和值一起读——不按装饰微字档处理。 */
+  font-size: 12px;
+}
+p.flow-data-empty {
+  margin: 0;
+  color: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* L29：占位说明，非关键 */
+  font-size: 12px;
+}
+
+/* ── 三态：当前 / 已走过 / 未到 ───────────────────────────────────────────── */
+/* 当前：冷色近档泛光 + 2px 实心竖条（形状 + 发光双通道，静态可读） */
+li.flow-step.is-now div.flow-node {
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-block-start-color: var(--ds-scene-active, rgb(34, 211, 238));
+  box-shadow: var(--ds-glow-near, none);
+}
+/* 已走过：边界收亮一档，但不发光——发光只标「现在在哪」 */
+li.flow-step.is-done div.flow-node {
+  border-color: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  border-block-start-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+/* 未到：整块压到次级文字档 + 虚线边界（形状通道；不 opacity 压暗，仍可读） */
+li.flow-step.is-todo div.flow-node {
+  border-style: dashed;
+  box-shadow: none;
+}
+li.flow-step.is-todo div.flow-node-head span.flow-node-label,
+li.flow-step.is-todo div.flow-node-line code {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* 5.86:1，仍然可读 */
+}
+
+/* ── 窄屏：格子窄一档，轨道横滚即可，不再折行 ─────────────────────────────── */
+@media (max-width: 720px) {
+  div.flow-node {
+    width: 148px;
+  }
+  /* 窄屏放不下 360px 的展开格：收到 260px，变量栏自己换行——轨道仍横滚 */
+  li.flow-step.is-expanded div.flow-node {
+    width: 260px;
+  }
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   本文件不含 @keyframes、不含 infinite 动画；这里停的是节点边界与泛光的过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  div.flow-chart,
+  div.flow-chart *,
+  div.flow-chart *::before,
+  div.flow-chart *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.flow-chart,
+.reduce-motion div.flow-chart *,
+.reduce-motion div.flow-chart *::before,
+.reduce-motion div.flow-chart *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

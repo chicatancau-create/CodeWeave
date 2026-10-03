@@ -1,0 +1,17 @@
+name: Web-only verification
+
+steps:
+  - name: Boundary audit
+    run: pnpm run audit:boundary
+  - name: Contract check
+    run: pnpm run contract:check
+  - name: Typecheck
+    run: pnpm run typecheck
+  - name: Lint
+    run: pnpm run lint
+  - name: Test with coverage
+    run: pnpm run test:coverage
+  - name: Build
+    run: pnpm run build
+  - name: Server syntax check
+    run: pnpm run server:check

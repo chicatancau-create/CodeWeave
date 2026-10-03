@@ -1,0 +1,9 @@
+# 依赖与构建产物
+node_modules/
+build/
+stage/
+artifacts/
+native/build/
+
+# 本机运行痕迹（桌面端自己的用户数据不在仓库里）
+*.log

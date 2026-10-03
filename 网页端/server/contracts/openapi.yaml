@@ -1,0 +1,759 @@
+# CodeWeave 后端数据服务 · 唯一 API 契约来源
+#
+# 分离方案 §6.1：契约先行，两端由此生成类型或薄客户端；§5：这是唯一允许跨边界共享的内容。
+# 本文件由 `workspace/tools/acceptance/contract-check.mjs` 与 `server.mjs` 的路由分发对照，
+# 少一条路由或多一条路由都会让门禁红，不允许「文档写着、代码没有」。
+#
+# 逐接口写明：用途、认证要求、请求 schema、响应 schema、错误码、幂等性、分页、超时、敏感字段处理
+# （后四项放在 `x-` 扩展里，因为 OpenAPI 3.1 没有原生字段）。
+#
+# 全局事实（所有接口共同遵守，出自 `server.mjs` 常量与 `guardWriteRequest`）：
+#   - 会话：HttpOnly + SameSite=Lax + Path=/ + Max-Age=604800（7 天）的 `code_canvas_session` Cookie；
+#     永不写入 localStorage / 日志 / URL（§6.2）。桌面 renderer 只访问本机 loopback origin。
+#   - 请求体上限 100,000 字节；超限 413 `body_too_large`。
+#   - 所有非 GET 请求先过同源校验（`Sec-Fetch-Site` / `Origin` vs `Host`）与 `application/json` 检查。
+#   - 登录限流：账号与来源 IP 双维度，默认 10 次 / 15 分钟窗口。
+#   - 响应体统一错误形状 `{ error, message }`，可带 `details`；成功响应是各自 schema 的对象。
+openapi: 3.1.0
+info:
+  title: CodeWeave 后端数据服务 API
+  version: 1.0.0
+  description: >-
+    网页端与本地应用端唯一的跨边界协议。正式学习事实、账户、内容快照与资料库写回事务
+    全部由本服务持有；任何端不得直接读取数据目录（分离方案 §5 禁止项）。
+  license: { name: MIT }
+servers:
+  - url: http://127.0.0.1:4173
+    description: 本机服务（端口由后端配置解析器决定，端侧一律从 API_ORIGIN 取，不写死）
+  - url: http://127.0.0.1:4273
+    description: 迁移期新后端实例（与本文件同批建立，故意与仍在使用的旧入口错开端口）
+
+tags:
+  - { name: health, description: 健康与实例身份 }
+  - { name: auth, description: 注册、登录、会话、改密 }
+  - { name: profile, description: 个人资料 }
+  - { name: content, description: 课程目录、教材正文、附件、快照同步 }
+  - { name: learning, description: 拥有者绑定、正式学习事实、确认式写回 }
+
+x-conventions:
+  authentication:
+    cookie: code_canvas_session
+    attributes: [HttpOnly, "SameSite=Lax", "Path=/", "Max-Age=604800"]
+    neverStored: [密码, 会话 Cookie, Token]
+  timeouts:
+    serverDefault: 无请求级超时；慢请求仅对超过 800ms 记诊断日志
+    clientRecommended: { readMs: 10000, writeMs: 15000 }
+    note: 客户端超时不等于服务端失败——写请求超时后必须靠幂等键或账本复查，不得盲目重发
+  idempotency:
+    reads: GET 全部幂等
+    writes: 见各接口 x-idempotency；写回链用 operationId 作幂等标识
+  pagination: 本服务当前不分页（快照与账本一次返回、条数在服务端封顶），分页属未来契约变更，必须走版本号
+  sensitiveFields:
+    neverReturned: [passwordHash, 会话 ID, 资料库绝对路径, 私密资料正文]
+    redactedInLogs: [密码, 完整 Cookie, 私密资料正文, 学习答案]
+    loggedInstead: [requestId, 路由, 状态码, 耗时, 脱敏用户标识]
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: code_canvas_session
+  parameters:
+    contentId:
+      name: id
+      in: path
+      required: true
+      description: 内容标识；只接受 `[A-Za-z0-9][A-Za-z0-9._-]*`，长度 ≤96，拒路径、`..` 与盘符
+      schema: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$' }
+    operationId:
+      name: operationId
+      in: path
+      required: true
+      description: 写回事务标识（URL 编码后传输）
+      schema: { type: string, maxLength: 200 }
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string, description: 稳定错误码，见 contracts/errors.yaml }
+        message: { type: string, description: 给人看的中文说明，客户端不得解析它做分支 }
+        details: { description: 冲突/事务明细，仅在写回链出现 }
+      additionalProperties: true
+    User:
+      type: object
+      required: [id, name, bio, createdAt]
+      properties:
+        id: { type: string, pattern: '^user-[0-9a-f]{16}$' }
+        email: { type: [string, 'null'], format: email }
+        phone: { type: [string, 'null'], pattern: '^[0-9]{11}$' }
+        name: { type: string, minLength: 2, maxLength: 40 }
+        bio: { type: string, maxLength: 160 }
+        createdAt: { type: string, format: date-time }
+      x-sensitive: 响应永不含 passwordHash
+    EvidenceRecord:
+      type: object
+      description: 暂存证据（服务端存储，客户端只提交字段、不提交路径）
+      required: [evidenceId, topic, createdAt]
+      properties:
+        evidenceId: { type: string }
+        topic: { type: string, maxLength: 60 }
+        stage: { type: [string, 'null'], maxLength: 16 }
+        createdAt: { type: string, format: date-time }
+      additionalProperties: true
+    WritebackOutcome:
+      type: object
+      description: 预览/提交/回滚的共用结果体（服务端按日期与主题推导目标文件，不接受客户端传路径）
+      properties:
+        operationId: { type: string }
+        status: { type: string }
+        targets: { type: array, items: { type: object, additionalProperties: true } }
+      additionalProperties: true
+
+security: []
+
+paths:
+  # =========================================================================
+  /api/health:
+    get:
+      tags: [health]
+      summary: 健康检查与实例身份
+      description: >-
+        不读取用户文件、不受数据损坏影响、不暴露任何用户信息。额外返回 project / instanceId /
+        buildId 三项供启动器核对，「端口上任意 200」不算本项目（03 号方案 §3）。
+        资料库与页面是否就绪不在本探针里宣称。
+      security: []
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 客户端建议 3s（启动器轮询用）
+      x-sensitive-fields: 无用户数据；instanceId 是数据目录路径的哈希前 16 位，不反推路径
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, project, instanceId, buildId]
+                properties:
+                  status: { const: ok }
+                  uptimeSeconds: { type: integer }
+                  project: { const: CodeWeave }
+                  instanceId: { type: string, description: 同一机器上区分实例的数据目录指纹 }
+                  buildId: { type: string, description: dist/index.html 引用产物的哈希前 12 位；未构建时为 absent }
+
+  # =========================================================================
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: 注册并直接建立会话
+      security: []
+      x-idempotency: 非幂等（重复提交同邮箱得 409 email_taken，不会产生第二个账户）
+      x-pagination: 不适用
+      x-timeout: 写 15s；scrypt 哈希在 CPU 上耗时，超时后不得盲重发，应先查 /api/auth/me
+      x-sensitive-fields: 密码只用于 scrypt，不入库明文、不入日志、不回显
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, password]
+              oneOf:
+                - { required: [email], properties: { contactType: { const: email } } }
+                - { required: [phone], properties: { contactType: { const: phone } } }
+              properties:
+                name: { type: string, minLength: 2, maxLength: 40 }
+                contactType: { type: string, enum: [email, phone], default: email }
+                email: { type: string, format: email }
+                phone: { type: string, pattern: '^[0-9]{11}$' }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '201':
+          description: 注册成功，Set-Cookie 建立会话
+          headers:
+            Set-Cookie: { schema: { type: string }, description: code_canvas_session，HttpOnly + SameSite=Lax }
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '400': { description: invalid_name / invalid_email / invalid_phone / invalid_password / invalid_json / body_too_large, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: email_taken / phone_taken, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '415': { description: unsupported_media_type, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '500': { description: storage_error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 登录（邮箱或手机号同一字段提交）
+      description: 失败信息不区分「账号不存在」与「密码错误」，防账号枚举。
+      security: []
+      x-idempotency: 语义幂等但每次成功都新建一个会话；重复调用会产生多个有效会话（受 MAX_SESSIONS 约束）
+      x-pagination: 不适用
+      x-timeout: 写 15s；429 后必须按窗口退避，不得循环重试
+      x-sensitive-fields: 密码不入日志；返回体不含 passwordHash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                identifier: { type: string, description: 邮箱或 11 位手机号；也可用 email / phone 字段 }
+                email: { type: string }
+                phone: { type: string }
+                password: { type: string, maxLength: 128 }
+      responses:
+        '200':
+          headers:
+            Set-Cookie: { schema: { type: string } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '400': { description: invalid_credentials_format / invalid_password / invalid_json }
+        '401': { description: invalid_credentials, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: too_many_attempts, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: 登出并清除会话 Cookie
+      description: 无请求体的写操作，因此不要求 Content-Type（`BODYLESS_WRITE_PATHS`）。
+      security: [{ sessionCookie: [] }]
+      x-request-body: 无请求体（该路径在 BODYLESS_WRITE_PATHS 里，不要求 application/json）
+      x-idempotency: 幂等（无会话时也返回 200）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 无
+      responses:
+        '200': { description: 已登出，body 为 null }
+        '403': { description: cross_site_rejected }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: 当前会话对应的账户
+      description: 未登录返回 200 + null（不是 401），让登录壳能在无会话时正常打开。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 读 10s
+      x-sensitive-fields: 返回体不含 passwordHash
+      responses:
+        '200':
+          description: 已登录返回 User；未登录返回 null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/User' }
+                  - { type: 'null' }
+
+  /api/auth/change-password:
+    post:
+      tags: [auth]
+      summary: 修改密码并使其它会话失效
+      description: 改密成功后，该用户的其余会话全部销毁，只保留发起修改的当前会话。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等（新密码与当前密码相同返回 400 password_unchanged）
+      x-pagination: 不适用
+      x-timeout: 写 15s（两次 scrypt）
+      x-sensitive-fields: 新旧密码都不入日志、不回显
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, maxLength: 128 }
+                newPassword: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '200': { description: 已修改，body 为 null }
+        '400': { description: invalid_password / wrong_current_password / password_unchanged }
+        '401': { description: unauthorized }
+        '500': { description: storage_error }
+
+  /api/profile:
+    patch:
+      tags: [profile]
+      summary: 更新昵称与个人简介
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等（同一请求体重复提交结果一致）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 只动 name / bio，不触碰凭证字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 40 }
+                bio: { type: string, maxLength: 160 }
+      responses:
+        '200': { description: 更新后的 User, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '400': { description: invalid_name / invalid_bio }
+        '401': { description: unauthorized }
+        '500': { description: storage_error }
+
+  # =========================================================================
+  /api/content/status:
+    get:
+      tags: [content]
+      summary: 内容联动就绪状态
+      description: 只返回通俗状态与计数，不返回资料库绝对路径或任何私人文件内容。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页
+      x-timeout: 读 10s
+      x-sensitive-fields: 不含绝对路径
+      responses:
+        '200': { description: 状态体（含 status 与计数）, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_record_corrupt }
+
+  /api/content/catalog:
+    get:
+      tags: [content]
+      summary: 课程目录（阶段 / 单元 / 练习索引）
+      description: 带强 ETag，客户端应带 If-None-Match 复用；命中时服务端不开文件。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 整个快照一次返回，不分页
+      x-timeout: 读 10s
+      x-sensitive-fields: 目录级元数据，不含学习答案
+      parameters:
+        - { name: If-None-Match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200':
+          headers:
+            ETag: { schema: { type: string } }
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '304': { description: 客户端缓存仍然有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private }
+        '503': { description: vault_unavailable }
+
+  /api/content/lessons/{id}:
+    get:
+      tags: [content]
+      summary: 单份教学单元正文
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；超长正文按 topic_too_large 直接拒
+      x-timeout: 读 10s
+      x-sensitive-fields: 返回体带 X-Content-Bundle（快照标识），不含资料库路径
+      parameters: [ { $ref: '#/components/parameters/contentId' } ]
+      responses:
+        '200':
+          headers:
+            X-Content-Bundle: { schema: { type: string }, description: 命中的快照 bundleId }
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { description: invalid_content_id / unknown_topic }
+        '404': { description: not_found }
+        '409': { description: topic_index_absent / topic_index_mismatch / retired_topic }
+        '503': { description: vault_unavailable }
+
+  /api/content/exercises/{id}:
+    get:
+      tags: [content]
+      summary: 单份练习
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页
+      x-timeout: 读 10s
+      x-sensitive-fields: 同上
+      parameters: [ { $ref: '#/components/parameters/contentId' } ]
+      responses:
+        '200':
+          headers: { X-Content-Bundle: { schema: { type: string } } }
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { description: invalid_content_id }
+        '404': { description: not_found }
+        '503': { description: vault_unavailable }
+
+  /api/content/asset:
+    get:
+      tags: [content]
+      summary: 按白名单读取发布包内的附件
+      description: >-
+        只接受单一查询参数 `path`，且路径必须落在**已发布快照**的资产目录内；越界、绝对路径、
+        `..` 一律拒。条件请求命中 304 的判定排在全部权限门禁之后，所以 304 不向后越权者泄露信息。
+        被拒绝的读取按独立维度计数限流（探测面）。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；单文件上限由 asset.mjs 的 ASSET_MAX_BYTES（5 MiB）决定
+      x-timeout: 读 30s（流式）
+      x-sensitive-fields: 只提供白名单内、已发布、非私人的文件；类型不在白名单一律 403
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string } }
+        - { name: If-None-Match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200': { description: 文件流，Content-Type 由白名单给出 }
+        '304': { description: 缓存命中 }
+        '400': { description: invalid_relative_path }
+        '403': { description: path_escape / asset_type_forbidden / vault_private }
+        '404': { description: asset_not_found }
+        '413': { description: asset_too_large }
+        '429': { description: asset_rate_limited }
+        '503': { description: vault_unavailable }
+
+  /api/content/sync:
+    post:
+      tags: [content]
+      summary: 请求重建内容快照（异步作业）
+      description: >-
+        默认分支是**真实同步**而非 dry-run，所以坏请求体不许退化成 `{}`——那会让一个畸形请求触发一次真写。
+        dryRun 必须由客户端显式传 `dryRun: true`。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: "同一时刻只保一个当前作业；重复提交可返回同一 jobId（reused: true）"
+      x-pagination: 不适用
+      x-timeout: 写 10s（只负责排队，不同步等待结果）
+      x-sensitive-fields: 不返回资料库路径；作业结果只含计数与缺口统计
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dryRun: { type: boolean, default: false }
+      responses:
+        '202':
+          description: 已排队
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobId, reused, status, dryRun]
+                properties:
+                  jobId: { type: string }
+                  reused: { type: boolean }
+                  status: { type: string }
+                  dryRun: { type: boolean }
+        '400': { description: invalid_json }
+        '413': { description: body_too_large }
+        '429': { description: sync_rate_limited }
+        '503': { description: vault_unavailable }
+
+  /api/content/sync/{jobId}:
+    get:
+      tags: [content]
+      summary: 查询同步作业状态
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；只保留当前作业，历史作业返回 404
+      x-timeout: 读 10s
+      x-sensitive-fields: summary 只含计数与阻断条数
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 作业状态与报告摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobId, status]
+                properties:
+                  jobId: { type: string }
+                  status: { type: string }
+                  startedAt: { type: [string, 'null'] }
+                  finishedAt: { type: [string, 'null'] }
+                  published: { type: boolean }
+                  error: { type: [string, 'null'] }
+                  summary:
+                    description: 报告未生成时为 null
+                    type: [object, 'null']
+                    properties:
+                      bundleId: { type: string }
+                      counts: { type: object, additionalProperties: true }
+                      blockingCount: { type: integer }
+                      gaps:
+                        type: object
+                        properties:
+                          emptyTopics: { type: integer }
+                          uncoveredTopics: { type: integer }
+                          publishedWithoutExercise: { type: integer }
+                          unmappedLegacy: { type: integer }
+        '404': { description: job_not_found }
+
+  # =========================================================================
+  /api/learning/status:
+    get:
+      tags: [learning]
+      summary: 拥有者绑定与可见范围状态
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 读 10s
+      x-sensitive-fields: 返回 vaultId（资料库标识），不返回绝对路径
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bound, isOwner]
+                properties:
+                  bound: { type: boolean }
+                  isOwner: { type: boolean }
+                  vaultId: { type: string }
+                  publicContent: { type: boolean }
+        '401': { description: 学习事实需要登录后访问（unauthorized） }
+
+  /api/learning/owner:
+    post:
+      tags: [learning]
+      summary: 把自己绑定为该资料库的拥有者
+      description: "必须显式 `confirm: true`；服务端绝不按昵称或邮箱猜测拥有者。"
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 已绑定同一账户时幂等返回现有绑定
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 只写绑定关系，不复制资料库内容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [confirm], properties: { confirm: { const: true } } }
+      responses:
+        '200': { description: 绑定结果, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '400': { description: confirmation_required / bind_failed }
+        '401': { description: unauthorized }
+        '409': { description: owner_taken }
+    delete:
+      tags: [learning]
+      summary: 解除拥有者绑定
+      security: [{ sessionCookie: [] }]
+      x-request-body: 无请求体（该路径在 BODYLESS_WRITE_PATHS 里，不要求 application/json）
+      x-idempotency: 幂等（未绑定时再解仍成功或按既有码返回）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 不解散任何学习事实
+      responses:
+        '200': { description: 解绑结果 }
+        '403': { description: unbind_failed / forbidden }
+
+  /api/learning/owner/visibility:
+    patch:
+      tags: [learning]
+      summary: 切换教材对其它账户的可见性
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等（同一 boolean 重复提交结果一致）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 只改标志位
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [publicContent]
+              properties: { publicContent: { type: boolean } }
+      responses:
+        '200': { description: 最新可见性 }
+        '403': { description: visibility_failed / forbidden }
+
+  /api/learning/vault-progress:
+    get:
+      tags: [learning]
+      summary: 正式学习进度只读投影
+      description: >-
+        投影来自资料库的「进度追踪」。未绑定拥有者是 409 `owner_unbound`、非拥有者 403 `forbidden`、
+        读不出 503 `progress_unavailable` —— 三者都必须与「没有数据」的空态分开展示。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页（整份投影一次返回）
+      x-timeout: 读 10s
+      x-sensitive-fields: 投影含学习结论，只对拥有者开放
+      responses:
+        '200': { description: 进度投影, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '403': { description: forbidden }
+        '409': { description: owner_unbound }
+        '503': { description: progress_unavailable / vault_unavailable }
+
+  /api/learning/evidence:
+    post:
+      tags: [learning]
+      summary: 暂存一条学习证据
+      description: 不接受客户端传路径；目标文件由服务端按日期与主题推导。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等——同内容重复提交会产生两条暂存记录；重复提交前必须先 GET 队列
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 证据正文属个人学习内容，不入服务端日志、不进构建产物与截图
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic]
+              properties:
+                topic: { type: string, maxLength: 60 }
+                stage: { type: [string, 'null'], maxLength: 16 }
+                date: { type: string }
+                body: { type: string }
+                artifacts: { type: array, items: { type: string } }
+              additionalProperties: true
+      responses:
+        '201': { description: 已暂存, content: { application/json: { schema: { $ref: '#/components/schemas/EvidenceRecord' } } } }
+        '400': { description: invalid_evidence }
+        '401': { description: unauthorized }
+        '403': { description: forbidden（只有拥有者可提交） }
+        '409': { description: owner_unbound }
+    get:
+      tags: [learning]
+      summary: 读取暂存证据队列
+      description: 队列读不出（暂存文件损坏等）一律 503 + 稳定码，绝不压成 400——否则界面会把它看成「请求不合法」而不是「服务端这次没读到」。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；条数由服务端存储决定
+      x-timeout: 读 10s，可重试
+      x-sensitive-fields: 只回给拥有者本人
+      responses:
+        '200': { description: 队列, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/EvidenceRecord' } } } } }
+        '503': { description: evidence_store_unreadable }
+
+  /api/learning/evidence/remove:
+    post:
+      tags: [learning]
+      summary: 删除一条尚未同步的暂存证据
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等（第二次删除同一 id 返回 evidence_not_found）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 不动已同步记录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [evidenceId], properties: { evidenceId: { type: string } } }
+      responses:
+        '200': { description: '{ removed: true }' }
+        '400': { description: evidence_not_found / already_synced }
+
+  /api/learning/evidence-preview:
+    post:
+      tags: [learning]
+      summary: 预览将写入资料库的内容（不落盘）
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等；但预览结果带哈希，目标文件变了就必须重新预览
+      x-pagination: 不适用
+      x-timeout: 写 15s（要读三处目标文件）
+      x-sensitive-fields: 预览含私密正文，只对拥有者开放
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                evidenceIds: { type: array, items: { type: string } }
+                masteryUpdates: { type: array, items: { type: object, additionalProperties: true } }
+      responses:
+        '200': { description: 预览体, content: { application/json: { schema: { $ref: '#/components/schemas/WritebackOutcome' } } } }
+        '400': { description: preview_failed }
+        '403': { description: forbidden }
+        '404': { description: source_not_found }
+        '409': { description: owner_unbound / sync_conflict / structure_unsupported }
+        '503': { description: vault_unavailable }
+
+  /api/learning/evidence-commit:
+    post:
+      tags: [learning]
+      summary: 确认写回（事务提交）
+      description: >-
+        必须带上预览返回的 operationId 与 expectedHashes；哈希不符即 409 stale_preview，
+        防止「预览了旧内容、写回时覆盖新改动」。部分成功时给 409 progress_pending，重试是幂等的。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 按 operationId 幂等；progress_pending 可安全重试
+      x-pagination: 不适用
+      x-timeout: 写 30s（多文件事务）；超时后必须先查事务账本，不得盲目重发
+      x-sensitive-fields: 写入的是学习日志与进度追踪，属用户主动确认的公开范围
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operationId]
+              properties:
+                operationId: { type: string }
+                expectedHashes: { type: object, additionalProperties: { type: string } }
+      responses:
+        '200': { description: 提交结果, content: { application/json: { schema: { $ref: '#/components/schemas/WritebackOutcome' } } } }
+        '400': { description: commit_failed }
+        '403': { description: forbidden }
+        '409': { description: stale_preview / sync_conflict / owner_unbound / operation_rolled_back / transaction_corrupt }
+        '503': { description: vault_unavailable }
+
+  /api/learning/evidence-rollback:
+    post:
+      tags: [learning]
+      summary: 回滚一次写回事务（用写入前的备份覆盖回来）
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等——已回滚的事务再操作返回 409 operation_rolled_back
+      x-pagination: 不适用
+      x-timeout: 写 30s
+      x-sensitive-fields: 只退这一笔事务涉及的文件，不整库回滚
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [operationId], properties: { operationId: { type: string } } }
+      responses:
+        '200': { description: 回滚结果, content: { application/json: { schema: { $ref: '#/components/schemas/WritebackOutcome' } } } }
+        '400': { description: rollback_failed }
+        '409': { description: rollback_blocked / operation_rolled_back / transaction_corrupt }
+        '503': { description: vault_unavailable }
+
+  /api/learning/evidence-export:
+    post:
+      tags: [learning]
+      summary: 把暂存证据导出为可核对的 Markdown
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 单次全量导出所选条目
+      x-timeout: 写 15s
+      x-sensitive-fields: 导出内容是个人学习记录，客户端不得自动落盘到公开目录
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { evidenceIds: { type: array, items: { type: string } } }
+      responses:
+        '200': { description: 导出体, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '400': { description: export_failed }
+
+  /api/learning/evidence-transactions:
+    get:
+      tags: [learning]
+      summary: 列出拥有者的写回事务账本（新→旧）
+      description: 界面刷新后靠它复原「部分成功」横幅与逐步明细，而不是只认前端状态里的 operationId。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页，条数在服务端封顶
+      x-timeout: 读 10s
+      x-sensitive-fields: 只含事务元数据
+      responses:
+        '200': { description: 账本, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '403': { description: forbidden }
+        '503': { description: transactions_unreadable }
+
+  /api/learning/evidence-transaction/{operationId}:
+    get:
+      tags: [learning]
+      summary: 单个事务的状态与明细
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 读 10s
+      x-sensitive-fields: 明细含目标文件相对名，不含绝对路径
+      parameters: [ { $ref: '#/components/parameters/operationId' } ]
+      responses:
+        '200': { description: 事务状态, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '404': { description: transaction_not_found }
+        '409': { description: transaction_corrupt }

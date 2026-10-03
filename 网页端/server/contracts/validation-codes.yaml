@@ -1,0 +1,288 @@
+# 内容管线校验码清单 —— 由 `node scripts/contract-validation.mjs --write` 生成，不要手改。
+#
+# 这些 code 属于「资料库哪里不合格」的判定标识（content-check 与快照发布的 blocking 列表），
+# 与 contracts/errors.yaml 里的 HTTP 错误码是两套口径。同一条出现在两处时以各自文件为准。
+# 抽取来源（逐文件）：
+#   - service/server/content/asset.mjs
+#   - service/server/content/compiler.mjs
+#   - service/server/content/id-map.mjs
+#   - service/server/content/index.mjs
+#   - service/server/content/markdown.mjs
+#   - service/server/content/snapshot.mjs
+#   - service/server/content/sources.mjs
+#   - service/server/content/topic-spec.mjs
+#   - service/server/content/vault-paths.mjs
+#   - service/server/learning/evidence.mjs
+#   - service/server/learning/index.mjs
+#   - service/server/learning/owner.mjs
+#   - service/server/learning/progress.mjs
+#   - service/server/learning/writeback.mjs
+schemaVersion: 1
+generatedFrom:
+  - service/server/content/**.mjs（不含 *.test.mjs）
+  - service/server/learning/**.mjs（不含 *.test.mjs）
+counts:
+  codes: 61
+codes:
+  - code: already_synced
+    module: server
+    messages:
+      - "已同步的证据不能删除；如需撤销请使用回滚"
+  - code: ambiguous_heading
+    module: server
+    messages:
+      - "同名标题必须用父标题链定位，当前重复：${volume.duplicateTitles.join('、')}"
+  - code: asset_not_found
+    module: server
+    messages:
+      - "附件路径不合法：只接受资料库根内的相对路径"
+  - code: asset_too_large
+    module: server
+    messages:
+      - "附件超过大小上限（5 MiB）"
+  - code: asset_type_forbidden
+    module: server
+    messages:
+      - "该类型不在附件白名单内（svg/html/js/css 等可执行可嵌入类型永不开放）"
+  - code: duplicate_content_id
+    module: server
+    messages:
+      - "contentId 重复：${unit.contentId}"
+  - code: duplicate_exercise_id
+    module: server
+    messages:
+      - "exerciseId 重复：${exercise.exerciseId}"
+  - code: duplicate_id_map_entry
+    module: server
+    messages:
+      - "${label}: 重复记录 ${topicId} / ${change}"
+  - code: empty_source
+    module: server
+    messages:
+      - "教学单元必须至少有一个来源引用"
+  - code: empty_volume
+    module: server
+    messages:
+      - "声明为正式正文但没有主题标题"
+  - code: evidence_not_found
+    module: server
+    messages:
+      - "暂存证据不存在"
+  - code: evidence_store_corrupt
+    module: server
+    messages: []
+  - code: forbidden
+    module: server
+    messages:
+      - "只有资料库拥有者才能提交学习证据与写回"
+      - "正式进度只对资料库拥有者可见"
+  - code: id_map_ambiguous
+    module: server
+    messages:
+      - "${topicKey(topic.path, topic.headingPath)} 有多个同标题链的候选 ID（${reusable.map((item) => item.topicId).join('、')}），必须由 topic-id-map.json 指定归属，不得靠相似标题继承"
+  - code: id_map_conflict
+    module: server
+    messages:
+      - "${entry.toKey} 同时被 ${prior} 与 ${entry.topicId} 声明，必须指定归属"
+      - "同一目标位置被两个 ID 声明：${prior.topicId} 与 ${entry.topicId} → ${entry.toKey}。必须指定归属。"
+  - code: id_map_from_mismatch
+    module: server
+    messages:
+      - "映射 ${entry.topicId} 的 from 与登记位置不符：映射 ${entry.fromKey} ≠ 登记 ${registeredKey}"
+  - code: id_map_required
+    module: server
+    messages:
+      - "${topic.path} 内标题改名后出现新主题 ${topicKey(topic.path, topic.headingPath)}，但 ${vanishedHere.map((e) =>"
+  - code: id_map_target_missing
+    module: server
+    messages:
+      - "映射 ${entry.topicId}（${entry.change}）的目标主题不存在：${entry.toKey}"
+  - code: id_map_unknown_topic
+    module: server
+    messages:
+      - "映射引用了未登记的 topicId：${entry.topicId}（${entry.change}）"
+  - code: invalid_evidence
+    module: server
+    messages:
+      - "${HINT_LEVEL_NAMES[hintLevel]}下的作答不能标记为「独立完成」"
+      - "AI 助手运行的记录不能标记为「学习者独立完成」"
+      - "学习日期必须是 YYYY-MM-DD"
+      - "未说明运行者时不能标记为「学习者独立完成」"
+      - "缺少学习主题"
+      - "证据必须是对象"
+      - "证据至少需要预期结果、实际结果或产物引用之一"
+  - code: invalid_exercise
+    module: server
+    messages:
+      - "练习文件必须声明 type: exercise"
+  - code: invalid_id_map
+    module: server
+    messages:
+      - "${label}: ${change} 的 successorIds 必须包含本 ID（指定由谁继承历史）"
+      - "${label}: change 必须是 ${ID_CHANGES.join('/')}，实际 ${change || '(空)'}"
+      - "${label}: reason 必填，映射必须说明为什么"
+      - "${label}: 只有 retired 允许 to 为 null"
+      - "${label}: 缺少 topicId"
+      - "缺少 entries 数组"
+  - code: invalid_legacy_map
+    module: server
+    messages:
+      - "${where}: newContentId 未声明 ${entry.newContentId}"
+      - "${where}: newStageIds 含未定义阶段 ${stageId}"
+      - "${where}: relation 非法 ${entry.relation}"
+      - "${where}: reviewStatus 非法 ${entry.reviewStatus}"
+      - "${where}: topicId 未登记 ${entry.topicId}"
+      - "legacy-map.json 缺少 entries 数组"
+      - "legacyId 重复：${entry.legacyId}"
+      - "存在缺少 legacyId 的映射条目"
+  - code: invalid_owner
+    module: server
+    messages: []
+  - code: invalid_relative_path
+    module: server
+    messages:
+      - "附件路径不合法：只接受资料库根内的相对路径"
+  - code: invalid_unit
+    module: server
+    messages:
+      - "教学单元文件必须声明 type: teaching-unit"
+  - code: missing_exercise
+    module: server
+    messages:
+      - "引用了不存在的练习：${exerciseId}"
+  - code: missing_lesson
+    module: server
+    messages:
+      - "primaryLessonId 不存在：${exercise.primaryLessonId}"
+  - code: not_found
+    module: server
+    messages:
+      - "未发布的内容：${contentId}"
+      - "未知练习：${exerciseId}"
+  - code: not_owner
+    module: server
+    messages: []
+  - code: owner_taken
+    module: server
+    messages: []
+  - code: owner_unbound
+    module: server
+    messages:
+      - "写回未开放：资料库拥有者尚未绑定"
+      - "正式进度未开放：资料库拥有者尚未绑定"
+  - code: path_escape
+    module: server
+    messages:
+      - "附件路径越出资料库根"
+  - code: policy_mismatch
+    module: server
+    messages:
+      - "练习执行策略(${exercise.executionPolicy})与教学单元(${unit.executionPolicy})不一致"
+  - code: prerequisite_cycle
+    module: server
+    messages:
+      - "先备知识存在循环：${cycle.join(' → ')}"
+  - code: progress_unavailable
+    module: server
+    messages:
+      - "正式进度只对资料库拥有者可见"
+  - code: publish_failed
+    module: server
+    messages:
+      - "发布失败，继续使用上次有效快照：${error?.message ?? error}"
+  - code: retired_topic
+    module: server
+    messages:
+      - "主主题已停用：${unit.primaryTopicId}"
+  - code: source_card_duplicate
+    module: server
+    messages:
+      - "source_id 重复登记：${card.sourceId} 已由 ${cards.get(card.sourceId).path} 登记"
+  - code: source_card_exempted
+    module: server
+    messages:
+      - "来源 ${sourceId} 按说明页登记，无逐项来源卡：${exemption}"
+  - code: source_card_invalid
+    module: server
+    messages:
+      - "source_id 重复登记：${card.sourceId} 已由 ${cards.get(card.sourceId).path} 登记"
+  - code: source_card_missing
+    module: server
+    messages:
+      - "来源 ${sourceId} 的 cardExemption 指向的说明页不存在或无法解析：${exemption}"
+      - "来源 ${sourceId} 被 ${count} 个主题引用，但没有来源卡，也没有声明 cardExemption。要么补卡，要么在登记项写明豁免与指向的说明页。"
+  - code: source_card_unreadable
+    module: server
+    messages:
+      - "来源卡不可读取：${error.message}"
+  - code: source_card_unregistered
+    module: server
+    messages:
+      - "来源卡 ${sourceId} 未在 content-manifest.json 的 sourceRegistry 登记"
+  - code: source_changed
+    module: server
+    messages:
+      - "扫描期间源文件被修改，已放弃本次发布：${changed.slice(0, 5).join('、')}${changed.length > 5 ? ' 等' : ''}"
+  - code: source_mismatch
+    module: server
+    messages:
+      - "primaryTopicRef 与 primaryTopicId 指向不同主题：${formatSectionRef(unit.primaryTopicRef.path, unit.primaryTopicRef.headingPath)} ≠ ${formatSectionRef(topic.path, topic.headingPath)}"
+  - code: source_not_found
+    module: server
+    messages:
+      - "章节引用不存在：${formatSectionRef(ref.path, ref.headingPath)}"
+  - code: source_orphan_registry
+    module: server
+    messages:
+      - "登记项 ${sourceId} 既无来源卡也不被发布内容引用"
+  - code: source_status_conflict
+    module: server
+    messages:
+      - "来源 ${sourceId} 的核验状态冲突：来源卡 ${card.verificationStatus} ≠ 登记项 ${entry.verificationStatus}"
+  - code: source_status_unreadable
+    module: server
+    messages:
+      - "来源卡 ${sourceId} 的核验状态行无法识别，沿用登记项 ${entry.verificationStatus}"
+  - code: source_unregistered
+    module: server
+    messages:
+      - "发布内容引用了未登记的来源 ${sourceId}（被 ${count} 个主题引用）。来源卡是权威，请先在 content-manifest.json 的 sourceRegistry 登记，人工核对核验状态，不得自动改为已核验。"
+  - code: sync_conflict
+    module: server
+    messages: []
+  - code: topic_auto_retired
+    module: server
+    messages:
+      - "${autoRetired.length} 个主题因来源消失且无显式映射而自动退役（${autoRetired.slice(0, 8).join('、')}${autoRetired.length > 8 ? ' 等' : ''}）。若这是改名或拆分，请补 topic-id-map.json 记录。"
+  - code: topic_index_absent
+    module: server
+    messages:
+      - "主题定位索引不存在，无法核对两端口径（资料库侧运行 build_topic_index.py 生成）"
+  - code: topic_index_mismatch
+    module: server
+    messages:
+      - "主题口径与定位索引不一致：应用侧多 ${topicIndexDiff.nodeOnly.length} 项"
+  - code: topic_registry_reset
+    module: server
+    messages:
+      - "主题登记表为空，但上次发布的内容包里有 ${(previousBundle?.topics ?? []).length} 条主题。ID 登记是源资产，不能当缓存清空重建；请从备份恢复 content-manifest.json 的 topics。"
+  - code: topic_too_large
+    module: server
+    messages:
+      - "主题 ${topic.topicId} 正文超过单主题上限"
+  - code: unknown_stage
+    module: server
+    messages:
+      - "阶段未在规则投影中定义：${stageId}"
+  - code: unknown_topic
+    module: server
+    messages:
+      - "primaryTopicId 未登记：${unit.primaryTopicId}"
+  - code: unsupported_id_map
+    module: server
+    messages:
+      - "${wl.topicIdMapPath}: schemaVersion ${idMapRaw.schemaVersion} 高于本版本支持的 ${ID_MAP_SCHEMA_VERSION}，请先升级应用"
+  - code: vault_unavailable
+    module: server
+    messages:
+      - "资料库未连接，附件不可读"
