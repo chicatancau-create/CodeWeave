@@ -1,0 +1,109 @@
+/* ============================================================================
+   CodeWeave · M4 全站统一 · 观察面板基座（console-panel.tsx / variable-panel.tsx 共用）
+   ----------------------------------------------------------------------------
+   为什么单独成文：`.panel / .panel-header / .panel-title / .step-counter /
+   .console-status / .empty-panel` 这一族只有控制台与变量两个面板在渲染
+   （实测：src/ 内除本路的两个组件外没有别的消费方），而它的外观目前只存在于
+   styles.css 的裸类名规则里 —— 属于本路「基座」范围。两个组件都 import 本文件，
+   Vite 会去重，因此面板外壳只有一份定义，也不要求调用方按顺序引入。
+   特异度与层叠约定同 code-editor.css 头部注释：只在 (c) 档抬一位，页面作用域的
+   `.cw-workspace .panel …`（比 styles.css 恰好多一个类）永远压得住本文件。
+
+   取值出处（行号 = app/src/design/tokens.css）：黑场 L25、暖白 L27、次级 L28、
+   发丝线 L37/L40、抬起档 L38、语义状态 L60-L63、圆角三档 L118-L121、
+   面板投影 L123（L179 起指向 --ds-glow-panel，科技档冷色外发光）、
+   字栈 L88/L90、最小触控目标 L144、缓动 L147、普通交互 L153。
+   规格：§5.1（黑场 + 发丝线，去玻璃卡/渐变/泛光）、§5.4（模板 9.5–10.5px HUD 档
+   只留给非关键装饰；这里的最小字号是 12px）。
+   ========================================================================== */
+
+/* ── 外壳：黑场 + 一圈发丝线，直角 + 冷色面板发光（§5.1 分区；发光见 tokens §4.5） ── */
+section.panel {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-text-primary, #f4f1ee); /* L27 */
+  background: var(--ds-canvas, #000); /* L25：分区实底，不再 transparent 露出身后层 */
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37 */
+  border-radius: var(--ds-radius-panel, 0); /* L121 */
+  box-shadow: var(--ds-shadow-panel, none); /* L123 */
+  backdrop-filter: none; /* §5.1：玻璃拟态停用 */
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 头：min-height 而不是固定 height，长中文标题换行不被裁（§5.4） ─────── */
+div.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  height: auto; /* styles.css 的固定 42px 会裁掉换行的长中文标题（§5.4），这里显式放行 */
+  min-height: 42px;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  /* 产品派生遮光档：暖白一族（tokens L27 的 α 阶梯）。模板整站零分区底色，故 tokens 里
+     没有这一档，它定义在 styles.css :root 的 `--scrim-raised` 上——这里就引用那个名字，
+     不再抄一遍值：同一档遮光在别处（表格行、hover 分区）用的是同一个出处。 */
+  background: var(--scrim-raised, rgba(220, 233, 251, 0.055));
+  border-bottom: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  box-shadow: var(--ds-shadow-panel, none);
+}
+div.panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28，5.86:1 */
+  font-size: 12px; /* §5.4：不用 9.5–10.5px HUD 档承载必读标题 */
+  font-weight: 400; /* tokens L94：正文档 400；层级由字号与间距承担 */
+  letter-spacing: 0.16em;
+  text-transform: none; /* 中文标题大写无意义；英文态也不再依赖大小写区分 */
+  overflow-wrap: anywhere;
+}
+div.panel-title svg {
+  flex: 0 0 auto;
+  color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50：固定场景档，工作台内不逐帧变色 */
+}
+
+/* ── 计数与状态位：等宽、次级色；语义状态另有一路（各自文件里） ─────────── */
+span.step-counter,
+span.console-status {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace); /* L88 */
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* ── 空态：必读信息，不用 0.34 装饰档（tokens L29 明限「仅限装饰」） ─────── */
+div.empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-28, 28px) var(--ds-space-14, 14px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处） ──── */
+@media (prefers-reduced-motion: reduce) {
+  section.panel,
+  section.panel *,
+  section.panel *::before,
+  section.panel *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion section.panel,
+.reduce-motion section.panel *,
+.reduce-motion section.panel *::before,
+.reduce-motion section.panel *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

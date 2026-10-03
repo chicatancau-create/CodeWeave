@@ -1,0 +1,279 @@
+/* ============================================================================
+   CodeWeave · 设计令牌（M3 视觉竖切 · 第一步「设计提取」）
+   ----------------------------------------------------------------------------
+   来源：staging/style-pack/（「变幻视界 / EVENT HORIZON」WebGPU 落地页）
+   取证、冲突裁定与降级要求见同目录 README.md；文件与许可记录见 provenance.md；
+   形态使用边界见 geometry.md。
+   引用约定：`site.css L14` = staging/style-pack/source/css/site.css 第 14 行，
+             `main.js L16` / `gpu.js L12` 同理。全部值为源码原文，非推断。
+
+   使用边界
+   - 本文件只定义自定义属性，不含任何元素样式规则（除末尾的
+     prefers-reduced-motion 令牌覆写），单独引入不改变现有页面外观。
+   - 已被 app/src/main.tsx 引入，且必须排在 './styles.css' 之前（见该文件顶部
+     的顺序说明）：styles.css 的 :root 覆写建立在 `--ds-*` 之上，顺序颠倒会解析不到。
+   - 命名空间统一 `--ds-`，不与现有 app/src/styles.css 的 `--accent`(L31)、
+     `--line`(L27)、`--radius`(L55) 等重名，避免同名覆盖或双写。
+   - 颜色分两套且不得互换：`--ds-scene-*` 是模板里随场景插值的装饰点缀；
+     `--ds-status-*` 是语义状态，恒定不插值（01 号方案 §2.2 末段明确要求）。
+   - 只放 CSS 消费的值。GPU/滚动编排参数（设备像素比上限、scrub 平滑值、
+     HUD 刷新帧数、场景压暗区间、章节高亮阈值）不在此处，见 README §5 表。
+   ========================================================================== */
+
+:root {
+  /* ── 1. 场与文字（科技档覆写：原模板为暖白/纯黑，现改为冷调深蓝黑 + 冷白） ────
+     保留令牌名不变（15 个视图文件按名字消费），只换值。冷调取 hue≈220 一档：
+     深蓝黑底 + 冷白字，与冷青强调色同族，且仍满足对比度要求（见 §4 对照度说明）。 */
+  --ds-canvas: #05070d;                           /* 冷调深蓝黑：比纯黑多一点空间层次 */
+  --ds-canvas-solid: #05070d;                     /* L424 启动层、L465 降级层实底 */
+  --ds-canvas-raised: #0a0e18;                    /* 面板/卡片抬升一档的表面色 */
+  --ds-canvas-overlay: #070a12;                   /* 弹层/遮罩层表面色 */
+  --ds-text-primary: #e8eef7;                     /* 冷白，非纯白（保留暖白的可读感） */
+  --ds-text-secondary: rgba(224, 234, 248, 0.6);  /* 次级（正文/眉标） */
+  --ds-text-tertiary: rgba(224, 234, 248, 0.36);  /* 三级 —— 仅限装饰，见 §7 */
+  --ds-text-on-accent: #02040a;                   /* 冷青点缀色底上的深色前景 */
+  --ds-text-emphasis: 0.82;                       /* L306 .specs dd 的不透明度层级 */
+  --ds-text-emphasis-strong: 0.85;                /* L379 .ledger b */
+  --ds-text-emphasis-hover: 0.7;                  /* L168 .rail-item:hover b */
+
+  /* ── 2. 细线三档（原 site.css L18 / L176 / L94；科技档改为冷色描边） ─────── */
+  /* 「1px 发丝线」在源码里其实是一组梯度，压成一档会丢层次。
+     科技档把描边从暖白半透明换成冷蓝半透明（hue≈215），在黑场上叠出「冷金属边」
+     而不是暖灰边；三档的层次关系（默认 < 抬升 < 取景）保持不变。 */
+  --ds-line-hair: rgba(140, 175, 220, 0.16);      /* L18 分隔线/边框默认 */
+  --ds-line-raised: rgba(150, 190, 235, 0.2);     /* L176 章节轨竖线、L447 进度条底 */
+  --ds-line-frame: rgba(140, 175, 220, 0.08);     /* L94 取景框，纯装饰 */
+  --ds-line-accent: rgba(34, 211, 238, 0.38);     /* 强调态描边（hover / 选中分区） */
+  --ds-grid-strong: rgba(140, 175, 220, 0.17);    /* 工作区网格线 */
+  --ds-wash-grid: rgba(120, 175, 235, 0.022);     /* 页面细网格 */
+  --ds-wash-accent: rgba(34, 211, 238, 0.1);      /* 冷青环境光 */
+  --ds-wash-ambient: rgba(34, 211, 238, 0.30);    /* 页面左上环境光 */
+  --ds-stage-grid: #182438;                        /* 运行场景网格 */
+  --ds-stage-active-glow: rgba(34, 211, 238, 0.12); /* 运行场景活动节点泛光 */
+  --ds-stage-nebula-wash: rgba(167, 139, 250, 0.14); /* 运行场景星云节点浅底 */
+  --ds-line-width: 1px;                           /* L94 / L291 / L299 / L365 / L372 / L406 */
+
+  /* ── 3. 场景点缀（科技档：整族换成冷色科幻调，保留「单档切换」机制） ────── */
+  /* 原模板是暖色四档（橙/品红/青/金），全站默认橙。科技档把默认档换成冷青——
+     这是本次主题改造的**总开关**：15 个视图文件通过 --ds-scene-active 取强调色，
+     改这一档 = 全站强调色一次变色，不动任何视图文件。
+     色相分布刻意拉开：青（默认）/ 紫（星云）/ 薄荷（潮汐）/ 冰蓝（初光），
+     四档在冷色域内仍可分辨。对比度对 --ds-canvas(#05070d) 实测见 README。 */
+  --ds-scene-singularity: rgb(34, 211, 238);      /* 00 奇点 · 冷青（默认强调色，11.14:1） */
+  --ds-scene-nebula: rgb(167, 139, 250);          /* 01 星云 · 紫（8.4:1） */
+  --ds-scene-tides: rgb(46, 230, 200);            /* 02 潮汐 · 薄荷（12.73:1） */
+  --ds-scene-firstlight: rgb(125, 211, 252);      /* 03 初光 · 冰蓝（11.6:1） */
+  --ds-scene-active: var(--ds-scene-singularity); /* 工作台默认：静态、不插值 */
+  --ds-scene-glow-ring: 1.5px;                    /* L120 / L433 圆环描边宽度 */
+  --ds-scene-glow-near: 14px;                     /* L120 品牌点泛光 */
+  --ds-scene-glow-far: 26px;                      /* L433 启动点泛光 —— 业务界面禁用 */
+
+  /* ── 4. 语义状态：固定值，永不参与场景插值（01 号方案 §2.2 末段） ────────── */
+  /* 科技档：语义色相**刻意保持不变**（绿=成功 / 黄=警告 / 珊瑚=危险 / 蓝=信息）。
+     状态色是「用户必须一眼读懂」的通道，把成功改成青色会和强调色撞在一起，
+     反而让「这是强调还是成功」变模糊——所以这里只动一个值：信息蓝。
+     原因是画布从纯黑改成 #05070d 后，原 #4f7cff 掉到 5.43:1（低于在纯黑上的 5.66），
+     提亮到 #5b86ff 取回 6.04:1，且色相与冷青强调色仍拉得开（不混）。
+     对 --ds-canvas(#05070d) 实测：绿 10.61、黄 12.74、珊瑚 8.38、蓝 6.04，均 ≥4.5:1。
+     相邻色相在冷调下更难辨，所以状态必须同时带文字与图标，颜色不作唯一载体（机制不变）。 */
+  --ds-status-success: #3fd3a4;
+  --ds-status-warning: #ffc457;
+  --ds-status-danger: #ff8371;
+  --ds-status-info: #5b86ff;                      /* 原 #4f7cff，提亮以补画布变冷的对比度损失 */
+  --ds-status-success-wash: rgba(63, 211, 164, 0.12);
+  --ds-status-warning-wash: rgba(255, 196, 87, 0.12);
+  --ds-status-danger-wash: rgba(255, 131, 113, 0.16); /* 对齐现有 styles.css L695 危险态 */
+  --ds-status-info-wash: rgba(91, 134, 255, 0.16);
+  /* 约束：--ds-status-* 不得被 --ds-scene-active 覆写，也不得写进动画关键帧。 */
+
+  /* ── 4.5 语义描边档（01 号方案 §2.2；模板里状态既不携带文字也不带描边，本节为产品规则值） ──
+     同一族色在 0.45 α 上专门承担**1px 描边**：比 --ds-line-* 三档都可辨，又不会像实色那样
+     把整块染出来。改版前这一档在 styles.css 里逐处写死 `rgba(<同族色>, 0.45)` 共 19 处
+     （flow-node 四色、stage-status 三态、execution-tier 三档、挑战结果与证据边界等），
+     同一个意思十九种写法，正属 §2.2 要收的「硬编码同义值」。取值与那些原句逐字节相同，
+     所以这一档只是把已经在用的数说一次，不改外观。
+     科技档：语义三档的基色未变，所以这三行值不动；场景两档跟着新场景族换。 */
+  --ds-status-success-edge: rgba(63, 211, 164, 0.45);
+  --ds-status-warning-edge: rgba(255, 196, 87, 0.45);
+  --ds-status-danger-edge: rgba(255, 131, 113, 0.45);
+  --ds-scene-tides-edge: rgba(46, 230, 200, 0.45);   /* 跟 --ds-scene-tides 换 */
+  --ds-scene-nebula-edge: rgba(167, 139, 250, 0.5);  /* 跟 --ds-scene-nebula 换 */
+  /* 遮光层的第三、四、五档（§2.2 同一口径：styles.css :root 已有 --scrim / --scrim-raised
+     两档，这里补齐「滚动条滑块」「内凹分区」「hover」三个实际在用的数）。
+     科技档：由暖白半透明改为冷蓝半透明——在黑场上叠出来的是「冷金属压光」，
+     暖白会在这块冷画布上显脏。α 三档的相对关系保持不变。 */
+  --ds-wash-inset: rgba(120, 165, 220, 0.07);
+  --ds-wash-hover: rgba(120, 175, 235, 0.11);
+  --ds-wash-thumb: rgba(140, 180, 225, 0.24);
+  /* 科技档新增：发光档。原模板「零投影」（§7 --ds-shadow-panel: none），
+     科技风改走**冷色外发光**而不是黑色投影——黑底上黑投影等于没有，
+     发光才是能在黑场里表达层级的手段。三档强度递进，业务界面只用近档。 */
+  --ds-glow-near: 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14);
+  --ds-glow-far: 0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 24px rgba(34, 211, 238, 0.22);
+  --ds-glow-panel: 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55);
+  --ds-glow-inset: inset 0 1px 0 rgba(180, 215, 255, 0.07);
+
+  /* ── 5. 焦点与关键边界（模板无表单：本节为产品规则值，非提取值） ────────── */
+  /* 01 号方案 §5「焦点可见」+ 旧总工程方案 §5.1「关键输入/焦点边界单独提高可辨识度」（原文由 Git 保留）。模板 0.14 细线在
+     黑底上只有 1.32:1，不能承担焦点；暖白需 ≥ 0.37 才过非文本 3:1、≥ 0.49 过 4.5:1。
+     科技档换冷白后必须重算——冷白比暖白暗，同一 α 下对比度会掉：
+       · 焦点环：冷白 #dce9fb @0.72 合成到 #05070d 得 8.57:1，仍远超要求（原 9.23:1）。
+       · 字段静止边：#b8cfe8 @0.38 只剩 2.92:1，**低于非文本 3:1 线**，故 α 提到 0.46 → 3.29:1。
+       这两条是换冷色后唯一的达标风险点，改值不是调风格而是修回归。 */
+  --ds-focus-ring: rgba(220, 233, 251, 0.72);
+  --ds-focus-ring-width: 2px;
+  --ds-focus-offset: 2px;
+  --ds-field-border: rgba(184, 207, 232, 0.46);       /* 输入框静止态，3.29:1 ≥ 3:1 */
+  --ds-field-border-active: rgba(200, 224, 248, 0.68); /* 焦点/激活态，比静止态亮一档 */
+
+  /* ── 6. 字体（site.css L24-L25 原栈 + Windows 中文回退） ────────────────── */
+  /* 模板回退链只有 PingFang SC（macOS）与 Noto Sans SC（Android/Linux），
+     Windows 上两者通常都不存在，中文会掉到 monospace 靠系统字形链接兜底。
+     01 号方案 §2.2 要求「中文采用可靠系统回退字体」并实测，故显式补
+     Microsoft YaHei / JhengHei 与 Consolas。
+     Geist Mono 不含 CJK（site.css L21-L23 注释自陈，包内亦无中文字形），
+     任何「已覆盖中文排版」的表述都不成立，见 provenance.md §1。 */
+  --ds-font-display: 'Geist Mono', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei',
+    'Microsoft JhengHei', ui-monospace, monospace;
+  --ds-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', monospace;
+  --ds-font-cjk-ui: 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', sans-serif;
+
+  /* 展示标题：字重 200 + 负字距（site.css L258-L263 / L268-L275，核实一致） */
+  --ds-weight-display: 200;                       /* L262 / L274 */
+  --ds-weight-body: 400;                          /* L48 / L281 */
+  --ds-track-display: -0.03em;                    /* L260 */
+  --ds-track-title: -0.02em;                      /* L272 */
+  --ds-leading-display: 1;                        /* L259 —— 仅单行；中文多行禁用，README §3 C2 */
+  --ds-leading-title: 1.15;                       /* L271 多行中文标题用这一档 */
+  --ds-leading-lead: 1.66;                        /* L279 */
+
+  /* 模板字阶（clamp 原文，行号见括号） */
+  --ds-size-display: clamp(2.6rem, 6vw, 6rem);    /* L258 */
+  --ds-size-title: clamp(1.7rem, 3.6vw, 3.4rem);  /* L270；L358 结尾标题实测也在这档 */
+  --ds-size-lead: clamp(14.5px, 1.02vw, 17.5px);  /* L278 */
+  --ds-size-hud: 9.5px;                           /* L198 —— 仅非关键装饰 */
+  --ds-size-rail: 10px;                           /* L148 —— 仅非关键装饰 */
+  --ds-size-meta: 10.5px;                         /* L109 / L242 / L374 / L387 —— 同上 */
+
+  /* 产品正文可读性（01 号方案 §8 可读性验收；正文约 16px、行高 1.6–1.75 的原值出自旧总工程方案 §5.4，由 Git 保留；模板无此档） */
+  --ds-size-body: 16px;
+  --ds-leading-body: 1.7;
+  /* 必读小字档：模板在 10.5px 与 14.5px 之间是空档，而产品里有一批文字既不是正文
+     也不能看不清——按钮名、禁用条件说明、字段错误、空态解释。这三类此前一直写 10.5px,
+     也就是占用了上面自述「仅非关键装饰」的那一档, 与本文件第 6 段的注释互相矛盾。
+     取值 13px 不是新造的数：styles.css 的 `.account-menu strong` 早就硬写着 13px,
+     这里把它提成令牌, 同时给「必须读」的小字与「可以读不出来」的装饰拉开一档。 */
+  --ds-size-control: 13px;
+  --ds-leading-control: 1.55;
+  --ds-track-hud: 0.14em;                         /* L199 */
+  --ds-track-meta: 0.2em;                         /* L110 */
+  --ds-track-eyebrow: 0.24em;                     /* L243 */
+  --ds-track-boot: 0.28em;                        /* L443 */
+
+  /* ── 7. 形态与层级（科技档：直角 → 小圆角；零投影 → 冷色发光） ───────────
+     原模板「全站零圆角 + 零投影」是极简黑场的取舍：分区只靠 1px 发丝线。
+     科技风要的是「有厚度的面板」——所以圆角回到小档，投影换成冷色外发光
+     （黑底上黑投影等于没有，发光才是黑场里唯一能表达层级的形态手段）。
+     圆角只开三档，避免变成「到处都在圆」：面板 10px、控件 6px、药丸保留。
+     层级 z 值一律不动。 */
+  --ds-shape-none: 0;                             /* 保留：表格内联、发丝线分隔仍用直角 */
+  --ds-shape-circle: 50%;                         /* L118 / L128 / L431 */
+  --ds-shape-pill: 100px;                         /* L393 唯一药丸（CTA） */
+  --ds-radius-panel: 10px;                        /* 科技档：面板 / 弹层 / 卡片小圆角 */
+  --ds-radius-control: 6px;                       /* 科技档：按钮 / 输入框小圆角 */
+  --ds-radius-chip: 4px;                          /* 科技档：状态芯片 / 徽记（比控件更紧） */
+  --ds-shadow-panel: var(--ds-glow-panel);        /* 科技档：面板发光（原 none） */
+  --ds-blend-chrome: difference;                  /* L112 顶栏自动反色，业务界面慎用 */
+  --ds-blend-frame: screen;                       /* L95 取景框，装饰层 */
+  --ds-z-canvas: 0;                               /* L70 */
+  --ds-z-scrim: 1;                                /* L80 */
+  --ds-z-content: 4;                              /* L213 */
+  --ds-z-frame: 6;                                /* L92 */
+  --ds-z-fixed-ui: 8;                             /* L103 / L141 / L194 */
+  --ds-z-boot: 20;                                /* L423 */
+  --ds-z-fallback: 22;                            /* L462 */
+
+  /* ── 8. 布局尺度（site.css L27 / L107 / L226 / L231 / L281 / L144-L146） ── */
+  --ds-pad-page: clamp(20px, 4.4vw, 64px);        /* L27 --pad 全局水平安全边距 */
+  --ds-pad-bleed: clamp(22px, 3.2vw, 40px);       /* L107 / L193 固定 UI 内缩 */
+  --ds-gutter-visual: clamp(var(--ds-pad-page), 14vw, 200px); /* L226 文字为视觉主体让位 */
+  --ds-measure-lead: 44ch;                        /* L281 */
+  --ds-measure-hero: 38ch;                        /* L285 */
+  --ds-measure-stage: min(52ch, 46vw);            /* L231 */
+  --ds-rail-gap: 15px;                            /* L144 */
+  --ds-rail-offset: 22px;                         /* L146 给 1px 竖线让位 */
+  --ds-frame-inset: clamp(10px, 1.5vw, 20px);     /* L91 */
+  --ds-tap-min: 44px;                             /* §5.4 触控目标下限（模板 10px 文字不达标） */
+
+  /* ── 8.5 间距阶（01 号方案 §2.2「间距只能从设计令牌读取」） ────────────────
+     模板里没有任何间距阶：site.css 的 8px / 14px / 22px / 30px / 44px / clamp() 全是
+     逐条写死的字面量，所以这一阶是本产品定义的，不去资料库里找出处。
+     取值依据是 2026-09-27 对本仓 21 个 CSS 文件的普查：margin / padding / gap 上的
+     硬编码 px 共 1226 处、35 个互不相同的值，其中 2/4/6/8/10/12/14/16/20/24 占了 79%。
+     普查脚本与「改前/改后」计数记在 app/tests/quality.gates.test.mjs 的间距阶守卫里。
+     阶的读法：名字里的数字就是 px（`--ds-space-8` = 8px），差额一律向**上一档**靠，
+     因为压缩 padding 会直接顶到文字裁切，放大只会多一像素呼吸。
+     故意留在阶外的两种：hair（1px，像素级对位，不是间距）、seam（-1px，压住与 1px
+     发丝线的双重边）。这两类如果也塞进阶，就会被误用成「一种小间距」。 */
+  --ds-space-hair: 1px;
+  --ds-space-seam: -1px;
+  --ds-space-2: 2px;
+  --ds-space-4: 4px;
+  --ds-space-6: 6px;
+  --ds-space-8: 8px;
+  --ds-space-10: 10px;
+  --ds-space-12: 12px;
+  --ds-space-14: 14px;
+  --ds-space-16: 16px;
+  --ds-space-20: 20px;
+  --ds-space-24: 24px;
+  --ds-space-28: 28px;
+  --ds-space-32: 32px;
+  --ds-space-40: 40px;
+  --ds-space-48: 48px;
+  --ds-space-64: 64px;
+
+  /* ── 9. 动效时长 ────────────────────────────────────────────────────────── */
+  --ds-ease-standard: cubic-bezier(0.22, 1, 0.36, 1); /* L28 全站统一，核实一致 */
+  /* GSAP 侧另用 power1/2/3.out、power2.in、expo.out、none（main.js L173/L179/L187/
+     L195/L203/L211/L246）。CSS 的 --ease 与 GSAP 缓动不同族，不要互相换算。 */
+
+  /* 产品交互档：01 号方案 §2.2「动效默认短促」+ 旧总工程方案 §5.1「普通交互 150–300ms」（原文由 Git 保留）。模板里没有这一档
+     （源码最快是 0.4s），以下为产品决策值，标注以免日后被误当模板原值。 */
+  --ds-dur-quick: 150ms;
+  --ds-dur-base: 220ms;
+  --ds-dur-slow: 300ms;
+
+  /* 模板原值档 */
+  --ds-dur-hover: 400ms;                          /* L394 */
+  --ds-dur-state: 500ms;                          /* L158 / L164 / L453 */
+  --ds-dur-color: 700ms;                          /* L121 / L252 点缀色互转 */
+  --ds-dur-exit: 900ms;                           /* L455 */
+  --ds-dur-enter: 1400ms;                         /* L72 画布淡入 */
+  --ds-dur-loop-pulse: 2600ms;                    /* L130 */
+  --ds-dur-loop-sweep: 2400ms;                    /* L331 */
+  --ds-dur-loop-breathe: 2200ms;                  /* L434 */
+  --ds-stagger-row: 60ms;                         /* main.js L251 / L252 stagger 0.06 */
+  --ds-stagger-title: 110ms;                      /* main.js L187 stagger 0.11 */
+  --ds-anim-play-state: running;                  /* 消费方以 var() 驱动 animation-play-state */
+}
+
+/* 减少动效：令牌层只负责让 CSS 过渡与循环动画失效。
+   持续动画的真正停止（取消 RAF、摘 pointermove/resize 监听器、清 ScrollTrigger、
+   释放 GPU 纹理与缓冲）必须由组件实现 —— 模板原实现只把时间流速乘 0.35
+   （main.js L315），循环仍满帧跑，这是它对本产品的一处不适配。要求与缺口
+   逐条清单见 README §5。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ds-anim-play-state: paused;
+    --ds-dur-quick: 1ms;
+    --ds-dur-base: 1ms;
+    --ds-dur-slow: 1ms;
+    --ds-dur-hover: 1ms;
+    --ds-dur-state: 1ms;
+    --ds-dur-color: 1ms;
+    --ds-dur-exit: 1ms;
+    --ds-dur-enter: 1ms;
+  }
+}

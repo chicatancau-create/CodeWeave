@@ -1,0 +1,411 @@
+/* ============================================================================
+   资料来源区 · M4 全站统一（01 号方案 §3.4「数据页清楚标出来源、bundleId、更新时间、验证状态和缺口」/ §2.2 / §8）
+   ----------------------------------------------------------------------------
+   形态来源：staging/style-pack/source/css/site.css
+     - .specs   L286-L305  dt/dd 细线键值（dd 用 0.82 一档，L306）
+     - .ledger  L363-L381  发丝线分隔，不做逐行卡片
+   裁定依据：geometry.md §2 —— 来源区用 `.specs` 细线键值把
+   **规范主题 / 原文位置 / 核验状态 / 同步时间 / 正式事实** 五块清楚分开；
+   「明确禁止：用颜色单独表达语义状态」，因此核验状态走
+   「固定字符徽记 + 文字 + 边框样式」三通道（.cs-mark--*）。
+
+   作用域：每条选择器都以 `.cw-source` 起头（`.reduce-motion` 前缀除外）。
+   styles.css 在本文件之后打包，因此全部规则取两级以上优先级，
+   与共享层 `.content-source-banner` / `.lesson-source*` 的旧规则不靠源码顺序争胜负。
+
+   刻意不出现：backdrop-filter / 渐变 / outline:none / 第三种圆角 /
+   !important；box-shadow 只走 --cs-glow-* 别名（科技档反转，tokens §4.5：
+   黑投影在黑场上等于没有，层级改由冷色外发光承担），不许裸投影字面量。
+   本页零动画（长文阅读按 §5.3 第 1 条保持静态）。
+   ========================================================================== */
+
+.cw-source {
+  /* ── 局部别名：全部消费 --ds-* 令牌 + 兜底值 ───────────────────────────── */
+  --cs-canvas: var(--ds-canvas, #000);                            /* site.css L14 */
+  --cs-ink: var(--ds-text-primary, #f4f1ee);                      /* L15 */
+  --cs-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));  /* L16 · 5.86:1，承载信息 */
+  --cs-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));      /* L18 */
+  --cs-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 */
+  --cs-field-line: var(--ds-field-border, rgba(220, 233, 251, 0.38)); /* 控件边界 ≥3:1 */
+  --cs-accent: var(--ds-scene-active, rgb(34, 211, 238));         /* 固定场景，不插值 */
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     与 --cs-accent 同族，都是装饰；语义状态一律不消费这三个值（状态靠色 + 文字 + 图形）。 */
+  --cs-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --cs-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --cs-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  /* 遮光层二档（hover / 选中）。同族视图（--cv- / --pv-）一直是**定义 + 裸 var() 消费**，
+     本文件此前只有消费侧的内联兜底值、没有这一行定义，等于把「定义」藏在了一处用法里；
+     取值与那两处逐字节相同，所以补定义不改外观，只是把同族约定补齐。 */
+  --cs-scrim-raised: var(--ds-wash-hover, rgba(220, 233, 251, 0.055));
+  --cs-mono: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  --cs-body: var(--ds-size-body, 16px);                           /* §5.4 正文 16px */
+  --cs-leading: var(--ds-leading-body, 1.7);                      /* §5.4 行高 1.6–1.75 */
+  --cs-meta: 12.5px;                                              /* 产品档：承载信息的次级文字 */
+  --cs-tap: var(--ds-tap-min, 44px);                              /* §5.4 触控 ≥44px */
+  --cs-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L28 */
+  --cs-quick: var(--ds-dur-quick, 150ms);
+
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--cs-canvas);
+  color: var(--cs-ink);
+  font-family: var(--cs-mono);
+  font-size: var(--cs-body);
+  line-height: var(--cs-leading);
+  font-weight: var(--ds-weight-body, 400);
+}
+
+.cw-source *,
+.cw-source *::before,
+.cw-source *::after {
+  box-sizing: border-box;
+}
+
+/* 长分册路径 / 长中文标题 / 指纹串一律换行消化，320px 不破版（§5.4） */
+.cw-source :is(dt, dd, p, span, strong, em, button) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cw-source :is(button, a, summary, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 顶部来源状态条：一条横带，不是纵向堆叠 ─────────────────────────────────
+   单屏化（2026-09-30）：这里原本是 `display: grid` 且无 `grid-template-columns`，
+   于是三个子元素各占一整行——实测 1122px 宽 × 三行 = 186px 高，其中「五块事实明细」
+   和那颗按钮都只是各自一行的一小截。工作台一屏 900px，光这一条就吃掉两成。
+   改成一行的三列（说明自适应、明细与按钮各自 `auto`）：横向排开后只剩 68px，
+   而信息一样不少——说明仍在最左、明细仍是可展开的一行摘要、按钮仍在最右可点。 */
+.cw-source.content-source-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--cs-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--cs-ink);
+  font-size: var(--cs-body);
+  line-height: var(--cs-leading);
+}
+
+/* 共享层的形状通道（ok 实心方 / warn 空心菱）保留；这里只补文字档的字号与颜色 */
+.cw-source.content-source-banner.ok {
+  border-color: var(--cs-hair-raised);
+  background: transparent;
+  color: var(--cs-ink);
+}
+
+.cw-source.content-source-banner.warn {
+  border-color: var(--cs-field-line);
+  background: transparent;
+  color: var(--cs-ink);
+}
+
+/* 状态点（`ok` / `warn` 的 `::before`）在 grid 容器里**也是**一个网格项：它没有
+   显式定位，而其余三块把三列全占满了，于是被自动摆到**第 2 行**——
+   `grid-template-rows` 因此算成 `44px 8.6px`，凭空多一条 8.6px 的空行。
+   给它自己的第 1 列，其余三块顺次右移一列，行数就回到 1。 */
+.cw-source.content-source-banner::before {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: center;
+}
+.cw-source .cs-banner-lead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-6, 6px) var(--ds-space-8, 8px);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  grid-row: 1;
+  grid-column: 2;
+  color: var(--cs-ink);
+  font-size: var(--cs-body);
+  line-height: 1.6;
+}
+
+/* ── specs 五块分区（site.css L286-L305） ────────────────────────────────── */
+.cw-source .cs-specs {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: var(--ds-line-width, 1px) solid var(--cs-hair);
+}
+
+.cw-source .cs-spec {
+  display: grid;
+  grid-template-columns: minmax(0, 10ch) minmax(0, 1fr);
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--cs-hair);
+  margin: 0;
+}
+
+.cw-source .cs-spec dt {
+  margin: 0;
+  font-size: var(--cs-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--cs-dim);
+}
+
+.cw-source .cs-spec dd {
+  margin: 0;
+  font-size: var(--cs-body);
+  line-height: 1.6;
+  color: var(--cs-ink);
+  opacity: var(--ds-text-emphasis, 0.82); /* L306 */
+}
+
+/* 状态条里的五块并排（宽屏）；窄屏自动回到一列，语义不降级 */
+.cw-source .cs-specs--inline {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24ch), 1fr));
+  column-gap: clamp(var(--ds-space-12, 12px), 2vw, var(--ds-space-28, 28px));
+  border-top: 0;
+}
+
+.cw-source .cs-specs--inline .cs-spec {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-space-4, 4px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px) var(--ds-space-8, 8px) 0;
+  border-bottom: 0;
+  border-left: var(--ds-line-width, 1px) solid var(--cs-hair);
+  padding-left: var(--ds-space-10, 10px);
+}
+
+/* ── 核验状态标识：固定字符徽记 + 文字 + 边框样式，三通道（§5.1 末段） ─────── */
+.cw-source .cs-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  margin-right: var(--ds-space-8, 8px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px) var(--ds-space-2, 2px) var(--ds-space-4, 4px);
+  border: var(--ds-line-width, 1px) solid var(--cs-hair);
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--cs-meta);
+  line-height: 1.4;
+  color: var(--cs-ink);
+  vertical-align: middle;
+}
+
+.cw-source .cs-mark-glyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.7em;
+  height: 1.7em;
+  border: var(--ds-line-width, 1px) solid currentColor;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+/* 库内已存在：实线框；其余（含「外部未复核」「待核验」）：点线框 + 点线下划线。
+   两者都不使用场景色，也不因状态而改变文字内容。 */
+.cw-source .cs-mark--verified {
+  border-style: solid;
+}
+
+.cw-source .cs-mark--unverified {
+  border-style: dotted;
+  border-color: var(--cs-hair-raised);
+}
+
+.cw-source .cs-mark--unverified .cs-mark-text {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* ── 来源详情：标题行沿用共享 .lesson-source-head，本文件只补分区与细线 ────── */
+.cw-source.lesson-source {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-14, 14px);
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--ds-line-width, 1px) solid var(--cs-hair);
+}
+
+.cw-source .lesson-source-ids.cs-meta,
+.cw-source .cs-meta {
+  margin: 0;
+  color: var(--cs-dim);
+  font-size: var(--cs-meta);
+  line-height: 1.6;
+}
+
+.cw-source .cs-note {
+  margin: 0;
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) solid var(--cs-hair);
+  color: var(--cs-dim);
+  font-size: var(--cs-meta);
+  line-height: var(--cs-leading);
+  max-width: 88ch;
+}
+
+/* ── 控件：触控目标 ≥44px（§5.4），直角细线，不做渐变按钮 ─────────────────── */
+.cw-source .cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--cs-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--cs-field-line);
+  border-radius: var(--ds-radius-control, 0);
+  color: var(--cs-ink);
+  font-family: inherit;
+  font-size: var(--cs-meta);
+  line-height: 1.3;
+  transition: color var(--cs-quick) var(--cs-ease), border-color var(--cs-quick) var(--cs-ease);
+}
+
+.cw-source .cs-btn:hover:not(:disabled) {
+  border-color: var(--cs-accent);
+  color: var(--cs-accent);
+  box-shadow: var(--cs-glow-near);              /* 抬起面：冷色近档 */
+}
+
+.cw-source .cs-btn:active:not(:disabled) {
+  border-color: var(--cs-accent);
+  color: var(--cs-accent);
+  background-color: var(--cs-scrim-raised);
+  box-shadow: var(--cs-glow-inset);             /* 按下回落到内高光，不再抬起 */
+}
+
+.cw-source .cs-btn:disabled,
+.cw-source .cs-btn[aria-disabled='true'] {
+  color: var(--cs-dim);
+  border-color: var(--cs-hair-raised);
+  border-style: dashed; /* 虚线 = 等上一次同步返回；条件说明是同一段真实文字（见 .cs-disabled-hint） */
+  opacity: 1;           /* 覆盖共享层的 opacity:.5：§4 disabled 行不许只降透明度 */
+  cursor: not-allowed;
+}
+
+/* §4 disabled 行：禁用条件写成一句看得见的字，同时被 aria-describedby 指过去 */
+.cw-source .cs-disabled-hint {
+  margin: 0;
+  padding: var(--ds-space-8, 8px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--cs-hair);
+  color: var(--cs-dim);
+  font-size: var(--cs-meta);
+  line-height: var(--cs-leading);
+  max-width: 88ch;
+}
+
+/* §4 loading 行：「正在读取」不是结论，所以既不套 ok 档也不套 warn 档，
+   只用中性细线与遮光层，避免把「在等」画成「出了问题」。 */
+.cw-source.content-source-banner.loading {
+  border-color: var(--cs-hair-raised);
+  background: var(--cs-canvas);
+  color: var(--cs-dim);
+}
+
+/* ── 五块事实明细：默认收起 ─────────────────────────────────────────────────
+   单屏化（2026-09-30）：这五块是「来源是什么」的完整交代，不是当下要做的判断。
+   展开着它把状态条从 90px 撑到 345px，而工作台一屏只有 900px——真正要看的是
+   代码与画布。收进 <details>：默认只有一行摘要，点开仍在原处、仍可逐项核对，
+   节点也照旧在 DOM 里（测试按 DOM 取数，与展开与否无关）。
+   ------------------------------------------------------------------------ */
+.cw-source .cs-facts {
+  min-width: 0;
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: start;
+}
+/* 按钮收在第 3 列：明细与按钮都是「二级动作」，不该各占一整行。 */
+.cw-source .cs-btn {
+  grid-row: 1;
+  grid-column: 4;
+  justify-self: end;
+}
+/* 收起时它只占「明细」那一列（一行摘要的高度）；展开后五块需要整行宽度，
+   从第 1 列铺到最后一列——否则详情会被挤在 auto 列里竖着排。 */
+.cw-source .cs-facts[open] {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+.cw-source .cs-facts-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cs-tap);
+  padding: 0 var(--ds-space-8, 8px);
+  color: var(--cs-dim);
+  font-size: var(--cs-meta);
+  cursor: pointer;
+  /* 摘要口是控件：给一条边界线，让它读起来像能按的东西，而不是一行普通小字。 */
+  border: var(--ds-line-width, 1px) solid var(--cs-hair);
+  border-radius: var(--ds-radius-control, 6px);
+  list-style-position: inside;
+}
+/* 浏览器默认的三角记号在本项目的科技档里出戏；用 `::marker` 换成一格实心方块，
+   与 `.cs-mark` 的字符徽记同一语法。不删 `list-style`，旋转轮播面（`open`）仍有形状。 */
+.cw-source .cs-facts-summary::marker {
+  color: var(--cs-accent);
+}
+.cw-source .cs-facts[open] > .cs-facts-summary {
+  margin-bottom: var(--ds-space-8, 8px);
+  color: var(--cs-ink);
+  border-color: var(--cs-hair-raised);
+}
+.cw-source .cs-facts:not([open]) > .cs-facts-summary:hover {
+  border-color: var(--cs-hair-raised);
+}
+
+/* ── 响应式：窄屏让五块回到一列，键与值上下排列 ───────────────────────────── */
+@media (max-width: 679px) {
+  .cw-source .cs-specs--inline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cw-source .cs-specs--inline .cs-spec {
+    border-left: 0;
+    border-bottom: var(--ds-line-width, 1px) solid var(--cs-hair);
+    padding-left: 0;
+  }
+  .cw-source .cs-spec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-2, 2px);
+  }
+}
+
+/* 320px 最小宽度：字号收一档，长路径与长中文继续换行 */
+@media (max-width: 399px) {
+  .cw-source {
+    --cs-body: 15px;
+    --cs-meta: 12px;
+  }
+  .cw-source.content-source-banner {
+    padding: var(--ds-space-10, 10px);
+  }
+}
+
+/* ── §5.3 第 3 条：动效真正停止（两条路径各自完整生效，不依赖 tokens.css） ───
+   本页没有持续动画，真停的对象是 hover 过渡。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .cw-source *,
+  .cw-source *::before,
+  .cw-source *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.reduce-motion .cw-source,
+.reduce-motion .cw-source *,
+.reduce-motion .cw-source *::before,
+.reduce-motion .cw-source *::after {
+  animation: none;
+  transition: none;
+  scroll-behavior: auto;
+}

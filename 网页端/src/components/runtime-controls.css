@@ -1,0 +1,191 @@
+/* ============================================================================
+   CodeWeave · M4 全站统一 · 运行控制条基座（src/components/runtime-controls.tsx）
+   ----------------------------------------------------------------------------
+   特异度与层叠约定见 code-editor.css 头部注释（styles.css 在产物里排在组件样式之后，
+   所以这里只在 (c) 档抬一位；页面作用域 `.cw-workspace …` 恰好多一个类，永远压得住）
+   → 工作台观感仍由 learning-workspace-view.css L470-L570 决定，实测证据是工作台 39 条用例。
+
+   本文件做三件事：
+   1) 去掉基座唯一的持续动画：styles.css L1127-L1131 让「运行中」的圆点跑
+      `animation: blink 2.2s infinite`。§5.3 第 1 条要求编辑器周边为静态环境，
+      geometry.md §3 又要求停时必须落在**可读终态**（blink 的 50% 帧是 opacity .4 +
+      scale .75，停在中间帧就看不清），因此这里直接 `animation: none` 去掉循环，
+      状态改由「固定色实心点 + 圆环 + 右侧文字」表达。运行节奏本身不受影响
+      （判定与调用在 src/hooks/use-execution.ts，本路不改）。
+   2) 语义状态不跟随场景色（§5.1 末段）：五种 RunStatus 各自映射 tokens §4 的
+      固定 --ds-status-* 档，并且颜色之外一定有文字（组件里的 <strong> 文案）。
+   3) 形态：黑场 + 1px 发丝线、圆角只用 0 / 50% / 100px、零投影、
+      缓动 --ds-ease-standard、普通交互 150ms。
+
+   取值出处（行号 = app/src/design/tokens.css）：黑场 L25、暖白 L27、次级 L28、
+   发丝线 L37/L40、抬起档 L38、状态色 L60-L63、圆环宽 L51、焦点档 L73-L75、
+   字栈 L88、圆角 L118-L120、直角控制 L122、零投影 L123、触控下限 L144、
+   缓动 L147、时长 L153-L155。
+   ========================================================================== */
+
+div.run-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-20, 20px);
+  flex-wrap: wrap;
+  margin-top: var(--ds-space-16, 16px);
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37：与内容分区用一条线，不用卡片 */
+  box-shadow: var(--ds-shadow-panel, none); /* L123 */
+}
+
+div.run-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+}
+div.run-copy > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+}
+
+/* 状态圆环：靠 1px 描边成立（geometry.md §2 裁定 2），不靠底色也不靠辉光 */
+div.run-indicator {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L38 */
+  border-radius: var(--ds-shape-circle, 50%); /* L119 */
+  box-shadow: var(--ds-glow-near, none); /* 圆环由 border 承担，泛光只做修饰 */
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+div.run-indicator > span {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--ds-shape-circle, 50%);
+  background: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  box-shadow: var(--ds-glow-near, none);
+  animation: none; /* ← 干掉 styles.css 的 blink 无限循环（见头部第 1 条） */
+}
+
+/* ── 五种运行状态：固定语义档 + 文字双通道，一律不引用 --ds-scene-* ─────── */
+div.run-indicator.idle > span {
+  background: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+}
+/* 运行中：色点 + 一圈零模糊同心环（outline 跟随 border-radius 成立为圆环），
+   outline 不是 box-shadow，天然没有扩散与模糊 —— 状态靠环 + 色 + 文字三通道，
+   不消费 tokens §4.5 的装饰性发光（发光只表层级，不表状态）。 */
+div.run-indicator.running {
+  border-color: var(--ds-status-info, #4f7cff); /* L63 */
+  outline: var(--ds-scene-glow-ring, 1.5px) solid var(--ds-status-info, #4f7cff); /* 只取 L51 的**环宽**档，色相用状态档 */
+  outline-offset: 2px;
+}
+div.run-indicator.running > span {
+  background: var(--ds-status-info, #4f7cff);
+  /* 这一条必须与 styles.css 的 `.run-indicator.running span`（两个类）同档：
+     blink 是挂在该选择器上的，只在 `> span`（一个类）里写 animation: none 压不住它。 */
+  animation: none;
+}
+div.run-indicator.paused > span {
+  background: var(--ds-status-warning, #ffc457); /* L61 */
+}
+div.run-indicator.completed > span,
+div.run-indicator.done > span {
+  background: var(--ds-status-success, #3fd3a4); /* L60，11.07:1 */
+}
+div.run-indicator.error > span {
+  background: var(--ds-status-danger, #ff8371); /* L62，8.74:1 */
+}
+
+div.run-copy strong {
+  color: var(--ds-text-primary, #f4f1ee); /* L27 —— 状态文案是必读信息，走实色暖白 */
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+div.run-copy span {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28，5.86:1 */
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+div.run-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+}
+button.reset-button,
+button.step-button,
+button.run-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-6, 6px);
+  min-height: var(--ds-tap-min, 44px); /* L144 §5.4：运行/单步/重置是主操作 */
+  padding: 0 var(--ds-space-16, 16px);
+  background: transparent; /* 无渐变底、无玻璃底（§5.1） */
+  border: var(--ds-line-width, 1px) solid var(--ds-field-border, rgba(220, 233, 251, 0.38)); /* L76：控件边界 ≥3:1（实测 3.13:1） */
+  box-shadow: var(--ds-shadow-panel, none);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    background var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+/* 次级操作：直角（tokens L122「按钮直角；药丸仅留给主操作」） */
+button.reset-button {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  border-radius: var(--ds-radius-control, 0); /* L122 */
+}
+button.step-button {
+  color: var(--ds-text-primary, #f4f1ee);
+  border-radius: var(--ds-radius-control, 0);
+}
+button.reset-button:hover,
+button.step-button:hover {
+  color: var(--ds-text-primary, #f4f1ee);
+  border-color: var(--ds-field-border-active, rgba(220, 233, 251, 0.62)); /* L77：hover 抬一档，不加深底色 */
+}
+/* 主操作 = 模板唯一的实心形态：细线药丸（site.css L392-L394，tokens L120）。
+   实底取固定场景档，文字取 --ds-text-on-accent（对橙 8.08:1），不是白字压色底。 */
+button.run-button {
+  min-width: 116px;
+  color: var(--ds-text-on-accent, #000); /* L30 */
+  background: var(--ds-scene-active, rgb(34, 211, 238)); /* L50 */
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-radius: var(--ds-shape-pill, 100px); /* L120 */
+  font-weight: 700;
+}
+button.run-button:hover {
+  color: var(--ds-scene-active, rgb(34, 211, 238));
+  background: transparent;
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   「运行中」的循环动画在本基座已被去掉，这里再兜一次：继承自 styles.css 的
+   blink 与上面的颜色过渡都停成静态终态，而不是把时长乘 0.35。 */
+@media (prefers-reduced-motion: reduce) {
+  div.run-bar,
+  div.run-bar *,
+  div.run-bar *::before,
+  div.run-bar *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.run-bar,
+.reduce-motion div.run-bar *,
+.reduce-motion div.run-bar *::before,
+.reduce-motion div.run-bar *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

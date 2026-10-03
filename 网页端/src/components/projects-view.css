@@ -1,0 +1,846 @@
+/* ============================================================================
+   挑战与项目页族 · M4 全站统一 —— projects-view.css
+   ----------------------------------------------------------------------------
+   规格：docs/00-CodeWeave三合一总工程方案.md §5.2「挑战与项目」行 + §5.1 + §5.3 + §5.4。
+   形态裁定：src/design/geometry.md §2 —— 项目区属**业务信息区**，与学习工作台同族：
+   黑场 + 1px 发丝线 + 遮光层分区，直角；圆角只允许 0 / 50% / 100px 三档；
+   不挂取景框、不做持续动画、不用玻璃卡 / 渐变 / 泛光。
+   取值一律经 --ds-* 令牌并逐条带兜底（app/src/design/tokens.css）。
+
+   本页的「提交与草稿状态」映射（§5.2 在同一条里点名，两个区必须一眼分开）：
+     01 本机草稿 = 编辑器里的当前内容，改动即时写本机，但**没有可回滚的版本**；
+     02 检查点快照 = 已固化的文件副本，可恢复，恢复前系统自动再留一个安全点。
+   两区用「虚线细边 / 实线细边 + 编号 + 文字」三通道区分，不靠颜色单传。
+
+   本文件刻意不出现：backdrop-filter / linear-gradient / radial-gradient /
+   conic-gradient / text-shadow / outline: none / counter( / animation 循环；
+   `box-shadow` 只允许走 `--pv-glow-*` 别名（科技档反转，tokens §4.5：黑投影在黑场上
+   等于没有，层级改由冷色外发光承担），不许出现裸投影字面量；
+   `content:` 只允许 `content: ''`（几何图形，不注入文字）。
+   !important 只出现在文末 §5 的两条 reduced-motion 真停开关。
+   全局裸选择器：0 条 —— 每条规则都以 .projects-view 起头。
+   层叠纪律：styles.css 在组件样式之后引入，同名规则靠**更高选择器权重**取胜，
+   不重命名、不删除任何旧类名。
+   ========================================================================== */
+
+.projects-view {
+  /* ── 局部别名：全部落到 --ds-* 令牌 + 兜底 ─────────────────────────────── */
+  --pv-canvas: var(--ds-canvas, #000);                             /* site.css L14 */
+  --pv-ink: var(--ds-text-primary, #f4f1ee);                       /* L15 18.66:1 */
+  --pv-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));   /* L16 5.86:1 */
+  --pv-faint: rgba(220, 233, 251, 0.52);                           /* 产品三级文字档 5.44:1 */
+  --pv-decor: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34));  /* L17 仅装饰 */
+  --pv-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));       /* L18 */
+  --pv-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 */
+  --pv-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));    /* 输入边界 3.13:1 */
+  --pv-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62)); /* 聚焦 7.07:1 */
+  --pv-hair-width: var(--ds-line-width, 1px);
+  --pv-scrim: rgba(220, 233, 251, 0.028);
+  --pv-scrim-raised: rgba(220, 233, 251, 0.055);
+  --pv-scene: var(--ds-scene-active, rgb(34, 211, 238));           /* 只用于编号，不用于语义状态 */
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     装饰性，不参与语义状态。 */
+  --pv-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --pv-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --pv-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+
+  /* 语义状态恒定档（tokens §4）：危险 = 删除/不可撤销，信息 = 可恢复快照 */
+  --pv-bad: var(--ds-status-danger, #ff8371);
+  --pv-info: var(--ds-status-info, #4f7cff);
+  --pv-warn: var(--ds-status-warning, #ffc457);
+  --pv-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --pv-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+
+  --pv-mono: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  --pv-body: var(--ds-size-body, 16px);                            /* §5.4 正文约 16px */
+  --pv-leading: var(--ds-leading-body, 1.7);                       /* §5.4 行高 1.6–1.75 */
+  --pv-meta: 13px;                                                 /* 最小档：编号/键名 */
+  --pv-tap: var(--ds-tap-min, 44px);                               /* §5.4 触控 ≥44px */
+  --pv-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L28 */
+  --pv-quick: var(--ds-dur-quick, 150ms);
+  --pv-pad: clamp(14px, 2.2vw, 24px);
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-28, 28px));
+  min-width: 0;
+  color: var(--pv-ink);
+  background: var(--pv-canvas);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view *,
+.projects-view *::before,
+.projects-view *::after {
+  box-sizing: border-box;
+}
+
+.projects-view :is(h1, h2, h3, h4, p, ol, ul, li, dl, dt, dd, header, label) {
+  margin: 0;
+  padding: 0;
+}
+
+.projects-view :is(ul, ol) {
+  list-style: none;                                                /* 编号是真实文本 */
+}
+
+/* 长中文项目名 / 长代码行都不许撑破 320px（§5.4） */
+.projects-view :is(h1, h2, h3, p, span, li, label, strong, small, code, button) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.projects-view :focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ============================================================================
+   1. 页眉与新建区
+   ========================================================================== */
+
+.projects-view .module-heading.project-overview {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(var(--ds-space-16, 16px), 3vw, var(--ds-space-40, 40px));
+  flex-wrap: wrap;
+  margin-bottom: 0;
+  padding-bottom: var(--pv-pad);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .project-overview h1 {
+  margin: var(--ds-space-6, 6px) 0 var(--ds-space-8, 8px);
+  color: var(--pv-ink);
+  font-size: clamp(1.7rem, 3.6vw, 3.4rem);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.projects-view .project-overview > div > p:not(.eyebrow) {
+  max-width: 60ch;
+  color: var(--pv-dim);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .project-overview .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);
+  text-transform: uppercase;
+}
+
+.projects-view .project-overview .eyebrow-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--pv-hair-width) solid var(--pv-scene);
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;
+}
+
+.projects-view .project-create {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+}
+
+.projects-view .project-create-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.06em;
+}
+
+.projects-view .setting-select,
+.projects-view .field-label input,
+.projects-view .field-label textarea {
+  min-height: var(--pv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--pv-ink);
+  border: var(--pv-hair-width) solid var(--pv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .setting-select:focus-visible,
+.projects-view .field-label input:focus-visible,
+.projects-view .field-label textarea:focus-visible {
+  border-color: var(--pv-edge-active);
+}
+
+/* 主操作：细线药丸（geometry.md §2 允许的 100px 唯一圆角），无渐变无投影 */
+.projects-view .project-create .primary-action {
+  min-height: var(--pv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-20, 20px);
+  color: var(--pv-ink);
+  border: var(--pv-hair-width) solid var(--pv-edge-active);
+  border-radius: var(--ds-shape-pill, 100px);
+  background: none;
+  box-shadow: var(--pv-glow-inset);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.projects-view .project-create .primary-action:hover:not(:disabled) {
+  border-color: var(--pv-scene);
+  background: var(--pv-scrim-raised);
+  color: var(--pv-ink);
+}
+
+.projects-view .project-create .primary-action:active:not(:disabled) {
+  border-color: var(--pv-ink);
+  background: var(--pv-scrim-raised);
+  color: var(--pv-ink);
+}
+
+/* ============================================================================
+   2. 布局 + 编号清单
+   ========================================================================== */
+
+.projects-view .projects-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-28, 28px));
+  align-items: start;
+}
+
+.projects-view .project-list-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+
+.projects-view .projects-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.projects-view .projects-section-count {
+  color: var(--pv-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .project-list-item {
+  display: flex;
+  min-width: 0;
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .project-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-10, 10px);
+  flex: 1;
+  width: 100%;
+  min-height: var(--pv-tap);
+  padding: var(--ds-space-12, 12px);
+  border: 0;
+  border-left: var(--pv-hair-width) solid transparent;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  box-shadow: var(--pv-glow-inset);
+  color: var(--pv-ink);
+  font-family: var(--pv-mono);
+  text-align: left;
+  transition: background var(--pv-quick) var(--pv-ease), border-color var(--pv-quick) var(--pv-ease);
+}
+
+.projects-view .project-card:hover {
+  border-color: transparent;
+  border-left-color: var(--pv-edge);
+  background: var(--pv-scrim);
+  box-shadow: var(--pv-glow-inset);
+  transform: none;
+}
+
+/* 按下只走底色：不位移，§5.3-A/§5.3-B 把 hover 的 transform 压成 none 后反馈仍在 */
+.projects-view .project-card:active {
+  border-left-color: var(--pv-scene);
+  background: var(--pv-scrim-raised);
+  box-shadow: var(--pv-glow-inset);
+  transform: none;
+}
+
+.projects-view .project-card.selected,
+.projects-view .project-card.selected:hover {
+  background: var(--pv-scrim-raised);
+  border-left-color: var(--pv-scene);
+  box-shadow: var(--pv-glow-near);
+}
+
+/* 真实文本编号：与阶段名同族，靠等宽成列 */
+.projects-view .project-card-no {
+  flex: 0 0 auto;
+  color: var(--pv-scene);
+  font-size: var(--pv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 结构改动后 styles.css 的 `.project-card > div:nth-child(2)` 会落到图标上，
+   这里按更高权重把它收回装饰格，正文列改由 .project-card-body 承载。 */
+.projects-view .project-card > div.project-icon:nth-child(2) {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  min-width: 0;
+  border: var(--pv-hair-width) solid var(--pv-hair);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  gap: 0;
+  color: var(--pv-faint);
+}
+
+.projects-view .project-card .project-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+}
+
+/* 长中文项目名折行，不用省略号吞掉信息（§5.4） */
+.projects-view .project-card strong {
+  color: var(--pv-ink);
+  font-size: var(--pv-body);
+  font-weight: 600;
+  line-height: 1.5;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.projects-view .project-card small {
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.04em;
+}
+
+.projects-view .project-card-checkpoints {
+  color: var(--pv-faint);
+}
+
+.projects-view .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--pv-pad);
+  border: var(--pv-hair-width) dashed var(--pv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--pv-dim);
+  background: none;
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .empty-state strong {
+  color: var(--pv-ink);
+  font-size: var(--pv-body);
+}
+
+.projects-view .empty-state svg {
+  color: var(--pv-faint);
+}
+
+/* ============================================================================
+   3. 详情：轻边界信息区 + 两个状态区
+   ========================================================================== */
+
+.projects-view .project-detail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-24, 24px));
+  min-width: 0;
+  padding: var(--pv-pad);
+  border: var(--pv-hair-width) solid var(--pv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  box-shadow: var(--pv-glow-panel);
+}
+
+.projects-view .detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-14, 14px);
+  flex-wrap: wrap;
+  padding-bottom: var(--pv-pad);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .detail-header h2 {
+  margin: 0;
+  color: var(--pv-ink);
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: 1.25;
+}
+
+.projects-view .detail-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+}
+
+.projects-view .detail-actions .subtle-button,
+.projects-view .checkpoint-actions .subtle-button,
+.projects-view .checkpoint-row .subtle-button {
+  min-height: var(--pv-tap);
+  color: var(--pv-ink);
+  border: var(--pv-hair-width) solid var(--pv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  box-shadow: var(--pv-glow-inset);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  font-weight: 400;
+  white-space: normal;
+}
+
+.projects-view .detail-actions .subtle-button:hover,
+.projects-view .checkpoint-actions .subtle-button:hover,
+.projects-view .checkpoint-row .subtle-button:hover {
+  color: var(--pv-ink);
+  border-color: var(--pv-edge-active);
+  background: var(--pv-scrim);
+}
+
+.projects-view .detail-actions .subtle-button:active,
+.projects-view .checkpoint-actions .subtle-button:active,
+.projects-view .checkpoint-row .subtle-button:active {
+  background: var(--pv-scrim-raised);
+}
+
+/* 删除 = 不可撤销：恒定危险色 + 文字，不跟随场景色 */
+.projects-view .detail-actions .danger-button {
+  min-height: var(--pv-tap);
+  color: var(--pv-bad);
+  border: var(--pv-hair-width) solid var(--pv-bad);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--pv-bad-wash);
+  box-shadow: var(--pv-glow-inset);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.projects-view .detail-actions .danger-button:hover {
+  border-color: var(--pv-bad);
+  background: var(--pv-bad-wash);
+  color: var(--pv-bad);
+}
+
+/* 危险操作按下：走暖白遮光层而不是加深红底，避免与「已确认」的实红混淆 */
+.projects-view .detail-actions .danger-button:active {
+  border-color: var(--pv-bad);
+  background: var(--pv-scrim-raised);
+  color: var(--pv-bad);
+}
+
+/* 两个状态区：草稿=虚线边、快照=实线边（形状通道，不靠颜色单传） */
+.projects-view .project-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+  padding: var(--pv-pad);
+  border: var(--pv-hair-width) solid var(--pv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+}
+
+.projects-view .project-zone--draft {
+  border-style: dashed;
+  background: none;
+}
+
+.projects-view .project-zone--snapshot {
+  border-style: solid;
+  background: var(--pv-scrim);
+}
+
+.projects-view .project-zone-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .project-zone-no {
+  color: var(--pv-scene);
+  font-size: var(--pv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .project-zone-title {
+  color: var(--pv-ink);
+  font-size: var(--pv-body);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.projects-view .project-zone-scope {
+  color: var(--pv-faint);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.04em;
+}
+
+.projects-view .field-label {
+  gap: var(--ds-space-8, 8px);
+  margin-top: 0;
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.projects-view .field-label textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.projects-view .project-draft-state {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  line-height: 1.6;
+}
+
+.projects-view .project-draft-state svg {
+  flex: 0 0 auto;
+  color: var(--pv-faint);
+}
+
+.projects-view .project-draft-state-label {
+  color: var(--pv-faint);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.projects-view .file-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-4, 4px) 0 0;
+  padding: var(--ds-space-10, 10px) 0 0;
+  border-top: var(--pv-hair-width) solid var(--pv-hair);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.projects-view .project-file {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-top: 0;
+  border: var(--pv-hair-width) solid var(--pv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+}
+
+.projects-view .file-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+  background: var(--pv-scrim);
+  color: var(--pv-ink);
+  font-size: var(--pv-meta);
+}
+
+.projects-view .file-meta svg {
+  color: var(--pv-faint);
+}
+
+.projects-view .file-meta strong {
+  font-size: var(--pv-body);
+  font-weight: 600;
+}
+
+.projects-view .file-meta span {
+  color: var(--pv-faint);
+  font-size: var(--pv-meta);
+}
+
+/* 长代码行：保持 pre + 横向滚动，不压缩、不换行折行（§5.4） */
+.projects-view .project-code {
+  width: 100%;
+  min-height: 140px;
+  padding: var(--ds-space-12, 12px);
+  overflow-x: auto;
+  color: var(--pv-ink);
+  border: 0;
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--pv-mono);
+  font-size: var(--editor-font-size, 13px);                          /* 编辑器保留用户字号（§5.4） */
+  line-height: var(--pv-leading);
+  white-space: pre;
+  resize: vertical;
+}
+
+.projects-view .project-code:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: -2px;
+}
+
+/* ============================================================================
+   4. 检查点（快照区）
+   ========================================================================== */
+
+.projects-view .checkpoint-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  flex-wrap: wrap;
+}
+
+.projects-view .checkpoint-counter {
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .checkpoint-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--pv-hair-width) solid var(--pv-info);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--pv-info-wash);
+  color: var(--pv-info);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .checkpoint-note svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+
+.projects-view .checkpoint-empty {
+  padding: var(--ds-space-12, 12px);
+  border: var(--pv-hair-width) dashed var(--pv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--pv-dim);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .checkpoint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .checkpoint-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+  font-size: var(--pv-body);
+}
+
+.projects-view .checkpoint-no {
+  color: var(--pv-scene);
+  font-size: var(--pv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .checkpoint-at {
+  color: var(--pv-ink);
+}
+
+.projects-view .checkpoint-files {
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+}
+
+.projects-view .checkpoint-row .subtle-button {
+  grid-column: 4;
+}
+
+/* ============================================================================
+   5. 响应式：320px 不破版（§5.4）
+   ========================================================================== */
+
+@media (max-width: 1080px) {
+  .projects-view .projects-layout {
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .projects-view .projects-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .projects-view .project-zone {
+    padding: var(--ds-space-12, 12px);
+  }
+
+  .projects-view .detail-header,
+  .projects-view .detail-actions {
+    width: 100%;
+  }
+
+  .projects-view .detail-actions button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .projects-view {
+    --pv-pad: 12px;
+  }
+
+  .projects-view .checkpoint-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--ds-space-8, 8px);
+  }
+
+  .projects-view .checkpoint-files,
+  .projects-view .checkpoint-row .subtle-button {
+    grid-column: 1 / -1;
+  }
+
+  .projects-view .project-card > div.project-icon:nth-child(2) {
+    display: none;                                                  /* 320px 下让位给编号与名称 */
+  }
+}
+
+/* ============================================================================
+   6. §5.3 降级：本页新增动效只有 border/background 的 150ms 过渡，无循环动画。
+   两条路径各写真停（动画名归零、过渡取消），终态可读。本文件 !important 仅此一块。
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .projects-view *,
+  .projects-view *::before,
+  .projects-view *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .projects-view .project-card:hover {
+    transform: none !important;
+  }
+}
+
+.reduce-motion .projects-view *,
+.reduce-motion .projects-view *::before,
+.reduce-motion .projects-view *::after,
+.projects-view.reduce-motion *,
+.projects-view.reduce-motion *::before,
+.projects-view.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion .projects-view .project-card:hover,
+.projects-view.reduce-motion .project-card:hover {
+  transform: none !important;
+}
+
+/* ============================================================================
+   落盘失败那一块（01 号方案 §4 的 error 行 + §2.1 状态层）
+   语义色之外还要有文字与边界，不只靠颜色承载；颜色与线宽全部走令牌，不自写色值。
+   ========================================================================== */
+.projects-view .projects-persist-error {
+  margin: 0 0 var(--ds-space-14, 14px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--hair) solid var(--ds-status-danger, #ff8371);
+  border-left-width: 3px;
+  background: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  color: var(--ink);
+}
+
+.projects-view .projects-persist-error strong {
+  display: block;
+  color: var(--ds-status-danger, #ff8371);
+  letter-spacing: var(--ds-track-title, -0.02em);
+}
+
+.projects-view .projects-persist-error-reason,
+.projects-view .projects-persist-error-note {
+  margin: var(--ds-space-6, 6px) 0 0;
+  color: var(--muted);
+  font-size: var(--ds-size-body, 16px);
+  line-height: var(--ds-leading-body, 1.7);
+  overflow-wrap: anywhere;
+}
+
+.projects-view .projects-persist-error-note {
+  color: var(--faint);
+}
+
+.projects-view .projects-persist-retry {
+  margin-top: var(--ds-space-10, 10px);
+  min-height: var(--ds-tap-min, 44px);
+}

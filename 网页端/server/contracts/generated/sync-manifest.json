@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-10-02T06:57:51.805Z",
+  "contractVersion": "1.0.0",
+  "openapiSpec": "3.1.0",
+  "sourceDigests": {
+    "contracts/openapi.yaml": "7bf9f4cf2b4684579e15bc25b5ac3c17f5bbffe3417c350380d46ec46017fc63",
+    "contracts/errors.yaml": "bae0495194b500edae0eea9b655c0c66a100f6812b7fcf7be591bb587012db2a",
+    "contracts/validation-codes.yaml": "9467443eb79ad2f0afa741c5f83c72f971729b777b086501c089ce613aa3fa29"
+  },
+  "counts": {
+    "operations": 28,
+    "errorCodes": 62,
+    "schemas": 4
+  }
+}

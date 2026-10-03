@@ -1,0 +1,126 @@
+/* ============================================================================
+   CodeWeave · M4 全站统一 · 控制台输出基座（src/components/console-panel.tsx）
+   ----------------------------------------------------------------------------
+   面板外壳（.panel / .panel-header / .panel-title / .console-status / .empty-panel）
+   在 panel-shell.css，两个面板共用一份；本文件只写控制台自己的部分。
+   特异度与层叠约定见 code-editor.css 头部注释：只在 (c) 档抬一位，
+   页面作用域 `.cw-workspace …`（恰好多一个类）永远赢 → 工作台观感不受影响。
+
+   取值出处（行号 = app/src/design/tokens.css）：黑场 L25、暖白 L27、发丝线 L37/L40、
+   语义状态 L60-L67（成功/危险 + wash）、字栈 L88、缓动 L147、时长 L153。
+   规格：§5.1（黑场分区、去泛光）、§5.4（stdout 也是正文：13px 等宽 + 1.65 行高，
+   长行横向滚动不折行挤压）、§5.1 末段（错误态固定标识 + 文字，不跟随场景色）。
+   ========================================================================== */
+
+div.console-body {
+  min-height: 96px;
+  max-height: 240px;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  overflow: auto; /* 两个方向：stdout 长行走横向滚动条，不挤压折行（§5.4） */
+  color: var(--ds-text-primary, #f4f1ee); /* L27 */
+  background: var(--ds-canvas, #000); /* L25：内凹面实底黑，与外壳发丝线一起分区 */
+  box-shadow: var(--ds-shadow-panel, none); /* L123 */
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace); /* L88 */
+  font-size: var(--ds-size-control, 13px);      /* 原基座 10.5px 在 §5.4 里连 HUD 档都不是，属被抬起的对象 */
+  line-height: 1.65;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+div.console-line {
+  color: var(--ds-text-primary, #f4f1ee);
+}
+div.console-line > span {
+  margin-right: var(--ds-space-10, 10px);
+  color: var(--ds-status-success, #3fd3a4); /* L60：`›` 提示符是固定标识，不跟场景 */
+}
+
+/* 错误态：固定危险色 + 左侧 2px 状态实心线 + 原文字（✕ 与消息），三通道表达，
+   不依赖颜色单独承载，也不使用 --ds-scene-*（§5.1 末段硬要求）。 */
+div.console-error {
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  color: var(--ds-status-danger, #ff8371); /* L62，对 #000 为 8.74:1 */
+  background: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16)); /* L66 */
+  border-left: 2px solid var(--ds-status-danger, #ff8371);
+  border-radius: var(--ds-shape-none, 0); /* L118 */
+  /* 错误块刻意不加发光：它是语义状态面，三通道（危险色 + 左侧实线 + 原文字）已经齐了，
+     再叠装饰性泛光会把「装饰」混进「状态」，也让状态色核对多出一条非 --ds-status-* 的声明。 */
+  box-shadow: none;
+}
+
+/* 头部的「第 N 行错误」与危险色同行；文字已经是第二通道（色只是加固）。 */
+span.console-status.error {
+  color: var(--ds-status-danger, #ff8371);
+}
+
+/* ── EDIT-01 第 6 条：清空 / 复制 / 错误定位三个一次性动作 ─────────────────
+   视觉高度 32px（次级文字按钮档），命中区按本库通用写法用 ::before 外扩到 44
+   ——与 .streak-more、编辑器页脚同一套路（styles.css L441 起的写法）。
+   只写 (c) 档（类型选择器）：页面作用域 `.cw-workspace …` 仍然压得住本文件。 */
+div.console-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+button.console-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-4, 4px);
+  min-height: 32px;
+  padding: 0 var(--ds-space-8, 8px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28 */
+  background: transparent;
+  border: 0;
+  box-shadow: var(--ds-shadow-panel, none); /* L123：零投影 */
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: 12px; /* §5.4：必读信息不进 HUD 档 */
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+button.console-action::before {
+  content: '';
+  position: absolute;
+  inset: -6px; /* 32 + 6 + 6 = 44 */
+}
+button.console-action:hover {
+  color: var(--ds-text-primary, #f4f1ee); /* L27 */
+}
+button.console-action:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72)); /* L73/L74 */
+  outline-offset: 2px; /* L75：环在命中区内侧还是外侧都行，别被面板 overflow 切掉 */
+}
+/* 复制结果只换按钮自己的文字，不另加颜色：文字本身已经是通道。 */
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   本文件不含 @keyframes 与 infinite 动画，这里停掉的是继承自 styles.css 的过渡，
+   以及页脚动作按钮自己的那条 150ms 颜色过渡（按钮在 .panel-header 里，不在 .console-body 下）。 */
+@media (prefers-reduced-motion: reduce) {
+  div.console-body,
+  div.console-body *,
+  div.console-body *::before,
+  div.console-body *::after,
+  div.console-actions,
+  div.console-actions *,
+  div.console-actions *::before,
+  div.console-actions *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.console-body,
+.reduce-motion div.console-body *,
+.reduce-motion div.console-body *::before,
+.reduce-motion div.console-body *::after,
+.reduce-motion div.console-actions,
+.reduce-motion div.console-actions *,
+.reduce-motion div.console-actions *::before,
+.reduce-motion div.console-actions *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

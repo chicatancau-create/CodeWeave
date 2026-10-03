@@ -1,0 +1,2045 @@
+/* ============================================================================
+   CodeWeave · M3 视觉竖切 · 学习工作台（01 号方案 §2.2 / §3.2 主工作台 / §5 无障碍 / §8 验收清单）
+   ----------------------------------------------------------------------------
+   - 只服务 learning-workspace-view.tsx：**每条选择器都以 .cw-workspace 起头**，
+     不写全局裸选择器，因此挑战页 / 项目页 / 复习页共用同一批子组件时不受影响。
+   - 值一律走 --ds-*（app/src/design/tokens.css），并按仓库要求带兜底；
+     令牌尚未接入运行期时，兜底就是模板 site.css / main.js 的源码原值。
+   - §5.3 第 1 条：编辑器与长文阅读为静态/低动态环境。本文件**不含任何
+     @keyframes、不含无限动画**；box-shadow 只走 --cw-glow-* 别名（科技档反转，
+     tokens §4.5：黑投影在黑场上等于没有，层级改由冷色外发光承担），
+     且模糊位与位移恒为 0 —— 发光是静态描边式的，不是持续泛光；
+     仅保留悬停/焦点的颜色过渡，并在系统偏好与 .reduce-motion 下写成
+     `animation: none / transition: none`（真正停止，不是放慢）。
+   - 遮光层：黑场上唯一使用的层次色是 rgb(14,14,15)。暖白 --ds-text-secondary
+     在其上仍有 5.39:1（见 src/design/README.md §6），因此可以承载正文级信息。
+   - 不加 backdrop-filter / border-radius 卡片 / 渐变底：§5.1「移除玻璃卡、
+     渐变按钮、泛光」。圆环与细线药丸按模板保留。
+   ========================================================================== */
+
+.cw-workspace {
+  /* ── 本地别名：全部带模板原值兜底 ─────────────────────────────────────── */
+  --cw-canvas: var(--ds-canvas, #000);
+  --cw-scrim: rgb(14, 14, 15); /* 遮光层（分区/内凹面） */
+  --cw-fg: var(--ds-text-primary, #f4f1ee);
+  --cw-fg-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  --cw-fg-faint: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* 仅装饰：分隔点、序号底纹 */
+  --cw-line: var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  --cw-line-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  --cw-line-width: var(--ds-line-width, 1px);
+  --cw-scene: var(--ds-scene-active, var(--ds-scene-singularity, rgb(34, 211, 238)));
+  --cw-ring: var(--ds-scene-glow-ring, 1.5px);
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     与 --cw-scene 同族，都是装饰；语义状态（--cw-ok 等）一律不消费这三个值。 */
+  --cw-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --cw-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --cw-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --cw-glow-line: inset 0 0 0 1px var(--cw-scene); /* 当前执行行：零模糊自发光，取代旧霓虹泛光与位移 */
+  --cw-on-scene: var(--ds-text-on-accent, #000);
+  /* 语义状态固定，不跟场景（§5.1 末段）：颜色不是唯一载体，状态同时有文字。 */
+  --cw-ok: var(--ds-status-success, #3fd3a4);
+  --cw-warn: var(--ds-status-warning, #ffc457);
+  --cw-err: var(--ds-status-danger, #ff8371);
+  --cw-info: var(--ds-status-info, #4f7cff);
+  --cw-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  --cw-focus-w: var(--ds-focus-ring-width, 2px);
+  --cw-focus-off: var(--ds-focus-offset, 2px);
+  --cw-mono: var(--ds-font-mono, ui-monospace, 'Cascadia Code', Consolas, 'Microsoft YaHei', monospace);
+  --cw-ui: var(--ds-font-cjk-ui, 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', sans-serif);
+  --cw-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+  --cw-dur: var(--ds-dur-quick, 150ms);
+  --cw-body: var(--ds-size-body, 16px); /* §5.4：阅读区正文 ~16px */
+  --cw-leading: var(--ds-leading-body, 1.7); /* §5.4：行高 1.6–1.75 */
+  --cw-label: 12px; /* 分区名与元信息：结构化内容，不用模板 9.5–10.5px HUD 档 */
+  --cw-tap: var(--ds-tap-min, 44px);
+
+  min-width: 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-ui);
+  font-weight: var(--ds-weight-body, 400);
+  /* 顶栏偏移：把这页钉在一屏内时，从视口高度里扣掉的外壳高度。
+     --topbar-h 64 + .content-wrap 上内边距 32 + 页头/导航约 132 + 下留白 24。
+     只是**上限**用（下面 max-height 里的减数），量多了只会让页面比一屏矮一点，
+     所以取一个保守常量而不是量出来的精确值；外层另有 min-height 兜底。 */
+  --cw-chrome-h: 252px;
+
+  /* ── 一屏化的地基（2026-10-01，用户实测反馈后修） ─────────────────────────
+     原来这套「钉进一屏」只写在 `@media (min-width: 1081px)` 里，等于**只对宽屏
+     生效**。用户的实际视口落在 1081 以下，于是：
+       1. 上限不生效 → 工作台按内容自然生长，实测 1630px 高，整页要滑 1350px；
+       2. `.learning-view` 在窄屏是**单列**（阅读 → 编辑器 → 控制条 → 完成区 → 画布
+          依次纵排），五块叠起来，正是用户说的「上下滑动非常严重」。
+     所以把上限提到基础规则：任何宽度都不许把页面撑长。语法不支持 svh 的浏览器
+     吃后一行 vh（与下面各档同一写法）。 */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--cw-chrome-h));
+  max-height: calc(100svh - var(--cw-chrome-h));
+  /* 闸门：没有它 max-height 只是建议，子项照样把整页顶下去。 */
+  overflow: hidden;
+}
+
+/* ── 顶栏：细线 + 极窄字重标题；返回路径任何视口都可见（§5.2 末段） ─────── */
+.cw-workspace .learning-header {
+  gap: var(--ds-space-12, 12px);
+  margin-bottom: var(--ds-space-14, 14px);
+  padding-bottom: var(--ds-space-14, 14px);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+  flex-wrap: wrap;
+}
+.cw-workspace .learning-title {
+  gap: var(--ds-space-6, 6px);
+  /* 基座是 `flex: 1`（= basis 0%）。在**可换行**的 flex 容器里，basis 0% 等于「永远算放得下」，
+     于是 flex-wrap 永不触发，标题只能吃同行剩下的宽度——320px 实测只剩 24px，
+     110 字的长课名被排成 69.5 行（≈1890px 高的一字一列，长文本补测 §4.12 量出来的）。
+     改成 basis auto 让换行算法看得见真实内容宽度：放不下就整段挪到自己那一行。 */
+  flex: 1 1 auto;
+}
+.cw-workspace .learning-title h1 {
+  /* #77：档从 strong 平移到页级 h1，字号字重一个字没改；h1 的 UA 外边距要归零。 */
+  margin: 0;
+  /* 展示标题 DNA（字重 200 + 负字距），但允许换行：长中文标题不裁切（§5.4） */
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: clamp(17px, 2vw, 24px);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+  overflow-wrap: anywhere;
+}
+.cw-workspace .learning-title span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+}
+/* 代码模式开关：与返回/图标按钮同一档细线药丸，但带文字（这个动作的后果是整页重排，
+   一个图标说不清）。它在页头动作组的最左一格——先「换摆法」，再是指南与帮助。
+   形态全部继承下面那条 `back-button, icon-button` 的组合规则，这里只写它多出来的部分：
+   图标 + 文字的横排、以及「已开启」那一档的着色。 */
+.cw-workspace .cw-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  min-height: var(--cw-tap);
+  padding: 0 var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-pill, 100px);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  transition: color var(--cw-dur) var(--cw-ease), border-color var(--cw-dur) var(--cw-ease);
+}
+/* 开启态：与 `.icon-button.active` 同一档（场景色线 + 场景色字），而不是新造一种强调。
+   只靠颜色之外的差异还不够——文字本身也从「代码模式」变成「退出代码模式」，
+   状态不单靠色相承载（00 号方案 §6「不能只靠颜色」）。 */
+.cw-workspace .cw-mode-toggle.is-on {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+}
+.cw-workspace .cw-mode-toggle:hover {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+}
+.cw-workspace .cw-mode-toggle:active {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+
+.cw-workspace .back-button,
+.cw-workspace .icon-button {
+  /* 细线药丸：无底色、无投影。
+     §5.4 触控目标 ≥44px：这里原先收在 40px 档，而同一条 ≤760px 媒体查询（本文件末）
+     又把同一批控件抬回 var(--cw-tap)=44 —— 也就是说 40 只是桌面档漏下的一档，
+     不是设计决定。统一回到令牌，观感仍是细线药丸，只是 pill 高 4px。
+     顶栏的视觉高度由 .icon-button（styles.css 给的 44 高）决定，因此本行不改
+     首屏行高，只改按钮自身。 */
+  min-height: var(--cw-tap);
+  padding: 0 var(--ds-space-16, 16px);
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-pill, 100px);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.14em;
+  transition: color var(--cw-dur) var(--cw-ease), border-color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .icon-button {
+  /* 与窄屏档一致（本文件末 `.cw-workspace .icon-button { width: var(--cw-tap) }`）：
+     高已经是 44（继承 styles.css 的 .icon-button），缺的是宽。 */
+  width: var(--cw-tap);
+  padding: 0;
+  justify-content: center;
+}
+.cw-workspace .back-button:hover,
+.cw-workspace .icon-button:hover,
+.cw-workspace .icon-button.active {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+}
+
+/* 按下：底色抬一档，不位移（§5.3 两条降级路径下都仍然成立） */
+.cw-workspace .back-button:active,
+.cw-workspace .icon-button:active {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+.cw-workspace .learning-header-actions {
+  gap: var(--ds-space-8, 8px);
+}
+
+/* ── 分区导航：1px 发丝线上排，编号沿用模板 ledger 口径 ────────────────── */
+.cw-workspace .cw-pane-nav ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0 0 var(--ds-space-16, 16px);
+  padding: 0;
+  list-style: none;
+  border-top: var(--cw-line-width) solid var(--cw-line);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .cw-pane-nav li {
+  border-right: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .cw-pane-nav a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  /* §5.4 触控目标 ≥44px：44 由**内边距**给出（上下各 12px + 20px 行盒），
+     这里不用 min-height 单撑——本条是 align-items: baseline，靠 min-height 撑出的
+     余量要按 align-content 规则重排基线，文字位置会飘；加内边距则与原来一样居中。
+     下面的 min-height 只是兜底：≤380px 档把内边距降回 9px（见本文件末），
+     那一档仍要 44 高，就由它守住。 */
+  min-height: var(--cw-tap);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  transition: color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .cw-pane-nav a:hover {
+  color: var(--cw-fg);
+}
+.cw-workspace .cw-pane-no {
+  color: var(--cw-fg-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+/* ── 分栏骨架（§5.2 黑场分栏）：窄屏单列、宽屏两列，永不挤压 ───────────── */
+.cw-workspace .learning-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 移动优先：320px 也只有单列，四区靠锚点到达 */
+  gap: var(--ds-space-20, 20px);
+  align-items: start;
+}
+@media (min-width: 1081px) {
+  .cw-workspace .learning-view {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--ds-space-20, 20px);
+  }
+}
+.cw-workspace .workspace,
+.cw-workspace .right-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-16, 16px);
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--cw-glow-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 分区通用形态：黑底 + 发丝线；内凹面才用遮光层 ────────────────────── */
+.cw-workspace .cw-zone {
+  /* 变量 / 控制台两区的锚点包装：两者自带 .panel 发丝线，不再套第二层边框 */
+  min-width: 0;
+}
+.cw-workspace .cw-pane,
+.cw-workspace .reading-pane,
+.cw-workspace .flow-chart {
+  min-width: 0;
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cw-workspace .reading-head,
+.cw-workspace .workspace-header,
+.cw-workspace .cw-flow-head,
+.cw-workspace .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  height: auto;
+  margin: 0; /* styles.css 给 workspace-header 的 14px 下边距会把色带与编辑器拉开 */
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+/* #77：`主题原文` 从 span 升成 h2 只为补上标题序列，视觉一档不动——
+   UA 给 h2 的 1.5em 与上下边距由「下面的 label 组认领它 + margin: 0」两条一起还原。
+   label 那组选择器写的是 class+type（0,2,1），本条是三个 class（0,3,0）：
+   在这里再写 `font: inherit` 会**赢过**那组并真的把字号字重字距全洗掉，故只留 margin。 */
+.cw-workspace .reading-head .cw-pane-title {
+  margin: 0;
+}
+.cw-workspace .reading-head span,
+.cw-workspace .reading-head .cw-pane-title,
+.cw-workspace .cw-flow-head span,
+.cw-workspace .workspace-header span,
+.cw-workspace .panel-title {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  font-weight: 400;
+  letter-spacing: 0.16em;
+}
+.cw-workspace .reading-head strong,
+.cw-workspace .workspace-header strong {
+  min-width: 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .workspace-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+}
+.cw-workspace .reading-head em {
+  font-style: normal;
+  color: var(--cw-warn);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.1em;
+}
+.cw-workspace .cw-save-hint {
+  font-family: var(--cw-mono);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.cw-workspace kbd {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  color: var(--cw-fg);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-none, 0);
+  font-family: inherit;
+  font-size: var(--cw-label); /* 快捷键名是必读元信息，不在本文件自设的 12px 地板之下 */
+}
+
+/* ── 阅读区（§5.3 第 1 条：静态；§5.4：正文 ~16px / 行高 1.6–1.75） ───── */
+.cw-workspace .reading-pane {
+  padding: 0;
+  max-height: clamp(220px, 44vh, 520px);
+  overflow: auto;
+}
+/* #105：详情在路上的占位。给的是**下限**而不是精确高度——原文实际多高只有读回来才知道，
+   这里要的是「别让下面整列往下跳」而不是伪造一份内容。数值与上面 `.reading-pane` 的
+   可视区间同档（clamp 到 36vh/420px 之间），落地后按 terminal110 的回流读数复核。 */
+.cw-workspace .cw-reading-pending {
+  min-height: clamp(180px, 36vh, 420px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px) var(--ds-space-16, 16px);
+}
+
+.cw-workspace .cw-reading-pending-text {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+}
+
+.cw-workspace .cw-reading-pending-note {
+  max-width: 62ch;
+  margin: var(--ds-space-12, 12px) 0 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-ui);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+  overflow-wrap: anywhere;
+}
+
+/* 01 号方案 §4 的 error 行 + §2.1 的状态层：语义色之外必须同时有文字与边界，
+   不只靠颜色承载（00 号方案 §6「不能只靠颜色」）。占位下限沿用 pending 那一档，
+   重试期间这块不塌，避免内容落地时把下面整列推走。 */
+.cw-workspace .cw-reading-error {
+  min-height: clamp(180px, 36vh, 420px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px) var(--ds-space-16, 16px);
+  border-left: var(--cw-line-width) solid var(--cw-err);
+}
+
+.cw-workspace .cw-reading-error-label {
+  color: var(--cw-err);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+}
+
+.cw-workspace .cw-reading-error-reason {
+  max-width: 62ch;
+  margin: var(--ds-space-12, 12px) 0 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  line-height: var(--cw-leading);
+  overflow-wrap: anywhere;
+}
+
+.cw-workspace .cw-reading-error-note {
+  max-width: 62ch;
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-ui);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+  overflow-wrap: anywhere;
+}
+
+.cw-workspace .cw-reading-retry {
+  margin-top: var(--ds-space-14, 14px);
+}
+.cw-workspace .reading-pane .md-view {
+  max-width: 72ch;
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px) var(--ds-space-16, 16px);
+  color: var(--cw-fg);
+  font-family: var(--cw-ui);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .reading-pane .md-view h3,
+.cw-workspace .reading-pane .md-view h4,
+.cw-workspace .reading-pane .md-view h5,
+.cw-workspace .reading-pane .md-view h6 {
+  margin: var(--ds-space-20, 20px) 0 var(--ds-space-8, 8px);
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+.cw-workspace .reading-pane .md-view h3:first-child {
+  margin-top: 0;
+}
+.cw-workspace .reading-pane .md-view p,
+.cw-workspace .reading-pane .md-view ul,
+.cw-workspace .reading-pane .md-view ol,
+.cw-workspace .reading-pane .md-view blockquote {
+  margin: var(--ds-space-10, 10px) 0;
+}
+.cw-workspace .reading-pane .md-view li {
+  margin: var(--ds-space-6, 6px) 0;
+}
+.cw-workspace .reading-pane .md-view blockquote {
+  padding: var(--ds-space-4, 4px) 0 var(--ds-space-4, 4px) var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim); /* 0.56 在遮光层上 5.39:1，可承载引用正文 */
+  background: transparent;
+  border-left: 2px solid var(--cw-line-raised);
+}
+/* 行内代码与围栏代码：长行横向滚动，不折行挤压 */
+.cw-workspace .reading-pane .md-view code,
+.cw-workspace .lesson-source .md-view code {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  color: var(--cw-fg);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--cw-mono);
+  font-size: 0.9em;
+}
+.cw-workspace .reading-pane .md-view .md-code,
+.cw-workspace .lesson-source .md-view .md-code {
+  margin: var(--ds-space-14, 14px) 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-none, 0);
+  white-space: pre;
+  overflow: auto;
+}
+.cw-workspace .reading-pane .md-view .md-code code,
+.cw-workspace .lesson-source .md-view .md-code code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--ds-size-control, 13px);
+}
+.cw-workspace .reading-pane .md-table th,
+.cw-workspace .reading-pane .md-table td,
+.cw-workspace .cw-pane .md-table th,
+.cw-workspace .cw-pane .md-table td {
+  border-color: var(--cw-line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.cw-workspace .reading-pane .md-table th {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+  text-transform: none;
+}
+.cw-workspace .md-wikilink {
+  color: var(--cw-fg);
+  border-bottom: var(--cw-line-width) solid var(--cw-scene);
+}
+
+/* ── 代码区：发丝线分栏、遮光层底；字号完全跟随用户设置 ───────────────── */
+.cw-workspace .cw-pane--code {
+  overflow: hidden;
+}
+/* 运行画布（`components/run-stage.tsx`，样式自带在 run-stage.css）：
+   本页只放它在这个 pane 里的位置与高度约束，不改它的配色——基座那份已经全走令牌。
+   画布与流程图同处 `.cw-pane--flow`：画布在上（这一拍长什么样），图在下（一拍一行的明细）。 */
+.cw-workspace .rs-stage {
+  margin: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  min-width: 0;
+  /* 跑长程序时骨架会长过一屏：给个上限自己滚，别把下面的变量面板顶出视野。 */
+  max-height: 46vh;
+  overflow-y: auto;
+}
+/* 注意：这里只 **消费** --editor-font-size / --line-height-editor（app.tsx 内联下发），
+   绝不在本文件里赋值，否则会以更近祖先的身份盖掉用户设置的编辑器字号（§5.4）。 */
+.cw-workspace .code-editor {
+  min-height: 300px;
+  max-height: 62vh;
+  padding: var(--ds-space-12, 12px) 0;
+  background: var(--cw-scrim);
+  border: 0;
+  border-radius: 0;
+  font-family: var(--cw-mono);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+}
+.cw-workspace .line-numbers {
+  width: 44px;
+  flex: 0 0 44px;
+  padding-right: var(--ds-space-10, 10px);
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border-right: var(--cw-line-width) solid var(--cw-line);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+}
+.cw-workspace .line-numbers span {
+  white-space: pre;
+}
+.cw-workspace .line-numbers span.active {
+  color: var(--cw-scene);
+  font-weight: 700;
+}
+.cw-workspace .code-surface {
+  min-width: 0;
+}
+.cw-workspace .code-tokens {
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px);
+  color: var(--cw-fg);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre; /* 长代码行横向滚动，不折行 */
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.cw-workspace .code-editor textarea {
+  min-height: 272px;
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px);
+  color: transparent;
+  caret-color: var(--cw-fg);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: var(--cw-mono);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  overflow-x: auto; /* 横向滚动条可见：不隐藏（遮罩式滚动会让长行不可定位） */
+  overflow-y: auto;
+  tab-size: 2;
+}
+/* 当前执行行：零模糊的左侧标记线，取代原来的霓虹泛光与位移动画 */
+.cw-workspace .code-highlight {
+  height: calc(var(--editor-font-size, 13px) * var(--line-height-editor, 1.55));
+  background: var(--ds-wash-inset, rgba(220, 233, 251, 0.06));
+  border-left: 2px solid var(--cw-scene);
+  box-shadow: var(--cw-glow-line);              /* 当前行自发光，取代旧霓虹泛光与位移 */
+  transition: none;
+}
+/* 语法色：语义固定，不随场景插值 */
+.cw-workspace .tok-keyword {
+  color: var(--cw-info);
+}
+.cw-workspace .tok-string {
+  color: var(--cw-ok);
+}
+.cw-workspace .tok-comment {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .tok-number {
+  color: var(--cw-warn);
+}
+.cw-workspace .tok-function {
+  color: var(--cw-scene);
+}
+/* 选中态：低饱和 wash，不整片霓虹 */
+.cw-workspace ::selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: inherit;
+}
+.cw-workspace .code-editor textarea::selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: transparent;
+}
+.cw-workspace .code-editor textarea::-moz-selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: transparent;
+}
+.cw-workspace .code-footer {
+  height: auto;
+  min-height: 34px;
+  margin-top: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim);
+  background: var(--cw-scrim);
+  border-top: var(--cw-line-width) solid var(--cw-line);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+}
+.cw-workspace .editor-actions button {
+  /* 「复制」是编辑器状态条上的次级文字按钮：把它的盒子撑到 44 会把整条
+     code-footer（min-height 34）顶到 60，压到编辑器最后一行的可视区上。
+     这里保留 28px 的视觉尺寸，用 ::before 把**命中区**外扩到 44×69 ——
+     与本库既有的写法同源（styles.css:441 .streak-more、styles.css:2330 设置开关）。
+     伪元素无底色、pointer-events 默认 auto，点击会归给宿主按钮（已实测）。 */
+  position: relative;
+  min-height: 28px;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+  transition: color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .editor-actions button::before {
+  content: '';
+  position: absolute;
+  /* 上下各 8px 补齐到 44 高；左右各 6px，落在 .editor-actions 的 10px gap 内，
+     不与相邻的「Ctrl + Enter 运行」说明文字抢点击。 */
+  inset: -8px -6px;
+}
+.cw-workspace .editor-actions button:hover {
+  color: var(--cw-scene);
+}
+
+.cw-workspace .editor-actions button {
+  transition: color var(--cw-dur) var(--cw-ease);
+}
+
+.cw-workspace .editor-actions button:active {
+  color: var(--cw-fg);
+}
+
+/* ── 运行控制条：细线药丸 + 恒定状态色，运行指示不做持续闪烁 ──────────── */
+.cw-workspace .run-bar {
+  gap: var(--ds-space-14, 14px);
+  margin-top: var(--ds-space-2, 2px);
+  padding: var(--ds-space-14, 14px) 0 0;
+  border-top: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .run-copy {
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+}
+.cw-workspace .run-indicator {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-circle, 50%); /* 圆环保留（§5.1 形态） */
+  box-shadow: var(--cw-glow-near);              /* 运行指示：冷色近档泛光 */
+}
+.cw-workspace .run-indicator span {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--ds-shape-circle, 50%);
+  background: var(--cw-fg-dim);
+}
+/* 原样式在这里跑 blink 无限动画；§5.3 第 1 条要求编辑器周边为静态环境，
+   状态由文字（“正在执行代码…”）与色点表达，不靠闪烁。 */
+.cw-workspace .run-indicator.running span {
+  background: var(--cw-info);
+  animation: none;
+}
+.cw-workspace .run-indicator.completed span,
+.cw-workspace .run-indicator.done span {
+  background: var(--cw-ok);
+}
+.cw-workspace .run-indicator.error span {
+  background: var(--cw-err);
+}
+.cw-workspace .run-copy strong {
+  color: var(--cw-fg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.cw-workspace .run-copy span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+}
+.cw-workspace .run-actions {
+  gap: var(--ds-space-8, 8px);
+}
+.cw-workspace .reset-button,
+.cw-workspace .step-button,
+.cw-workspace .run-button,
+.cw-workspace .subtle-button {
+  /* §5.4 触控目标 ≥44px。基座 runtime-controls.css L128 本来就写的是
+     var(--ds-tap-min, 44px)，是本页的覆写把它拉回 40；同时本文件末的 ≤760px
+     媒体查询又抬回 var(--cw-tap)。三处里两处是 44，40 是漏档，回到令牌。 */
+  min-height: var(--cw-tap);
+  padding: 0 var(--ds-space-16, 16px);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-pill, 100px);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  transition: color var(--cw-dur) var(--cw-ease), border-color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .reset-button,
+.cw-workspace .step-button {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .reset-button:hover,
+.cw-workspace .step-button:hover,
+.cw-workspace .subtle-button:hover:not(:disabled) {
+  color: var(--cw-fg);
+  border-color: var(--cw-fg-dim);
+}
+
+.cw-workspace .reset-button:active,
+.cw-workspace .step-button:active,
+.cw-workspace .subtle-button:active:not(:disabled) {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+/* 主操作：实底场景色 + 黑字（对 #000 为 8.08:1），无渐变、无投影 */
+.cw-workspace .run-button {
+  min-width: 116px;
+  color: var(--cw-on-scene);
+  background: var(--cw-scene);
+  border-color: var(--cw-scene);
+  font-weight: 700;
+}
+.cw-workspace .run-button:hover {
+  color: var(--cw-scene);
+  background: transparent;
+  border-color: var(--cw-scene);
+}
+
+/* 主操作按下回到实底：与 hover 的「透明 + 场景色字」形成一次明确的开合，
+   比再压深一档底色更贴模板「细线药丸」的唯一实心形态（site.css L392-L394）。 */
+.cw-workspace .run-button:active {
+  color: var(--cw-on-scene);
+  background: var(--cw-scene);
+}
+.cw-workspace .subtle-button {
+  color: var(--cw-fg);
+}
+.cw-workspace .subtle-button:disabled {
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border-style: dashed;
+  opacity: 1;
+}
+.cw-workspace .lesson-complete-row {
+  margin-top: var(--ds-space-2, 2px);
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .lesson-complete-done {
+  gap: var(--ds-space-8, 8px);
+  color: var(--cw-ok);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  letter-spacing: 0.06em;
+}
+
+/* ── LEARN-01 第 5 条：该题验收点逐条状态 ─────────────────────────────
+   命中/未命中同时用三个通道表达（符号 + 边框样式 + 颜色），不单靠颜色。
+   细线一律 --cw-line-width（1px），粗边由发丝线 + 边框样式承担（本仓守卫）。
+
+   共享层 `.lesson-complete-row` 是 `display: flex` 且不换行（styles.css:1092），
+   而 flex 子项默认 `min-width: auto`——长句子当子项时不但不折行，还会把整页推出视口
+   （真机量到 320 档溢出 180px）。所以这里先把行放开换行，再给两个块 `min-width: 0` 与整行宽。 */
+.cw-workspace .lesson-complete-row {
+  flex-wrap: wrap;
+}
+.cw-workspace .cw-verify-cases,
+.cw-workspace .cw-verify-none {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+/* 原生 button 带 UA 的 `white-space: nowrap`——文案一长就把整页顶宽（真机量到 159px）。
+   这里放开折行，配合上面的 flex-wrap，任何措辞都不再能撑破页面。 */
+.cw-workspace .lesson-complete-row .subtle-button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* ── 验收点逐条状态：读数盘（2026-09-29 重做） ───────────────────────────
+   旧形状是「一行一条，左边一根 1px 竖线」——和页面上其它列表长得一样，
+   所以学习者扫过去只会看到「打了个勾」，看不到**这是一份判定结果**。
+   现在把整块当成一块仪表读数：外框一圈发丝线 + 内凹顶光，每一条是一格
+   读数行，左侧一格方形指示灯，右侧一条点状引导线把「期望值」和「为什么」
+   连起来。改动只在这一层（形状 / 间距 / 颜色），DOM 与类名一字未动。
+
+   通道表（命中与否绝不靠颜色单传，§5.1）：
+     命中 is-hit  —— 指示灯实心描边 + `✓` + 绿色 + 引导线实点
+     未命中 is-miss —— 指示灯虚线描边 + `×` + 红边 + 引导线虚点
+     多余 is-extra —— 无指示灯 + 点状左轨 + 次级文字
+   数值与色值一律走 --cw-* 别名（带模板原值兜底）；发光只走 --cw-glow-*，
+   模糊与位移恒为 0，无 @keyframes —— 本屏是静态/低动态环境（§5.3）。 */
+.cw-workspace .cw-verify-cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2, 2px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  list-style: none;
+  border: var(--cw-line-width) solid var(--cw-line);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+/* 一条读数行：指示灯 / 期望值 / 引导线 / 理由。这里**不**给每行画序号——
+   父级 `<ul>` 自己就带顺序，再印一遍 `01/02/03` 只会挤掉正文，且那是装饰微字档
+   （§2.2），不该在这块必读的判定结果里出现。 */
+.cw-workspace .cw-verify-cases li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-6, 6px) 0 var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  border-inline-start: var(--cw-line-width) solid var(--cw-line);
+  overflow-wrap: anywhere;
+}
+/* 指示灯：一格方窗。命中实线框、未命中虚线框——形状通道先于颜色把结果说出来。 */
+.cw-workspace .cw-verify-glyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  padding: 0 var(--ds-space-4, 4px);
+  border: var(--cw-line-width) solid currentColor;
+  box-shadow: var(--cw-glow-inset);
+  font-variant-numeric: tabular-nums;
+}
+.cw-workspace .cw-verify-cases li.is-hit {
+  color: var(--cw-ok);
+  border-inline-start-color: var(--cw-ok);
+}
+.cw-workspace .cw-verify-cases li.is-miss {
+  color: var(--cw-fg);
+  border-inline-start-color: var(--cw-err);
+}
+.cw-workspace .cw-verify-cases li.is-miss .cw-verify-glyph {
+  color: var(--cw-err);
+  border-style: dashed;
+}
+.cw-workspace .cw-verify-cases li.is-extra {
+  color: var(--cw-fg-dim);
+  border-inline-start-style: dotted;
+}
+.cw-workspace .cw-verify-cases code {
+  color: var(--cw-fg);
+  font-family: inherit;
+  font-size: inherit;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* 引导线：把「期望值」牵到「为什么」上，中间的点不承载信息，只是把两段缝在一起。 */
+.cw-workspace .cw-verify-reason {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .cw-verify-reason::before {
+  content: '';
+  flex: 0 1 auto;
+  min-width: var(--ds-space-16, 16px);
+  align-self: center;
+  border-bottom: var(--cw-line-width) dotted var(--cw-line);
+}
+.cw-workspace .cw-verify-none {
+  margin: var(--ds-space-10, 10px) 0 0;
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* ── LEARN-01 第 5a 条：外部课程的结构化证据表单 ─────────────────────────
+   字段清单与校验都来自 utils/external-evidence.ts（与挑战页同一份），这里的类名
+   与挑战页同名但一律带 .cw-workspace 前缀，两边互不覆写。
+   证据没填齐时按钮是锁住的，缺哪一项写在对应字段下面（不只靠禁用表达）。 */
+.cw-workspace .external-evidence-form {
+  flex: 1 1 100%;
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+  margin: 0 0 var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) dashed var(--cw-line-raised);
+  border-radius: var(--ds-radius-panel, 0);
+}
+.cw-workspace .external-evidence-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  color: var(--cw-info);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .external-evidence-hint svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+.cw-workspace .external-evidence-field {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+}
+.cw-workspace .external-evidence-required {
+  margin-left: var(--ds-space-6, 6px);
+  padding: var(--ds-space-hair, 1px) var(--ds-space-8, 8px);
+  color: var(--cw-err);
+  border: var(--cw-line-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.06em;
+}
+.cw-workspace .external-evidence-input,
+.cw-workspace .cw-evidence-textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--cw-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--cw-fg);
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-radius-control, 0);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  line-height: 1.6;
+}
+.cw-workspace .cw-evidence-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.cw-workspace .external-evidence-input.invalid,
+.cw-workspace .cw-evidence-textarea.invalid {
+  border-color: var(--cw-err);
+}
+.cw-workspace .external-evidence-error {
+  color: var(--cw-err);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .external-evidence-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.cw-workspace .external-evidence-keywords code {
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  color: var(--cw-fg);
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-radius-panel, 0);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  overflow-wrap: anywhere;
+}
+
+/* ── LEARN-01 第 4 条：六种学习状态逐条分开列 ────────────────────────────
+   成立与否同时用三个非颜色通道表达：勾/横线符号 + 实线或虚线边框 + 文字本身。
+   六格一律由上层从掌握度证据折出（utils/lesson-evidence.ts），本文件不做任何判断。 */
+.cw-workspace .cw-evidence-states {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  margin-top: var(--ds-space-14, 14px);
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--cw-line-width) solid var(--cw-line);
+  overflow-wrap: anywhere;
+}
+.cw-workspace .cw-evidence-states-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  /* 2026-09-30 单屏化：`<summary>` 是这组证据的折叠把手，44px 是 §5.4 的点击目标下限；
+     展开态由浏览器自带的三角标记 + 这里的字色变化双通道表达。 */
+  min-height: 44px;
+  padding: var(--ds-space-6, 6px) 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  list-style: none;
+}
+/* 收起时给一个「可以点开」的形状提示（自绘三角，跨浏览器一致） */
+.cw-workspace .cw-evidence-states-title::-webkit-details-marker {
+  display: none;
+}
+.cw-workspace .cw-evidence-states-title::before {
+  content: '▸';
+  flex: 0 0 auto;
+  color: var(--cw-fg-dim);
+  font-size: var(--cw-label);
+}
+.cw-workspace .cw-evidence-states[open] .cw-evidence-states-title::before {
+  content: '▾';
+}
+.cw-workspace .cw-evidence-states-title:hover {
+  color: var(--cw-fg);
+}
+.cw-workspace .cw-evidence-states-count {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  color: var(--cw-fg-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.cw-workspace .cw-evidence-state-list {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.cw-workspace .cw-evidence-state-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-4, 4px) var(--ds-space-8, 8px);
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-none, 0);
+  min-width: 0;
+}
+.cw-workspace .cw-evidence-state-list li.is-held {
+  color: var(--cw-fg);
+  border-style: solid;
+}
+.cw-workspace .cw-evidence-state-list li.is-absent {
+  color: var(--cw-fg-dim);
+  border-style: dashed;
+}
+.cw-workspace .cw-evidence-state-glyph {
+  flex: 0 0 auto;
+}
+/* 状态名是一行的主语，说明句是从语：两者同档就会糊成一片读不出「哪条成立了」。 */
+.cw-workspace .cw-evidence-state-label {
+  flex: 0 0 auto;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  letter-spacing: 0.02em;
+}
+.cw-workspace .cw-evidence-state-meaning {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .cw-mark-read {
+  align-self: flex-start;
+}
+
+/* ── 提示条：发丝线 + 左侧语义线，颜色不单独承载语义 ────────────────── */
+.cw-workspace .workspace-external-note,
+.cw-workspace .workspace-tier-note {
+  gap: var(--ds-space-8, 8px);
+  margin-top: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-left: 2px solid var(--cw-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-inset);
+  color: var(--cw-warn);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.cw-workspace .workspace-tier-note {
+  border-left-color: var(--cw-err);
+  color: var(--cw-err);
+}
+
+/* ── 右栏观察区：流程 / 变量 / 控制台 ────────────────────────────────── */
+.cw-workspace .panel {
+  min-width: 0;
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cw-workspace .panel-header {
+  min-height: 42px;
+}
+.cw-workspace .panel-title svg {
+  color: var(--cw-scene);
+}
+.cw-workspace .step-counter,
+.cw-workspace .console-status {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.1em;
+}
+.cw-workspace .console-status.error {
+  color: var(--cw-err);
+}
+.cw-workspace .cw-flow-head {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .flow-chart {
+  min-height: 120px;
+  padding: var(--ds-space-20, 20px) var(--ds-space-14, 14px);
+  border: 0;
+  overflow-x: auto;
+  /* 与画布同一张纸：参考站 `#0b1220` 的深蓝黑 + 20px 双向网格 `#182438`
+     （`algorithm-visualization-replica/web/style.css`）。流程图和右边的 RunStage
+     画的是同一件事的两面，用两张不同的底色会让人以为它们是两个东西。
+     写实值不写令牌：页面 CSS 棘轮禁 `background-image` 之外的形态，但网格是
+     参考站身份的一部分，令牌表里没有对应档，硬套一个近似的会让两边对不上。 */
+  background-color: var(--ds-canvas-stage, #0b1220);
+  background-image: linear-gradient(var(--ds-canvas-grid, #182438) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ds-canvas-grid, #182438) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+/* 节点：基座 flow-chart.css 定的是「竖向步进器的一张卡片」——本页只改配色与字体，
+   不收回布局。2026-09-29 重做前这里是横向一排小方块（min-width 54px / grid 居中 /
+   31px 圆形起止节点），那些都与新形状冲突，已随基座一并换成竖排卡片。 */
+.cw-workspace .flow-node {
+  color: var(--cw-fg);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--cw-mono);
+  /* 字号不在这里重申：基座 flow-chart.css 的 13px 是按 §5.4「节点标签是必读文字」定的，
+     这里曾把它压回 11px（低于本文件自设的 --cw-label 12px 地板），M4 记为死规则第 2 条。 */
+  letter-spacing: 0.06em;
+  transition: none; /* 回放时节点会反复跳变：静态表达，不做位移 */
+}
+/* 语气标签：四档语义色（§5.1 末段：标识不跟场景色）。
+   选择器与基座逐字对齐（含 span 类型名）：基座是 `span.flow-node-kind.tone-blue`，
+   页面若只写 `.cw-workspace .flow-node-kind.tone-blue` 类档相同、类型档反而更低。 */
+.cw-workspace span.flow-node-kind {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+.cw-workspace span.flow-node-kind.tone-blue {
+  color: var(--cw-info);
+}
+.cw-workspace span.flow-node-kind.tone-yellow {
+  color: var(--cw-warn);
+}
+.cw-workspace span.flow-node-kind.tone-coral {
+  color: var(--cw-err);
+}
+.cw-workspace span.flow-node-kind.tone-green {
+  color: var(--cw-ok);
+}
+.cw-workspace span.flow-node-kind.tone-purple {
+  color: var(--cw-fg-dim);
+}
+
+/* ── 竖向步进器的其余条目：基座定形状，本页只把配色钉到 --cw-* 一族。
+   基座的选择器带类型名前缀，而测试的归一化只剥掉 div/span/p 这一类，**不剥 ol/li/ul**
+   （见 subcomponents-base.m4.test.tsx 的 normalizeSelector）。所以凡是基座写
+   `ol.flow-track` / `li.flow-step…` / `ul.flow-data-list`，本页镜像必须把同一个类型名
+   写在同一个位置，否则 key 对不上，会被判成「既无覆写也不在白名单里」。 */
+.cw-workspace ol.flow-track {
+  list-style: none;
+  min-width: 0;
+}
+.cw-workspace ol.flow-track li.flow-step {
+  min-width: 0;
+}
+.cw-workspace ol.flow-track li.flow-step:first-child .flow-rail {
+  margin-top: var(--ds-space-20, 20px);
+}
+/* 基座把收尾那半截做到 `:last-child::after` 上（横向主干收口），本页给同一条收口的配色。 */
+.cw-workspace ol.flow-track li.flow-step:last-child::after {
+  border-block-start-color: var(--cw-line);
+}
+
+/* ── 主干与行 ─────────────────────────────────────────────────────────────── */
+.cw-workspace .flow-rail {
+  border-inline-start-color: var(--cw-line);
+}
+.cw-workspace .flow-rail::before {
+  border-color: var(--cw-line-raised);
+  background: var(--cw-canvas);
+}
+.cw-workspace li.flow-step.is-done .flow-rail,
+.cw-workspace li.flow-step.is-now .flow-rail {
+  border-inline-start-color: var(--cw-scene);
+}
+.cw-workspace li.flow-step.is-now .flow-rail::before {
+  border-color: var(--cw-scene);
+  background: var(--cw-scene);
+}
+.cw-workspace li.flow-step.is-done .flow-rail::before {
+  border-color: var(--cw-scene);
+}
+/* 展开拍的数据栏与节点同宽同色，边框跟节点一个档（基座给的是 raised 档）。 */
+.cw-workspace div.flow-data.is-shown {
+  border-color: var(--cw-line-raised);
+}
+
+/* ── 节点卡片 ─────────────────────────────────────────────────────────────── */
+.cw-workspace .flow-node-head {
+  gap: var(--ds-space-10, 10px);
+}
+.cw-workspace span.flow-node-no {
+  color: var(--cw-fg-dim);
+  border-color: var(--cw-line-raised);
+}
+.cw-workspace .flow-node-label {
+  color: var(--cw-fg);
+}
+.cw-workspace .flow-node-line {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .flow-node-line code {
+  color: var(--cw-fg);
+}
+/* 详情段与行号：基座是 `p.flow-node-detail` / `span.flow-node-line-no`，
+   带类型名，镜像也带上（测试的 key 比对不剥 p / span 之外的类型）。 */
+.cw-workspace p.flow-node-detail {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace span.flow-node-line-no {
+  color: var(--cw-fg-dim);
+}
+
+/* 三态：形状由基座定，本页只给「当前 / 已走过 / 未到」配光与色。 */
+.cw-workspace li.flow-step.is-now .flow-node {
+  box-shadow: var(--cw-glow-near);
+}
+.cw-workspace li.flow-step.is-done .flow-node {
+  box-shadow: var(--cw-glow-inset);
+}
+.cw-workspace li.flow-step.is-todo .flow-node {
+  box-shadow: none;
+}
+/* 展开的那一拍要宽到能横向读一条变量。基座定「展开格更宽」这个形状（360px），
+   本页把宽度钉到工作台的可用宽度上：一屏 1600px 里右栏约占一半，
+   360px 是轨道里放得下又读得开的一档，窄屏的降级留在基座。 */
+.cw-workspace li.flow-step.is-expanded .flow-node {
+  width: 360px;
+}
+.cw-workspace li.flow-step.is-todo .flow-node-head .flow-node-label,
+.cw-workspace li.flow-step.is-todo .flow-node-line code {
+  color: var(--cw-fg-dim);
+}
+
+/* ── 数据栏：这一拍的变量快照 —— 与节点同一套发丝线，颜色只分「变了没有」 ──── */
+.cw-workspace .flow-data {
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border-color: var(--cw-line);
+}
+.cw-workspace ul.flow-data-list {
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+}
+.cw-workspace ul.flow-data-list li {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .flow-data-name,
+.cw-workspace .flow-data-value {
+  color: var(--cw-fg);
+}
+.cw-workspace .flow-data-eq {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .flow-data-type {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace li.is-coral .flow-data-value {
+  color: var(--cw-err);
+}
+.cw-workspace li.is-blue .flow-data-value {
+  color: var(--cw-info);
+}
+.cw-workspace p.flow-data-empty {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .variable-list {
+  max-height: 240px;
+  padding: 0 var(--ds-space-14, 14px);
+}
+.cw-workspace .variable-row {
+  min-height: 44px;
+  gap: var(--ds-space-10, 10px);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .variable-row:last-child {
+  border-bottom: 0;
+}
+.cw-workspace .variable-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-circle, 50%);
+}
+.cw-workspace .variable-icon.blue {
+  color: var(--cw-info);
+  background: transparent;
+}
+.cw-workspace .variable-icon.coral {
+  color: var(--cw-err);
+  background: transparent;
+}
+.cw-workspace .variable-name strong {
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400;
+}
+.cw-workspace .variable-name span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+}
+.cw-workspace .variable-value {
+  max-width: none;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  white-space: pre;
+  text-overflow: clip;
+}
+/* 变量行在单步回放里反复重建：不做缩放弹跳，保持低干扰 */
+.cw-workspace .variable-row.changed .variable-value {
+  animation: none;
+}
+.cw-workspace .variable-dots {
+  color: var(--cw-fg-faint); /* 纯装饰点，不承载信息 */
+  letter-spacing: 2px;
+}
+.cw-workspace .console-body {
+  max-height: 240px;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.65;
+  white-space: pre; /* stdout 长行横向滚动 */
+  overflow: auto;
+}
+.cw-workspace .console-line {
+  color: var(--cw-fg);
+}
+.cw-workspace .console-line span {
+  margin-right: var(--ds-space-10, 10px);
+  color: var(--cw-ok);
+}
+.cw-workspace .console-error {
+  color: var(--cw-err);
+}
+.cw-workspace .empty-panel {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+}
+
+/* ── 来源详情与课程指南：ledger / specs 式细线表格（§5.2） ───────────── */
+.cw-workspace .lesson-source {
+  margin-top: var(--ds-space-2, 2px);
+  padding: var(--ds-space-14, 14px);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cw-workspace .lesson-source-head {
+  gap: var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .lesson-source-head span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.16em;
+}
+.cw-workspace .lesson-source-head strong {
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .tag-vault,
+.cw-workspace .tag-legacy,
+.cw-workspace .tag-verification {
+  padding: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-pill, 100px);
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.1em;
+}
+.cw-workspace .tag-vault {
+  color: var(--cw-info);
+}
+.cw-workspace .tag-legacy {
+  color: var(--cw-warn);
+}
+.cw-workspace .tag-verification.ok {
+  color: var(--cw-ok);
+}
+.cw-workspace .tag-verification.warn {
+  color: var(--cw-err);
+}
+.cw-workspace .lesson-source-path,
+.cw-workspace .lesson-source-ids {
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  line-height: 1.6;
+  word-break: break-all;
+}
+.cw-workspace .lesson-source-actions {
+  margin-top: var(--ds-space-10, 10px);
+}
+.cw-workspace .lesson-source .md-view {
+  margin-top: var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  color: var(--cw-fg);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .lesson-guide {
+  gap: 0;
+  margin-top: var(--ds-space-16, 16px);
+  padding: 0;
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 761px) {
+  .cw-workspace .lesson-guide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1081px) {
+  .cw-workspace .lesson-guide {
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  }
+}
+.cw-workspace .guide-block {
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px);
+  border-right: var(--cw-line-width) solid var(--cw-line);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .guide-block > span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: none;
+}
+.cw-workspace .guide-block strong {
+  color: var(--cw-fg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: var(--cw-leading);
+}
+.cw-workspace .guide-block ul,
+.cw-workspace .guide-block ol {
+  margin: 0;
+  padding-left: var(--ds-space-20, 20px);
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .guide-block li::marker {
+  color: var(--cw-scene);
+}
+.cw-workspace .guide-block p {
+  margin: var(--ds-space-6, 6px) 0 0;
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .guide-block small {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+}
+.cw-workspace .guide-block .guide-prereq small {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .guide-exercise strong {
+  color: var(--cw-fg);
+}
+.cw-workspace .guide-project strong {
+  color: var(--cw-fg);
+}
+/* 2026-09-30 单屏化：从「整块横幅」（实测 90px）收成**一行条**——这一块只有一句
+   「关键理解」，横幅的上下内衬与 16px 正文让它白占掉 90px。它是 always-mounted 的
+   （`.lesson-insight p` 必须在**无交互**的渲染里就含正文，m3 测试钉着），所以只能压
+   高度、不能折叠。正文降到 13px 等宽并允许换行：一句话通常一行放得下，长了就折。 */
+.cw-workspace .lesson-insight {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-left: 2px solid var(--cw-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+}
+.cw-workspace .insight-icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+.cw-workspace .lesson-insight > div {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px);
+}
+.cw-workspace .lesson-insight strong {
+  flex: 0 0 auto;
+  color: var(--cw-warn);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.16em;
+}
+.cw-workspace .lesson-insight p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+
+/* 紧凑模式（应用内既有设置）：本页自己承担这一档，不依赖 styles.css 的裸类名规则
+   （那条规则优先级与本文件的容器前缀规则相同，会被下面的作用域覆写挡掉）。 */
+.compact-mode .cw-workspace .learning-view,
+.compact-mode .cw-workspace .workspace,
+.compact-mode .cw-workspace .right-panels {
+  gap: var(--ds-space-12, 12px);
+}
+.compact-mode .cw-workspace .guide-block,
+.compact-mode .cw-workspace .reading-pane .md-view {
+  padding-top: var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-10, 10px);
+}
+
+/* ── 焦点与关键边界（模板 0.14 细线在黑底只有 1.32:1，不能承担焦点） ────── */
+.cw-workspace :focus-visible {
+  outline: var(--cw-focus-w) solid var(--cw-focus);
+  outline-offset: var(--cw-focus-off);
+  box-shadow: none;
+}
+.cw-workspace .code-editor textarea:focus-visible {
+  outline: var(--cw-focus-w) solid var(--cw-focus);
+  outline-offset: -2px;
+}
+
+/* ── 窄屏：四区堆叠、入口与返回可见、触控目标 ≥44px（§5.2 / §5.4） ─────── */
+@media (max-width: 760px) {
+  .cw-workspace .learning-view,
+  .cw-workspace .workspace,
+  .cw-workspace .right-panels {
+    gap: var(--ds-space-14, 14px);
+  }
+  .cw-workspace .back-button,
+  .cw-workspace .icon-button,
+  .cw-workspace .cw-pane-nav a,
+  .cw-workspace .reset-button,
+  .cw-workspace .step-button,
+  .cw-workspace .run-button,
+  .cw-workspace .subtle-button,
+  .cw-workspace .editor-actions button {
+    min-height: var(--cw-tap);
+  }
+  .cw-workspace .icon-button {
+    width: var(--cw-tap);
+  }
+  .cw-workspace .editor-actions button {
+    padding: 0 var(--ds-space-8, 8px);
+  }
+  /* 本档上面的 min-height 已经把按钮本体收到 44，伪元素再外扩就会叠成 60 高、
+     越到相邻行上去。收回 inset:0 = 伪元素与按钮盒子重合，不再额外扩张命中区。 */
+  .cw-workspace .editor-actions button::before {
+    inset: 0;
+  }
+  .cw-workspace .run-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .cw-workspace .run-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .cw-workspace .run-actions button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cw-workspace .code-editor {
+    min-height: 240px;
+    max-height: 70vh;
+  }
+  .cw-workspace .line-numbers {
+    width: 36px;
+    flex: 0 0 36px;
+    padding-right: var(--ds-space-8, 8px);
+  }
+  .cw-workspace .reading-pane {
+    max-height: none; /* 窄屏阅读区随文档流动，不套内层滚动容器 */
+  }
+}
+
+/* 320px 最小宽度：导航换行、控制条不溢出，代码行仍靠横向滚动而不是挤压 */
+@media (max-width: 380px) {
+  .cw-workspace .cw-pane-nav a {
+    gap: var(--ds-space-6, 6px);
+    padding: var(--ds-space-10, 10px) var(--ds-space-10, 10px);
+  }
+  .cw-workspace .learning-header-actions {
+    margin-left: auto;
+  }
+  .cw-workspace .code-footer {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--ds-space-6, 6px);
+  }
+}
+
+/* ── 宽屏单屏化（用户要求：全在一个画面里，不要上下滑动） ──────────────────
+   宽屏把整页钉进一屏：外壳高度用 --cw-chrome-h 估一个上限，把剩下的高度交给
+   两列各自滚，而不是让文档一直往下长。窄屏保持文档流（上面的 760px 档已经
+   把 .reading-pane 的 max-height 放开了，同一原则）。
+
+   为什么用 max-height 而不是 height：估高了只会让页面比一屏矮一点（下面是
+   普通文档流），估矮了才截内容。max-height + 外层 min-height 地板，两头都不会
+   把内容裁掉。svh 先写、vh 后写，不认识 svh 的浏览器落到后一行。 */
+@media (min-width: 1081px) {
+  .cw-workspace {
+    display: flex;
+    flex-direction: column;
+    /* 地板：窗口太矮时（笔记本横屏 + 浏览器工具栏）不硬挤，退回普通滚动。 */
+    min-height: 480px;
+    max-height: calc(100vh - var(--cw-chrome-h));
+    max-height: calc(100svh - var(--cw-chrome-h));
+    /* 一屏化的闸门：工作台自己不许把页面撑长。高度到此为止，多出来的内容由内部
+       那几个 `overflow: auto` 的窗格（编辑器 / 控制台 / 变量 / 轨道）各自消化。
+       没有这一行，`max-height` 只是个建议——子项撑开就把整页顶下去，学习页照旧要滑。 */
+    overflow: hidden;
+  }
+  /* 页头与指南/洞察是定高附件，中间那两列吃掉剩余高度。 */
+  .cw-workspace .learning-header,
+  .cw-workspace .lesson-guide,
+  .cw-workspace .lesson-insight {
+    flex: 0 0 auto;
+  }
+  .cw-workspace .learning-view {
+    flex: 1 1 auto;
+    /* 没有它，grid/flex 子项的最小内容尺寸会让两列撑破外层 max-height。 */
+    min-height: 0;
+    align-items: stretch;
+  }
+  /* 每列一个滚动条：列内子块不再各自套内层滚动容器（否则一屏里两三个滚动条）。 */
+  .cw-workspace .workspace,
+  .cw-workspace .right-panels {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cw-workspace .workspace > *,
+  .cw-workspace .right-panels > * {
+    flex: 0 0 auto;
+  }
+  /* 放掉列内这些块的自身高度上限：滚动的职责上移到列容器，避免嵌套滚动。 */
+  .cw-workspace .reading-pane,
+  .cw-workspace .rs-stage,
+  .cw-workspace .code-editor,
+  .cw-workspace .variable-list {
+    max-height: none;
+  }
+  .cw-workspace .reading-pane {
+    overflow: visible;
+  }
+  /* 指南比一屏还长时给个上限自己滚，别把整页顶下去。这里要再从视口里扣掉
+     页头与上面那两列占的地（约 320），否则指南会跟列抢高度、把外层 max-height
+     撑破——外层一旦溢出，页面又会长出文档滚动条，等于没做单屏化。 */
+  .cw-workspace .lesson-guide {
+    max-height: calc(100vh - var(--cw-chrome-h) - 320px);
+    max-height: calc(100svh - var(--cw-chrome-h) - 320px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ── 代码模式：左边写代码，右边看画布（本页「换一种摆法」） ──────────────
+   入口是页头那枚 `.cw-mode-toggle`，开合状态挂在根节点的 `.is-code-mode` 上
+   （组件见 `learning-workspace-view.tsx` 的 `codeMode`）。**只切呈现，不切 DOM**：
+   四个分区锚点与导航 href 表是契约测试逐条钉死的，另起一棵树就要维护两份可达性，
+   所以这里一个元素不增不减，靠 CSS 决定此刻谁在场上、摆在哪。
+
+   留场的是「写代码 → 看运行」这条链上的东西：左栏的代码编辑器与运行条，右栏的
+   画布、变量、控制台。其余（主题原文、证据/完成、来源明细、课程指南、洞察）整体
+   `display: none` 离场——连子树一起离开 tab 顺序与读屏顺序，不留「看不见但 Tab 能到」
+   的暗门（`visibility: hidden` 与 `opacity: 0` 都会留下这种暗门）。 */
+.cw-workspace.is-code-mode .learning-view {
+  /* 与宽屏档同一个两列骨架，只把配比换成画布占多半：参考实现里
+     控制栏是窄侧栏、画布是主列，这里反过来让编辑器做窄侧、画布做主场。 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+}
+
+/* 离场的五块。逐条列名而不是写一条否定式选择器（`:not()` 串起来没人看得懂
+   到底藏了什么，也挡不住以后新加的块悄悄留在场上）。 */
+.cw-workspace.is-code-mode #cw-pane-reading,
+.cw-workspace.is-code-mode .lesson-complete-row,
+.cw-workspace.is-code-mode .external-evidence-form,
+.cw-workspace.is-code-mode .cw-verify-cases,
+.cw-workspace.is-code-mode .lesson-source,
+.cw-workspace.is-code-mode .lesson-guide,
+.cw-workspace.is-code-mode .lesson-insight {
+  display: none;
+}
+
+/* 代码模式下两列各自吃满一屏：整页不再往下长，滚动只发生在列内。
+   与宽屏档同一套体积口径（`--cw-chrome-h` 从视口里扣外壳），但**不设上限**——
+   离场那几块腾出的高度全部归编辑器与画布，这正是「一屏装下」的来处。 */
+.cw-workspace.is-code-mode {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+  max-height: calc(100vh - var(--cw-chrome-h));
+  max-height: calc(100svh - var(--cw-chrome-h));
+}
+.cw-workspace.is-code-mode .learning-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+.cw-workspace.is-code-mode .workspace,
+.cw-workspace.is-code-mode .right-panels {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cw-workspace.is-code-mode .workspace > *,
+.cw-workspace.is-code-mode .right-panels > * {
+  flex: 0 0 auto;
+}
+/* 放掉列内这几块的自身高度上限：滚动的职责在列容器，别套内层滚动条。 */
+.cw-workspace.is-code-mode .rs-stage,
+.cw-workspace.is-code-mode .code-editor,
+.cw-workspace.is-code-mode .variable-list {
+  max-height: none;
+}
+
+/* 窄屏：两列并排会两边都窄到没法用，退回单列（编辑器在上、画布在下）。
+   这不算「没做」，是本页一贯的移动优先取舍——320px 下并排等于两块都废。 */
+@media (max-width: 1080px) {
+  .cw-workspace.is-code-mode .learning-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── 代码模式吃满视口宽度：撤掉正文页的 1280px 阅读宽度上限 ─────────────────
+   实测（1440×900）：`.content-wrap` 的 `max-width: 1280px` + `margin: 0 auto`
+   把工作区夹成 1073px 并从 x=303 起排，右边空出约 370px——那是给长文本行的
+   阅读宽度上限（一行的字太多，眼睛回扫会丢行），对「左边代码右边画布」没有意义，
+   反而正好从画布身上扣掉。所以代码模式下把这个上限撤掉，让工作区用满
+   `.main-content` 的整幅宽度，只留 `--pad-page` 一圈安全边距作视觉矩形。
+
+   两条一起出现才算数：`.cw-workspace.is-code-mode`（确实是代码模式，而不是
+   沉浸式的别的页）且 `.app-shell.is-immersive`（外壳确实是沉浸式）。只靠后者
+   会把首页/内容来源页一起放大，那不是这个动作要的效果。
+
+   用 `:has()` 而不是后代选择器：`.content-wrap` 是 `.cw-workspace` 的**父节点**
+   （实测链条 `.content-wrap > .cw-workspace`），写成 `.cw-workspace … .content-wrap`
+   永远匹配不到。`:has(> …)` 读作「这个内容列里装着一个处于代码模式的工作台」，
+   子组合器与真实层级一致，别的工作台之外的页不受影响。 */
+.app-shell.is-immersive .content-wrap:has(> .cw-workspace.is-code-mode) {
+  max-width: none;
+}
+
+/* ── §5.3 第 3 条：真正停止持续动效（不是放慢） ────────────────────────
+   本文件已经不含 @keyframes 与无限动画，因此这里要停掉的是：
+   1) 自身保留的悬停/焦点颜色过渡；
+   2) 继承自 styles.css 的循环动画（run-indicator 的 blink、变量行的 value-pop）
+      —— 用 `animation: none` 掐掉，而不是把 duration 乘 0.35。
+   两条触发路径都要覆盖：系统 prefers-reduced-motion 与应用内“减少动效”设置
+   （app.tsx 在根节点挂 .reduce-motion）。 */
+@media (prefers-reduced-motion: reduce) {
+  .cw-workspace,
+  .cw-workspace *,
+  .cw-workspace *::before,
+  .cw-workspace *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion .cw-workspace,
+.reduce-motion .cw-workspace *,
+.reduce-motion .cw-workspace *::before,
+.reduce-motion .cw-workspace *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── 宽屏“钉进一屏”的预算校准（2026-10-01 实测） ──────────────────────────────
+   上面 `--cw-chrome-h: 252px` 是当初**估**的，注释自己写明「取一个保守常量而不是
+   量出来的精确值」。单屏化实测后，它保守得太多了——在 1600×900、侧边栏展开的
+   实际布局里，外壳真正占掉的只有：
+
+     外壳上下内边距 8 + 8        =  16   （沉浸式下由 styles.css 收窄）
+     .learning-header 69 + 14    =  83
+     .cw-pane-nav                =  62
+     .lesson-insight 41 + 10     =  51
+     ─────────────────────────────────
+                                   212
+
+   也就是说 252 里多出来的那截并没有被任何东西占用，而是被 `max-height` 从工作区
+   身上扣走了：`.cw-workspace` 只能长到 648px，视口里却还剩约 690px，底下空出一条
+   没人用的横带——用户看到的「全挤在上半屏」就是它。
+
+   精确重测（`.cw-workspace` 的 top 到文档底）得 234，逐项对得上：
+     内容外壳上内边距 8 + 外壳到工作区 153（topbar 64 + 页头 83 + 导航 62，减去重合）
+     + 洞察条 51 + 下内边距 8 … 实测合计 234。
+   所以取 234：这一档下 `100vh - 234 = 666`，工作区 666 + 234 = 900，正好一屏。
+   再小就溢出一根文档滚动条（用户明确不要），再大就重新留出那条横带。 */
+.cw-workspace {
+  --cw-chrome-h: 234px;
+}
+
+/* ── 窄屏（≤1080px）一屏化：宽屏那套「两列各自滚」在这里没有列可滚 ─────────────
+   1081 以下 `.learning-view` 退回单列，五个分区纵排。宽屏档是让**两列各滚**，
+   这里只剩一列，所以滚动的职责落到 `.learning-view` 自己身上——它就是那个「小框」：
+   外面（页头 / 导航 / 洞察条）静止不动，要滑就在这个框里滑。
+
+   为什么不做成「阅读 / 代码 / 画布」三个 Tab 而不是内部滚动：用户原话是「多点几个
+   页面多好」「需要滑就给它一个小框」。本档先落**小框**这一半（改动最小、风险最低）；
+   Tab 化要动 `.learning-view` 的结构，而 `nav.cw-pane-nav` 的四个锚点 href 被
+   m3 测试逐条钉住（#cw-pane-reading / -code / -variables / -console），
+   结构一动就是假锚点，得连测试一起重设计——那是下一步，不是这一步。 */
+@media (max-width: 1080px) {
+  /* 窄屏外壳更高：页头 4 个动作按钮换行 + 导航 pill 换行，实测比宽屏多占约 40px。
+     不给足的话 max-height 会把工作台压得太短，下面又留出一条没人用的横带。 */
+  .cw-workspace {
+    --cw-chrome-h: 268px;
+    /* 地板在窄屏要撤掉：480px 的地板 > 手机横屏的可用高度，会反过来逼出一根
+       文档滚动条——那正是要消灭的东西。 */
+    min-height: 0;
+    /* ★ 小框就是工作台自己（2026-10-01 二次修）。上一版让小框落在 `.learning-view`
+       身上，但页头 55 + 导航 56 + 洞察条 117 = 228px 是**固定的、在小框外面**的，
+       窄屏实测工作台总共只有 311px——小框只剩 63px，比不做还糟。
+       改成整个工作台做唯一滚动容器：页头/导航/洞察/正文一起滚，一根滚动条，
+       外层页面仍然纹丝不动。这才是用户说的「你给它一个小框，我去看小框里面的滑动」。 */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cw-workspace .learning-view {
+    /* 单列、自然高度——滚动交给工作台，这里不再自己开一个嵌套滚动区。 */
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  /* 单列里每块按内容高，别让 flex 把它们压扁。 */
+  .cw-workspace .workspace,
+  .cw-workspace .right-panels {
+    min-height: 0;
+    overflow: visible;
+  }
+  .cw-workspace .workspace > *,
+  .cw-workspace .right-panels > * {
+    flex: 0 0 auto;
+  }
+  /* 指南开着的时候是纵排里的又一长条：给它自己的上限，别跟小框抢高度。 */
+  .cw-workspace .lesson-guide {
+    flex: 0 0 auto;
+    max-height: 40vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cw-workspace .lesson-insight {
+    flex: 0 0 auto;
+  }
+}
+
+/* ── 手机档（≤640px）：把工作区自己的外壳再压一档 ───────────────────────────
+   桌面预览窗实测 590×551——正是用户看东西的那个尺寸。这一档上外壳 262px 已经是死数
+   （顶栏 + 页头 + 导航），而**工作区内部**的页头还占 117px：`.learning-header-actions`
+   三个 44px 控件在这一档换到第二行，同一块里又叠了标题的上下两行，于是 44+44+标题行
+   拼成三行。加上导航 62px，551 的视口里只剩约 104px 给正文——「点进学习还要滑」就是
+   这么来的，不是滚动条的事，是根本没剩下几像素。
+
+   所以这一档要动的是**页头自己的排版**，不是再往上加高度预算：
+     · 标题行与动作组强制同行（标题 flex:1 收窄，动作组不给换行的机会）；
+     · 动作组里的说明文字收进图标（`.cw-mode-toggle` 的「代码模式」四字在这一档
+       让位——按钮仍带 aria-label，读屏不受影响）；
+     · 导航 pill 的上下内边距从 12 收到 8，44 的触控底线由 min-height 继续守住。
+   收回来约 60px，正文那一块从 104 长到约 164——仍然要小框内滚，但至少能看见一段完整
+   的代码/阅读块，而不是一个字都挤不进来。 */
+@media (max-width: 640px) {
+  .cw-workspace {
+    /* 这一档**不降** chrome-h。曾试过按「页头收成两行」降到 240，结果实测
+       590×551 上工作台底边落到 573，比视口多出 22px——一根文档滚动条又回来了。
+       原因是 chrome-h 扣的是**工作台以上**的外壳（顶栏 + 面包屑 + 页头，实测 262），
+       而那个数字与本文件里页头收不收窄无关：页头在工作台**里面**。
+       所以这一档给 274，比 ≤1080px 档的 268 再宽 6px：实测 wsTop 262、视口 551，
+       上限取 551 − 274 = 277 时工作台底边落在 539，留 12px 余量。 */
+    --cw-chrome-h: 274px;
+  }
+  .cw-workspace .learning-header {
+    gap: var(--ds-space-8, 8px);
+    margin-bottom: var(--ds-space-10, 10px);
+    padding-bottom: var(--ds-space-10, 10px);
+    /* 这一档不再让动作组换行：宁可标题被压窄，也不让四个 44px 控件占掉整整一行。 */
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .cw-workspace .learning-title {
+    /* 同行布局里标题让出宽度；`min-width: 0` 是让 flex 子项能被压到内容宽度以下，
+       否则长课名会把动作组顶出行外（短文本补测 §4.12 那条的老毛病）。 */
+    min-width: 0;
+  }
+  .cw-workspace .learning-title h1 {
+    /* 字号跟着视口收一档，长中文标题在这一档更容易整行放下。 */
+    font-size: clamp(15px, 4.4vw, 19px);
+  }
+  .cw-workspace .learning-title span {
+    /* 副标题（「入门 · 8 min」）在同行布局里最不划算，让位给标题本体；
+       它在页头下方的元信息里仍有同值可读。 */
+    display: none;
+  }
+  .cw-workspace .learning-header-actions {
+    flex: 0 0 auto;
+    gap: var(--ds-space-6, 6px);
+  }
+  .cw-workspace .cw-mode-toggle {
+    /* 图标档：宽度回到与 icon-button 同宽（44），文字撤掉。按钮本身带
+       aria-label，读屏拿到的仍是「代码模式 / 退出代码模式」。 */
+    width: var(--cw-tap);
+    padding: 0;
+    justify-content: center;
+  }
+  .cw-workspace .cw-mode-toggle span {
+    display: none;
+  }
+  .cw-workspace .cw-pane-nav ol {
+    margin-bottom: var(--ds-space-10, 10px);
+  }
+  .cw-workspace .cw-pane-nav a {
+    padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  }
+}
+
+/* ── 外壳自身抗溢出：页头/导航/洞察条都长在**小框外面** ────────────────────
+   上面两档收的是「外壳有多高」，但页头是内容驱动的：课名一长，h1 就换行（这里
+   `overflow-wrap: anywhere` + `clamp()` 字号，任意宽度都可能多一行）；洞察条也跟着
+   文案长短变。它们都在 `.learning-view` 之外，所以一涨就直接把工作区顶出视口——
+   实测 590×551 上残留的 31px 文档滚动正是这么来的，而且**换一课就复现**。
+   靠调 `--cw-chrome-h` 追这个数追不上：它是常数，页头是变量。
+
+   所以让工作区自己吞掉这点涨落：页头与导航 `flex: 0 0 auto` 保住它们的自然高（标题
+   不裁切），把剩下的空间让给小框；小框 `flex: 1 1 auto` + `min-height: 0` 会被压到
+   只剩几十像素也不溢出。宁可小框矮，也不要一根文档滚动条——用户的原话是「外面的
+   总界面你总是滑动干嘛」。极小兜底：小框给 48px 地板，再矮就没有可读性可言了。 */
+.cw-workspace > .learning-header,
+.cw-workspace > .cw-pane-nav,
+.cw-workspace > .lesson-insight {
+  flex: 0 0 auto;
+}
+@media (max-width: 1080px) {
+  .cw-workspace .learning-view {
+    flex: 1 1 auto;
+    min-height: 48px;
+  }
+}

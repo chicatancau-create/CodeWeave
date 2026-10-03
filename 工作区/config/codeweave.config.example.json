@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "_note": "配置示例：复制为 config/codeweave.local.json 后按本机情况修改（local 配置受 .gitignore 忽略，服务只读取 local 文件）。相对路径以工程根为基准。",
+  "_precedence": "调用方显式参数（CLI）> 环境变量 CODEWEAVE_VAULT_ROOT / CODE_CANVAS_DATA_DIR / PORT > config/codeweave.local.json > 工程相对默认",
+  "_defaults": "未配置时：vaultRoot=<工程根>/data/knowledge/vault，dataDir=<工程根>/data/runtime/data，port=4173。监听地址固定 127.0.0.1，不作为配置项（多人部署另行设计）。",
+  "_migration": "三层布局：frontend/、backend/、data/；资料库与运行数据位于 data/，不与源码混放。",
+  "vaultRoot": "data/knowledge/vault",
+  "dataDir": "data/runtime/data",
+  "port": 4173
+}

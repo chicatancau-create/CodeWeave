@@ -1,0 +1,70 @@
+{
+  "_说明": "教材 JavaScript 沙箱的**禁用能力清单与判据形状**（分离方案 §5「唯一允许的跨边界共享内容」第 2 条：不含业务状态的格式定义）。契约源是网页端执行引擎里那份提示性检查函数；后端持有可核对的副本 `service/server/content/sandbox-rules.mjs`，两端各自不得改宽或改窄。副本与契约源的等价由两条机器检查证明：后端 `tests/content.sandbox.contract.test.mjs` 逐例复现判据行为，网页端 `tests/contract.copies.test.mjs` 把本文件的清单与其 `src/engine/javascript-sandbox.ts` 逐项比对。",
+  "schemaVersion": 1,
+  "contractSource": "frontend/src/engine/javascript-sandbox.ts#validateJavaScriptSandbox",
+  "sourceLines": "L12-L21（ADVISORY_PATTERNS）与 L31-L38（validateJavaScriptSandbox）",
+  "security": {
+    "advisoryOnly": true,
+    "notASecurityBoundary": "这份清单是**提示性检查**，不是安全边界（R4 G.3 第 4 条）。真正的执行隔离依赖 Worker（无 DOM、无同源存储、可 terminate）与超时上限。",
+    "knownBypass": [
+      "字符串拼接构造关键字（关键字不出现在源码里）不会被拦",
+      "动态属性访问（拼串后再取属性）不会被拦"
+    ],
+    "uiMustNotClaim": "UI 不得据这份名单宣称「绝对安全」。"
+  },
+  "match": {
+    "_说明": "判据形状，逐字对应原实现：先按 lineSplitter 切成行，再按 patterns 的书写顺序逐个模式扫全部行；第一个命中的模式决定结果，报告的是那一行在块内的 1 基行号。拦的是整行字面文本，不是语法子句，也不剥注释、不做 AST 解析。",
+    "unit": "line",
+    "lineSplitter": "\n",
+    "testedInput": "source line 的原始字面文本（不 trim、不剥注释、不解析字符串）",
+    "patternOrderMatters": true,
+    "firstPatternWinsReportsItsLine": true,
+    "flagsMustBePreserved": "每个模式的 flags 必须原样使用：i 决定大小写不敏感；带 g 会让 RegExp.test 产生 lastIndex 状态——原实现全部不带 g，本清单同样禁止 g。",
+    "forbiddenFlags": ["g"]
+  },
+  "message": "教学沙箱禁止访问网络、页面、系统和动态代码能力（提示性检查）。",
+  "patterns": [
+    {
+      "id": "network-apis",
+      "source": "\\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|importScripts)\\b",
+      "flags": "i",
+      "blocks": "网络与跨上下文消息能力"
+    },
+    {
+      "id": "eval-call",
+      "source": "\\beval\\s*\\(",
+      "flags": "",
+      "blocks": "eval 的调用形式（动态执行代码）；不带 i，function 关键字声明与 `Function(` 之外的写法不受影响"
+    },
+    {
+      "id": "function-constructor-call",
+      "source": "\\bFunction\\s*\\(",
+      "flags": "",
+      "blocks": "Function 构造器的调用形式。**必须区分大小写**：`function add(a, b) { … }` 是合法声明（回归点：给它加 i 会误杀所有函数声明）"
+    },
+    {
+      "id": "storage-and-worker-apis",
+      "source": "\\b(?:WebAssembly|indexedDB|serviceWorker|caches)\\b",
+      "flags": "i",
+      "blocks": "字节码、本机存储、Service Worker 与缓存"
+    },
+    {
+      "id": "page-and-host-globals",
+      "source": "\\b(?:globalThis|self|location|navigator|document|window|postMessage)\\b",
+      "flags": "i",
+      "blocks": "页面与宿主全局对象"
+    },
+    {
+      "id": "module-and-runtime-apis",
+      "source": "\\b(?:require|process|child_process|Deno|Bun)\\b",
+      "flags": "i",
+      "blocks": "模块系统与本机运行时"
+    },
+    {
+      "id": "this-binding",
+      "source": "\\bthis\\b",
+      "flags": "i",
+      "blocks": "`this` 绑定：沙箱入口把用户代码包进函数，泄漏 this 就能摸到宿主对象"
+    }
+  ]
+}

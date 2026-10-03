@@ -1,0 +1,10 @@
+{
+  "name": "codeweave-web-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeWeave 网页端远程服务运行入口",
+  "engines": {
+    "node": "^22.13.0 || >=24.0.0"
+  }
+}

@@ -1,0 +1,364 @@
+/* ============================================================================
+   CodeWeave · 弹窗体系（设置 / 帮助）· M4 全站统一
+   ----------------------------------------------------------------------------
+   规格：`docs/00-CodeWeave三合一总工程方案.md` §5.2 末行「账户、设置、隐私和弹窗：相同
+   字体、按钮、表单、焦点和遮罩体系」+ §5.1 形态行 + §5.4 验收。
+   形态裁定：`src/design/geometry.md` §2 表末行（本区域**禁止**「独立一套圆角或
+   阴影」）、§5 裁定 3（弹层家族固定三档：40 一次性浮层 / 50 模态遮罩 + 模态内容
+   / 60 模态之上的系统级提示）。
+
+   作用域约定（与 M3 四页同一手法）：
+   - 每条选择器都以 `.cw-modal-backdrop` / `.cw-modal` 起头，**全局裸选择器 0 条**；
+     旧类名（`.modal-backdrop`、`.settings-modal`、`.setting-row` …）全部保留在
+     DOM 上，本文件只做覆写，styles.css 一字未改。
+   - 取值一律 `var(--ds-*, 兜底)`；模板没有的派生档在本文件内注明为什么偏离。
+   - 圆角只出现三档：`--ds-shape-none`(0) / `--ds-shape-circle`(50%) /
+     `--ds-shape-pill`(100px)；面板与控件取 0，药丸只留给模态内的主操作。
+   - 遮罩为黑场压暗，无 backdrop-filter（玻璃特征，§5.1 要求移除）、无渐变；
+     弹层投影走 `--ds-shadow-panel`，它在 tokens L179 已指向 `--ds-glow-panel`
+     （科技档冷色外发光，§4.5：黑投影在黑场上等于没有）。
+   - `!important` 只出现在 §5.3 的两条减动效真停开关上。
+   ========================================================================== */
+
+.modal-backdrop.cw-modal-backdrop {
+  /* 局部别名：令牌缺席时也拿到与 tokens.css 同值的兜底（出处见括号内行号） */
+  --cm-canvas: var(--ds-canvas, #000);                            /* L14 */
+  --cm-canvas-solid: var(--ds-canvas-solid, #000);                /* L424 启动层实底 */
+  --cm-ink: var(--ds-text-primary, #f4f1ee);                      /* L15 */
+  --cm-ink-2: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L16 */
+  --cm-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));      /* L18 */
+  --cm-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 */
+  --cm-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));   /* 输入静止边界 ≥3:1 */
+  --cm-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62));
+  --cm-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));    /* 9.45:1 */
+  --cm-ok: var(--ds-status-success, #3fd3a4);
+  --cm-bad: var(--ds-status-danger, #ff8371);
+  --cm-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --cm-body: var(--ds-size-body, 16px);                           /* §5.4 正文 16px */
+  --cm-leading: var(--ds-leading-body, 1.7);                      /* §5.4 1.6–1.75 */
+  --cm-meta: 13px; /* §5.4 反对 9.5–10.5px HUD 承载必读信息：说明文字最小 13px */
+  --cm-tap: var(--ds-tap-min, 44px);                              /* §5.4 触控 ≥44px */
+  --cm-line: var(--ds-line-width, 1px);
+  --cm-radius: var(--ds-shape-none, 0);                           /* 面板直角 */
+  --cm-mono: var(--ds-font-mono, ui-monospace, Consolas, monospace);
+  --cm-ui: var(--ds-font-display, 'Geist Mono', 'Microsoft YaHei', ui-monospace, monospace);
+  /* 黑场遮罩：模板弹层无先例，产品派生档 = --ds-canvas-solid 的 α 版。
+     两条声明各走一路：支持 color-mix 的浏览器由令牌直接算出（改 --ds-canvas-solid
+     即跟随），不支持的落回同值的字面 rgba。禁止 backdrop-filter。 */
+  --cm-scrim: rgba(0, 0, 0, 0.78);
+  --cm-scrim-token: color-mix(in srgb, var(--ds-canvas-solid, #000) 78%, transparent);
+
+  position: fixed;
+  inset: 0;
+  /* geometry.md §5 裁定 3：模态遮罩 + 模态内容固定 50。档位常量由「全局壳」代理
+     在 styles.css 收口，本文件不自造新档，只沿用现有值并在此登记依赖。 */
+  z-index: var(--z-modal, 50);
+  display: grid;
+  place-items: center;
+  padding: clamp(var(--ds-space-10, 10px), 2.4vw, var(--ds-space-32, 32px));
+  background: var(--cm-scrim);
+  background: var(--cm-scrim-token);
+  font-family: var(--cm-ui);
+  color: var(--cm-ink);
+  /* 320px 下弹窗可能比视口高：遮罩层自身可滚，避免内容被裁死（§5.4） */
+  overflow: auto;
+}
+
+/* ── 1. 弹层体：黑场实底 + 1px 发丝线边界，直角 + 冷色面板发光 ─────────────── */
+.modal-backdrop .cw-modal {
+  width: min(560px, 100%);
+  max-height: 86vh;                      /* 先给 vh 兜底：不认识 dvh 的浏览器不丢这条 */
+  max-height: min(86vh, calc(100dvh - 20px));
+  overflow-y: auto;
+  /* 内距用 min() 收边，320px 视口仍有 16px 呼吸（§5.4 最小宽度不破版） */
+  padding: clamp(var(--ds-space-16, 16px), 3.2vw, var(--ds-space-28, 28px));
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-canvas-solid);
+  box-shadow: var(--ds-shadow-panel, none);
+  font-size: var(--cm-body);
+  line-height: var(--cm-leading);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.cw-modal.cw-modal--help {
+  width: min(460px, 100%);
+}
+
+/* 模态打开时滚动条不再压住发丝线边界 */
+.cw-modal-backdrop .cw-modal {
+  scrollbar-gutter: stable;
+}
+
+/* ── 2. 页眉：编号眉标 + 展示标题 + 细线下边界（与 §5.2 全站同一字体档） ──── */
+.cw-modal .cw-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-14, 14px);
+  padding-bottom: var(--ds-space-14, 14px);
+  border-bottom: var(--cm-line) solid var(--cm-hair-raised);
+}
+.cw-modal .cw-modal-eyebrow {
+  margin: 0 0 var(--ds-space-6, 6px);
+  color: var(--cm-ink-2);
+  font-family: var(--cm-mono);
+  font-size: var(--cm-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);
+  text-transform: uppercase;
+}
+.cw-modal .cw-modal-title {
+  margin: 0;
+  color: var(--cm-ink);
+  font-family: var(--cm-ui);
+  font-size: clamp(20px, 3.4vw, 26px);
+  font-weight: var(--ds-weight-display, 200);   /* §5.1 展示标题字重 */
+  letter-spacing: var(--ds-track-title, -0.02em); /* 负字距 */
+  line-height: var(--ds-leading-title, 1.15);     /* 中文多行走 1.15，不走 1 */
+}
+
+/* 关闭按钮：44×44 命中区（旧全局 .icon-button 为 34×34，不达 §5.4） */
+.cw-modal .cw-modal-close {
+  flex: 0 0 auto;
+  width: var(--cm-tap);
+  min-width: var(--cm-tap);
+  height: var(--cm-tap);
+  display: grid;
+  place-items: center;
+  color: var(--cm-ink-2);
+  border: var(--cm-line) solid var(--cm-hair);
+  border-radius: var(--cm-radius);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-close:hover {
+  color: var(--cm-ink);
+  border-color: var(--cm-edge-active);
+}
+
+.cw-modal .cw-modal-close:active {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+
+/* ── 3. 分区与行：细线分隔，不用卡片底色（§5.1 移除大面积玻璃卡） ─────────── */
+.cw-modal .cw-modal-section {
+  margin-top: var(--ds-space-24, 24px);
+}
+.cw-modal .cw-modal-section > .cw-modal-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  margin: 0 0 var(--ds-space-8, 8px);
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--cm-line) solid var(--cm-hair);
+  color: var(--cm-ink);
+  font-family: var(--cm-mono);
+  font-size: var(--cm-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.cw-modal .cw-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-16, 16px);
+  min-height: calc(var(--cm-tap) + 12px); /* 整行即 label 命中区，远超 44px */
+  padding: var(--ds-space-12, 12px) 0;
+  border-top: var(--cm-line) solid var(--cm-hair);
+}
+.cw-modal .cw-modal-row:first-of-type {
+  border-top: 0;
+}
+.cw-modal .cw-modal-row > .cw-modal-row-text,
+.cw-modal .cw-modal-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+}
+.cw-modal .cw-modal-row strong {
+  color: var(--cm-ink);
+  font-size: var(--cm-body);           /* §5.4：主文字 16px（旧值 13px） */
+  font-weight: var(--ds-weight-body, 400);
+  line-height: var(--cm-leading);
+}
+.cw-modal .cw-modal-row small {
+  color: var(--cm-ink-2);              /* 0.56 档 = 5.86:1，过 §5.4 的 4.5:1 */
+  font-size: var(--cm-meta);
+  line-height: var(--cm-leading);
+}
+
+/* ── 4. 开关：细线轨 + 直角滑块；开/关由「位置 + 描边 + 原生 checked」三重表达 ─
+     颜色不是唯一通道：滑块位移 20px、DOM 里保留 role="checkbox" 的选中态，
+     读屏与高对比模式下都还能判定状态。 */
+.cw-modal .cw-modal-row input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--cm-tap) + 4px); /* 48px 宽，配合 28px 高保持可点 */
+  min-width: var(--cm-tap);
+  height: 28px;
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-canvas);
+  cursor: pointer;
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-row input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 16px;
+  height: 16px;
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-ink-2);
+  transition: transform var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    background var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-row input[type='checkbox']:checked {
+  border-color: var(--cm-edge-active);
+}
+.cw-modal .cw-modal-row input[type='checkbox']:checked::after {
+  background: var(--cm-ink);
+  transform: translateX(20px);
+}
+
+/* 下拉：与全站输入框同一细线档，44px 高 */
+.cw-modal .cw-modal-select {
+  min-height: var(--cm-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--cm-ink);
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-canvas);
+  font-family: var(--cm-mono);
+  font-size: var(--cm-body);           /* 表单控件 16px：可读 + 不触发移动端聚焦缩放 */
+}
+.cw-modal .cw-modal-select {
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-select:hover {
+  border-color: var(--cm-edge-active);
+}
+.cw-modal .cw-modal-select:active {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+
+/* ── 5. 弹层内按钮：沿用 M3 细线体系（styles.css L730 起），只补触控与语义色 ── */
+.cw-modal .cw-modal-row button,
+.cw-modal .cw-modal-section-head button {
+  flex: 0 0 auto;
+  min-height: var(--cm-tap);           /* §5.4：全局档是 40px，模态内抬到 44px */
+  padding-inline: var(--ds-space-16, 16px);
+  font-size: var(--cm-meta);
+  border-radius: var(--cm-radius);
+}
+.cw-modal .danger-button {
+  color: var(--cm-bad);                 /* 固定语义色，不跟 --ds-scene-* 走 */
+  border-color: var(--cm-bad);
+  background: var(--cm-bad-wash);
+}
+/* 「知道了」：模态内唯一主操作，按 geometry.md §2 允许细线药丸（模板 CTA 原形 L393） */
+.cw-modal .cw-modal-cta {
+  width: 100%;
+  min-height: var(--cm-tap);
+  justify-content: center;
+  margin-top: var(--ds-space-24, 24px);
+  border-radius: var(--ds-shape-pill, 100px);
+}
+
+/* ── 6. 帮助正文与脚注 ────────────────────────────────────────────────────── */
+.cw-modal .cw-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-16, 16px);
+  margin: var(--ds-space-20, 20px) 0 0;
+}
+.cw-modal .cw-modal-help {
+  display: flex;
+  gap: var(--ds-space-12, 12px);
+  align-items: flex-start;
+}
+.cw-modal .cw-modal-help > svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-6, 6px);
+  color: var(--cm-ink-2);               /* 图标只做引导，不承担语义 */
+}
+.cw-modal .cw-modal-help h3 {
+  margin: 0 0 var(--ds-space-4, 4px);
+  color: var(--cm-ink);
+  font-size: var(--cm-body);
+  font-weight: 600;
+  line-height: var(--cm-leading);
+}
+.cw-modal .cw-modal-help p {
+  margin: 0;
+  color: var(--cm-ink-2);
+  font-size: var(--cm-body);
+  line-height: var(--cm-leading);
+}
+.cw-modal .cw-modal-note {
+  margin: var(--ds-space-20, 20px) 0 0;
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--cm-line) solid var(--cm-hair);
+  color: var(--cm-ink-2);
+  font-size: var(--cm-meta);
+  line-height: var(--cm-leading);
+}
+
+/* ── 7. 焦点可见（§5.4：焦点轮廓可见，不靠颜色单独承担） ─────────────────── */
+.cw-modal-backdrop :is(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--cm-focus);
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 8. §5.4 窄视口降级：320px 不破版 ─────────────────────────────────────── */
+@media (max-width: 420px) {
+  .modal-backdrop.cw-modal-backdrop {
+    place-items: start center;
+    padding: var(--ds-space-8, 8px);
+  }
+  .modal-backdrop .cw-modal {
+    max-height: calc(100dvh - 16px);
+  }
+  .cw-modal .cw-modal-head {
+    align-items: flex-start;
+  }
+  .cw-modal .cw-modal-row {
+    align-items: flex-start;
+    gap: var(--ds-space-12, 12px);
+  }
+}
+
+/* ── 9. §5.3 减动效：两条路径各自真停（取消过渡，而不是把时长压短） ────────── */
+/* 路径 A：系统偏好。 */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop.cw-modal-backdrop :is(button, input, select, textarea) {
+    transition: none !important;
+  }
+}
+/* 路径 B：应用内「减少动效」设置。该类同时挂在 <html>（app.tsx L600 镜像）与
+   .app-shell（shellClassName）上，弹窗在壳内，两种祖先位置都覆盖得到。 */
+.reduce-motion .modal-backdrop.cw-modal-backdrop :is(button, input, select, textarea) {
+  transition: none !important;
+}
+
+/* ── 10. 高对比模式：发丝线抬到系统描边（细线在 forced-colors 下会整体消失） ─ */
+@media (forced-colors: active) {
+  .modal-backdrop .cw-modal,
+  .cw-modal .cw-modal-close,
+  .cw-modal .cw-modal-row,
+  .cw-modal .cw-modal-row input[type='checkbox'],
+  .cw-modal .cw-modal-select {
+    border-color: CanvasText;
+  }
+}

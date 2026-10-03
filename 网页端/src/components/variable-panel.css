@@ -1,0 +1,142 @@
+/* ============================================================================
+   CodeWeave · M4 全站统一 · 变量追踪基座（src/components/variable-panel.tsx）
+   ----------------------------------------------------------------------------
+   面板外壳在 panel-shell.css（两个面板共用一份定义）；本文件只写变量区。
+   特异度与层叠约定见 code-editor.css 头部注释：只在 (c) 档抬一位，
+   页面作用域 `.cw-workspace …`（恰好多一个类）永远赢 → 工作台观感不受影响。
+
+   取值出处（行号 = app/src/design/tokens.css）：黑场 L25、暖白 L27、次级 L28、
+   装饰档 0.34 L29（**只留给可丢失的装饰**，见 README §7）、发丝线 L37/L40、
+   抬起档 L38、语义状态 L60-L63、圆环 50% L119、直角 L118/L121、
+   面板投影 L123（L179 起指向 --ds-glow-panel，科技档冷色外发光）、
+   字栈 L88、时长 L153、缓动 L147。
+   规格：§5.1（去玻璃卡/渐变/泛光；状态不跟场景）、§5.3 第 1 条（回放时反复重建的
+   行不做弹跳）、§5.4（值与类型是必读文字：等宽 13px，长值横向滚动不折行挤压）。
+   ========================================================================== */
+
+div.variable-list {
+  max-height: 240px;
+  padding: 0 var(--ds-space-14, 14px);
+  overflow-y: auto;
+}
+div.variable-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: var(--ds-tap-min, 44px); /* L144：行本身是复读区，按触控档给高 */
+  border-bottom: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37 */
+  border-radius: var(--ds-shape-none, 0); /* L118：不做卡片，行 = 一条发丝线分隔 */
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none); /* L123 */
+}
+div.variable-row:last-child {
+  border-bottom: 0;
+}
+
+/* 类型图标：圆环靠描边成立，不靠底色（geometry.md §2 裁定 2） */
+div.variable-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  background: transparent; /* 原基座在此铺场景色实底（rgba(63,240,200,.12)）→ 去玻璃/去场景 */
+  border: var(--ds-line-width, 1px) solid var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L38 */
+  border-radius: var(--ds-shape-circle, 50%); /* L119 */
+  box-shadow: var(--ds-shadow-panel, none);
+}
+div.variable-icon.blue {
+  color: var(--ds-status-info, #4f7cff); /* L63：固定语义档，不跟场景 */
+}
+div.variable-icon.coral {
+  color: var(--ds-status-danger, #ff8371); /* L62 */
+}
+
+div.variable-name {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2, 2px);
+  flex: 1;
+  min-width: 0;
+}
+div.variable-name strong {
+  color: var(--ds-text-primary, #f4f1ee); /* L27 */
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400; /* tokens L94：变量名是代码字面，不用中粗制造层次 */
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere; /* 长标识符不撑破分区（§5.4 320px） */
+}
+div.variable-name span {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+/* 值：等宽、pre、横向滚动 —— 与编辑器同口径，长值不折行挤压。
+   原基座 max-width: 90px + ellipsis 会把 dict/list 快照截成看不见的样子。 */
+div.variable-value {
+  max-width: none;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden; /* styles.css 的 overflow: hidden 只留纵向：长值横向可滚（§5.4） */
+  color: var(--ds-text-primary, #f4f1ee);
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  white-space: pre;
+  text-overflow: clip;
+}
+
+/* 「本步被改过」的固定标识：左侧 2px 暖白实心线（不是场景色，见 §5.1 末段）。
+   单步回放里行会被反复重建 → 一次性反馈只做不透明度一步变化，无位移、无缩放
+   （styles.css 的 value-pop 带 scale(0.85→1)，属被替换形态）；
+   终态可读：动画结束后 opacity 自然回到 1（geometry.md §3 的停止判据）。 */
+div.variable-row.changed {
+  box-shadow: inset 2px 0 0 var(--ds-text-primary, #f4f1ee); /* 零模糊零扩散：是标记线，不是泛光 */
+}
+@keyframes cw-variable-flash {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+div.variable-row.changed div.variable-value {
+  animation: cw-variable-flash var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)) 1; /* 一次性，非循环 */
+}
+
+/* 纯装饰点：0.34 档（tokens L29 限「仅限装饰」，实测对 #000 只有 2.69:1，不承载信息） */
+div.variable-dots {
+  color: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34));
+  font-size: 12px;
+  letter-spacing: 2px;
+  user-select: none;
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   停的是循环与位移：styles.css 的 value-pop（带 scale）在这里被摘掉。
+   一次性反馈本身在两条路径下仍被共享层点名放行成 cw-flash（纯不透明度、1 次、
+   150ms，终态可读）——那是 styles.css §5.3 的既有裁定，本文件不与之争抢优先级。
+   不跑任何动画时也读得出「变过」：左侧 2px 实心标记线就是静态标识。 */
+@media (prefers-reduced-motion: reduce) {
+  section.variables-panel,
+  section.variables-panel *,
+  section.variables-panel *::before,
+  section.variables-panel *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion section.variables-panel,
+.reduce-motion section.variables-panel *,
+.reduce-motion section.variables-panel *::before,
+.reduce-motion section.variables-panel *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

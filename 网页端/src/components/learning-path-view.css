@@ -1,0 +1,958 @@
+/* ============================================================================
+   学习路径页 · M3 视觉竖切（01 号方案 §3.3「学习路径和内容」/ §2.2 令牌表 / §8 验收清单）
+   ----------------------------------------------------------------------------
+   形态来源：staging/style-pack/source/css/site.css
+     - .ledger  L363-L381  细线清单（border-top + 每行 border-bottom，1px 发丝线）
+     - .specs   L286-L305  dt/dd 细线规格块
+     - .rail    L135-L182  编号轨道 + 1px 竖线（L176 用 .16 一档）
+     - .eyebrow L236-L249  编号眉标（0.24em 字距）
+     - .cue     L307-L331  48px 发丝引导线 + sweep 循环（本文件唯一持续动画）
+     - .backtop L383-L396  全站唯一药丸形状（100px 圆角）→ 只用于主操作 CTA
+   值全部经 --ds-* 令牌消费（app/src/design/tokens.css，含源码行号出处），
+   并逐条写兜底值：令牌尚未由 main.tsx 引入时外观一致。
+
+   刻意不用的模板做法（README §4「不适用于学习工作台的要素」）：
+     玻璃面板、渐变、backdrop-filter、mix-blend-mode、
+     隐藏滚动条、white-space:nowrap 的长中文标题、10px 以下正文。
+   本文件内不出现 backdrop-filter / linear-gradient / outline:none；box-shadow 只走
+   --lp-glow-* 别名（科技档反转，tokens §4.5：黑投影在黑场上等于没有，层级改由
+   冷色外发光承担），不许裸投影字面量。由 learning-path-view.m3.test.tsx 锁住。
+   ========================================================================== */
+
+.lp-view {
+  /* ── 局部别名：全部落到 --ds-* 令牌 + 兜底 ─────────────────────────────── */
+  --lp-canvas: var(--ds-canvas, #000);                            /* site.css L14 */
+  --lp-ink: var(--ds-text-primary, #f4f1ee);                      /* L15 */
+  --lp-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));  /* L16 · 对黑 5.86:1 */
+  --lp-faint: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* L17 · 仅装饰，不承载信息 */
+  --lp-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));      /* L18 */
+  --lp-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 / L447 */
+  --lp-accent: var(--ds-scene-active, rgb(34, 211, 238));         /* 固定当前场景，不逐帧插值 */
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     与 --lp-accent 同族，都是装饰；语义状态一律不消费这三个值（状态靠色 + 文字 + 图形）。 */
+  --lp-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --lp-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --lp-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --lp-wash: rgba(220, 233, 251, 0.05);                           /* 行底色，纯层次，不单独表意 */
+  --lp-mono: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  --lp-body: var(--ds-size-body, 16px);                           /* §5.4 正文约 16px */
+  --lp-leading: var(--ds-leading-body, 1.7);                      /* §5.4 行高 1.6–1.75 */
+  --lp-meta: 12.5px;                                              /* 产品档：高于模板 10.5px，需承载信息 */
+  --lp-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L28 */
+  --lp-quick: var(--ds-dur-quick, 150ms);
+  --lp-base: var(--ds-dur-base, 220ms);
+  --lp-tap: var(--ds-tap-min, 44px);                              /* §5.4 触控目标下限 */
+  --lp-pad-x: clamp(14px, 2.6vw, 34px);
+  --lp-gutter: clamp(46px, 6vw, 92px);                            /* 编号栏 */
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-28, 28px), 3.6vw, var(--ds-space-48, 48px));
+  min-width: 0;
+  margin: 0 calc(var(--ds-space-12, 12px) * -1); /* 负外边距是出血，不是间距：向右借 12px 让发丝线与内容列对齐 */
+  padding: clamp(var(--ds-space-20, 20px), 3vw, var(--ds-space-40, 40px)) var(--lp-pad-x) clamp(var(--ds-space-28, 28px), 3.4vw, var(--ds-space-48, 48px));
+  background: var(--lp-canvas);
+  border: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--lp-ink);
+  font-family: var(--lp-mono);
+  font-size: var(--lp-body);
+  line-height: var(--lp-leading);
+  font-weight: var(--ds-weight-body, 400);
+}
+
+.lp-view *,
+.lp-view *::before,
+.lp-view *::after {
+  box-sizing: border-box;
+}
+
+.lp-view h2,
+.lp-view h3,
+.lp-view h4,
+.lp-view p,
+.lp-view dl,
+.lp-view dt,
+.lp-view dd,
+.lp-view ul,
+.lp-view li,
+.lp-view figure {
+  margin: 0;
+  padding: 0;
+}
+
+.lp-view ul {
+  list-style: none;
+}
+
+/* 长中文标题/长路径不得撑破版面（§5.4 长中文标题 + 320px 最小宽度） */
+.lp-view :is(h2, h3, h4, p, span, td, th, dd, dt, li, button) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.lp-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: var(--ds-space-seam, -1px);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 焦点：黑场上必须高于发丝线一档（tokens §5 产品规则值） ─────────────────── */
+.lp-view :focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 眉标 + 展示标题（site.css L236-L275） ───────────────────────────────── */
+.lp-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  font-size: var(--ds-size-meta, 10.5px); /* 模板 HUD 档：仅非关键装饰文字 */
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);
+  text-transform: uppercase;
+  color: var(--lp-dim);
+  margin-bottom: clamp(var(--ds-space-14, 14px), 1.8vw, var(--ds-space-24, 24px));
+}
+
+.lp-eyebrow-idx {
+  color: var(--lp-accent);
+  padding-right: var(--ds-space-2, 2px);
+}
+
+.lp-eyebrow-rule {
+  position: relative;
+  display: inline-block;
+  width: 48px; /* .cue-line L315 */
+  height: 1px;
+  background: var(--lp-hair-raised);
+  overflow: hidden;
+}
+
+/* 本文件唯一的持续动画：48px 发丝线上的装饰扫过（.cue-line::after L322-L331）。
+   不承载任何信息，且在本文件末尾被系统偏好与 .reduce-motion 双双真正停止。 */
+.lp-eyebrow-rule::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--lp-accent);
+  animation: lp-sweep var(--ds-dur-loop-sweep, 2400ms) var(--lp-ease) infinite;
+  animation-play-state: var(--ds-anim-play-state, running);
+}
+
+@keyframes lp-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.lp-title {
+  font-size: clamp(1.7rem, 3.6vw, 3.4rem); /* .title L270 */
+  line-height: var(--ds-leading-title, 1.15); /* 多行中文标题一律 >1（README §3 C2） */
+  letter-spacing: var(--ds-track-title, -0.02em);
+  font-weight: var(--ds-weight-display, 200);
+  max-width: var(--ds-measure-hero, 38ch);
+  margin-bottom: clamp(var(--ds-space-14, 14px), 1.6vw, var(--ds-space-20, 20px));
+}
+
+.lp-lead {
+  font-size: clamp(14.5px, 1.02vw, 17.5px); /* .lead L278 */
+  line-height: var(--ds-leading-lead, 1.66);
+  color: var(--lp-dim);
+  max-width: var(--ds-measure-lead, 44ch);
+}
+
+/* ── specs 细线规格块（site.css L286-L305） ──────────────────────────────── */
+.lp-specs {
+  display: grid;
+  gap: 0;
+  margin-top: clamp(var(--ds-space-24, 24px), 3vw, var(--ds-space-40, 40px));
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+  max-width: 62ch;
+}
+
+.lp-spec {
+  display: grid;
+  grid-template-columns: minmax(0, 11ch) minmax(0, 1fr);
+  gap: var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-spec dt {
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+.lp-spec dd {
+  margin: 0;
+  font-size: var(--lp-meta);
+  color: var(--lp-ink);
+  opacity: var(--ds-text-emphasis, 0.82); /* L306 */
+}
+
+/* ── 区块标题（编号 01 / 02） ────────────────────────────────────────────── */
+.lp-block {
+  display: grid;
+  gap: clamp(var(--ds-space-12, 12px), 1.6vw, var(--ds-space-20, 20px));
+  min-width: 0;
+}
+
+.lp-block-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  font-size: clamp(15px, 1.4vw, 19px);
+  line-height: var(--ds-leading-title, 1.15);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+}
+
+.lp-block-idx {
+  font-size: var(--ds-size-meta, 10.5px);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-accent);
+}
+
+.lp-block-note {
+  margin-left: auto;
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+  letter-spacing: normal;
+}
+
+/* ── 科目：编号细线列表，不是玻璃卡 ──────────────────────────────────────── */
+.lp-subjects {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 0 clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-28, 28px));
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-subjects li {
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-subject {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  width: 100%;
+  min-height: var(--lp-tap);
+  padding: var(--ds-space-12, 12px) var(--ds-space-6, 6px) var(--ds-space-12, 12px) 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-control, 0);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  transition: color var(--lp-quick) var(--lp-ease), background-color var(--lp-quick) var(--lp-ease);
+}
+
+.lp-subject:hover,
+.lp-subject[aria-pressed='true'] {
+  background-color: var(--lp-wash);
+  box-shadow: var(--lp-glow-inset);              /* 悬停/选中分支：只给内高光，不动网格列宽 */
+}
+
+.lp-subject:active {
+  background-color: var(--lp-wash);
+  color: var(--lp-ink);
+}
+
+.lp-subject[aria-pressed='true'] .lp-subject-label {
+  color: var(--lp-accent);
+}
+
+.lp-subject-idx,
+.lp-subject-code {
+  display: grid;
+  place-items: center;
+  border: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  color: var(--lp-dim);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.lp-subject-idx {
+  width: 26px;
+  height: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-subject-code {
+  width: 34px;
+  height: 34px;
+  letter-spacing: 0.04em;
+}
+
+.lp-subject-body {
+  display: grid;
+  gap: var(--ds-space-2, 2px);
+}
+
+.lp-subject-label {
+  font-size: var(--lp-body);
+  line-height: 1.4;
+}
+
+.lp-subject-meta,
+.lp-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+}
+
+.lp-meta-item {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── S0—S9 编号阶段骨架（rail：编号 + 发丝竖线） ─────────────────────────── */
+.lp-stages {
+  gap: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-32, 32px));
+}
+
+.lp-stage {
+  display: grid;
+  grid-template-columns: var(--lp-gutter) minmax(0, 1fr);
+  gap: 0 clamp(var(--ds-space-10, 10px), 1.6vw, var(--ds-space-24, 24px));
+  min-width: 0;
+}
+
+.lp-stage-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding-top: var(--ds-space-10, 10px);
+}
+
+.lp-stage-num {
+  font-size: clamp(22px, 3.4vw, 40px);
+  line-height: 1;
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-display, -0.03em);
+  color: var(--lp-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-stage.is-unnumbered .lp-stage-num {
+  color: var(--lp-faint); /* 装饰性破折号：编号语义由标题文字给出 */
+}
+
+/* .rail-line L173-L182：1px 竖线，.16 一档 */
+.lp-stage-hair {
+  flex: 1;
+  width: 1px;
+  min-height: 24px;
+  background: var(--lp-hair-raised);
+}
+
+.lp-stage-body {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+
+/* #77 的边距账：这四类标题从前各自吃的是 UA 给 h2 / h3 / h4 的上下边距，
+   换标签层级之后 UA 值跟着变（h1 .67em、h2 .83em、h3 1em、h4 1.33em），
+   terminal108 量到路径页文档高度因此涨了 51px——字号没动但版心被推开了，
+   这不算「视觉一档不动」。所以把边距按**换级前**的实际值用 em 显式钉住：
+   em 相对元素自身字号，从此与标签是什么彻底脱钩。 */
+.lp-title {
+  margin-top: .83em; /* 换级前是 h2 */
+}
+
+.lp-block-heading {
+  margin: 1em 0; /* 换级前是 h3 */
+}
+
+.lp-stage-heading {
+  margin: 1.33em 0; /* 换级前是 h4 */
+}
+
+.lp-continue-title {
+  margin: 1em 0; /* 换级前是 h3 */
+}
+
+.lp-stage-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  font-size: clamp(14px, 1.3vw, 17px);
+  font-weight: var(--ds-weight-body, 400);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.lp-stage-heading-count {
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+/* ── ledger 细线表格（site.css L363-L381 的结构语言） ────────────────────── */
+.lp-ledger {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+/* #95：窄屏下靠这个可聚焦的滚动区吃溢出，而不是把「课程单元」列挤到 113px */
+.lp-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+.lp-table-scroll:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: 2px;
+}
+
+.lp-ledger th,
+.lp-ledger td {
+  padding: var(--ds-space-14, 14px) var(--ds-space-8, 8px) var(--ds-space-16, 16px) 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: var(--ds-weight-body, 400);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-ledger thead th {
+  padding: var(--ds-space-10, 10px) var(--ds-space-8, 8px) var(--ds-space-8, 8px) 0;
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+.lp-col-num {
+  width: 3.6em;
+}
+
+.lp-col-status {
+  width: 7em;
+}
+
+.lp-cell-num {
+  font-size: var(--ds-size-control, 13px);
+  color: var(--lp-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-row-idx,
+.lp-row-code {
+  display: block;
+}
+
+.lp-row-code {
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-dim);
+}
+
+.lp-row.is-selected .lp-cell-num {
+  color: var(--lp-ink);
+}
+
+.lp-row-btn {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  width: 100%;
+  min-height: var(--lp-tap);
+  padding: var(--ds-space-2, 2px) var(--ds-space-4, 4px) var(--ds-space-2, 2px) 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-control, 0);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: var(--lp-leading);
+  text-align: left;
+  transition: color var(--lp-quick) var(--lp-ease);
+}
+
+.lp-row-btn:hover .lp-row-title {
+  color: var(--lp-accent);
+}
+
+.lp-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+}
+
+/* 正文 16px / 1.7；长中文标题换行不撑破（§5.4） */
+.lp-row-title {
+  font-size: var(--lp-body);
+  line-height: 1.5;
+  color: var(--lp-ink);
+}
+
+.lp-row-desc {
+  font-size: var(--lp-meta);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+}
+
+/* ── 标识：固定字符徽记 + 文字，边框样式各异 → 不依赖颜色（§5.1 末段） ─────── */
+.lp-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-6, 6px);
+  margin-top: var(--ds-space-2, 2px);
+}
+
+.lp-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-4, 4px) var(--ds-space-8, 8px) var(--ds-space-4, 4px) var(--ds-space-4, 4px);
+  border: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--lp-meta);
+  line-height: 1.4;
+  color: var(--lp-dim);
+}
+
+.lp-mark-glyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.65em;
+  height: 1.65em;
+  border: var(--ds-line-width, 1px) solid currentColor;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--lp-ink);
+}
+
+.lp-mark--vault {
+  border-style: solid;
+  color: var(--lp-ink);
+}
+
+.lp-mark--legacy {
+  border-style: dashed;
+}
+
+.lp-mark--unknown {
+  border-style: dashed;
+  color: var(--lp-dim);
+}
+
+/* 缺口：虚线框 + 下划线点线 + 加粗文字，三重非颜色冗余 */
+.lp-mark--gap {
+  border-style: dotted;
+  border-color: var(--lp-hair-raised);
+  color: var(--lp-ink);
+}
+
+.lp-mark--gap .lp-mark-text {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.lp-mark--reading {
+  border-style: solid;
+}
+
+.lp-mark--external {
+  border-style: solid double;
+}
+
+.lp-mark--selected {
+  border-color: var(--lp-accent);
+  color: var(--lp-ink);
+}
+
+.lp-mark--selected .lp-mark-glyph {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+}
+
+/* ── LEARN-01 第 4 条：学习状态行（已阅读 / 已练习 / 已提交证据 / 自评通过 / …）
+   只登记记录里已经成立的那几项，一条都不推断；徽记 ✓ 对读屏隐藏，语义由文字承载。
+   「缺口」用点线、「来源」用实线、「旧」用虚线，这一档另用抬高一级的实线边——
+   边框样式各档不同，所以任何一档都不靠颜色单传（§5.1 末段）。 */
+.lp-row-states {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--lp-meta);
+  line-height: 1.6;
+  color: var(--lp-dim);
+}
+
+.lp-row-states-key {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-ink);
+  padding-right: var(--ds-space-2, 2px);
+}
+
+.lp-marks--states {
+  margin-top: 0;
+}
+
+.lp-mark--signal {
+  border-style: solid;
+  border-color: var(--lp-hair-raised);
+  color: var(--lp-ink);
+}
+
+/* ── 来源定位与先备（长路径不撑破 fixed 表格） ───────────────────────────── */
+.lp-row-source,
+.lp-row-prereq {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--lp-meta);
+  line-height: 1.6;
+  color: var(--lp-dim);
+}
+
+.lp-row-source-key,
+.lp-row-prereq-key {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-transform: uppercase;
+  color: var(--lp-ink);
+  padding-right: var(--ds-space-2, 2px);
+}
+
+.lp-row-source-path {
+  overflow-wrap: anywhere;
+}
+
+.lp-row-source-status {
+  color: var(--lp-ink);
+}
+
+/* ── 状态列：文字优先，进度条只是辅助（0/100 真实事实值） ────────────────── */
+.lp-cell-status {
+  text-align: right;
+  padding-right: 0;
+}
+
+.lp-status-text {
+  display: block;
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-ink);
+}
+
+.lp-status-bar {
+  display: block;
+  height: 2px;
+  margin: var(--ds-space-8, 8px) 0 var(--ds-space-6, 6px) auto;
+  max-width: 64px;
+  background: var(--lp-hair-raised);
+}
+
+.lp-status-fill {
+  display: block;
+  height: 100%;
+  background: var(--lp-accent);
+  transition: width var(--lp-base) var(--lp-ease);
+}
+
+.lp-status-percent {
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 阶段缺口 / 空内容 / 页脚说明 ───────────────────────────────────────── */
+.lp-stage-gap {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-14, 14px) 0 var(--ds-space-16, 16px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+}
+
+/* ── LEARN-01 第 3 条：阶段能力点（阶段验收 / 交付物 / 完成证据折算） ─────────
+   原料是资料库早就写好的 checkpoint 与 deliverables——它们在模型里躺了很久，
+   除校验器外零渲染点（`adapter.ts` 的 stageToCurriculum 搬进来没人看）。
+   字号走 --lp-body：这是要读的内容，不是装饰性元信息，不能压到 --lp-meta
+   （本文件自设的正文地板，#83 那类「低于地板」的教训不再犯）。 */
+.lp-stage-competence {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  margin: 0 0 var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0 var(--ds-space-12, 12px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-stage-competence-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  margin: 0;
+  font-size: var(--lp-body);
+  line-height: var(--lp-leading);
+  color: var(--lp-ink);
+  overflow-wrap: anywhere;
+}
+
+.lp-stage-competence-key {
+  flex: 0 0 6.5em;
+  color: var(--lp-dim);
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.lp-stage-deliverables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 交付物是并陈的条目，不是带勾的清单：逐条打勾要的是比对，本机没做过这件事。 */
+.lp-stage-deliverables li {
+  padding-left: var(--ds-space-12, 12px);
+  border-left: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+  overflow-wrap: anywhere;
+}
+
+.lp-empty {
+  padding: var(--ds-space-16, 16px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+  font-size: var(--lp-body);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+}
+
+.lp-footnote {
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+  font-size: var(--lp-meta);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+  max-width: 88ch;
+}
+
+/* ── 继续学习：细线区 + 全站唯一药丸 CTA（.backtop L383-L396） ───────────── */
+.lp-continue {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  justify-items: start;
+  padding-top: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-28, 28px));
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+}
+
+.lp-continue .lp-eyebrow {
+  margin-bottom: 0;
+}
+
+.lp-continue-title {
+  font-size: clamp(18px, 2.2vw, 26px);
+  line-height: var(--ds-leading-title, 1.15);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  max-width: var(--ds-measure-stage, min(52ch, 46vw));
+}
+
+.lp-continue-desc {
+  font-size: var(--lp-meta);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+  max-width: var(--ds-measure-lead, 44ch);
+}
+
+.lp-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-12, 12px);
+  min-height: var(--lp-tap);
+  padding: var(--ds-space-12, 12px) var(--ds-space-24, 24px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-radius: var(--ds-shape-pill, 100px);
+  color: var(--lp-ink);
+  font-family: inherit;
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  transition: color var(--lp-base) var(--lp-ease), border-color var(--lp-base) var(--lp-ease),
+    gap var(--lp-base) var(--lp-ease);
+}
+
+.lp-cta:hover {
+  color: var(--lp-accent);
+  border-color: var(--lp-accent);
+  gap: var(--ds-space-20, 20px);
+  box-shadow: var(--lp-glow-near);               /* 主行动抬起：冷色近档 */
+}
+
+.lp-cta:active {
+  color: var(--lp-ink);
+  border-color: var(--lp-ink);
+  gap: var(--ds-space-20, 20px);
+}
+
+.lp-cta-arrow {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── 响应式：窄屏收编号栏，表格保持 table 语义不降级为 div ────────────────── */
+@media (max-width: 900px) {
+  .lp-stage {
+    --lp-gutter: 56px;
+  }
+}
+
+@media (max-width: 679px) {
+  .lp-view {
+    margin: 0;
+    --lp-gutter: 0px;
+  }
+  .lp-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-4, 4px);
+  }
+  .lp-stage-rail {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--ds-space-10, 10px);
+    padding-top: 0;
+  }
+  .lp-stage-hair {
+    flex: 1;
+    width: auto;
+    height: 1px;
+    min-height: 0;
+  }
+  .lp-stage-num {
+    font-size: 20px;
+  }
+  .lp-spec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-2, 2px);
+  }
+  .lp-col-num {
+    width: 3.2em;
+  }
+  .lp-col-status {
+    width: 5.4em;
+  }
+  .lp-status-bar {
+    display: none; /* 窄屏只留文字与百分比，去掉装饰条 */
+  }
+}
+
+/* 320px 最小宽度：字号收一档、编号列变窄，长中文标题继续换行不破版 */
+@media (max-width: 399px) {
+  .lp-view {
+    --lp-body: 15px;
+    --lp-meta: 12px;
+    padding-left: var(--ds-space-10, 10px);
+    padding-right: var(--ds-space-10, 10px);
+  }
+  .lp-title {
+    font-size: clamp(1.4rem, 8vw, 2rem);
+  }
+  .lp-subject {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--ds-space-8, 8px);
+  }
+  .lp-subject-idx {
+    display: none; /* 序号是装饰；科目名与计数仍在 */
+  }
+  /* 两列网格下「当前」徽记换到正文列，避免与科目简称挤同一行 */
+  .lp-subject .lp-mark--selected {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .lp-cell-num {
+    font-size: 12px;
+  }
+  .lp-col-num {
+    width: 2.8em;
+  }
+  .lp-col-status {
+    width: 4.8em;
+  }
+  /* #95（普查实测 113px≈7.5 字/行）：给课程单元列一个可读下限，
+     多出来的宽度交给 .lp-table-scroll，而不是让长中文课名一行一个字。 */
+  .lp-ledger {
+    min-width: 340px;
+  }
+  .lp-cell-main {
+    min-width: 12em;
+  }
+  .lp-continue-title {
+    max-width: 100%;
+  }
+}
+
+/* ── §5.3.3 持续动画真正停止（模板只减慢流速，此处必须停） ─────────────────
+   两道开关各自完整生效，不依赖 tokens.css 是否被引入：
+   1) 系统偏好 prefers-reduced-motion；2) 应用内「减少动效」设置的根级 .reduce-motion。
+   这里用 animation: none（不是把 duration 压短），扫过装饰直接不渲染运动。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .lp-view .lp-eyebrow-rule::after {
+    animation: none;
+    display: none;
+  }
+  .lp-view *,
+  .lp-view *::before,
+  .lp-view *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.reduce-motion .lp-view .lp-eyebrow-rule::after {
+  animation: none;
+  display: none;
+}
+
+.reduce-motion .lp-view *,
+.reduce-motion .lp-view *::before,
+.reduce-motion .lp-view *::after {
+  animation: none;
+  transition: none;
+  scroll-behavior: auto;
+}

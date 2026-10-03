@@ -1,0 +1,756 @@
+/* ============================================================================
+   CodeWeave · 账户域（个人中心 / 账户安全 / 数据与隐私）· M4 全站统一
+   ----------------------------------------------------------------------------
+   规格：`docs/00-CodeWeave三合一总工程方案.md` §5.2 末行「账户、设置、隐私和弹窗：相同
+   字体、按钮、表单、焦点和遮罩体系」+ §5.1 形态行 + §5.4 验收。
+   保留的业务行为：改密、导出、恢复、按范围清除（§5.2 该行右列）——本文件只改呈现，
+   三个视图里的 fetch / clearLocalData / applyImport 调用与判定语义一字未动。
+
+   为什么是**一个**共享文件而不是三个同名文件：§5.2 把「账户、设置、隐私」判成
+   **同一套**字体 / 按钮 / 表单 / 焦点体系，三份同值别名块必然随时间漂移；
+   Vite 会对同一 CSS 的多次 import 去重，因此三个视图各 import 本文件一次即可。
+   弹窗与错误态各有独立文件（modals.css / error-boundary.css），因为它们的生命周期
+   与页面壳不同（模态在壳上层、错误态可能在壳外）。
+
+   作用域与安全边界（重要）：
+   - 全局裸选择器 0 条：每条选择器都以 `.cw-account` / `.cw-security` / `.cw-profile`
+     / `.cw-privacy` 起头，且权重 ≥ (0,2,0)，避免被后引入的 styles.css 反压。
+   - 个人中心里嵌着**他人组件**（VaultProgressCard、EvidenceWritebackPanel），
+     它们的子树里也有 `.field-label`、`.primary-action`、`.subtle-button`、
+     `.profile-overview-card`、`.security-card-title`。因此本文件**从不**以这些
+     全局类名作右端主语（`.cw-profile .field-label` 这种写法会串改别人的面板）；
+     一律改为我方自有类名 `.cw-account-*`，加在三个视图自己的元素上。
+   - 圆角三档（0 / 50% / 100px）：本文件只取 0 与 50%（头像圆环），不引入第三种。
+   - 语义状态：固定标识（glyph + 边框样式）+ 文字，颜色只取 --ds-status-*，
+     不引用 --ds-scene-* / --accent（§5.1 末段：状态不得跟场景变色）。
+   - `!important` 只出现在 §5.3 的两条减动效真停开关上。
+   ========================================================================== */
+
+.cw-account {
+  /* ── 令牌别名（缺令牌时同值兜底，出处见 tokens.css 行号注释） ───────────── */
+  --ca-canvas: var(--ds-canvas, #000);                            /* L14 */
+  --ca-canvas-solid: var(--ds-canvas-solid, #000);                /* L424 */
+  --ca-ink: var(--ds-text-primary, #f4f1ee);                      /* L15，18.66:1 */
+  --ca-ink-2: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L16，5.86:1 */
+  --ca-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));      /* L18 */
+  --ca-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 */
+  --ca-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));   /* ≥3:1 */
+  --ca-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62));
+  --ca-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));    /* 9.45:1 */
+  --ca-ok: var(--ds-status-success, #3fd3a4);
+  --ca-warn: var(--ds-status-warning, #ffc457);
+  --ca-bad: var(--ds-status-danger, #ff8371);
+  --ca-info: var(--ds-status-info, #4f7cff);
+  --ca-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --ca-warn-wash: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+  --ca-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --ca-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+  --ca-body: var(--ds-size-body, 16px);                           /* §5.4 正文 16px */
+  --ca-leading: var(--ds-leading-body, 1.7);                      /* §5.4 1.6–1.75 */
+  --ca-meta: 13px; /* §5.4：10.5px HUD 档不承载必读信息，元信息最小 13px */
+  --ca-tap: var(--ds-tap-min, 44px);                              /* §5.4 触控 ≥44px */
+  --ca-line: var(--ds-line-width, 1px);
+  --ca-radius: var(--ds-shape-none, 0);
+  --ca-circle: var(--ds-shape-circle, 50%);
+  --ca-mono: var(--ds-font-mono, ui-monospace, Consolas, monospace);
+  --ca-ui: var(--ds-font-display, 'Geist Mono', 'Microsoft YaHei', ui-monospace, monospace);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-24, 24px);
+  min-width: 0;
+  color: var(--ca-ink);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+  overflow-wrap: anywhere;               /* 长中文标题 / 长键名在 320px 不破版 */
+  word-break: normal;
+}
+
+/* ── 1. 页眉：编号眉标 + 展示标题（§5.1 展示标题：字重 200、负字距） ──────── */
+.cw-account .module-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ds-space-16, 16px);
+  margin-bottom: var(--ds-space-4, 4px);
+  padding-bottom: var(--ds-space-16, 16px);
+  border-bottom: var(--ca-line) solid var(--ca-hair-raised);
+}
+.cw-account .module-heading h1 {
+  margin: var(--ds-space-4, 4px) 0 var(--ds-space-8, 8px);
+  color: var(--ca-ink);
+  font-family: var(--ca-ui);
+  font-size: clamp(24px, 4.2vw, 34px);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+.cw-account .module-heading p:not(.eyebrow) {
+  margin: 0;
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-account .module-heading .eyebrow {
+  font-size: var(--ca-meta);             /* 抬离 10.5px HUD 档 */
+}
+
+/* ── 2. 分区卡：黑场 + 发丝线，无底色无投影（§5.1 移除大面积玻璃卡） ──────── */
+.cw-account .cw-account-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-14, 14px);
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-account .cw-account-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--ca-leading);
+  text-transform: none;
+}
+.cw-account .cw-account-title > svg {
+  flex: 0 0 auto;
+  color: var(--ca-ink-2);
+}
+/* 危险分区：固定语义标识 = 3px 左侧实线 + 标题前缀符号，不靠底色 */
+.cw-account .cw-account-card--danger {
+  border-color: var(--ca-bad);
+  border-left-width: 3px;
+  background: var(--ca-bad-wash);
+}
+
+/* ── 3. 表单：细线输入框（与登录页、弹窗同一档），44px 命中 ───────────────── */
+.cw-account .cw-account-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  margin-top: var(--ds-space-14, 14px);
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.cw-account .cw-account-field:first-child {
+  margin-top: 0;
+}
+.cw-account .cw-account-field input,
+.cw-account .cw-account-field textarea,
+.cw-account .cw-account-field select {
+  min-height: var(--ca-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--ca-ink);
+  border: var(--ca-line) solid var(--ca-edge);
+  border-radius: var(--ca-radius);
+  background: var(--ca-canvas);
+  box-shadow: var(--ds-shadow-panel, none);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);            /* §5.4：输入正文 16px，避免 iOS 缩放与阅读吃力 */
+  line-height: var(--ca-leading);
+  letter-spacing: 0;
+  text-transform: none;
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-account .cw-account-field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.cw-account .cw-account-field input:hover,
+.cw-account .cw-account-field textarea:hover {
+  border-color: var(--ca-edge-active);
+}
+/* 文件选择：原生控件在暗色下会掉成系统白底，这里显式收回黑场细线 */
+.cw-account .cw-account-field input[type='file'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--ca-meta);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.cw-account .cw-account-field input[type='file']::file-selector-button {
+  min-height: var(--ca-tap);
+  margin-right: var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-16, 16px);
+  color: var(--ca-ink);
+  border: var(--ca-line) solid var(--ca-edge);
+  border-radius: var(--ca-radius);
+  background: var(--ca-canvas-solid);
+  font: inherit;
+  cursor: pointer;
+}
+.cw-account .cw-account-field input[type='file']:hover::file-selector-button {
+  border-color: var(--ca-edge-active);
+}
+
+/* ── 4. 按钮：只补触控与字号，细线体系沿用全局（不重定义颜色） ───────────── */
+.cw-account .cw-account-btn {
+  min-height: var(--ca-tap);
+  padding-inline: var(--ds-space-16, 16px);
+  font-size: var(--ca-meta);
+  border-radius: var(--ca-radius);
+  white-space: normal;                   /* 长中文按钮文案在 320px 下换行而非溢出 */
+}
+.cw-account .cw-account-btn--danger {
+  color: var(--ca-bad);
+  border-color: var(--ca-bad);
+  background: var(--ca-bad-wash);
+}
+
+/* 01 号方案 §4 的 disabled 行：共享层（styles.css）对 .primary-action:disabled 只写
+   `opacity: .5`，那是「只降低透明度」的根源——按钮名字被压到读不出，也没人说明条件。
+   这里按 challenges-view / 工作台 / 写回页已验证过的形态补齐：不透明度保持 1，
+   禁用交给**虚线描边**（颜色之外的第二通道），条件说明是一句渲染出来的真实文字。 */
+.cw-account .cw-account-btn:disabled,
+.cw-account .cw-account-btn[aria-disabled='true'] {
+  opacity: 1;
+  border-style: dashed;
+  border-color: var(--ca-edge);
+  cursor: not-allowed;
+}
+
+.cw-account .cw-account-disabled-hint {
+  margin: var(--ds-space-12, 12px) 0 0;
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  line-height: var(--ca-leading);
+  overflow-wrap: anywhere;
+}
+
+/* ── 5. 状态行：固定标识 + 文字，成功/失败不靠颜色单独区分 ────────────────── */
+.cw-account .cw-account-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: 32px;
+  padding: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  border: var(--ca-line) solid transparent;
+  border-radius: var(--ca-radius);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);            /* 状态与错误文字是必读信息（§5.4） */
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.cw-account .cw-account-status:empty {
+  padding: 0;
+  border-color: transparent;
+}
+.cw-account .cw-account-status-glyph {
+  flex: 0 0 auto;
+  font-family: var(--ca-mono);
+  font-weight: 700;
+}
+.cw-account .cw-account-status--ok {
+  color: var(--ca-ok);                   /* 11.07:1 */
+  border-color: var(--ca-ok);
+  border-style: solid;
+  background: var(--ca-ok-wash);
+}
+.cw-account .cw-account-status--error {
+  color: var(--ca-bad);                  /* 8.74:1 */
+  border-color: var(--ca-bad);
+  border-style: double;                  /* 与成功态在形状上也分得开 */
+  border-width: 3px;
+  background: var(--ca-bad-wash);
+}
+.cw-account .cw-account-status--notice {
+  color: var(--ca-ink-2);
+  border-color: var(--ca-hair);
+  border-style: dashed;
+  background: transparent;
+}
+
+/* ── 6. 细线表格（模板 .specs / .ledger 结构：上下 1px、无竖线、无底色） ──── */
+.cw-account .cw-account-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: var(--ca-line) solid var(--ca-hair-raised);
+  color: var(--ca-ink);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+  font-variant-numeric: tabular-nums;
+}
+.cw-account .cw-account-table th,
+.cw-account .cw-account-table td {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px) var(--ds-space-12, 12px) 0;
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  color: var(--ca-ink);
+  text-align: left;
+  vertical-align: top;
+  /* 表格单元格里 height 表现为最小高度：整行即 ≥44px 的命中区（§5.4） */
+  height: var(--ca-tap);
+}
+.cw-account .cw-account-table th {
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-transform: uppercase;
+}
+.cw-account .cw-account-table td[data-ca-meta='1'] {
+  color: var(--ca-ink-2);
+}
+/* 表内勾选行：整行高度即命中区（见上），勾选框本体 24px 细线直角 */
+.cw-account .cw-account-table input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin: 0 var(--ds-space-8, 8px) 0 0;
+  vertical-align: middle;
+  border: var(--ca-line) solid var(--ca-edge);
+  border-radius: var(--ca-radius);
+  background: var(--ca-canvas);
+  cursor: pointer;
+}
+.cw-account .cw-account-table input[type='checkbox']:checked {
+  border-color: var(--ca-ink);
+  background: var(--ca-ink);
+}
+.cw-account .cw-account-table input[type='checkbox']:checked::after {
+  content: '✓';
+  display: block;
+  color: var(--ca-canvas-solid);
+  font-family: var(--ca-mono);
+  font-size: 14px;
+  line-height: 22px;
+  text-align: center;
+}
+.cw-account .cw-account-table label {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ca-tap);
+  color: var(--ca-ink);
+  font-size: var(--ca-body);             /* 表格里的勾选项说明按正文档 */
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+/* ── 7. 列表与说明文字（旧 10–11px 档全部抬到可读档，M3 §8.3 挂账项） ────── */
+.cw-account .cw-account-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding-left: var(--ds-space-20, 20px);
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-account .cw-account-list li::marker {
+  color: var(--ca-info);
+}
+.cw-account .cw-account-list strong {
+  color: var(--ca-ink);
+  font-weight: 600;
+}
+.cw-account .cw-account-note {
+  margin: 0;
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-account .cw-account-note--locked {
+  color: var(--ca-warn);                 /* 13.29:1；「尚未开放」是必读约束 */
+  border-left: 3px solid var(--ca-warn);
+  padding-left: var(--ds-space-12, 12px);
+}
+.cw-account .cw-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  align-items: center;
+}
+
+/* ── 8. 焦点可见（§5.4） ─────────────────────────────────────────────────── */
+.cw-account :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ca-focus);
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 9. §5.4 窄视口：320px 不破版（含 200% 缩放等效宽度） ────────────────── */
+@media (max-width: 420px) {
+  .cw-account .module-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .cw-account .cw-account-actions {
+    align-items: stretch;
+  }
+  .cw-account .cw-account-actions .cw-account-btn {
+    flex: 1 1 100%;
+  }
+  .cw-account .cw-account-table th,
+  .cw-account .cw-account-table td {
+    padding-right: var(--ds-space-8, 8px);
+  }
+}
+
+/* ── 10. §5.3 减动效：两条路径各自真停（本域只有 hover 过渡，无循环动画） ─── */
+@media (prefers-reduced-motion: reduce) {
+  .cw-account :is(a, button, input, select, textarea, .cw-account-btn) {
+    transition: none !important;
+  }
+}
+.reduce-motion .cw-account :is(a, button, input, select, textarea, .cw-account-btn),
+.cw-account.reduce-motion :is(a, button, input, select, textarea, .cw-account-btn) {
+  transition: none !important;
+}
+
+/* ── 11. 高对比模式：发丝线抬到系统描边 ─────────────────────────────────── */
+@media (forced-colors: active) {
+  .cw-account .cw-account-card,
+  .cw-account .cw-account-field input,
+  .cw-account .cw-account-field textarea,
+  .cw-account .cw-account-field select,
+  .cw-account .cw-account-table th,
+  .cw-account .cw-account-table td,
+  .cw-account .cw-account-status {
+    border-color: CanvasText;
+  }
+}
+
+/* ── 12. 本页私有工具类：表格说明只给辅助技术读（不新造全局 .sr-only，
+        避免与全局工具类撞名；evidence-writeback.css 的同类做法也是页内私有） ─ */
+.cw-account caption.cw-account-caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: var(--ds-space-seam, -1px);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  color: var(--ca-ink-2);
+}
+
+/* ===========================================================================
+   页面专属布局（这三棵子树里没有任何他人组件，可以直接沿用旧全局类名覆写；
+   个人中心例外——它嵌着资料库进度与证据写回，只用 .cw-account-* 自有类）
+   =========================================================================== */
+
+/* ── 个人中心：资料卡 / 学习概览 / 掌握度地图 ───────────────────────────── */
+.cw-profile .profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--ds-space-16, 16px);
+  align-items: start;
+}
+.cw-profile .profile-card,
+.cw-profile .profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-profile .profile-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-14, 14px);
+  padding-bottom: var(--ds-space-16, 16px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+}
+.cw-profile .profile-large-avatar {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: var(--ca-ink);
+  border: var(--ds-scene-glow-ring, 1.5px) solid var(--ca-edge);
+  border-radius: var(--ca-circle);       /* 50%：模板圆环档（L118/L431）；环本身不发光 */
+  background: transparent;
+  font-family: var(--ca-mono);
+  font-size: 20px;
+  font-weight: 600;
+}
+.cw-profile .profile-card h2 {
+  margin: 0 0 var(--ds-space-4, 4px);
+  color: var(--ca-ink);
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.cw-profile .profile-card-top p {
+  margin: 0;
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+}
+.cw-profile .profile-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+}
+.cw-profile .profile-meta strong {
+  color: var(--ca-ink);
+  font-size: var(--ca-body);
+  font-weight: 600;
+}
+.cw-profile .profile-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-16, 16px);
+}
+.cw-profile .overview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0;
+  margin-top: var(--ds-space-4, 4px);
+}
+.cw-profile .overview-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  background: transparent;
+}
+.cw-profile .overview-stat strong {
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);
+  font-size: 22px;
+  font-weight: var(--ds-weight-display, 200);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.cw-profile .overview-stat span {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+  line-height: 1.5;
+}
+.cw-profile .mastery-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cw-profile .mastery-map li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 88px;
+  align-items: center;
+  gap: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  min-height: var(--ca-tap);
+  padding: var(--ds-space-8, 8px) 0;
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+}
+.cw-profile .mastery-map-stage {
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+.cw-profile .mastery-map-title {
+  color: var(--ca-ink);
+  font-size: var(--ca-body);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cw-profile .mastery-map .mastery-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: var(--ca-radius);       /* 直角进度轨：模板无圆角进度条 */
+  background: var(--ca-hair-raised);
+}
+.cw-profile .mastery-bar span {
+  border-radius: var(--ca-radius);
+  background: var(--ca-ink-2);           /* 掌握度不是语义状态，用中性暖白，不跟场景色 */
+}
+.cw-profile .mastery-map-level,
+.cw-profile .mastery-map-count {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+  text-align: right;
+}
+
+/* ── 账户安全：三张细线卡 + 改密表单 ────────────────────────────────────── */
+.cw-security .security-layout {
+  display: grid;
+  /* 最小轨道必须能缩到容器宽度以下：`minmax(260px, 1fr)` 在 320px 档（内容宽约 226px）
+     永远缩不回去，卡片被顶到 right=338、整页溢出 18px——全站补测（50 格）量出来的。
+     宽视口下 `min(260px, 100%)` 仍等于 260px，多列行为一字不变。 */
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: var(--ds-space-16, 16px);
+  align-items: start;
+}
+.cw-security .security-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-security .security-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-20, 20px) 0 var(--ds-space-10, 10px);
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--ca-leading);
+  text-transform: none;
+}
+.cw-security .security-card-title:first-child {
+  margin-top: 0;
+}
+.cw-security .security-card-title > svg {
+  color: var(--ca-ink-2);
+}
+.cw-security .field-label {
+  gap: var(--ds-space-6, 6px);
+  margin-top: var(--ds-space-14, 14px);
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.cw-security .field-label input {
+  min-height: var(--ca-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--ca-ink);
+  border: var(--ca-line) solid var(--ca-edge);
+  border-radius: var(--ca-radius);
+  background: var(--ca-canvas);
+  box-shadow: var(--ds-shadow-panel, none);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.cw-security .field-label input:focus {
+  border-color: var(--ca-edge-active);
+}
+.cw-security .security-line,
+.cw-security .security-notes {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-security .security-notes li::marker {
+  color: var(--ca-info);
+}
+.cw-security .security-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-20, 20px);
+}
+.cw-security .security-danger {
+  border-color: var(--ca-bad);
+  border-left-width: 3px;
+  background: var(--ca-bad-wash);
+}
+.cw-security .security-locked {
+  color: var(--ca-warn);
+  border-left: 3px solid var(--ca-warn);
+  padding-left: var(--ds-space-12, 12px);
+  font-size: var(--ca-body);
+}
+
+/* ── 数据与隐私：存储位置表 + 导入面板 ─────────────────────────────────── */
+.cw-privacy .data-table td:nth-child(2),
+.cw-privacy .data-table td:nth-child(3) {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+}
+.cw-privacy .profile-overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-14, 14px);
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-privacy .security-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+/* 导入结果与错误：同一套语义状态（虚线=说明、双线=错误、实线=成功） */
+.cw-privacy .auth-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  color: var(--ca-bad);
+  border: 3px double var(--ca-bad);
+  border-radius: var(--ca-radius);
+  background: var(--ca-bad-wash);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+  overflow-wrap: anywhere;
+}
+.cw-privacy .cw-account-status--notice {
+  width: 100%;
+}
+.cw-privacy .cw-privacy-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+.cw-privacy .cw-privacy-scroll > .cw-account-table {
+  min-width: 460px;                      /* 表格在 320px 下改为容器内滚动，不压字 */
+}
+/* #95（普查实测「最后保存」列 97px≈7.5 字/行）：`2026/9/25 16:48:29` 是原子值，
+   不该被折成三行——这一列给地板且不拆词，宽度不够由 .cw-privacy-scroll 横滚吃。
+   这一格走 --ca-meta 13px，10em = 130px，过本库自设的 120px 关键列下限。 */
+.cw-privacy .cw-ca-time {
+  min-width: 10em;
+  white-space: nowrap;
+}

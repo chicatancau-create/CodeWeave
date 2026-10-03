@@ -1,0 +1,98 @@
+{
+  "_说明": "内容附件的**扩展名白名单与路径合法性判据**（分离方案 §5「唯一允许的跨边界共享内容」第 2 条：不含业务状态的格式定义，不含任何教材正文）。三方对齐：网页端 `src/content/wikilink.ts`（渲染侧决定要不要生成同源 `<img src>`）、后端 `service/server/content/asset.mjs` 的 `ASSET_TYPES`（放行侧决定 MIME）、以及本契约。后端副本 `service/server/content/attachment-whitelist.mjs` 在加载时就把自己与 `ASSET_TYPES` 逐项比对，两边各自漂移都会当场抛错；网页端侧由 `【网页端】_WEB_CLIENT/tests/contract.copies.test.mjs` 与本契约比对。",
+  "schemaVersion": 1,
+  "contractSources": [
+    "frontend/src/content/wikilink.ts#ASSET_IMAGE_EXTENSIONS / ASSET_DOCUMENT_EXTENSIONS / ASSET_TEXT_EXTENSIONS / resolveImageAttachment / rejectReasonFor",
+    "service/server/content/asset.mjs#ASSET_TYPES"
+  ],
+  "endpoint": "/api/content/asset",
+  "categories": [
+    {
+      "id": "image",
+      "embeddedByClient": true,
+      "_说明": "可内嵌显示的位图。`svg` 能带脚本，明确排除在全部类别之外。",
+      "extensions": ["png", "jpg", "jpeg", "gif", "webp"]
+    },
+    {
+      "id": "document",
+      "embeddedByClient": false,
+      "_说明": "服务端可按白名单读取，但客户端不内嵌显示，也不产生任何 href/src 出口。",
+      "extensions": ["pdf"]
+    },
+    {
+      "id": "text",
+      "embeddedByClient": false,
+      "_说明": "一律强制按纯文本返回（`text/plain`），即便内容是 HTML/JSON 源码也不解释。",
+      "extensions": ["txt", "csv", "json"]
+    }
+  ],
+  "neverOpened": {
+    "_说明": "明确排除项：可执行/可嵌入类型永不进白名单，属于「原始 HTML 执行」的旁路。列在这里是为了让「表里没有」和「表里被删了」可区分，不参与放行判定。",
+    "extensions": ["svg", "html", "htm", "xhtml", "xml", "js", "mjs", "cjs", "css", "md", "exe", "sh", "ps1"]
+  },
+  "reasons": {
+    "notEmbedded": "该类型不内嵌显示（只允许服务端按白名单读取）",
+    "notWhitelisted": "扩展名不在附件白名单内"
+  },
+  "extensionRule": {
+    "_说明": "扩展名 = 把反斜杠归一为正斜杠后取最后一段，再取最后一个点之后的部分并转小写；点在第 0 位（`.隐藏`）或没有点时返回空串。与后端 `assetExtensionOf()` 逐字同口径。",
+    "unifySeparators": "\\",
+    "separator": "/",
+    "lowercase": true,
+    "emptyWhenNoDotOrDotIsFirst": true
+  },
+  "pathRules": {
+    "_说明": "路径合法性**只有一套规则**：网页端 `rejectReasonFor()` 与后端 `rejectAttachmentPathReason()` 共用下面这份顺序化清单。规则按数组顺序求值，第一条命中即为拒绝理由；顺序变了，「哪条理由被报出来」就变了。`compactBeforeTest` 说明判定用的是**剥掉空白/控制/零宽字符之后**的形态，防止 `java\\nscript:` 这类绕过；过长那条例外，它量的是**原始入参**的长度（原实现如此，照抄）。",
+    "maxTargetLength": 300,
+    "compactBeforeTest": {
+      "stripCodepointBelow": 33,
+      "stripCodepoints": [127, 8203, 8204, 8205, 8206, 8207, 65279],
+      "_说明": "码位 <33 的字符（ASCII 控制符与空白）、0x7f，以及零宽/双向格式字符（0x200b—0x200f、0x2060、0xfeff）先从目标里剔除，再判协议与越界。"
+    },
+    "rules": [
+      {
+        "id": "control-or-invisible-char",
+        "on": "raw",
+        "test": "codepointRanges",
+        "ranges": [[0, 31], [127, 127], [8203, 8207], [8288, 8288], [65279, 65279]],
+        "reason": "目标含控制字符或零宽字符"
+      },
+      { "id": "empty", "on": "compact", "test": "isEmpty", "reason": "引用目标为空" },
+      { "id": "too-long", "on": "raw", "test": "longerThanMax", "reason": "引用目标过长（超过 {maxTargetLength} 字符）" },
+      { "id": "html-fragment", "on": "compact", "test": "regex", "source": "[<>]", "flags": "", "reason": "目标含 HTML 标签片段" },
+      {
+        "id": "absolute-or-unc",
+        "on": "compact",
+        "test": "startsWith",
+        "value": "/",
+        "reason": "不接受绝对路径或网络路径（//host、/abs、盘符另由协议规则处理）"
+      },
+      {
+        "id": "scheme-like",
+        "on": "compact",
+        "test": "regex",
+        "source": "^[a-z][a-z0-9+.-]*:",
+        "flags": "i",
+        "reason": "不接受带协议的目标（javascript:、data:、http:、盘符等）"
+      },
+      { "id": "encoded-dot", "on": "compact", "test": "regex", "source": "%2e", "flags": "i", "reason": "不接受编码后的越界路径" },
+      {
+        "id": "dot-dot-segment",
+        "on": "compactSegments",
+        "test": "someSegmentEquals",
+        "value": "..",
+        "reason": "不接受越界路径（..）"
+      },
+      {
+        "id": "illegal-segment-char",
+        "on": "compactSegments",
+        "test": "someSegmentRegex",
+        "source": "[:*?\"|\\\\]",
+        "flags": "",
+        "reason": "目标含非法路径字符"
+      }
+    ],
+    "compactUnifyBackslashes": true,
+    "segmentSeparator": "/"
+  }
+}

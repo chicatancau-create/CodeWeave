@@ -1,0 +1,1957 @@
+/* ============================================================================
+   挑战与项目页族 · M4 全站统一 —— challenges-view.css
+   ----------------------------------------------------------------------------
+   规格：docs/00-CodeWeave三合一总工程方案.md §5.2「挑战与项目：编号列表、轻边界信息区、
+   明确的提交与草稿状态；保留筛选、检查点、证据提交、恢复」+ §5.1（形态/语义色）
+   + §5.3（降级）+ §5.4（验收）。做法沿用 docs/01-应用前端与交互重构方案.md §3：
+   形态值一律走 --ds-* 令牌并逐条带兜底值（app/src/design/tokens.css）。
+
+   形态来源（staging/style-pack/source/css/site.css，行号见 geometry.md §1）：
+     发丝线分行  L291/L299/L365/L372 .specs / .ledger —— 1px 线即分区，不铺底色
+     编号        L236-L249 .eyebrow（0.24em 字距）、L287-L307 编号键值
+     圆环/圆点   L118/L128/L431 —— 全站只有 50% 与 100px 两种圆角
+   geometry.md §2 把「挑战与项目」归入与「学习工作台」同族的**业务信息区**：
+   黑场 + 1px 发丝线 + 遮光层，**不挂装饰取景框、不做持续动画**。
+
+   科技档反转（由 challenges-view.m4.test.tsx 以源码文本不变式锁住）：
+   旧规「全站零投影」的前提是**亮底黑投影**，深色画布上黑投影等于没有，层级无处表达。
+   故本文件改走 tokens §4.5 的**冷色外发光**：`box-shadow` 一律消费 --cv-glow-*，
+   且这些别名只能落到 --ds-glow-*（不允许裸字面量）。仍刻意不出现：
+     backdrop-filter / linear-gradient / radial-gradient / conic-gradient /
+     text-shadow / outline: none / counter( / animation 循环
+   —— 发光承担层级之后，玻璃与渐变在本页没有位置（保留给共享层）；
+   以及**任何注入文本的伪元素** —— `content:` 只允许出现 `content: ''`（画几何
+   图形），编号全部是 DOM 里的真实文本（§5.2「编号列表」+ §5.3 第 6 条）。
+   `!important` 只出现在文末 §8 的两条 reduced-motion 真停开关里，其余位置为 0。
+   本文件仍补页面侧的两件事：① 语义状态**不再借用场景点缀色**（§5.1 末段）；
+   ② 提交与草稿分成两个信息区（§5.2）。
+
+   层叠纪律：styles.css 由 main.tsx 在组件样式**之后**引入，同名规则它会赢，
+   所以这里只靠**更高的选择器权重**取胜（页面根类 + 原类名 + 状态类），
+   一律不使用 !important，也不重命名/删除任何旧类名（各视图仍在引用）。
+   全局裸选择器：0 条 —— 每条规则都以 .challenges-view 起头。
+   ========================================================================== */
+
+.challenges-view {
+  /* ── 局部别名：全部落到 --ds-* 令牌 + 兜底 ─────────────────────────────── */
+  --cv-canvas: var(--ds-canvas, #000);                             /* site.css L14 */
+  --cv-ink: var(--ds-text-primary, #f4f1ee);                       /* L15 暖白 18.66:1 */
+  --cv-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));   /* L16 · 5.86:1 */
+  --cv-faint: rgba(220, 233, 251, 0.52);                           /* 产品档：三级文字 5.44:1，与 styles.css --faint 同值 */
+  --cv-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));       /* L18 发丝线 */
+  --cv-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176/L447 */
+  --cv-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));    /* 输入/卡片静止边界 3.13:1 */
+  --cv-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62)); /* 聚焦 7.07:1 */
+  --cv-hair-width: var(--ds-line-width, 1px);
+  --cv-scrim: rgba(220, 233, 251, 0.028);                          /* 遮光层一档（分区用，不表意） */
+  --cv-scrim-raised: rgba(220, 233, 251, 0.055);                   /* 遮光层二档（hover / 选中） */
+  --cv-scene: var(--ds-scene-active, rgb(34, 211, 238));           /* 场景点缀：只用于编号与细线，**不用于语义状态** */
+
+  /* 科技档发光三档：tokens §4.5 把旧「零投影」改成冷色外发光（黑底上黑投影等于没有，
+     发光才是黑场里表达层级的手段）。与 --cv-scene 同族——都是装饰，都不表意，
+     所以语义状态一律不消费这三个值。兜底值与 tokens 同值，令牌缺席时外观不回退到旧体系。 */
+  --cv-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --cv-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --cv-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --cv-glow-mark: 0 0 8px rgba(34, 211, 238, 0.5);                  /* 细标记自发光（进度条）：比近档更收，只照自己 */
+
+  /* 语义状态：恒定四档（tokens §4），永不指向 --ds-scene-*。橙/金/品红/珊瑚相邻
+     难辨，所以每一档同时带「图形 + 文字」，颜色只是第三重提示（§5.1 末段）。 */
+  --cv-ok: var(--ds-status-success, #3fd3a4);
+  --cv-warn: var(--ds-status-warning, #ffc457);
+  --cv-bad: var(--ds-status-danger, #ff8371);
+  --cv-info: var(--ds-status-info, #4f7cff);
+  --cv-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --cv-warn-wash: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+  --cv-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --cv-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+
+  --cv-mono: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  --cv-body: var(--ds-size-body, 16px);                            /* §5.4 正文约 16px */
+  --cv-leading: var(--ds-leading-body, 1.7);                       /* §5.4 行高 1.6–1.75 */
+  --cv-meta: 13px;                                                 /* 产品最小档：徽章/键名，高于模板 10.5px HUD */
+  --cv-tap: var(--ds-tap-min, 44px);                               /* §5.4 主要触控目标 ≥44px */
+  --cv-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L28 */
+  --cv-quick: var(--ds-dur-quick, 150ms);
+  --cv-base: var(--ds-dur-base, 220ms);
+  --cv-pad: clamp(14px, 2.2vw, 26px);
+  --cv-gap: clamp(10px, 1.4vw, 16px);
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-28, 28px));
+  min-width: 0;
+  color: var(--cv-ink);
+  background: var(--cv-canvas);                                    /* §5.1 全站黑场 */
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;                              /* 编号成列 */
+}
+
+.challenges-view *,
+.challenges-view *::before,
+.challenges-view *::after {
+  box-sizing: border-box;
+}
+
+.challenges-view :is(h1, h2, h3, h4, p, ul, ol, li, dl, dt, dd, figure, header) {
+  margin: 0;
+  padding: 0;
+}
+
+.challenges-view :is(ul, ol) {
+  list-style: none;                                                /* 编号是真实文本，不用 marker/counter */
+}
+
+/* 长中文标题与长代码行都不许撑破 320px 版面（§5.4）：
+   文字侧靠换行，代码侧靠横向滚动（见 .challenge-editor / .challenge-result）。 */
+.challenges-view :is(h1, h2, h3, p, span, li, dt, dd, label, button, code, strong, small) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* ── 焦点：黑场上必须高于发丝线一档（tokens §5 产品规则值） ─────────────────── */
+.challenges-view :focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ============================================================================
+   1. 概览：展示标题 + 进度细线（信息区 = 上下两条发丝线，不铺卡）
+   ========================================================================== */
+
+.challenges-view .challenge-overview {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(var(--ds-space-16, 16px), 3vw, var(--ds-space-40, 40px));
+  flex-wrap: wrap;
+  padding: 0 0 var(--cv-pad);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  margin-bottom: 0;
+}
+
+.challenges-view .challenge-overview h1 {
+  margin: var(--ds-space-6, 6px) 0 var(--ds-space-8, 8px);
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: clamp(1.7rem, 3.6vw, 3.4rem);                          /* tokens §6 --ds-size-title */
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.challenges-view .challenge-overview > div > p:not(.eyebrow) {
+  max-width: 60ch;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-overview .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);                  /* site.css L243 */
+  text-transform: uppercase;
+}
+
+/* 圆点 = geometry.md §2 允许的「局部圆环」：描边环，不带泛光 */
+.challenges-view .challenge-overview .eyebrow-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--cv-hair-width) solid var(--cv-scene);
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;
+}
+
+.challenges-view .challenge-overview-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--ds-space-10, 10px);
+  min-width: min(240px, 100%);
+  padding: var(--ds-space-12, 12px) 0 0;
+  border: 0;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  box-shadow: var(--cv-glow-inset);                                /* 顶部内高光：概览区与下方列表的分界 */
+}
+
+.challenges-view .challenge-overview-text {
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+  text-align: right;
+}
+
+/* 进度：模板形态 = 1px 底线 + 实心档（site.css L447-L453），无渐变无泛光 */
+.challenges-view .challenge-progress {
+  width: min(240px, 100%);
+  height: 2px;
+  overflow: hidden;
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-hair-raised);
+}
+
+.challenges-view .challenge-progress span {
+  display: block;
+  height: 100%;
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scene);
+  box-shadow: var(--cv-glow-mark);                                 /* 进度条自发光：细线也要在黑场里读得出 */
+  transition: width var(--cv-base) var(--cv-ease);
+}
+
+
+/* ============================================================================
+   2. 筛选与排序（轻边界信息区：四周 1px 发丝线，直角，不铺玻璃）
+   ========================================================================== */
+
+.challenges-view .challenge-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--cv-gap);
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scrim);                                     /* 遮光层 + 顶部内高光 */
+  box-shadow: var(--cv-glow-inset);
+}
+
+.challenges-view .challenge-filters-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  align-self: center;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.challenges-view .challenge-filter select,
+.challenges-view .challenge-filter-search input,
+.challenges-view .external-evidence-input {
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);                /* 静止 3.13:1，关键输入边界高于发丝线 */
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: 1.5;
+}
+
+.challenges-view .challenge-filter select:focus-visible,
+.challenges-view .challenge-filter-search input:focus-visible,
+.challenges-view .external-evidence-input:focus-visible {
+  border-color: var(--cv-edge-active);                              /* 聚焦再抬一档 → 7.07:1 */
+}
+
+.challenges-view .challenge-filter-search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.challenges-view .challenge-filter-search input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.challenges-view .challenge-more-toggle,
+.challenges-view .challenge-filters .subtle-button,
+.challenges-view .challenge-grid-empty .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-more-toggle:hover:not(:disabled),
+.challenges-view .challenge-filters .subtle-button:hover:not(:disabled),
+.challenges-view .challenge-grid-empty .subtle-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .challenge-more-toggle svg {
+  transition: transform var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-more-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.challenges-view .challenge-more-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cv-gap);
+  width: 100%;
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scrim);
+}
+
+/* 已选筛选标签：药丸（100px，geometry.md §2 允许）+ 文字 + × 图形，三重表达 */
+.challenges-view .challenge-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  width: 100%;
+}
+
+.challenges-view .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-shape-pill, 100px);
+  background: var(--cv-scrim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  transition: border-color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .filter-chip:hover {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .filter-chip:active {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .filter-chip:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* 提示行（失效 focusChallengeId 等）：1px 发丝线 + 恒定警告色 + 文字，取消 3px 色条 */
+.challenges-view .challenge-notice {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+/* ============================================================================
+   3. 编号列表：真实文本序号 + 发丝线分行（§5.2 主形态）
+   ========================================================================== */
+
+.challenges-view .challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: var(--cv-hair-width) solid var(--cv-hair);            /* .ledger：容器顶线 + 每行底线 */
+}
+
+.challenges-view .challenge-list-item {
+  display: flex;
+  min-width: 0;
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+/* 奇偶行**不**做斑马纹（模板 .ledger 没有），行内间距靠 padding 撑 */
+.challenges-view .stage-card {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  width: 100%;
+  min-height: 148px;
+  padding: var(--ds-space-14, 14px) clamp(var(--ds-space-12, 12px), 1.6vw, var(--ds-space-20, 20px));
+  border: 0;
+  border-left: var(--cv-hair-width) solid transparent;              /* 状态竖条槽位：由 status-* 上色，恒定语义色 */
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;                                                 /* 黑场：分区由发丝线承担 */
+  box-shadow: var(--cv-glow-inset);                                 /* 卡片静止态：只留一层顶部内高光 */
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  text-align: left;
+  transition: background var(--cv-quick) var(--cv-ease), border-color var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-list-item + .challenge-list-item .stage-card {
+  border-left: var(--cv-hair-width) solid transparent;
+}
+
+.challenges-view .stage-card:hover {
+  background: var(--cv-scrim);
+  box-shadow: var(--cv-glow-inset);
+  transform: none;                                                  /* hover 不位移，只加顶部内高光 */
+}
+
+/* 按下只走底色这一路：不位移、不缩放，§5.3-A/§5.3-B 把 transform 压成 none 之后反馈仍在 */
+.challenges-view .stage-card:active {
+  background: var(--cv-scrim-raised);
+  box-shadow: var(--cv-glow-inset);
+  transform: none;
+}
+
+.challenges-view .stage-card.selected,
+.challenges-view .stage-card.selected:hover {
+  background: var(--cv-scrim-raised);
+  box-shadow: var(--cv-glow-near);                                  /* 选中态：冷色近档泛光，与状态竖条并存 */
+}
+
+.challenges-view .stage-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: 10px auto 10px 0;
+  width: 2px;
+  background: var(--cv-scene);                                      /* 选中 = 场景色 2px 实心竖条（非语义状态） */
+}
+
+.challenges-view .stage-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  width: 100%;
+}
+
+.challenges-view .stage-card-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+
+/* 真实文本序号：等宽两位，靠字色与字号与阶段徽标分层，不靠颜色表意 */
+.challenges-view .stage-card-no {
+  color: var(--cv-scene);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 阶段徽标 = 细线方框（直角），与序号同属编号骨架 */
+.challenges-view .stage-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.challenges-view .stage-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.challenges-view .stage-card-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.challenges-view .stage-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  margin-top: auto;
+  padding-top: var(--ds-space-6, 6px);
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .stage-runner,
+.challenges-view .stage-track {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.04em;
+  white-space: normal;                                              /* 取消 nowrap：轨道名是中文，挤压比折行更糟 */
+  text-overflow: clip;
+}
+
+.challenges-view .stage-card-action {
+  margin-left: auto;
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+/* 本机草稿标记：与「已通过 / 待确认」等提交态分属两套写法（§5.2） */
+.challenges-view .stage-card-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) dashed var(--cv-edge);
+  border-radius: var(--ds-shape-none, 0);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+/* ---------------------------------------------------------------------------
+   状态徽章：图形（::before 形状 + lucide 图标）+ 文字 + 恒定语义色，三通道。
+   重要修正 —— styles.css 把 pending-verify 指到 --c-purple(= 品红场景色)、
+   ready-to-submit 指到 --c-cyan(= 青场景色)，违反 §5.1 末段「成功/错误/警告
+   不得跟随场景变化」；本块把六档全部改指恒定的 --ds-status-* / 暖白档。
+   -------------------------------------------------------------------------- */
+.challenges-view .stage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  flex: 0 0 auto;
+  padding: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.challenges-view .stage-status::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  transform: none;
+}
+
+.challenges-view .stage-status.status-not-started {
+  color: var(--cv-faint);
+}
+
+.challenges-view .stage-status.status-not-started::before {
+  border-style: dashed;
+}
+
+.challenges-view .stage-status.status-external-pending {
+  color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .stage-status.status-external-pending::before {
+  border-radius: var(--ds-shape-circle, 50%);
+  background: currentColor;
+}
+
+.challenges-view .stage-status.status-unsupported {
+  color: var(--cv-bad);
+  background: var(--cv-bad-wash);
+}
+
+.challenges-view .stage-status.status-unsupported::before {
+  border-style: dashed;
+  transform: rotate(45deg);
+}
+
+.challenges-view .stage-status.status-ready-to-submit {
+  color: var(--cv-info);                                             /* 恒定 info，非场景青 */
+  background: var(--cv-info-wash);
+}
+
+.challenges-view .stage-status.status-ready-to-submit::before {
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;
+}
+
+.challenges-view .stage-status.status-pending-verify {
+  color: var(--cv-warn);                                              /* 恒定 warn，非场景品红 */
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .stage-status.status-pending-verify::before {
+  transform: rotate(45deg);
+}
+
+.challenges-view .stage-status.status-passed {
+  color: var(--cv-ok);                                                /* 恒定 success */
+  background: var(--cv-ok-wash);
+}
+
+.challenges-view .stage-status.status-passed::before {
+  background: currentColor;
+}
+
+/* 卡片左侧状态竖条：形状通道之外的第二重定位辅助，仍为恒定语义色。
+   hover 变体一并写：styles.css 的 `.stage-card:hover{border-color:…}`(0,2,0)
+   会盖掉单类基线规则，这里用 0,3,1 把状态色钉住。 */
+.challenges-view .stage-card.status-passed,
+.challenges-view .stage-card.status-passed:hover { border-left-color: var(--cv-ok); }
+.challenges-view .stage-card.status-pending-verify,
+.challenges-view .stage-card.status-pending-verify:hover { border-left-color: var(--cv-warn); }
+.challenges-view .stage-card.status-external-pending,
+.challenges-view .stage-card.status-external-pending:hover { border-left-color: var(--cv-warn); }
+.challenges-view .stage-card.status-unsupported,
+.challenges-view .stage-card.status-unsupported:hover { border-left-color: var(--cv-bad); }
+.challenges-view .stage-card.status-ready-to-submit,
+.challenges-view .stage-card.status-ready-to-submit:hover { border-left-color: var(--cv-info); }
+.challenges-view .stage-card.status-not-started,
+.challenges-view .stage-card.status-not-started:hover { border-left-color: var(--cv-hair); }
+
+/* 难度 = 分类，不是成败：取消语义色，改中性细线（避免把「进阶」读成「错误」） */
+.challenges-view .difficulty {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  color: var(--cv-dim);
+  border: var(--cv-hair-width) solid var(--cv-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.challenges-view .difficulty.入门,
+.challenges-view .difficulty.基础,
+.challenges-view .difficulty.进阶 {
+  color: var(--cv-dim);
+  border-color: var(--cv-hair-raised);
+  background: none;
+}
+
+/* 空态：细线框 + 文字 + 操作，不用图标发光 */
+.challenges-view .challenge-grid-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-12, 12px);
+  min-height: 160px;
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--cv-dim);
+  background: none;
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-grid-empty svg {
+  color: var(--cv-faint);
+}
+
+/* §4 empty 行的第二句（下一步动作）：与原因分行显示，字号仍走承载信息的那一档，
+   不降到 0.34 装饰档 —— 这句是人看完之后唯一能照着做的东西。 */
+.challenges-view .challenge-grid-empty-next {
+  margin: 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+/* ============================================================================
+   4. 分页（触控 ≥44px；页码状态用文字承载，不只靠禁用色）
+   ========================================================================== */
+
+.challenges-view .challenge-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  flex-wrap: wrap;
+  padding-top: var(--cv-pad);
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+  margin-top: 0;
+}
+
+.challenges-view .challenge-pagination .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-pagination .subtle-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+/* 禁用态文字走三级文字档（5.44:1），不走 0.34 装饰档：
+   WCAG 1.4.3 确实豁免非活动控件，但本库给这一档写的边界是「仅限装饰、不承载信息」
+   （tokens.css:29），而「上一页」是一个按钮的名字——它读不出来就是读不出来。
+   禁用感由描边与底色表达（下面两行），不靠把文字压到看不见。全站补测 50 格量出来的。 */
+.challenges-view .challenge-pagination .subtle-button:disabled {
+  color: var(--cv-faint);
+  border-color: var(--cv-hair);
+  opacity: 1;                                                       /* 不靠降低整块不透明度表达禁用 */
+}
+
+.challenges-view .challenge-pagination-status {
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================================
+   5. 详情视图
+   ========================================================================== */
+
+.challenges-view .challenge-detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-16, 16px), 2vw, var(--ds-space-28, 28px));
+  padding-bottom: var(--cv-pad);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-14, 14px);
+}
+
+.challenges-view .challenge-back {
+  align-self: flex-start;
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  transition: border-color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-back:hover {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-back:active {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+/* 详情编号行：真实文本「07 / 13 · 阶段 G」，与列表同一口径 */
+.challenges-view .challenge-detail-no {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-detail-no-index {
+  color: var(--cv-scene);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.challenges-view .challenge-detail-heading h2 {
+  margin: var(--ds-space-10, 10px) 0 var(--ds-space-10, 10px);
+  color: var(--cv-ink);
+  font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.challenges-view .challenge-detail-heading > p {
+  max-width: 70ch;
+  margin: 0 0 var(--ds-space-12, 12px);
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-detail-heading-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+}
+
+.challenges-view .challenge-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--cv-faint);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+}
+
+.challenges-view .challenge-meta svg {
+  color: var(--cv-scene);
+}
+
+/* 详情面板容器：轻边界信息区（1px 发丝线，直角，遮光层，无投影） */
+.challenges-view .challenge-detail {
+  padding: clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-24, 24px));
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  box-shadow: var(--cv-glow-panel);                                 /* 详情面板：抬离黑场，用面板档 */
+}
+
+/* 标签页：发丝线 + 当前项文字加粗 + aria-selected；触控 44px */
+.challenges-view .detail-tabs {
+  display: flex;
+  gap: 0;
+  margin: 0 0 var(--ds-space-16, 16px);
+  padding: 0;
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+}
+
+.challenges-view .detail-tab {
+  flex: 1;
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  color: var(--cv-dim);
+  border: 0;
+  border-right: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  transition: color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .detail-tab:last-child {
+  border-right: 0;
+}
+
+.challenges-view .detail-tab:hover {
+  color: var(--cv-ink);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .detail-tab:active {
+  color: var(--cv-ink);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .detail-tab.active {
+  color: var(--cv-ink);
+  background: var(--cv-scrim-raised);
+  font-weight: 600;
+}
+
+.challenges-view .detail-tab.active::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 2px;
+  margin-top: var(--ds-space-4, 4px);
+  background: var(--cv-scene);
+}
+
+.challenges-view .detail-tab:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: -2px;
+}
+
+.challenges-view .detail-tabpanel {
+  display: none;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-12, 12px), 1.6vw, var(--ds-space-20, 20px));
+  min-width: 0;
+}
+
+.challenges-view .detail-tabpanel.active {
+  display: flex;
+}
+
+.challenges-view .detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-10, 10px);
+  padding-bottom: var(--cv-pad);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .detail-block:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.challenges-view .detail-block-title {
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+/* 证据清单：真实序号在 li 文本里，不靠 ::marker */
+.challenges-view .detail-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  padding-left: 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .detail-evidence-list li {
+  padding-left: 0;
+}
+
+.challenges-view .detail-evidence-list li::marker {
+  color: inherit;
+}
+
+.challenges-view .challenge-explanation {
+  max-width: 74ch;
+  margin: 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-units {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-10, 10px);
+  padding: var(--cv-pad) 0 0;
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-units > span {
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-units > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px);
+}
+
+.challenges-view .challenge-units .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-units .subtle-button:hover {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+/* 目标输出：黑场实底 + 发丝线，长输出行横向滚动（不挤压） */
+.challenges-view .target-output {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  overflow-x: auto;
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+}
+
+.challenges-view .target-output code {
+  padding: 0;
+  color: var(--cv-ink);
+  border: 0;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  white-space: pre;                                                 /* 验收点原文不许被折行改写 */
+  overflow-wrap: normal;
+}
+
+/* 代码编辑器：窗口栏 1px 发丝线；三个圆点改为描边环（去掉红绿灯语义色） */
+.challenges-view .challenge-editor-wrap {
+  margin-top: 0;
+  overflow: hidden;
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+}
+
+.challenges-view .terminal-chrome {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .terminal-dots {
+  display: inline-flex;
+  gap: var(--ds-space-6, 6px);
+}
+
+.challenges-view .terminal-dots i {
+  width: 8px;
+  height: 8px;
+  border: var(--cv-hair-width) solid var(--cv-hair-raised);
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;                                                 /* 泛光/填色去掉：只留描边环（geometry.md §2 裁定 2） */
+}
+
+.challenges-view .terminal-dots i:nth-child(1),
+.challenges-view .terminal-dots i:nth-child(2),
+.challenges-view .terminal-dots i:nth-child(3) {
+  background: none;
+}
+
+.challenges-view .terminal-title {
+  color: var(--cv-dim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.challenges-view .terminal-index {
+  margin-left: auto;
+  color: var(--cv-faint);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.challenges-view .challenge-editor-wrap .field-label {
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-12, 12px) 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-editor {
+  /* 长代码行：pre + 横向滚动，行高按 §5.4；字号仍由 --editor-font-size 用户设置驱动 */
+  overflow-x: auto;
+  line-height: var(--cv-leading);
+  white-space: pre;
+}
+
+.challenges-view .challenge-run-button,
+.challenges-view .challenge-editor-wrap .challenge-run-button {
+  align-self: flex-start;
+  min-height: var(--cv-tap);
+  margin: var(--ds-space-12, 12px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  transition: border-color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-run-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-run-button:active:not(:disabled) {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .challenge-run-button:disabled {
+  color: var(--cv-faint);   /* 同上：按钮名字不是装饰（这一态只在 busy 瞬间存在，稳态不可复量） */
+  border-color: var(--cv-hair);
+  opacity: 1;
+}
+
+/* 运行结果：三态各用恒定语义色 + 图形 + 文字；长输出行横向滚动 */
+.challenges-view .challenge-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  overflow-x: auto;
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-result strong {
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.challenges-view .challenge-result strong::before {
+  width: 8px;
+  height: 8px;
+  border: var(--cv-hair-width) solid currentColor;
+  background: none;
+}
+
+.challenges-view .challenge-result > span {
+  color: var(--cv-dim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  white-space: pre;                                                 /* 运行输出按原样读，不折行 */
+}
+
+.challenges-view .challenge-result .execution-tier {
+  margin-top: 0;
+}
+
+.challenges-view .challenge-result.passed {
+  border-color: var(--cv-ok);
+  background: var(--cv-ok-wash);
+  color: var(--cv-ok);
+}
+
+.challenges-view .challenge-result.passed strong,
+.challenges-view .challenge-result.passed > span {
+  color: var(--cv-ok);
+}
+
+.challenges-view .challenge-result.passed strong::before {
+  background: currentColor;
+}
+
+.challenges-view .challenge-result.failed {
+  border-color: var(--cv-bad);
+  background: var(--cv-bad-wash);
+  color: var(--cv-bad);
+}
+
+.challenges-view .challenge-result.failed strong,
+.challenges-view .challenge-result.failed > span {
+  color: var(--cv-bad);
+}
+
+.challenges-view .challenge-result.failed strong::before {
+  background: none;
+  border-style: dashed;
+}
+
+.challenges-view .challenge-result.unsupported {
+  border-color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+}
+
+.challenges-view .challenge-result.unsupported strong,
+.challenges-view .challenge-result.unsupported > span {
+  color: var(--cv-warn);
+}
+
+/* ── CHAL-02：逐条判定明细（引擎 challenge-judge.ts 的呈现面）────────────────
+   为什么在结果块内部另起一段，而不是改上面那三条状态色：
+   `.challenge-result > span` 带 `white-space: pre`（运行输出按原样读），
+   而判定原因是一句话，必须能换行——所以明细全部走 <ul>/<li>，不借用那条 span 规则。
+   口径行是唯一的直接子 span，单独覆回 normal。
+   命中/未命中同时用文字、左侧实心/虚线标记与状态色三种载体表达（§5.1：颜色不是唯一载体）。 */
+.challenges-view .challenge-result .judge-mode {
+  color: var(--cv-dim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+  white-space: normal;
+}
+
+.challenges-view .judge-cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.challenges-view .judge-cases li {
+  display: grid;
+  grid-template-columns: 3.6em 1fr;                                      /* 结论列固定宽，理由列吃满剩余 */
+  gap: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  align-items: baseline;
+  padding: var(--ds-space-2, 2px) 0 var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border-left: var(--cv-hair-width) solid currentColor;                  /* 统一 1px 发丝线，粗细不承载语义 */
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .judge-cases li.hit {
+  border-left-style: solid;
+  color: var(--cv-ok);                                                   /* 恒定 success，同 --cv-* 一族 */
+}
+
+.challenges-view .judge-cases li.miss {
+  border-left-style: dashed;                                              /* 形状与 hit 区分，不靠颜色 */
+  color: var(--cv-bad);
+}
+
+.challenges-view .judge-cases li.extra {
+  border-left-style: dotted;                                              /* 第三种线型：既非命中也非未命中，是多印的行 */
+  border-left-color: var(--cv-warn);
+  color: var(--cv-warn);
+}
+
+.challenges-view .judge-verdict {
+  font-family: var(--cv-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.challenges-view .judge-cases code {
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+  white-space: pre-wrap;                                                  /* 验收点原文，窄屏可折但不改内容 */
+  overflow-wrap: anywhere;
+}
+
+.challenges-view .judge-detail {
+  color: var(--cv-dim);
+  overflow-wrap: anywhere;
+}
+
+/* 目标输出清单同步标出逐条结论：判定发生在结果块，清单只负责指认「这一条现在什么状态」。
+   线型与结果块一致（实线=命中、虚线=未命中），粗细统一 1px 发丝线。 */
+.challenges-view .target-output code.hit {
+  border-left: var(--cv-hair-width) solid var(--cv-ok);
+  padding-left: var(--ds-space-8, 8px);
+  color: var(--cv-ok);
+}
+
+.challenges-view .target-output code.miss {
+  border-left: var(--cv-hair-width) dashed var(--cv-bad);
+  padding-left: var(--ds-space-8, 8px);
+  color: var(--cv-bad);
+}
+
+/* 执行等级：可信度事实，恒定 info 色 + 图形 + 文字 */
+.challenges-view .execution-tier {
+  align-self: flex-start;
+  padding: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--cv-info);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.challenges-view .execution-tier.tier-worker {
+  color: var(--cv-ok);
+  background: var(--cv-ok-wash);
+}
+
+.challenges-view .execution-tier.tier-teaching {
+  color: var(--cv-info);                                             /* 恒定 info，非场景青 */
+  background: var(--cv-info-wash);
+}
+
+.challenges-view .execution-tier.tier-external {
+  color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .execution-tier::before {
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  transform: none;
+}
+
+.challenges-view .execution-tier.tier-worker::before {
+  background: currentColor;
+}
+
+.challenges-view .execution-tier.tier-teaching::before {
+  border-radius: var(--ds-shape-circle, 50%);
+}
+
+.challenges-view .execution-tier.tier-external::before {
+  transform: rotate(45deg);
+}
+
+/* ---------------------------------------------------------------------------
+   6. 草稿区 / 提交区：§5.2「明确的提交与草稿状态」的落点
+   —— 草稿 = 虚线细边 + 「未提交」文字；已提交 = 实线细边 + 恒定语义色标识。
+      两者并排（≥1024px 双栏），一眼可分。
+   -------------------------------------------------------------------------- */
+.challenges-view .challenge-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-10, 10px);
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scrim);
+  min-width: 0;
+}
+
+.challenges-view .challenge-zone--draft {
+  border-style: dashed;                                             /* 形状通道 1：草稿 = 虚线边界 */
+  background: none;
+}
+
+.challenges-view .challenge-zone--submitted {
+  border-style: solid;                                              /* 形状通道 2：提交 = 实线边界 */
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-zone-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-zone-no {
+  color: var(--cv-scene);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.challenges-view .challenge-zone-title {
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.challenges-view .challenge-zone-scope {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.04em;
+}
+
+/* 草稿留痕：一句话说明「本机、未提交、何时存」 */
+.challenges-view .challenge-draft-state {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  line-height: 1.6;
+}
+
+.challenges-view .challenge-draft-state svg {
+  flex: 0 0 auto;
+  color: var(--cv-faint);
+}
+
+.challenges-view .challenge-draft-state-label {
+  color: var(--cv-faint);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .field-label {
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-4, 4px);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.challenges-view .field-label textarea,
+.challenges-view .field-label input {
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .field-label textarea:focus-visible,
+.challenges-view .field-label input:focus-visible {
+  border-color: var(--cv-edge-active);
+}
+
+.challenges-view .challenge-evidence {
+  min-height: 96px;
+  white-space: pre-wrap;                                            /* 证据说明是散文：折行而不是横向滚 */
+}
+
+.challenges-view .challenge-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  margin-top: var(--ds-space-4, 4px);
+  padding-top: var(--cv-pad);
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-actions .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-actions .subtle-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-actions .subtle-button:active:not(:disabled) {
+  background: var(--cv-scrim-raised);
+}
+
+/* 提交主操作：细线药丸（geometry.md §2 唯一保留的 100px 圆角），无渐变无光束 */
+.challenges-view .challenge-submit.moving-border {
+  flex: 0 0 auto;
+  min-height: var(--cv-tap);
+  border: var(--cv-hair-width) solid var(--cv-edge-active);
+  border-radius: var(--ds-shape-pill, 100px);
+  background: none;
+  box-shadow: var(--cv-glow-inset);
+}
+
+.challenges-view .challenge-submit.moving-border:hover:not(:disabled) {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .challenge-submit.moving-border:disabled {
+  border-color: var(--cv-hair);
+  opacity: 1;
+}
+
+/* 渐变光束属于「渐变按钮 + 泛光」家族（§5.1 点名移除）：本页常态不挂载。
+   共享层已把它 display:none，这里再钉一次，防止后续任何页面级改动把它放回来。 */
+.challenges-view .moving-border__beam {
+  display: none;
+}
+
+.challenges-view .challenge-submit .moving-border__content {
+  padding: var(--ds-space-10, 10px) var(--ds-space-20, 20px);
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  border-radius: var(--ds-shape-pill, 100px);
+}
+
+.challenges-view .challenge-submit.moving-border:hover:not(:disabled) .moving-border__content {
+  color: var(--cv-ink);
+}
+
+/* 提交记录区内容 */
+.challenges-view .challenge-done-note,
+.challenges-view .challenge-pending-note,
+.challenges-view .challenge-submitted-none {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-radius-panel, 0);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+}
+
+.challenges-view .challenge-done-note {
+  color: var(--cv-ok);
+  background: var(--cv-ok-wash);
+}
+
+.challenges-view .challenge-pending-note {
+  color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .challenge-submitted-none {
+  color: var(--cv-faint);
+  border-color: var(--cv-hair);
+  background: none;
+}
+
+/* 固定标识 + 文字双通道：图形徽记对读屏隐藏，语义由文字承载 */
+.challenges-view .challenge-mark-label {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: normal;
+}
+
+.challenges-view .challenge-submitted-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-left: var(--cv-hair-width) solid var(--cv-hair-raised);
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-submitted-evidence-label {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-submitted-evidence-text {
+  color: var(--cv-ink);
+  white-space: pre-wrap;
+}
+
+.challenges-view .challenge-submitted-meta {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.04em;
+}
+
+/* R4 人工复核（LEARN-01 第 4 条：verified / rejected 此前在生产里没有任何入口）。
+   按钮直接复用上面 `.challenge-actions .subtle-button` 那一档（44px + 1px 细线 + 暖白字），
+   不新造控件样式；差异由图标形状与文字承载，不靠颜色单传。 */
+.challenges-view .challenge-verify-actions {
+  margin-top: 0;
+}
+
+.challenges-view .challenge-verify-note {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+  overflow-wrap: anywhere;
+}
+
+.challenges-view .challenge-verify-actions .field-label {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.challenges-view .challenge-verify-select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--cv-ink);
+  background: var(--ds-canvas-solid, #000);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: 1.5;
+}
+
+.challenges-view .challenge-verify-select:focus-visible {
+  border-color: var(--cv-edge-active);
+}
+
+/* 提示框：恒定 warn 色 + 1px 细线（取消 2px 彩色左条） */
+.challenges-view .hint-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-10, 10px);
+  margin-top: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .hint-box svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+
+/* 外部关卡声明：不伪造结果的承诺必须比装饰更显眼 */
+.challenges-view .challenge-external-note {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-external-note p + p {
+  margin-top: var(--ds-space-8, 8px);
+}
+
+.challenges-view .external-evidence-form {
+  display: grid;
+  gap: var(--ds-space-12, 12px);
+  margin-top: 0;
+}
+
+.challenges-view .external-evidence-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-info);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-info-wash);
+  color: var(--cv-info);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .external-evidence-hint svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+
+.challenges-view .external-evidence-field {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+}
+
+.challenges-view .external-evidence-required {
+  margin-left: var(--ds-space-6, 6px);
+  padding: var(--ds-space-hair, 1px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--cv-bad);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.challenges-view .external-evidence-input {
+  width: 100%;
+  min-height: var(--cv-tap);
+  font-size: var(--cv-body);
+}
+
+.challenges-view .external-evidence-input.invalid,
+.challenges-view .challenge-evidence.invalid {
+  border-color: var(--cv-bad);
+}
+
+.challenges-view .external-evidence-error {
+  color: var(--cv-bad);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+}
+
+.challenges-view .external-evidence-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .external-evidence-keywords code {
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) solid var(--cv-hair-raised);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ============================================================================
+   7. 响应式：3 列 → 2 列 → 1 列；320px 最小宽度不破版（§5.4）
+   ========================================================================== */
+
+@media (max-width: 1080px) {
+  .challenges-view .challenge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  /* 桌面：标签栏收起，三个分区一次性展开；提交记录区里草稿/提交并排 */
+  .challenges-view .detail-tabs {
+    display: none;
+  }
+
+  .challenges-view .challenge-detail {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+    gap: var(--ds-space-20, 20px);
+    align-items: start;
+  }
+
+  .challenges-view .detail-tabpanel {
+    display: flex;
+  }
+
+  .challenges-view .detail-tabpanel--overview {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .challenges-view .detail-tabpanel--lab {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .challenges-view .detail-tabpanel--evidence {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cv-gap);
+    align-items: start;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .challenges-view .detail-tabpanel--evidence > .challenge-result,
+  .challenges-view .detail-tabpanel--evidence > .challenge-zone-head {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .challenges-view {
+    gap: var(--ds-space-20, 20px);
+  }
+
+  .challenges-view .challenge-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .challenges-view .challenge-overview-stats {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .challenges-view .challenge-overview-text {
+    text-align: left;
+  }
+
+  .challenges-view .challenge-progress {
+    width: 100%;
+  }
+
+  .challenges-view .challenge-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .challenges-view .challenge-filter {
+    justify-content: space-between;
+    gap: var(--ds-space-10, 10px);
+  }
+
+  .challenges-view .challenge-filter select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .challenges-view .challenge-actions {
+    width: 100%;
+  }
+
+  .challenges-view .challenge-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .challenges-view .challenge-submit.moving-border {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 360px) {
+  /* 320px 视口：留白收到 12px，编号与徽章同排但都允许折行 */
+  .challenges-view {
+    --cv-pad: 12px;
+    --cv-gap: 8px;
+  }
+
+  .challenges-view .stage-card {
+    min-height: 0;
+    padding: var(--ds-space-12, 12px) var(--ds-space-10, 10px);
+  }
+
+  .challenges-view .stage-card-top,
+  .challenges-view .stage-card-meta,
+  .challenges-view .challenge-zone-head {
+    flex-wrap: wrap;
+  }
+
+  .challenges-view .stage-card-action {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+
+  .challenges-view .challenge-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .challenges-view .challenge-pagination .subtle-button {
+    width: 100%;
+  }
+
+  .challenges-view .target-output code,
+  .challenges-view .external-evidence-keywords code {
+    max-width: 100%;
+  }
+}
+
+/* ============================================================================
+   8. §5.3 降级：新增动效只有一条 —— 标签下划线/边框的 150–220ms 过渡，
+   没有 infinite 循环。两条路径各写真停（M3 记录 §4 的教训：只压时长不算停）。
+   这里是本文件**唯一**使用 !important 的位置，且只用于压过 styles.css 的
+   同权重兜底规则。终态可读：不停在半透明帧上。
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .challenges-view *,
+  .challenges-view *::before,
+  .challenges-view *::after {
+    animation: none !important;                                     /* 名称归零 = 连一次都不跑 */
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .challenges-view .stage-card:hover,
+  .challenges-view .challenge-more-toggle[aria-expanded='true'] svg {
+    transform: none !important;
+  }
+}
+
+/* .reduce-motion 已由 M3 镜像到 documentElement（壳外同样生效）；
+   这里仍按「祖先类」与「自身类」两种挂法各写一遍，防止后续再挪挂载点。 */
+.reduce-motion .challenges-view *,
+.reduce-motion .challenges-view *::before,
+.reduce-motion .challenges-view *::after,
+.challenges-view.reduce-motion *,
+.challenges-view.reduce-motion *::before,
+.challenges-view.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion .challenges-view .stage-card:hover,
+.reduce-motion .challenges-view .challenge-more-toggle[aria-expanded='true'] svg,
+.challenges-view.reduce-motion .stage-card:hover,
+.challenges-view.reduce-motion .challenge-more-toggle[aria-expanded='true'] svg {
+  transform: none !important;
+}
