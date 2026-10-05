@@ -1,4 +1,5 @@
 #include "app_core.hpp"
+#include "backend_task_service.hpp"
 #include "account_store.hpp"
 #include "password_crypto.hpp"
 #include "account_service.hpp"
@@ -81,6 +82,39 @@ void test_workspace_and_draft_round_trip() {
   assert(!second.open_workspace(fixture.root).ok);
   assert(core.close_workspace().ok);
   assert(second.open_workspace(fixture.root).ok);
+}
+
+void test_backend_task_service_is_bounded_cancellable_and_generation_safe() {
+  using codeweave::backend::BackendTaskService;
+  using codeweave::backend::TaskKind;
+  using codeweave::backend::TaskRequest;
+  std::mutex mutex;
+  std::condition_variable condition;
+  std::vector<codeweave::backend::TaskResult> completed;
+  BackendTaskService service(1);
+  std::atomic_bool release{false};
+  assert(service.submit({"task-1", "account-1", 7, TaskKind::Backup,
+      [&](const auto& token) {
+        while (!release.load(std::memory_order_acquire) && !token.cancelled()) {
+          std::this_thread::yield();
+        }
+        return token.cancelled() ? codeweave::app::Result::failure("cancelled") : codeweave::app::Result::success("done");
+      }}, [&](auto result) {
+        std::lock_guard lock(mutex); completed.push_back(std::move(result)); condition.notify_all();
+      }).ok);
+  assert(!service.submit({"task-2", "account-1", 7, TaskKind::Read,
+      [](const auto&) { return codeweave::app::Result::success(); }}, {}).ok);
+  assert(service.cancel("task-1").ok);
+  release.store(true, std::memory_order_release);
+  {
+    std::unique_lock lock(mutex);
+    assert(condition.wait_for(lock, std::chrono::seconds(2), [&] { return completed.size() == 1; }));
+  }
+  assert(completed[0].task_id == "task-1" && completed[0].account_generation == 7);
+  assert(completed[0].cancelled && !completed[0].result.ok);
+  assert(service.close().ok);
+  assert(!service.submit({"task-3", "account-1", 8, TaskKind::Read,
+      [](const auto&) { return codeweave::app::Result::success(); }}, {}).ok);
 }
 
 void test_workspace_can_use_independent_application_data_root() {
@@ -1448,6 +1482,7 @@ std::filesystem::path sibling_process_tool() {
 }  // namespace
 
 int main(int argc, char** argv) {
+  test_backend_task_service_is_bounded_cancellable_and_generation_safe();
   test_workspace_and_draft_round_trip();
   test_workspace_can_use_independent_application_data_root();
   test_workspace_rejects_symlink_data_root();

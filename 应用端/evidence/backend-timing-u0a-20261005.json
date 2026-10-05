@@ -1,0 +1,15 @@
+{
+  "schema": "codeweave.backend-timing.v1",
+  "status": "raw_samples",
+  "sample_count": 5,
+  "fixture": "synthetic-isolated",
+  "run_root_not_recorded": true,
+  "operations": [
+    {"name":"native_backup","samples":[{"ok":true,"duration_us":48336},{"ok":true,"duration_us":44818},{"ok":true,"duration_us":42230},{"ok":true,"duration_us":40548},{"ok":true,"duration_us":40637}]},
+    {"name":"legacy_users_import","samples":[{"ok":true,"duration_us":8507},{"ok":true,"duration_us":6434},{"ok":true,"duration_us":6584},{"ok":true,"duration_us":6550},{"ok":true,"duration_us":6387}]},
+    {"name":"legacy_learning_import","samples":[{"ok":true,"duration_us":1475},{"ok":true,"duration_us":1169},{"ok":true,"duration_us":1082},{"ok":true,"duration_us":1106},{"ok":true,"duration_us":1212}]},
+    {"name":"account_register","samples":[{"ok":true,"duration_us":83653},{"ok":true,"duration_us":71650},{"ok":true,"duration_us":71372},{"ok":true,"duration_us":69834},{"ok":true,"duration_us":79908}]},
+    {"name":"account_login","samples":[{"ok":true,"duration_us":103555},{"ok":true,"duration_us":75430},{"ok":true,"duration_us":66331},{"ok":true,"duration_us":64987},{"ok":true,"duration_us":65642}]},
+    {"name":"account_change_password","samples":[{"ok":true,"duration_us":235653},{"ok":true,"duration_us":207138},{"ok":true,"duration_us":217499},{"ok":true,"duration_us":212566},{"ok":true,"duration_us":205264}]}
+  ]
+}
