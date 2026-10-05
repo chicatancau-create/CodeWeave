@@ -1,0 +1,76 @@
+手工搭建：Entry、Output 与 Loader
+从零配置跑通第一个打包
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Node + Webpack
+
+【目标】
+手工搭建最小 Webpack 工程并解释 entry/output/loader 各自的职责。
+
+【先备知识】
+b1-array-basics
+
+【讲解】
+entry 是依赖图的起点；output 定义产物位置与命名。
+loader 作用于“文件内容”的转换（css → JS 字符串模块），从右向左执行。
+mode 决定内置优化：development 不压缩，production 自动压缩与作用域提升。
+
+【例子与反例】
+正例：use: ["style-loader", "css-loader"] 从右到左：先 css-loader 再注入样式
+反例：顺序写反成 ["css-loader", "style-loader"]，css-loader 收到的是非 CSS 输入直接报错
+解释：loader 链的方向决定了转换是否成立
+
+【示例代码】
+// webpack.config.js（在本地工程验证）
+const path = require("path");
+module.exports = {
+  mode: "development",
+  entry: "./src/index.js",
+  output: { path: path.resolve(__dirname, "dist"), filename: "bundle.js" },
+  module: { rules: [{ test: /\.css$/, use: ["style-loader", "css-loader"] }] },
+};
+
+【理解要点】
+Webpack 的本质是“从 entry 出发的依赖图遍历”，loader 负责把非 JS 资源转成模块。
+
+【跟做】
+npm init 后安装 webpack/webpack-cli，写最小配置。
+建 index.js 引入一个样式文件，跑 npx webpack。
+打开 dist 产物，找到被转成模块的 CSS 内容。
+
+【独立练习】
+独立增加图片资源规则（asset/resource），在页面里引用一张图片。
+
+【变式】
+增加 html-webpack-plugin，让打包自动生成带 hash 引用的 index.html。
+
+【项目任务】
+这套手工配置是 F 阶段验收（Webpack 5 工程搭建 + 体积对比）的底稿。
+
+【常见错误】
+output.path 用相对路径导致产物位置诡异
+loader 写在 plugins 里（职责混淆）
+
+【运行方法】
+npx webpack（本地工程）
+
+【完成标准】
+构建成功且产物在浏览器可用，能解释三要素职责。
+
+【验收条件】
+npx webpack 构建成功
+产物在浏览器正确加载样式
+能解释 loader 执行顺序
+
+【证据清单】
+构建日志
+配置文件
+产物加载截图
+
+【复测间隔（天）】
+1
+3
+7

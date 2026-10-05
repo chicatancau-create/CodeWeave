@@ -1,0 +1,73 @@
+Pinia 状态管理与组件测试
+store 定义、跨组件共享与可测试性
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Vite + Vitest
+
+【目标】
+独立定义一个 Pinia store，并用 Vitest 为它的 action 写单元测试。
+
+【先备知识】
+e1-vue-composition
+e2-vue-router-guard
+
+【讲解】
+state 是数据源，actions 是唯一推荐修改入口，getters 是派生值。
+store 是普通对象：不挂组件也能在 Vitest 里直接测 action。
+组件只调用 action，不直接改 state，边界才清晰。
+
+【例子与反例】
+正例：组件里 taskStore.add(task)，修改逻辑集中在 store
+反例：两个组件各自 tasks.value.push，状态同步靠巧合
+解释：共享状态的修改入口必须唯一
+
+【示例代码】
+// 在本地工程中验证：
+// export const useTaskStore = defineStore("task", {
+//   state: () => ({ tasks: [] }),
+//   actions: { add(t) { this.tasks.push(t) } },
+// });
+
+【理解要点】
+Pinia 把“共享状态 + 修改入口”收拢到一个可单测的普通 JS 对象。
+
+【跟做】
+安装 Pinia 并在 main.ts 注册。
+定义 task store（state/add action/getter 计数）。
+用 Vitest 写 add 后 tasks 长度的断言。
+
+【独立练习】
+独立实现“完成任务”action 并为它写一个测试（含不存在 id 的边界）。
+
+【变式】
+给 store 加一个 persist 插件，把 tasks 同步到 localStorage。
+
+【项目任务】
+E 阶段验收项目的列表数据全部走 store，为组件测试铺路。
+
+【常见错误】
+在组件里直接改 store.state
+测试里忘记 setActivePinia 导致 store 未注册
+
+【运行方法】
+npx vitest run（本地工程）
+
+【完成标准】
+store 测试通过，组件与 store 的职责边界能画图说清。
+
+【验收条件】
+store 定义完整（state/action/getter）
+至少一个 action 有单元测试
+组件不直接改 state
+
+【证据清单】
+store 代码
+Vitest 通过的运行输出
+
+【复测间隔（天）】
+1
+3
+7

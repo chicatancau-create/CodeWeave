@@ -1,0 +1,76 @@
+MyBatis：Mapper 与动态 SQL
+接口绑定、预编译与动态查询
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · MyBatis + MySQL
+
+【目标】
+独立完成带动态查询的 Mapper，并演示 #{} 与 ${} 的注入差异。
+
+【先备知识】
+h1-spring-ioc-di
+h2-spring-mvc-validation
+
+【讲解】
+Mapper 接口与 XML 的 namespace/id 一一对应，参数经 #{} 预编译绑定。
+where/if 标签按条件拼句，动态部分同样走预编译。
+ORDER BY / 表名无法用 #{} 参数化，必须白名单校验后经 ${} 拼接。
+
+【例子与反例】
+正例：LIKE CONCAT("%", #{keyword}, "%") 参数化模糊查询
+反例：ORDER BY ${sortColumn} 接收用户输入且未白名单 → 可注入任意 SQL
+解释：拼接点必须有白名单
+
+【示例代码】
+<select id="search" resultType="Task">
+  SELECT * FROM tasks
+  <where>
+    <if test="keyword != null">AND title LIKE CONCAT("%", #{keyword}, "%")</if>
+    <if test="status != null">AND status = #{status}</if>
+  </where>
+</select>
+
+【理解要点】
+#{} 是预编译占位符，${} 是字符串拼接——这个区别就是注入防线。
+
+【跟做】
+配置 MyBatis 与 Mapper 扫描，跑通一个 selectAll。
+实现 search 动态查询并测试三种条件组合。
+分别用 #{} 与 ${} 写 ORDER BY，观察注入差异。
+
+【独立练习】
+独立实现分页 + 条件搜索的组合查询（LIMIT #{limit} OFFSET #{offset}）。
+
+【变式】
+用 @Transactional 给“批量删除 + 插入”加事务，验证回滚。
+
+【项目任务】
+Mapper 层完成后，H 阶段验收（SSM CRUD + 测试）只剩组装与测试。
+
+【常见错误】
+#{} 与 ${} 混用导致注入
+XML 与接口方法签名不一致启动报错
+
+【运行方法】
+本地 IDEA + MySQL（真实框架与数据库）
+
+【完成标准】
+动态查询三种组合输出正确，能解释 #{} 与 ${} 的边界。
+
+【验收条件】
+动态条件查询可用
+#{} 与 ${} 注入差异演示成功
+分页查询正确
+
+【证据清单】
+Mapper XML
+注入差异演示记录
+
+【复测间隔（天）】
+1
+3
+7
+14

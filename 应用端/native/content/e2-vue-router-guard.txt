@@ -1,0 +1,70 @@
+Vue Router 路由与守卫
+路由表、动态段与登录守卫
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Vite + 浏览器
+
+【目标】
+独立配置含登录守卫的路由：未登录访问受保护页重定向到 /login。
+
+【先备知识】
+e1-vue-composition
+
+【讲解】
+路由表把 URL 映射到组件；meta 字段携带路由级元信息（如 auth: true）。
+beforeEach 全局守卫在每次导航前执行，返回 false 取消、返回路由对象重定向。
+动态段 /user/:id 通过 route.params 读取。
+
+【例子与反例】
+正例：beforeEach 里统一检查 meta.auth，逻辑集中一处
+反例：在每个组件 mounted 里各自判断登录，漏一处就是漏洞
+解释：权限检查必须集中、前置、可枚举
+
+【示例代码】
+// 在本地工程中验证：
+// const routes = [{ path: "/login", component: Login }, { path: "/admin", component: Admin, meta: { auth: true } }];
+// router.beforeEach((to) => (to.meta.auth && !isLogin) ? "/login" : true);
+
+【理解要点】
+路由守卫是前端权限的第一道闸：拦截的是“导航”，不是组件内部逻辑。
+
+【跟做】
+配置 /login 与 /admin 两条路由，admin 标记 meta.auth。
+实现 beforeEach 守卫：未登录访问 /admin 重定向 /login。
+登录后重访 /admin 验证放行。
+
+【独立练习】
+独立增加 /user/:id 动态路由页，展示路由参数。
+
+【变式】
+增加“登录后访问 /login 自动跳首页”的反向守卫。
+
+【项目任务】
+守卫方案直接用于 E 阶段验收项目的后台路由。
+
+【常见错误】
+守卫里忘记 return 导致导航挂起
+把 token 存在组件状态而非全局（守卫读不到）
+
+【运行方法】
+npm run dev（本地工程验证守卫跳转）
+
+【完成标准】
+未登录被拦截、登录后放行，两条路径都有实测记录。
+
+【验收条件】
+未登录访问受保护页被重定向
+登录后可正常进入
+动态路由参数可读取
+
+【证据清单】
+守卫代码
+拦截与放行各一张截图
+
+【复测间隔（天）】
+1
+3
+7

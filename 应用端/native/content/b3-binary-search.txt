@@ -1,0 +1,82 @@
+二分查找：有序数组的高效搜索
+left/right/mid 指针移动与边界处理
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+Browser JS 沙箱
+
+【目标】
+独立实现二分查找：找到返回索引，找不到返回 -1，并解释为什么数组必须有序。
+
+【先备知识】
+b1-array-basics
+b2-bubble-sort
+
+【讲解】
+mid = Math.floor((left + right) / 2)；arr[mid] 与目标的三种比较决定指针怎么移。
+arr[mid] < target → 目标在右侧，left = mid + 1；反之 right = mid - 1。
+循环条件是 left <= right：漏掉等号会在区间收缩到单个元素时漏查。
+
+【例子与反例】
+正例：在 [1,3,5,7,9,11] 查 7：mid=2(5<7)→left=3；mid=4(9>7)→right=3；mid=3 命中
+反例：left = mid（没有 +1）且条件 left < right → 相邻元素时死循环
+解释：指针不越过 mid，区间就无法收缩
+
+【示例代码】
+function binarySearch(arr, target) {
+  let left = 0;
+  let right = arr.length - 1;
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    if (arr[mid] === target) return mid;
+    if (arr[mid] < target) left = mid + 1;
+    else right = mid - 1;
+  }
+  return -1;
+}
+console.log(binarySearch([2, 4, 6, 8, 10], 6));
+
+【理解要点】
+每次比较排除一半：O(log n)；前提是数组必须有序，指针必须越过 mid。
+
+【跟做】
+运行示例确认输出 2（索引）。
+查找不存在的值 5，确认返回 -1。
+在每次循环打印 left/right/mid，手抄一遍指针变化。
+
+【独立练习】
+独立实现 findFirst(arr, target)：有重复元素时返回第一次出现的位置（findFirst([1,2,2,2,3], 2) === 1）。
+
+【变式】
+查找插入位置：返回目标应插入的索引，保持数组有序。
+
+【项目任务】
+二分是 C 阶段“查找与边界”题族的模板；findFirst 变式直接对应 OJ 上的左边界题。
+
+【常见错误】
+在无序数组上直接二分
+指针移动写成 left = mid 导致死循环
+空数组未处理（right = -1 时应直接返回 -1）
+
+【运行方法】
+运行按钮（浏览器沙箱真实执行）
+
+【完成标准】
+找到/找不到/空数组三种情况输出正确，能解释有序前提与指针越界规则。
+
+【验收条件】
+找到目标返回正确索引
+找不到返回 -1
+空数组返回 -1
+
+【证据清单】
+三种边界情况的运行输出
+指针移动的手写推演
+
+【复测间隔（天）】
+1
+3
+7
+14

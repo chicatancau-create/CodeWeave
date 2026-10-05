@@ -1,0 +1,75 @@
+Spring MVC：参数校验与统一异常
+@Valid 与 @RestControllerAdvice
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · IDEA + Spring MVC
+
+【目标】
+独立完成带 @Valid 校验的接口，并用 @RestControllerAdvice 统一错误响应。
+
+【先备知识】
+h1-spring-ioc-di
+
+【讲解】
+@NotNull/@Size/@Email 等注解声明在 DTO 上，@Valid 触发校验。
+校验失败抛 MethodArgumentNotValidException；全局异常处理器把它转成统一 JSON。
+业务异常也应自定义（如 TaskNotFoundException），避免把堆栈直接抛给前端。
+
+【例子与反例】
+正例：错误结构统一为 code/message/field，前端只需处理一种形态
+反例：有的接口返回 message 字符串、有的返回 map，前端写满兼容代码
+解释：契约一致性是前后端协作的底线
+
+【示例代码】
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handle(MethodArgumentNotValidException e) {
+        // 把字段错误汇总成统一结构返回
+    }
+}
+
+【理解要点】
+校验发生在进入业务之前，异常处理器保证错误响应结构全局一致。
+
+【跟做】
+给 TaskDTO 加 @NotBlank/@Size 注解并触发 @Valid。
+用 curl 提交空标题，观察默认错误结构。
+写全局异常处理器，把错误转成统一 JSON 再验证。
+
+【独立练习】
+独立增加一个业务异常（任务不存在 → 404）并在 Advice 中处理。
+
+【变式】
+给 DTO 增加分组校验（新增与修改用不同规则）。
+
+【项目任务】
+统一异常结构沉淀为 H 阶段验收项目的接口规范。
+
+【常见错误】
+忘记 @Valid 导致校验注解全部失效
+在 Advice 之外用 try-catch 散落处理
+
+【运行方法】
+本地 IDEA 运行 + curl 验证（真实框架行为）
+
+【完成标准】
+校验失败与业务异常都返回统一结构，能画出手动校验与声明式校验的差异。
+
+【验收条件】
+@Valid 校验生效
+全局异常处理器返回统一 JSON
+业务异常映射正确状态码
+
+【证据清单】
+DTO 与 Advice 代码
+curl 错误响应输出
+
+【复测间隔（天）】
+1
+3
+7
+14

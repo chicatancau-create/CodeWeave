@@ -33,3 +33,29 @@ local.properties
 .idea/
 .DS_Store
 Thumbs.db
+
+# 交付产物与本机归档：不得进入公开仓库
+/CodeWeave.exe
+/*.exe
+/备份区/
+/工作区/data/
+/工作区/build/
+
+# 原生模块的临时构建目录（另一个会话正在产生，名字不匹配 build/）
+**/native/build*/
+**/native/stage*/
+**/native/*build*/
+
+# Signing private keys must never be versioned. Public .cer files are allowed.
+*.pfx
+*.p12
+*.key
+
+# Local generated desktop delivery and build caches
+/.electron-builder-cache/
+/app-native-ascii/
+/content/
+/config/
+
+# 代理/工具配置目录，不入库
+.claude/

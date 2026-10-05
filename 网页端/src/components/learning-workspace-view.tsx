@@ -6,7 +6,7 @@ import { getLocalDateKey } from '../utils/date-helpers'
 import { emptyEvidence, validateExternalEvidence, type ExternalEvidence } from '../utils/external-evidence'
 import { lessonAcceptancePoints, type LessonCompletionSource, type LessonEvidenceStates } from '../utils/lesson-evidence'
 import { CodeEditorPane } from './learning-workspace/CodeEditorPane'
-import { stageFrameAt } from '../engine/run-stage-model'
+import { skeletonStageFrame, stageFrameAt } from '../engine/run-stage-model'
 import { deriveRuntimeFlow } from '../engine/runtime-flow'
 import { EvidenceStateGrid } from './learning-workspace/EvidenceStateGrid'
 import { LessonReader } from './learning-workspace/LessonReader'
@@ -81,6 +81,14 @@ type LearningWorkspaceViewProps = {
   onHelp: () => void
   onCodeChange: (code: string) => void
   onRun: () => void
+  /**
+   * 画布那枚「播放」要的回调（2026-10-04 拆出来）。
+   *
+   * 它与 `onRun` 不是同一件事：`onRun` 是运行条的「开始运行」——第一次点击**只落到第一拍
+   * 就停**（用户原话「点击『开始运行』时，中间就会出现最开始的内容」）；`onPlay` 是画布上
+   * 写着「播放」的那一枚——第一次点击**直接放到底**。两者共用一支函数，必有一个名不副实。
+   */
+  onPlay: () => void
   onStep: () => void
   /** 画布「上一步」：把播放头移到任意一拍（`use-execution.ts` 的 `handleSeek`）。 */
   onSeek: (index: number) => void
@@ -139,6 +147,7 @@ export function LearningWorkspaceView({
   onHelp,
   onCodeChange,
   onRun,
+  onPlay,
   onStep,
   onSeek,
   onReset,
@@ -162,8 +171,25 @@ export function LearningWorkspaceView({
    * 只改**呈现**：不隐藏焦点陷阱、不移除 tabindex，隐藏的那几块用 `display: none`
    * （连同子树一起离开 tab 顺序与读屏顺序），不留「看不见但 Tab 能到」的暗门。
    */
-  const [codeMode, setCodeMode] = useState(false)
+  const [codeMode, setCodeMode] = useState(() => Boolean(lesson.code) || lesson.flow.length > 0)
   const toggleCodeMode = useCallback(() => setCodeMode((on) => !on), [])
+  /**
+   * 换课就按新课重算默认档（2026-10-04）。
+   *
+   * 用户的诉求是「**只要点进跟代码有关的内容，就直接占满整个页面**」——也就是说
+   * 默认值不该是「关」，而是「这一课有没有代码/画布」。有 → 一进来就是沉浸式全屏；
+   * 没有（纯阅读单元）→ 保持普通版式，那时把编辑器铺满整屏反而是空场子。
+   *
+   * 为什么用**渲染期重置**而不是 `useEffect`：换课时 `lesson.id` 在这一次渲染里就已经
+   * 是新的了，用 effect 会先按旧值画一帧（全屏闪一下再收回），而渲染期 setState
+   * 由 React 立刻重渲染，那一帧不会出现。本文件对 `evidenceLessonId` 用的是同一写法。
+   * 只在**换课**时重置：用户在同一次学习里手动切回普通版式，不该被下一条笔记打断。
+   */
+  const [codeModeLessonId, setCodeModeLessonId] = useState(lesson.id)
+  if (codeModeLessonId !== lesson.id) {
+    setCodeModeLessonId(lesson.id)
+    setCodeMode(Boolean(lesson.code) || lesson.flow.length > 0)
+  }
   /**
    * EDIT-01 第 6 条「错误定位」：控制台只知道行号，光标与滚动住在编辑器里。
    * 每次点击都换一个新 token，编辑器按 token 变化触发——同一行连点两次也要真的滚过去。
@@ -282,8 +308,16 @@ export function LearningWorkspaceView({
    * 只算当前这一帧，不把整段运行都折一遍——`events` 长的时候那是白算的。
    * 帧模型是纯函数（`engine/run-stage-model.ts`），没有事件时返回 null，整块不画。
    */
+  /**
+   * 画布这一拍的一帧。取不到帧（还没运行 / 这一段没有事件）时退到**骨架帧**：
+   * 把「这段程序有哪几步」按图形画出来，每个节点都是未走到。
+   *
+   * 为什么不让它退回 null：退回 null 的话整块 `RunStage` 不画，同一位置露出来的是
+   * 那条文字拍轨（`.flow-chart`）——用户第一眼看到工作台时看到的又成了文字。
+   * 骨架帧让「运行前」也是图形，文字轨自此彻底退场（`skeletonStageFrame` 的注释详述）。
+   */
   const stageFrame = useMemo(
-    () => stageFrameAt(execution.events, flowSteps, eventIndex),
+    () => stageFrameAt(execution.events, flowSteps, eventIndex) ?? skeletonStageFrame(flowSteps),
     [execution.events, flowSteps, eventIndex],
   )
 
@@ -375,7 +409,7 @@ export function LearningWorkspaceView({
           stepTotal={execution.events.length}
           onPrev={() => onSeek(eventIndex - 1)}
           onNext={onStep}
-          onTogglePlay={onRun}
+          onTogglePlay={onPlay}
           onReset={onReset}
           activeNodeId={currentEvent?.nodeId}
           completedNodeIds={completedNodeIds}

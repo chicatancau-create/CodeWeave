@@ -1,0 +1,29 @@
+L 关卡验收：部署与运维
+在干净环境完成容器化部署与排错（外部环境实验）。 本关聚焦：Linux、进程、端口、日志、环境变量。
+
+【阶段】
+L
+
+【技术栈】
+Linux
+Docker
+Nginx
+
+【运行要求】
+external
+
+【先决条件】
+stage-i
+
+【起始代码】
+docker compose up -d
+# docker compose ps
+# curl -I http://127.0.0.1:8080/health
+
+【目标输出或验收点】
+在干净环境完成启动、测试和排错
+
+【证据清单】
+docker compose ps 输出
+健康检查 200 响应
+一次端口冲突或启动失败的排查记录

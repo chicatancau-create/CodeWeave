@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 // API origin 的判据住在端侧自己的模块里（分离方案 §2：端口解析归启动器或 API 客户端配置）。
 // 这里**不 import 后端的 server/config.mjs**——那正是本次分离要消除的第一条耦合。
-import { resolveApiOrigin } from './src/api/origin'
+import { resolveApiOrigin } from './src/api/origin.ts'
 
 /**
  * 只取开发代理用得上的变量：`loadEnv` 同时覆盖真实环境变量与 `.env` 文件，

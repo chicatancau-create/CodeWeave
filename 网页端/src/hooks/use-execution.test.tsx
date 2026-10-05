@@ -267,7 +267,7 @@ describe('§5.3 减少动效下的运行播放头', () => {
     render(<Harness onReady={onReady} />)
 
     await act(async () => {
-      void ref.current!.handleRun()
+      void ref.current!.handlePlay()
     })
     await act(async () => {
       pendingRuns.forEach((resolve) => resolve(multiResult(3)))
@@ -285,7 +285,7 @@ describe('§5.3 减少动效下的运行播放头', () => {
     render(<Harness onReady={onReady} reducedMotion />)
 
     await act(async () => {
-      void ref.current!.handleRun()
+      void ref.current!.handlePlay()
     })
     await act(async () => {
       pendingRuns.forEach((resolve) => resolve(multiResult(3)))
@@ -305,7 +305,7 @@ describe('§5.3 减少动效下的运行播放头', () => {
     render(<Harness onReady={onReady} />)
 
     await act(async () => {
-      void ref.current!.handleRun()
+      void ref.current!.handlePlay()
     })
     await act(async () => {
       pendingRuns.forEach((resolve) => resolve(multiResult(2)))
@@ -321,7 +321,7 @@ describe('§5.3 减少动效下的运行播放头', () => {
     render(<Harness onReady={onReady} reducedMotion />)
 
     await act(async () => {
-      void ref.current!.handleRun()
+      void ref.current!.handlePlay()
     })
     await act(async () => {
       pendingRuns.forEach((resolve) => resolve(multiResult(3)))
@@ -351,7 +351,7 @@ describe('§5.3 减少动效下的运行播放头', () => {
     const { rerender } = render(<Harness onReady={onReady} />)
 
     await act(async () => {
-      void ref.current!.handleRun()
+      void ref.current!.handlePlay()
     })
     await act(async () => {
       pendingRuns.forEach((resolve) => resolve(multiResult(2)))

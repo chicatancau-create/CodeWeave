@@ -1,0 +1,34 @@
+B 关卡验收：Java 核心编程
+用循环与变量完成累加，并解释每一轮状态变化。 本关聚焦：变量、流程、方法、数组与集合。
+
+【阶段】
+B
+
+【技术栈】
+Java
+JUnit
+
+【运行要求】
+teaching
+
+【先决条件】
+stage-a
+
+【起始代码】
+public class Main {
+    public static void main(String[] args) {
+        int total = 0;
+        for (int i = 1; i <= 5; i++) {
+            total += i;
+        }
+        System.out.println(total);
+    }
+}
+
+【目标输出或验收点】
+15
+
+【证据清单】
+运行输出 15
+能口述每一轮 total 的值
+把上限改成 100 后的输出

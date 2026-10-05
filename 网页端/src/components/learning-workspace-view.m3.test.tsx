@@ -136,6 +136,10 @@ function renderWorkspace(overrides: Partial<Parameters<typeof LearningWorkspaceV
     onHelp: vi.fn(),
     onCodeChange: vi.fn(),
     onRun: vi.fn(),
+    // 画布那枚「播放」的回调（2026-10-04 从 `onRun` 拆出来）：`onRun` 是运行条的
+    // 「开始运行」——第一下只落到第一拍；`onPlay` 是第一下直接放到底。两者不是同一件事，
+    // 视图受控，桩必须在这里就位。
+    onPlay: vi.fn(),
     onStep: vi.fn(),
     // 画布「上一步」的跳转入口（`use-execution.ts` 的 `handleSeek`）：视图是受控的，
     // 没有人可能往下传，所以这个桩必须在这里就位，不能靠 `...overrides` 补。
@@ -364,7 +368,7 @@ describe('M3 学习工作台 · 业务行为不丢失', () => {
 
   it('运行 / 单步 / 重置：三个入口分别上抛对应回调', () => {
     const { props } = renderWorkspace({ runStatus: 'idle' })
-    fireEvent.click(screen.getByRole('button', { name: /运行代码/ }))
+    fireEvent.click(screen.getByRole('button', { name: /开始运行/ }))
     expect(props.onRun).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: /单步执行/ }))
     expect(props.onStep).toHaveBeenCalledTimes(1)
@@ -850,7 +854,7 @@ describe('M3 学习工作台 · 持续资源审计', () => {
     // 那是框架自身的资源，不属于本页，因此只要求「卸载后回到基线」，见下面的断言。
 
     fireEvent.click(screen.getByRole('button', { name: /单步执行/ }))
-    fireEvent.click(screen.getByRole('button', { name: /运行代码/ }))
+    fireEvent.click(screen.getByRole('button', { name: /开始运行/ }))
     fireEvent.change(container.querySelector('textarea') as HTMLTextAreaElement, { target: { value: 'x = 1' } })
     fireEvent.click(screen.getByRole('button', { name: '查看主题原文' }))
     fireEvent.click(screen.getByRole('button', { name: '课程指南' }))

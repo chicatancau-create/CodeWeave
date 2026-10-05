@@ -1,0 +1,74 @@
+Plugin、DevServer 与 Source Map
+开发体验三件套
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Node + Webpack
+
+【目标】
+配置 DevServer + HMR + Source Map，并用 Source Map 定位一次故意制造的错误。
+
+【先备知识】
+f1-webpack-entry-loader
+
+【讲解】
+DevServer 在内存中构建并提供服务；HMR 只替换变更模块，不刷新页面。
+devtool: source-map 生成 .map，把压缩产物映射回源码行列。
+Plugin 通过钩子介入打包全程（生成 HTML、清理目录、注入环境变量）。
+
+【例子与反例】
+正例：devtool: "eval-source-map" 开发快、行列可定位
+反例：生产环境用 eval-source-map 把源码全部暴露到线上
+解释：Source Map 策略要分环境
+
+【示例代码】
+// 在本地工程验证：
+// const HtmlWebpackPlugin = require("html-webpack-plugin");
+// module.exports = {
+//   plugins: [new HtmlWebpackPlugin({ template: "./src/index.html" })],
+//   devServer: { hot: true, port: 8080 },
+//   devtool: "source-map",
+// };
+
+【理解要点】
+Plugin 介入的是构建生命周期的钩子，能力比 loader（只转文件）大得多。
+
+【跟做】
+接入 html-webpack-plugin 并启动 devServer。
+修改源码观察 HMR 不刷页生效。
+故意写一行错误，用 Source Map 在控制台定位到源码行。
+
+【独立练习】
+独立增加 CopyWebpackPlugin 复制静态资源目录。
+
+【变式】
+配置 environment 变量区分 dev/prod 的 devtool 策略。
+
+【项目任务】
+开发体验配置沉淀到 F 阶段验收工程的 npm scripts 中。
+
+【常见错误】
+生产包忘关 Source Map 泄露源码
+把 loader 任务写进 plugin（重复造轮子）
+
+【运行方法】
+npx webpack serve（本地工程）
+
+【完成标准】
+HMR 生效、能用 Source Map 定位错误，能说清 plugin 与 loader 的边界。
+
+【验收条件】
+DevServer 热更新生效
+Source Map 可定位一次真实报错
+能解释 plugin 与 loader 区别
+
+【证据清单】
+devServer 配置
+错误定位截图
+
+【复测间隔（天）】
+1
+3
+7

@@ -1,0 +1,74 @@
+组合式 API 起步
+ref/reactive 与组件通信的最小样本
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Vite + 浏览器
+
+【目标】
+在本地 Vue 3 工程完成一个 ref + computed 的计数组件，并解释响应式更新链路。
+
+【先备知识】
+d3-dom-events
+
+【讲解】
+ref(0) 返回带 .value 的响应式引用；模板中自动解包，JS 中必须 count.value。
+computed 派生值有缓存：依赖不变就不会重算。
+<script setup> 是组合式 API 的语法糖，顶层声明直接暴露给模板。
+
+【例子与反例】
+正例：const double = computed(() => count.value * 2)——依赖变了才重算
+反例：用普通函数 double() 在模板里多次调用，每次渲染都重算
+解释：computed 的缓存是性能与一致性的来源
+
+【示例代码】
+// 在本地 Vue 3 工程中验证（本页不模拟编译与响应式）：
+// <script setup>
+// import { ref, computed } from "vue";
+// const count = ref(0);
+// const double = computed(() => count.value * 2);
+// </script>
+
+【理解要点】
+组合式 API 的核心是“状态 → 派生 → 视图”的依赖追踪；ref 在 JS 里要 .value，模板里不用。
+
+【跟做】
+用 Vite 创建 Vue 3 工程（npm create vue@latest）。
+实现计数组件：按钮 +1，显示 count 和 double。
+用 Vue Devtools 观察状态变化与组件重渲染。
+
+【独立练习】
+独立实现一个待办输入组件：输入回车后追加到列表，列表长度用 computed 派生。
+
+【变式】
+把计数逻辑抽成 useCounter() 组合式函数，在两个组件中复用。
+
+【项目任务】
+该组件模式是 E 阶段验收（登录 + CRUD 管理页面）里所有表单组件的雏形。
+
+【常见错误】
+JS 中忘记 .value 直接读 ref
+解构 props 失去响应性（应使用 toRefs）
+
+【运行方法】
+npm run dev（本地 Vite 工程，浏览器不模拟编译）
+
+【完成标准】
+组件运行正确，能口述 ref/computed 的更新链路。
+
+【验收条件】
+Vite 工程可启动
+计数与派生值随点击更新
+能解释 .value 与缓存
+
+【证据清单】
+工程启动截图
+计数组件代码
+一段响应式链路说明
+
+【复测间隔（天）】
+1
+3
+7

@@ -1,2 +1,1 @@
-allowBuilds:
-  electron-winstaller: set this to true or false
+# Native build tools have no install-time dependency scripts.

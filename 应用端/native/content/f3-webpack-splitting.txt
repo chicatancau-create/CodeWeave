@@ -1,0 +1,76 @@
+代码分割与 Tree Shaking
+让产物只包含被用到的代码
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Node + Webpack
+
+【目标】
+完成一次动态导入分割与 Tree Shaking 前后的体积对比，并解释数据差异。
+
+【先备知识】
+f1-webpack-entry-loader
+f2-webpack-plugin-devserver
+
+【讲解】
+动态 import() 会生成独立 chunk，实现按需加载。
+splitChunks 把公共依赖抽出，利用浏览器缓存。
+Tree Shaking 靠 ESM 静态分析删除未引用导出；sideEffects 标记影响去留。
+
+【例子与反例】
+正例：import("./chart") 拆出图表库，首屏不加载
+反例：整库 import _ from "lodash" 只用一个函数，生产仍打进全量
+解释：引包方式直接决定产物体积
+
+【示例代码】
+// 在本地工程验证：
+// import("./chart");            // 动态导入 → 独立 chunk
+// module.exports = {
+//   optimization: { splitChunks: { chunks: "all" } },
+//   mode: "production",          // 生产模式启用 Tree Shaking
+// };
+
+【理解要点】
+Tree Shaking 依赖 ESM 的静态结构；CommonJS 的动态性让摇树失效。
+
+【跟做】
+用 webpack-bundle-analyzer 生成构成报告。
+把大工具库改为按需导入，对比前后体积。
+加一个动态 import 的懒加载路由页。
+
+【独立练习】
+独立完成一份“优化前/后体积对比”报告，附两个构建日志。
+
+【变式】
+配置 splitChunks 把 react 系依赖稳定拆成 vendor chunk。
+
+【项目任务】
+体积对比报告是 F 阶段验收的必交证据。
+
+【常见错误】
+用 require 引入导致无法摇树
+只看总大小不看 gzip 后与缓存策略
+
+【运行方法】
+npx webpack --config webpack.prod.js（本地工程）
+
+【完成标准】
+有前后对比数据，能解释每一项体积变化的来源。
+
+【验收条件】
+至少一处动态导入生效
+优化前后体积数据齐全
+能解释 Tree Shaking 生效条件
+
+【证据清单】
+analyzer 报告截图
+前后构建日志
+对比结论
+
+【复测间隔（天）】
+1
+3
+7
+14

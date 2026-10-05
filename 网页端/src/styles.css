@@ -3576,3 +3576,85 @@ html [tabindex]:focus-visible {
   padding-top: var(--ds-space-8, 8px);
   padding-bottom: var(--ds-space-8, 8px);
 }
+
+/* ── 代码内容占满整页（2026-10-04 用户要求） ────────────────────────────────
+   用户原话：「只要点进跟代码有关的内容，就直接占满整个页面，左上角留一个返回按键。」
+   另外两条相关的要求一并在这里落地：
+     · 「边框顶部有一个 Java 的第一个循环……我希望它全都是一体式的」——那个横条是
+       顶栏的面包屑加 `contextTitle`（`app.tsx` 把当前课名传给了 GlobalTopbar）。
+       顶栏整条不显示，那个叠层自然就没有了：页面从左上角那一个「返回」开始，
+       不再有「外壳一条 + 工作区一条」的分层。
+     · 「不要出现明显的分层」——侧栏同样收起，工作区直接用满整幅宽度。
+
+   为什么用 `:has()` 而不是给 `.app-shell` 再加一个类：`.cw-workspace.is-code-mode`
+   是**子组件**自己持有的状态（`learning-workspace-view.tsx` 的 `codeMode`），
+   外壳并不知道它开没开。`:has()` 让外壳按「我里面装着一个处于代码模式的工作台」
+   这个事实来调整自己，不需要把子组件的状态提升到 `app.tsx` 再往上传一层——
+   那会多出第二处真相，两处一旦不同步就是整页闪一下。
+
+   取色与描边一条都没写：本文件有「字面色值只减不增」的棘轮（上限 44），
+   这几条规则纯做布局，不需要任何颜色。同样不碰 `outline`——文件末尾的
+   `:focus-visible` 兜底块之后不许再出现取消焦点环的声明（tests/styles.focus）。 */
+.app-shell:has(.cw-workspace.is-code-mode) {
+  /* 外层不再滚动：要滚就在编辑器/画布各自那一列里滚（工作区自己管这件事）。 */
+  min-height: 100vh;
+  overflow: hidden;
+}
+/* 收起外壳的两条横带与侧栏。`display: none` 让它们连子树一起离开 tab 顺序与
+   读屏顺序，不留「看不见但 Tab 能到」的暗门。 */
+.app-shell:has(.cw-workspace.is-code-mode) > .sidebar,
+.app-shell:has(.cw-workspace.is-code-mode) .shell-decor,
+.app-shell:has(.cw-workspace.is-code-mode) .topbar {
+  display: none;
+}
+/* 侧栏让出的那一条左边距还给内容。 */
+.app-shell:has(.cw-workspace.is-code-mode) .main-content {
+  margin-left: 0;
+  min-height: 100vh;
+}
+/* 阅读宽度上限在这里没有意义（这一页不是长文），撤掉；只留一圈安全边距。 */
+.app-shell:has(.cw-workspace.is-code-mode) .content-wrap {
+  max-width: none;
+  padding: var(--ds-space-8, 8px);
+}
+/* 工作区吃满剩下的高度。外壳那两条横带没了，`--cw-chrome-h` 只剩上下各 8px
+   的内边距——这个数比默认的 234/252 小一个数量级，一屏才真的落在代码与画布上。 */
+.app-shell:has(.cw-workspace.is-code-mode) .cw-workspace.is-code-mode {
+  --cw-chrome-h: 16px;
+  min-height: calc(100vh - 16px);
+  min-height: calc(100svh - 16px);
+  max-height: calc(100vh - 16px);
+  max-height: calc(100svh - 16px);
+}
+
+/* 代码模式下，工作区之上那条「资料库同步」横幅也收起。
+   它是 `.content-wrap` 里 `.cw-workspace` 的**前一个兄弟**（app.tsx 的
+   `<details className="desktop-vault-settings">`），不在工作区内部——所以这条写在这里
+   而不是 `learning-workspace-view.css`（那一份的棘轮要求每个选择器都带 `.cw-workspace`，
+   而兄弟选择器没法满足）。
+   为什么必须收：用户原话是「边框顶部有一个 Java 的第一个循环……我希望它全都是一体式的」。
+   那条横幅在沉浸式全屏里是**第四层横带**（顶栏 / 横幅 / 页头 / 分区导航），
+   页头那张「Java 的第一个循环」看着就像浮在别的东西上面。收起之后页面从
+   「返回 + 课名」那一条窄带直接进代码，一条横带都不多。 */
+.app-shell:has(.cw-workspace.is-code-mode) .content-wrap > .desktop-vault-settings {
+  display: none;
+}
+
+/* 代码模式下，工作区之上那条「资料来源」状态条（`.content-source-banner`）同样收起。
+   它是 `.content-wrap` 里 `.cw-workspace` 的又一个**前兄弟**（实测 `content-wrap > *`
+   的第一项就是它，top 76、高 44），收掉顶栏与资料库横幅之后，它成了代码区正上方的
+   第三条横带——「明显的分层」剩下的一半就是它。
+   它说的是「当前显示的是旧内置课程」，属于**内容来源**的提示，不是代码本身的状态；
+   普通版式里它照旧在（`role="status"` 不动，读屏仍能读到），只是这一档让位给代码。 */
+.app-shell:has(.cw-workspace.is-code-mode) .content-wrap > .content-source-banner {
+  display: none;
+}
+
+/* 顶栏收起之后，它占的那条 `padding-top: 68px` 也要还回来。
+   `.main-content` 留这 68px 是为了让内容从 sticky 顶栏下方开始（`--topbar-h` 64 + 4）。
+   顶栏在代码模式下已经 `display: none`，这段内边距就成了一条谁都不用的空白带——
+   实测它正是「课名那一行下面为什么空着 68px」的来处。收掉之后页面从视口顶端起算，
+   沉浸式才是真的沉浸式。 */
+.app-shell:has(.cw-workspace.is-code-mode) .main-content {
+  padding-top: 0;
+}

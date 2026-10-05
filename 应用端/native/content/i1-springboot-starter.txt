@@ -1,0 +1,74 @@
+Starter 与自动配置
+约定优于配置的装配机制
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · IDEA + Spring Boot
+
+【目标】
+独立完成 SSM 项目的 Spring Boot 迁移，并解释一个自动配置的生效条件。
+
+【先备知识】
+h3-mybatis-mapper
+
+【讲解】
+@SpringBootApplication = 自动配置 + 组件扫描 + 主配置类。
+starter 打包了一组协调好的依赖：引入 spring-boot-starter-web 即得 MVC + 内嵌 Tomcat。
+条件注解决定配置是否生效；application.yml 可覆盖默认值。
+
+【例子与反例】
+正例：引入 starter-data-jpa + 数据源配置，Repository 直接可用
+反例：引 starter 又手动写一遍视图解析器，与自动配置打架
+解释：先信约定，遇到差异再看条件报告
+
+【示例代码】
+@SpringBootApplication
+public class App {
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+    }
+}
+
+【理解要点】
+自动配置 = 条件化 Bean 装配：类路径上有什么，容器就配什么；不满意随时覆盖。
+
+【跟做】
+新建 Spring Boot 工程跑通 /hello。
+把 H 阶段 Controller/Service 迁入并保持行为一致。
+用 --debug 启动看条件评估报告，找一个生效与一个未生效的自动配置。
+
+【独立练习】
+独立新增 spring-boot-starter-validation 并迁移 H2 的校验与异常处理。
+
+【变式】
+自定义一个 starter 形式的配置类（条件注解 + 配置属性）。
+
+【项目任务】
+I 阶段验收要求迁移后行为与原项目一致并新增一个业务功能。
+
+【常见错误】
+迁移后端口/上下文路径没对齐导致“跑不起来”
+依赖手写版本与 starter 管理版本冲突
+
+【运行方法】
+mvn spring-boot:run（本地工程）
+
+【完成标准】
+迁移后接口行为一致，能解释一个自动配置的生效与覆盖方式。
+
+【验收条件】
+迁移工程可启动且接口一致
+条件评估报告有解读记录
+新增业务功能可用
+
+【证据清单】
+启动日志
+迁移前后接口对比
+
+【复测间隔（天）】
+1
+3
+7
+14

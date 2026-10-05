@@ -230,3 +230,140 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── 一屏化：外壳不滚，各页内容在自己的小框里滚（2026-10-04） ──────────────────
+   用户从第一次反馈到最近一条都在说同一件事：
+     ·「登录进去之后点击『学习』，能不能让它一屏化？所有页面我不想要上下滑动了。」
+     ·「如果里面需要上下滑动，也不要滑动总界面，你给它一个小框，我去看小框里面的滑动。
+        外面的总界面你总是滑动干嘛？你根本看不到。」
+   实测（1480×940，`content-wrap` 可视高 872）：首页内容 1784px → 要滑 912；
+   挑战页 438；分析页 912。滑动本身没错，错的是**滚动发生在总界面上**。
+
+   改法就是那条规矩的字面意思：`.content-wrap` 不再滚（`overflow: hidden`），
+   页面按 flex 列排；每页里真正会超长的那一块（课程网格、右栏、挑战列表…）
+   自己带 `overflow-y: auto`，成为那个「小框」。于是顶栏、侧栏、页头、科目条
+   全部钉住不动，要滑就在小框里滑，外面的坐标永远不变。
+
+   为什么不是把内容压缩到不用滚：课程单元是课程数据的函数（今天 10 个，明天 30 个），
+   压到一屏只会把卡片做小、字做小——那不是「一屏化」，是把内容藏起来。
+   `min-height: 0` 是这一套的关键：flex 子项默认 `min-height: auto`，
+   不给 0 的话子项会按内容撑开，`overflow: auto` 永远不触发（这是 flex 的经典坑）。 */
+.app-shell .content-wrap {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 学习路径页：科目条与页头钉住，课程网格与右栏各自滚。 */
+.app-shell .desktop-learning-home {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+.app-shell .desktop-learning-columns {
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell .desktop-learning-primary {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell .desktop-course-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 滚动条出现时不要盖住卡片右边缘（`stable` 让每个视口都预留同宽）。 */
+  scrollbar-gutter: stable;
+}
+.app-shell .desktop-learning-rail {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+/* 科目条与页头高度由内容定，不参与收缩。 */
+.app-shell .desktop-subjects,
+.app-shell .desktop-section-heading,
+.app-shell .desktop-course-toolbar {
+  flex: 0 0 auto;
+}
+
+/* ── 一屏化（续）：挑战页与分析页各自成为那个「小框」（2026-10-04） ──────────────
+   首页那一套（科目条/页头钉住、网格与右栏各自滚）见本文件上一段。这两页的结构不同：
+   挑战页是「概览 + 筛选 + 网格 + 分页」四段纵排，分析页是「页头 + 三张细线表」——
+   段与段之间没有天然的「一块长内容」，硬拆成多个滚动区会出现三四根滚动条。
+
+   所以这两页用另一种做法：**页面根自己就是小框**。`.content-wrap` 已是
+   `overflow: hidden` + flex 列（外壳永不滚），这里让页面根吃满剩下的高度并内部滚动：
+   顶栏、侧栏、页头这些**外壳**照旧钉死不动，要滑就在这一页自己的框里滑。
+   这正是用户说的「你给它一个小框，我去看小框里面的滑动。外面的总界面你总是滑动干嘛」。
+
+   `min-height: 0` 与 `flex: 1 1 auto` 必须成对出现：flex 子项默认 `min-height: auto`，
+   不给 0 的话子项按内容撑开，`overflow-y: auto` 永远不触发。 */
+.app-shell .challenges-view,
+.app-shell .analytics-view.cw-analytics {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* 挑战详情（点开某一关之后）也是 `.challenges-view` 的子块，跟着同一个框滚；
+   但它自己的编辑器与提交历史各有一段长内容，所以给它们各自的上限，
+   免得一屏里出现一个几千像素的滚动条把「概览 → 详情」的层次压平。 */
+.app-shell .challenges-view .challenge-editor-wrap,
+.app-shell .challenges-view .submission-history {
+  max-height: 46svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 分析页的三张表在宽屏下并排两列，高度立刻砍掉一半——这是「一屏装得下」最省事的一半，
+   剩下的交给上面那个框滚。窄屏退回单列（`@media` 里已有同族规则，这里只补布局）。 */
+@media (min-width: 1100px) {
+  .app-shell .analytics-view.cw-analytics .an-blocks,
+  .app-shell .analytics-view.cw-analytics {
+    display: block;
+  }
+  .app-shell .analytics-view.cw-analytics .an-block {
+    max-width: none;
+  }
+}
+
+/* ── 首页流动科技背景：放开被关掉的装饰层（2026-10-04） ────────────────────────
+   用户从最初就点名要「首页流动科技风背景」。那套动效**一直在 `styles.css` 里**
+   （`.shell-decor::after` 的七层背景 + `cw-bg-drift` 34s / `cw-bg-sheen` 26s 两条
+   无限循环），但本文件第 65 行 `.app-shell .shell-decor { display: none }` 整层关了它
+   ——实测首页 `decorDisplay: "none"`，动画根本不在场。这是「交付了但看不见」的典型：
+   样式写完了，没被挂上。
+
+   为什么当初关掉：那一层 `z-index: var(--z-decor)=10`，**高于内容列（1）**，
+   而它的 `::after` 带一块不透明底色（`--ds-canvas-deep` #03050a，见 styles.css:314
+   的注释——它要压住 `--page` 才能让光晕像「从背景里透出来」）。原样放开，
+   那块不透明底会盖在正文上，整页只见背景不见字。
+
+   所以放开的同时**把它压到内容之下**（`z-index: -1`）。`.shell-decor` 挂在
+   `.main-content`（`position: relative` + `z-index: var(--z-content)`）里，
+   `-1` 在那一层栈上下文内位于正文之下、`.main-content` 自己的背景之上，
+   于是它成为**页面最底的那一层**：光晕与网格在字后面流动，正文照旧在前。
+   背景色仍然压得住 `.app-shell` 的 `--page`，观感与设计意图一致。
+
+   两条既有开关不用动，它们仍然生效：
+     · `.app-shell.is-immersive .shell-decor { display: none }`（styles.css:373）——
+       学习工作台那一屏保持低动态；
+     · 代码模式下那条（styles.css:3606）同理。
+   所以这一放开只影响首页、挑战、项目、复习、分析这些**内容页**，
+   正好是用户要的那几屏。取景框（`::before` 的发丝线）在桌面主题里额外收掉：
+   那一圈内缩描边在窄窗口下会被顶栏与侧栏切掉一截，看着像没画完。 */
+.app-shell .shell-decor {
+  display: block;
+  z-index: -1;
+}
+.app-shell .shell-decor::before {
+  display: none;
+}
