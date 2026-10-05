@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(CodeWeaveNative LANGUAGES CXX)
 
+option(QEWEAVE_BUILD_UI_QT "Build the optional Qt Quick desktop shell" OFF)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -81,4 +83,8 @@ if (BUILD_TESTING)
       ${CODEWEAVE_TEST_CPP_COMPILER} ${CODEWEAVE_TEST_JAVA_RUNTIME}
       ${CODEWEAVE_TEST_PYTHON_RUNTIME} ${CODEWEAVE_TEST_NODE_RUNTIME})
   endif()
+endif()
+
+if (QEWEAVE_BUILD_UI_QT)
+  add_subdirectory(ui-qt)
 endif()

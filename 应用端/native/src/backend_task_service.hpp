@@ -53,6 +53,7 @@ class BackendTaskService final {
   app::Result submit(TaskRequest request, Completion completion);
   app::Result cancel(std::string_view task_id);
   app::Result close();
+  app::Result wait_closed();
   [[nodiscard]] bool busy() const;
   [[nodiscard]] std::size_t pending() const;
 

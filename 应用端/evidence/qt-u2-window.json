@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-05",
+  "exe": "G:/CodeWeave-qt/build-msvc/qt-deploy/CodeWeaveQtShell.exe",
+  "sha256": "163F76914FD20E139AB9E25219065C36CF91C3AF32FF7825369D649E65CA4453",
+  "platform": "windows",
+  "developerPathRemoved": true,
+  "exitCode": 0,
+  "checks": [
+    "window exposed",
+    "frame captured",
+    "published list loaded",
+    "first course body loaded",
+    "starter loaded"
+  ],
+  "screenshot": "qt-u2-window.png",
+  "limitations": [
+    "not clean Windows",
+    "no performance measurement",
+    "no IME or accessibility acceptance",
+    "authenticated persistence tested only in isolated facade fixture"
+  ]
+}
