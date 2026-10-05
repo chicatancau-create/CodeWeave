@@ -113,6 +113,7 @@ void test_backend_task_service_is_bounded_cancellable_and_generation_safe() {
   assert(completed[0].task_id == "task-1" && completed[0].account_generation == 7);
   assert(completed[0].cancelled && !completed[0].result.ok);
   assert(service.close().ok);
+  assert(service.wait_closed().ok);
   assert(!service.submit({"task-3", "account-1", 8, TaskKind::Read,
       [](const auto&) { return codeweave::app::Result::success(); }}, {}).ok);
 }

@@ -25,6 +25,10 @@ struct BackendTaskService::State {
       for (auto& item : queue) item.cancelled->store(true, std::memory_order_release);
     }
     condition.notify_all();
+    {
+      std::unique_lock lock(mutex);
+      condition.wait(lock, [this] { return stopped; });
+    }
     if (worker.joinable()) worker.join();
   }
 
@@ -34,7 +38,11 @@ struct BackendTaskService::State {
       {
         std::unique_lock lock(mutex);
         condition.wait(lock, [this] { return closing || !queue.empty(); });
-        if (queue.empty() && closing) return;
+        if (queue.empty() && closing) {
+          stopped = true;
+          condition.notify_all();
+          return;
+        }
         item = std::move(queue.front());
         queue.pop_front();
         active = true;
@@ -67,6 +75,7 @@ struct BackendTaskService::State {
   std::unordered_map<std::string, std::shared_ptr<std::atomic_bool>> cancellation;
   bool active{};
   bool closing{};
+  bool stopped{};
   std::thread worker;
 };
 
@@ -111,6 +120,18 @@ app::Result BackendTaskService::close() {
   }
   state->condition.notify_all();
   return app::Result::success("后台任务服务已进入关闭");
+}
+
+app::Result BackendTaskService::wait_closed() {
+  const auto state = state_;
+  std::unique_lock lock(state->mutex);
+  if (!state->closing) return app::Result::failure("后台任务服务尚未关闭");
+  state->condition.wait(lock, [&] { return state->stopped; });
+  lock.unlock();
+  if (state->worker.joinable() && state->worker.get_id() != std::this_thread::get_id()) {
+    state->worker.join();
+  }
+  return app::Result::success("后台任务服务已停止");
 }
 
 bool BackendTaskService::busy() const {
