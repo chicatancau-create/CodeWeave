@@ -2043,3 +2043,81 @@
     min-height: 48px;
   }
 }
+
+/* ── 代码模式：页头与分区导航收成一条窄带（2026-10-04 用户要求「一体化」） ────────
+   用户看完成品后的两条原话：
+     · 「边框顶部有一个 Java 的第一个循环……我希望它全都是一体式的，不要出现明显的分层」；
+     · 「只要点进跟代码有关的内容，就直接占满整个页面，左上角留一个返回按键」。
+   沉浸式全屏那半在外壳侧已经做了（`styles.css` 里收起侧栏 / 顶栏 / 横幅）。这一条做的是
+   **页头自己不占那么多层**：原先「返回 + 课名」一行、四个动作按钮另起一行（窄视口下）、
+   分区导航再一行，三条带叠在画布正上方，看着就是分层。这里把它们压成一条：
+
+   - 页头只留一行，动作按钮收到 36px 的紧凑档（触控底线由 `min-height` 之外的
+     `aria-label` 与足够的点击区保住——36 是**视觉**高度，实际命中区由内边距撑到 44）；
+   - 课名与返回同排，副标题（等级 · 时长）在这一档让位——它已经在页头的元信息里出现过；
+   - 分区导航的上下内边距收到 6px，并把下外边距归零：它是页头与画布之间的最后一条
+     空隙，留着就又是一道缝。
+
+   取值仍然只用 `--ds-*`：本文件受页面 CSS 棘轮管（字号地板 12px、圆角只许 0/50%/100px、
+   `--ds-scene-active` 恰好一次），所以这里不写字号——只动间距与对齐。 */
+.cw-workspace.is-code-mode .learning-header {
+  margin-bottom: var(--ds-space-6, 6px);
+  padding-bottom: var(--ds-space-6, 6px);
+  gap: var(--ds-space-8, 8px);
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.cw-workspace.is-code-mode .learning-title {
+  /* 同行布局里标题让出宽度：`min-width: 0` 让长课名可以被压窄而不是把动作组顶出去
+     （短文本补测 §4.12 那条老毛病）。 */
+  min-width: 0;
+}
+.cw-workspace.is-code-mode .learning-title span {
+  /* 副标题让位：这一档要的是「一条窄带」，而它是这一行里最不承重的信息。 */
+  display: none;
+}
+.cw-workspace.is-code-mode .learning-header-actions {
+  flex: 0 0 auto;
+  gap: var(--ds-space-4, 4px);
+}
+.cw-workspace.is-code-mode .cw-pane-nav ol {
+  margin-bottom: 0;
+}
+.cw-workspace.is-code-mode .cw-pane-nav a {
+  padding: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+}
+
+/* ── 代码模式下折掉那条**文字**流程图（2026-10-04 用户要求） ─────────────────
+   用户原话：「你现在的画布效果一直就是个文字而已。记得把所有跟代码演示相关的部分，
+   全部转换成那个网址（文件夹）中的效果。」
+
+   现在同一份执行轨迹在右栏被画了两遍：
+     · `.rs-stage`（SVG 画布）——图形版：节点盒、箭头、回边、指着当前那格的指针；
+     · `.flow-chart`（横向文字拍轨）——文字版：一拍一行「01 进入 main / L1 / 场景」。
+   画布做完之后，文字那一条说的每件事图上都已有，而且更清楚。用户给的参考站
+   （totuma.cn）里也没有第二条文字轨：**画布就是那份可视化**。
+
+   所以代码模式（用户说的「点进跟代码相关的内容」那档）下把文字轨收掉，
+   右栏只留画布 + 变量 + 控制台——画布得到的高度正好是文字轨让出来的那两百来像素。
+
+   只在这一档收：普通版式里 `.flow-chart` 照旧在（`lesson.flow` 有数据就画，
+   `learning-workspace-view.m3.test.tsx` 钉着 `li.flow-step` 的当前拍与走过拍，
+   jsdom 不跑 CSS，那些断言不受影响）。 */
+.cw-workspace.is-code-mode .cw-pane--flow .flow-chart {
+  display: none;
+}
+
+/* ── 画布在场时，那条**文字**流程图不再画（2026-10-04 用户要求「代码转图片」） ──────
+   同一份执行轨迹在右栏本来被表达两遍：
+     · `.rs-stage`（SVG 画布）——图形：节点盒、箭头、回边、指着当前那格的指针；
+     · `.flow-chart`（横向文字拍轨）——文字：一拍一行「01 进入 main / L1 / 场景」。
+   用户的原话是「你现在的画布效果一直就是个文字而已」——现在画布是图形的了，
+   文字那一条说的每件事图上都有，而且更清楚（参考站 totuma.cn 里也没有第二条文字轨）。
+
+   用 `:has(.rs-stage)` 而不是「一律 display:none」：画布只在**有事件**时渲染
+   （`stageFrameAt` 对空 `events` 返回 null）。还没点运行的那一秒，画布是空的，
+   这时文字轨就是「这段程序有哪几拍」的唯一交代，留着它有意义；一旦开始运行，
+   画布接棒，文字重复项自动让位。规则自己跟着状态走，不需要第二个开关。 */
+.cw-workspace .cw-pane--flow:has(.rs-stage) .flow-chart {
+  display: none;
+}

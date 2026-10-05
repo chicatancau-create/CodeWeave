@@ -1,0 +1,35 @@
+D 关卡验收：JavaScript 数据处理
+不依赖页面 API，用纯 JavaScript 过滤并汇总待办数据。 本关聚焦：语义 HTML、表单、Flex、Grid。
+
+【阶段】
+D
+
+【技术栈】
+HTML
+CSS
+JavaScript
+
+【运行要求】
+javascript-sandbox
+
+【先决条件】
+stage-a
+
+【起始代码】
+const todos = [
+  { title: "写周报", done: false },
+  { title: "复习循环", done: true },
+  { title: "跑一次构建", done: false },
+];
+const pending = todos.filter((t) => !t.done);
+console.log("待办数量: " + pending.length);
+pending.forEach((t) => console.log(t.title));
+
+【目标输出或验收点】
+待办数量: 2
+写周报
+跑一次构建
+
+【证据清单】
+控制台输出与目标输出一致
+把 done 改成 true 后输出变化的截图或记录

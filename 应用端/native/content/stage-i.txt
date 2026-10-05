@@ -1,0 +1,31 @@
+I 关卡验收：Spring Boot 单体服务
+把 SSM 项目迁移到 Spring Boot 并增加业务功能（外部环境实验）。 本关聚焦：Starter、自动配置、多环境配置。
+
+【阶段】
+I
+
+【技术栈】
+Spring Boot
+Maven
+
+【运行要求】
+external
+
+【先决条件】
+stage-h
+
+【起始代码】
+@SpringBootApplication
+public class App {
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+    }
+}
+
+【目标输出或验收点】
+迁移 SSM 项目并独立增加业务功能
+
+【证据清单】
+jar 包启动日志
+Actuator /health 返回 UP
+新增业务功能的接口测试

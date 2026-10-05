@@ -1,0 +1,29 @@
+G 关卡验收：JavaWeb + MySQL CRUD
+完成 Servlet + JDBC + MySQL 的完整增删改查（外部环境实验）。 本关聚焦：HTTP、REST、状态码、Cookie、Session。
+
+【阶段】
+G
+
+【技术栈】
+Servlet
+JDBC
+MySQL
+Tomcat
+
+【运行要求】
+external
+
+【先决条件】
+stage-b
+
+【起始代码】
+SELECT id, name, status FROM tasks WHERE status = ?;
+-- 配合 PreparedStatement 防注入
+
+【目标输出或验收点】
+完成 Servlet + JDBC + MySQL CRUD
+
+【证据清单】
+数据库建表 SQL
+一次插入与查询的执行结果
+开启事务回滚的验证记录

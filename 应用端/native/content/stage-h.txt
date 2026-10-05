@@ -1,0 +1,31 @@
+H 关卡验收：SSM 分层项目
+用 Spring + Spring MVC + MyBatis 交付分层 CRUD（外部环境实验）。 本关聚焦：IoC、DI、Bean、AOP。
+
+【阶段】
+H
+
+【技术栈】
+Spring
+Spring MVC
+MyBatis
+
+【运行要求】
+external
+
+【先决条件】
+stage-g
+
+【起始代码】
+@RestController
+@RequestMapping("/tasks")
+public class TaskController {
+    // 依赖 service，不要在 controller 里直接操作 Mapper
+}
+
+【目标输出或验收点】
+完成可测试的完整 SSM CRUD 项目
+
+【证据清单】
+分层目录结构说明
+Mapper 单元测试通过记录
+统一异常处理器演示

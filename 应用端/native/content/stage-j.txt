@@ -1,0 +1,38 @@
+J 关卡验收：安全基础（哈希与净化）
+在沙箱中实现口令哈希校验与输入净化的纯函数。 本关聚焦：密码哈希、Session、Token、JWT。
+
+【阶段】
+J
+
+【技术栈】
+认证与授权
+安全基线
+
+【运行要求】
+javascript-sandbox
+
+【先决条件】
+stage-i
+
+【起始代码】
+function simpleHash(text) {
+  let hash = 0;
+  for (const ch of text) {
+    hash = (hash * 31 + ch.charCodeAt(0)) % 99991;
+  }
+  return hash;
+}
+function sanitize(text) {
+  return text.replace(/[<>&"']/g, "");
+}
+console.log(sanitize("<script>alert(1)</script>"));
+console.log(simpleHash("password123") === simpleHash("password123"));
+
+【目标输出或验收点】
+scriptalert(1)/script
+true
+
+【证据清单】
+净化函数移除了危险字符
+相同口令哈希一致、不同口令哈希不同
+说明为什么不能存明文密码

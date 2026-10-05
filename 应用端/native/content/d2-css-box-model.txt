@@ -1,0 +1,78 @@
+CSS 盒模型与 Flexbox 居中
+content/padding/border/margin 四层结构
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · 浏览器 + VSCode
+
+【目标】
+独立完成 200×200 的 border-box 方块，并用开发者工具解释尺寸来源。
+
+【先备知识】
+d1-html-semantics
+
+【讲解】
+默认 content-box：实际宽度 = width + padding + border（200+40+4=244px）。
+border-box：width 已包含 padding 与 border，符合直觉，建议全局设置。
+Flexbox 的 justify-content/align-items 组合实现水平垂直居中。
+
+【例子与反例】
+正例：全局 box-sizing: border-box 后 width: 200px 恰好 200px
+反例：content-box 下写 200px 还想“正好 200”，加边框就爆
+解释：尺寸计算方式决定布局是否可预测
+
+【示例代码】
+/* 在真实页面中验证： */
+*, *::before, *::after { box-sizing: border-box; }
+.box {
+  width: 200px;
+  height: 200px;
+  padding: 20px;
+  border: 5px solid red;
+  margin: 10px;
+  background: blue;
+}
+
+【理解要点】
+border-box 让 width 含 padding 和 border：写 200px 就是 200px。
+
+【跟做】
+分别用两种 box-sizing 渲染方块，测量实际宽度差异。
+固定 border-box，完成 200×200 蓝底红框方块。
+用开发者工具的盒模型图核对四层尺寸。
+
+【独立练习】
+独立用 Flexbox 做 3 链接导航栏，链接等间距分布。
+
+【变式】
+加 @media 查询：窄屏时导航从横向变纵向。
+
+【项目任务】
+盒模型与 Flex 是异步 CRUD 页面布局的全部基础。
+
+【常见错误】
+相邻元素垂直 margin 折叠导致间距不符预期
+用 text-align: center 居中块级元素（无效）
+
+【运行方法】
+真实浏览器渲染 + 开发者工具测量（本页不模拟 CSS）
+
+【完成标准】
+方块实测 200×200，能指着盒模型图解释每一段尺寸。
+
+【验收条件】
+方块宽高恰好 200px（含边框与内边距）
+背景蓝、边框红、内边距 20px
+能用盒模型图解释尺寸
+
+【证据清单】
+方块样式截图
+开发者工具测量结果
+border-box 必要性说明
+
+【复测间隔（天）】
+1
+3
+7

@@ -77,20 +77,77 @@ export function useExecution(
     [code, enabled, languageId, lesson, reducedMotion],
   )
 
+  /**
+   * 「继续」两支共用的那一小步：把已经跑出来的结果按「放」或「直接落末态」收口。
+   *
+   * 为什么不能都写 `setRunStatus('running')`：减少动效那一档下「继续运行」会去排
+   * 850ms 的定时器链，而 `startRun` 里那条 `still` 只在**新跑一次**时拦得住
+   * （`reducedMotion && nextStatus === 'running'`）——这里没经过 `startRun`，
+   * 拦不住。于是同一个开关，第一次点「开始运行」不播、第二次点「继续运行」却开始播，
+   * 等于绕过用户自己的设置。所以恢复这一档也要问 `reducedMotion`：
+   * 命中就直接落到末态（结果一条不少，只是不逐帧放）。
+   *
+   * 2026-10-04 之前不存在这条路径：那时 `handleRun` 第一下就是 `running`，
+   * 「继续」这一支只在 `handlePlay` 里被走到，而它本来就是放；现在运行条的
+   * 「开始运行」停在第一拍，于是「继续运行」成了减少动效档下必过的一道口子。
+   */
+  const resumeRun = useCallback(() => {
+    if (reducedMotion) {
+      setEventIndex(Math.max(0, execution.events.length - 1))
+      setRunStatus('completed')
+      return
+    }
+    setRunStatus('running')
+  }, [execution.events.length, reducedMotion])
+
+  /**
+   * 「开始运行 / 继续运行 / 暂停执行」——**运行条**那一个入口（2026-10-04 改）。
+   *
+   * 用户原话：
+   *   ·「点击『开始运行』时，中间就会出现最开始的内容，比方说『进入主函数』」；
+   *   ·「点完之后，可以点击『继续运行』。因为我说的是『继续运行』，所以是一步到底的运行。
+   *      内容要一步一步地弹出来，而不是已经完全显现出来。」
+   *
+   * 所以**第一次点击只落到第一拍就停住**（`startRun('paused')`），不是一路播到底：
+   * 播到底的话用户第一眼看到的就是末态，「一步一步」这个诉求当场落空。
+   * 第二下点的是「继续运行」（此时状态已是 `paused`）才交给 850ms 的定时器链逐拍推进。
+   *
+   * 与 `handlePlay`（画布那枚「播放」）的分工：那个按钮的名字就叫播放，
+   * 它的语义是「放一遍」，所以第一下直接 `startRun('running')`。
+   * 两个按钮共用同一支函数的话，必有一个名不副实——这是把它们拆开的全部原因。
+   */
   const handleRun = useCallback(async () => {
     if (!enabled) return
-    // 已有结果时：play/pause 切换，不重新执行。
+    // 已有结果时：继续/暂停切换，不重新执行。
     if (runStatus === 'running') {
       setRunStatus('paused')
       return
     }
     if (runStatus === 'paused' && execution.events.length > 0) {
-      setRunStatus('running')
+      resumeRun()
       return
     }
-    // idle / completed / error：重新执行。
+    // idle / completed / error：重新执行，落在第一拍并停住（等「继续运行」）。
+    await startRun('paused')
+  }, [enabled, execution.events.length, runStatus, startRun, resumeRun])
+
+  /**
+   * 画布那枚「播放 / 暂停」：与 `handleRun` 的差别只有一处——**第一次点击直接放到底**
+   * （`startRun('running')`）。按钮的字面意思就是「播放」，与运行条的「开始运行」不是
+   * 同一件事，所以不共用。
+   */
+  const handlePlay = useCallback(async () => {
+    if (!enabled) return
+    if (runStatus === 'running') {
+      setRunStatus('paused')
+      return
+    }
+    if (runStatus === 'paused' && execution.events.length > 0) {
+      resumeRun()
+      return
+    }
     await startRun('running')
-  }, [enabled, execution.events.length, runStatus, startRun])
+  }, [enabled, execution.events.length, runStatus, startRun, resumeRun])
 
   const handleStep = useCallback(async () => {
     if (!enabled) return
@@ -188,6 +245,8 @@ export function useExecution(
     visibleOutput,
     variables,
     handleRun,
+    /** 画布那枚「播放」：第一次点击直接放到底（见上面的分工说明）。 */
+    handlePlay,
     handleStep,
     /** 画布「上一步」唯一可用的跳转入口：把 `eventIndex` 设成任意拍（见上面的说明）。 */
     handleSeek,

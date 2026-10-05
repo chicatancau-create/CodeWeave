@@ -1,13 +1,14 @@
-# CodeWeave 原生 Windows 应用切片
+# CodeWeave 原生核心
 
-这是应用端最终性能方向的最小 C++23/Win32 垂直切片。它不读取网页源码、后端源码、服务器或真实数据；后续功能按应用端本地数据契约逐步迁移。
+这是应用端的 C++23/Win32 产品实现。`native/src/main.cpp` 提供窗口与用户流程，核心库提供账户、内容、草稿、执行、轨迹、学习证据、进度、迁移和备份服务。
 
-## 构建
+MSVC 14.44.35207、Windows SDK 10.0.26100.0、CMake/Ninja 已验证。运行：
 
 ```powershell
-cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
-cmake --build native/build --config Release
-ctest --test-dir native/build --output-on-failure
+cmake --build native/build-g1-msvc-1 --config Release
+ctest --test-dir native/build-g1-msvc-1 -C Release --output-on-failure
 ```
 
-正式发布门禁使用 MSVC + Windows SDK。没有该工具链时，MinGW 只能验证原型语法和链接，不代表正式 Windows 发布通过。
+发布构建使用 `BUILD_TESTING=OFF`，再由 `scripts/package-native.mjs` 将 EXE、`native/content`、配置标记、许可证和 manifest 放入独立目录。程序运行不需要 Node、网页端、服务器或端口。用户选择的语言工具必须通过绝对路径白名单或“选择语言工具”设置。
+
+内容仓库拒绝符号链接、非法 UTF-8、哈希不匹配、重复 ID 和未知文件。迁移只接受显式选择的旧 JSON，写入不存在的新目录；备份恢复校验清单、排除活动锁并拒绝覆盖现有目录。账户学习数据位于账户专属目录，未登录不能访问。

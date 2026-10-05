@@ -36,7 +36,7 @@
  * 改一处忘一处就开始撒谎。装饰性的边与箭头挂 `aria-hidden`，它们的含义已经由节点顺序
  * 与回边注记说清楚了。
  */
-import { memo } from 'react'
+import { memo, type CSSProperties } from 'react'
 import { SkipBack, SkipForward } from 'lucide-react'
 import type { StageCell, StageFrame } from '../engine/run-stage-model'
 import { NODE_W, layoutStage, type LaidEdge, type LaidNode } from '../engine/stage-layout'
@@ -134,6 +134,15 @@ const Shape = memo(function Shape({ laid }: { laid: LaidNode }) {
 /**
  * 一个骨架节点。`role="listitem"` 让它成为画布这份列表里的一条——
  * 读屏读到的顺序就是程序的顺序，不需要另挂一份隐藏文字。
+ *
+ * **一步一步显现**（2026-10-04）：当前这一拍先在画布正中亮出来，被下一步顶替之后
+ * 再滑回自己的格子，上一步的内容不删、停在原地。三个状态各有一档：
+ * - `todo` 未走到：不画（`run-stage.css` 里 `opacity: 0`），但仍然留在 DOM 里
+ *   ——它是列表的一项，也是「还有几步」的证据，删掉就没有这层信息了；
+ * - `now` 此刻：`--rs-enter-dx/dy` 把它摆到画布正中，`is-entering` 触发入场动画；
+ * - `done` 走过：位移归零，CSS 的 `transform: none` 让它留在自己的格子上。
+ *
+ * 位移由 `stage-layout` 算（画布尺寸的产物），这里只负责写进 CSS 自定义属性。
  */
 const Node = memo(function Node({ laid, loopBack }: { laid: LaidNode; loopBack: boolean }) {
   const { node, x, y, textInset } = laid
@@ -147,6 +156,15 @@ const Node = memo(function Node({ laid, loopBack }: { laid: LaidNode; loopBack: 
       data-node-id={node.id}
       className={`rs-node rs-kind-${node.kind} tone-${node.tone} is-${node.state}${loopBack ? ' is-loop-back' : ''}`}
       aria-current={node.state === 'now' ? 'step' : undefined}
+      /* 入场位移。写在 style 上而不是类里：它是**每一格都不同**的数，
+         类名只能表达「在不在中心」这一位；数值必须跟着几何走。
+         `as CSSProperties` 是因为 `--*` 是自定义属性，React 的类型定义里没有这个键。 */
+      style={
+        {
+          '--rs-enter-dx': `${laid.enterDx}px`,
+          '--rs-enter-dy': `${laid.enterDy}px`,
+        } as CSSProperties
+      }
     >
       <Shape laid={laid} />
 
@@ -229,14 +247,30 @@ export const RunStage = memo(function RunStage({
   const atStart = stepIndex <= 0
   const atEnd = stepTotal === 0 || stepIndex >= stepTotal - 1
   const layout = layoutStage(frame)
+  /**
+   * 骨架态：还没有拍（`stepTotal === 0`，也就是还没点过运行）。
+   *
+   * 平时未走到的节点是**不画**的（`run-stage.css` 的 `g.rs-node.is-todo { opacity: 0 }`），
+   * 因为运行时「后面还有几步」由已画出的节点与计数器交代。但运行前没有任何节点画出来，
+   * 那样整块画布是空的——用户第一眼看到工作台时会以为「这里什么都没有」。
+   * 骨架态把全部节点显出来（虚线描边、`--` 序号、无数据格），说的是
+   * 「这段程序有这几步，还没开始跑」。
+   */
+  const skeleton = stepTotal === 0
 
   return (
-    <div className="rs-stage">
+    <div className={`rs-stage${skeleton ? ' is-skeleton' : ''}`}>
       <div className="rs-stage-head">
-        <span className="rs-stage-caption">{frame.caption}</span>
-        <span className="rs-counter" aria-label={`第 ${stepIndex + 1} 拍，共 ${stepTotal} 拍`}>
-          {counter(stepIndex, stepTotal)}
-        </span>
+        <span className="rs-stage-caption">{skeleton ? '这段程序的骨架' : frame.caption}</span>
+        {/* 骨架态不画计数器：没有拍的时候 `01 / 00` 是个假数——分子说了「第 1 拍」，
+            分母说「一共 0 拍」，两句话互相矛盾。宁可什么都不显示。 */}
+        {skeleton ? (
+          <span className="rs-counter is-idle">尚未运行</span>
+        ) : (
+          <span className="rs-counter" aria-label={`第 ${stepIndex + 1} 拍，共 ${stepTotal} 拍`}>
+            {counter(stepIndex, stepTotal)}
+          </span>
+        )}
       </div>
 
       {/* 回环摘要：只在真的有回边时出现，说的是「绕回来过」这件事实，不是装饰。 */}

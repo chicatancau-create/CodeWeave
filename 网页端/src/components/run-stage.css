@@ -19,8 +19,13 @@
       样式，只服务学习工作台的画布这一处。这不是绕过纪律：那条纪律要禁的是「页面到处
       刷渐变当装饰」，而这里的网格是**画布本体的坐标纸**，是功能性的。
 
-   3) **无装饰动画。** 本文件不含 @keyframes、不含 infinite、不含位移；「生长」感来自
-      属性变化（虚线→实线、描边升一档、填充换一档），静态截下来同样可读（§5.3.1）。
+   3) **动效只服务「一步一步显现」，不是装饰。**（2026-10-04 用户要求后改）
+      本文件原先写着「不含 @keyframes、不含位移」，那是**当时**的裁定：怕画布刷动效，
+      静态截图就读不出状态。用户看过成品后明确要求「一步一步来，加个流畅的动画」——
+      需求变了，这条跟着变。现在保留的动效只有一条：`rs-node-enter`，让新走到的那一格
+      从画布正中飞回自己的格子。它**不是循环动画**（`animation` 播放一次，无 `infinite`），
+      也因此静态截图仍然读得出状态——动画停下来之后每一格都停在它该在的位置上。
+      `@media (prefers-reduced-motion)` 与 `.reduce-motion` 两条降级路径照旧全停（见文末）。
 
    4) **本文件不是基座**：只服务学习工作台这一处，因此不进 subcomponents-base 的
       BASE_FILES，也不写 `.cw-workspace` 前缀——与 flow-chart.css 同为组件级样式。
@@ -157,6 +162,57 @@ svg.rs-canvas {
   div.rs-stage {
     min-height: 0;
   }
+}
+
+/* ── 一步一步显现（2026-10-04） ──────────────────────────────────────────────
+   用户的要求：进入主函数先在画布正中亮出来，点「下一步」时上一步**不删**、
+   移到合适的位置，新的一步再弹出来，还要有流畅的动画。
+
+   做法与「为什么不是别的做法」：
+   - `todo` 不画（`opacity: 0`），但仍然留在 DOM 里——它是列表的一项，也是
+     「后面还有几步」的证据。删掉元素会让读屏读到一份不完整的程序，而且
+     `run-stage.test.tsx` 正是按 `getAllByRole('listitem')` 找全节点的。
+   - `now` 从画布正中飞回自己的格子：位移由 `stage-layout` 算好写在
+     `--rs-enter-dx/dy` 上（见那边 `LaidNode.enterDx`）。**用 transform 而不是改
+     x/y 属性**——SVG 的 `transform` 走合成层，改 `x`/`y` 每帧都要重排几何；
+     而且 transform 不吃文档流，不带动旁边已经画好的格子。
+   - 动画结束停在 `translate(0,0) scale(1)`，也就是**它自己的格子**。所以下一拍
+     到来时，这一格从 `is-now` 变 `is-done`，位移本来就是 0，不需要补间就停在原地
+     ——「上一步移到合适的位置」这件事是动画的**终点**，不是另一段动画。
+   - `animation-fill-mode: both`：回看某一拍（`onSeek`）时重新挂上 `is-now` 也要
+     从正中重放一次，而不是先闪一下原位再飞。 */
+g.rs-node {
+  /* fill-box + center：让 scale 绕**这一格自己**的中心，而不是 SVG 的原点
+     （默认值是 `view-box`，绕 (0,0) 缩放会让每一格往左上角跑）。 */
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* 还没走到：不画。虚线描边那几条仍然保留在下面——一旦走到，它们与填充一起现形。 */
+g.rs-node.is-todo {
+  opacity: 0;
+}
+
+/* 新走到的一格：从画布正中飞回自己的格子。 */
+@keyframes rs-node-enter {
+  from {
+    opacity: 0;
+    transform: translate(var(--rs-enter-dx, 0px), var(--rs-enter-dy, 0px)) scale(0.84);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+g.rs-node.is-now {
+  animation: rs-node-enter 340ms var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+/* 已走过：停在原地。位移归零由显式声明保证——不给的话，元素会保留
+   `animation` 结束时的那一帧（`both`），看着像是还停在正中。 */
+g.rs-node.is-done {
+  opacity: 1;
+  transform: none;
 }
 
 /* ── 盒子轮廓 ─────────────────────────────────────────────────────────────── */
@@ -323,10 +379,16 @@ g.rs-edge .rs-edge-line {
   transition: stroke var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
 }
 /* 还没走的路：虚线 + 发丝档。走过的路：实线 + 抬起档。刚走的这一步：强调色 + 加粗。
-   三态而不是两态——只分「亮/不亮」会把「已经走完的路」和「还没走的路」画成同一个样子。 */
+   三态而不是两态——只分「亮/不亮」会把「已经走完的路」和「还没走的路」画成同一个样子。
+   2026-10-04 起 `is-idle` 整条不画：一步一步显现时，指向还没走到的格子的箭头
+   等于「指向空位」——目标格自己都不在场（`opacity: 0`），箭头画出来就是悬空的。
+   虚线那几条保留定义在下面，等这一格真的走到、边转成 `done`/`active` 时一并现形。 */
 g.rs-edge.is-idle .rs-edge-line {
   stroke: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
   stroke-dasharray: 5 4;
+}
+g.rs-edge.is-idle {
+  opacity: 0;
 }
 /* 走过的路：实线 + 星云紫（参考站 `edge-active` 的 #a78bfa）。
    它跟「此刻」的冷青是两个色相，一眼能分出「刚走的这一步」与「已经走完的路」。 */
@@ -502,4 +564,34 @@ button.rs-btn--play.is-playing {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
+}
+
+/* ── 控制条居中（2026-10-04）：对齐参考站 ──────────────────────────────────────
+   参考实现 `algorithm-visualization-replica` 与用户给的 totuma.cn 第二张图，
+   画布下方那一组「上一个 / 播放 / 下一个」都是**居中**排的；本端原先默认 flex-start，
+   视觉上贴着左边，与画布那块居中的网格纸不成一个整体。
+   只加一条对齐，不动顺序（上一步 / 播放 / 下一步）——顺序是既有契约。 */
+div.rs-bar {
+  justify-content: center;
+}
+
+/* ── 骨架态：还没运行时把全部节点显出来（2026-10-04） ─────────────────────────
+   运行时未走到的节点不画（上面 `g.rs-node.is-todo { opacity: 0 }`），
+   但**运行前**一个节点都画不出来，整块画布会是空的——用户第一眼看到工作台时
+   会以为「这里什么都没有」。骨架态把整段程序的骨架先摆出来：虚线描边、
+   `--` 序号、`尚未落值`，说的是「有这几步，还没开始跑」，不冒充任何执行结果。
+   一旦开始运行，`.is-skeleton` 摘掉，未走到的节点重新隐藏，「一步一步显现」照旧。 */
+div.rs-stage.is-skeleton g.rs-node.is-todo {
+  opacity: 1;
+}
+/* 骨架态没有「此刻」，指针与输出都不该出现——它们的含义是「正在进行」。 */
+div.rs-stage.is-skeleton g.rs-pointer {
+  display: none;
+}
+/* 骨架态那个「尚未运行」标记：与计数器同一格，但走三级文字档——
+   它是「还没有数」，不是「数是多少」，不该和真实计数器一样亮。 */
+div.rs-stage.is-skeleton span.rs-counter.is-idle {
+  color: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  border-color: var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-style: dashed;
 }

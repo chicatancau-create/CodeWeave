@@ -1,0 +1,77 @@
+Docker Compose：应用与数据库一起起
+一份文件描述整个交付单元
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · Docker
+
+【目标】
+独立编写 Dockerfile 与 compose 文件，让应用 + MySQL 一条命令起来并互相连通。
+
+【先备知识】
+l1-linux-ops-basics
+
+【讲解】
+多阶段构建：编译层用 Maven 镜像，运行层只用 JRE，镜像小一个数量级。
+depends_on 只管启动顺序，应用仍要自己重试连接（数据库就绪晚于容器是常态）。
+数据必须挂 volume，否则删容器即删库。
+
+【例子与反例】
+正例：数据卷 + 环境变量注入数据库密码，compose 一键复现
+反例：镜像里内置密码且数据库写本地层，删容器数据全丢
+解释：可复现与数据安全的底线
+
+【示例代码】
+# docker-compose.yml（节选）
+# services:
+#   app:
+#     build: .
+#     ports: ["8080:8080"]
+#     depends_on: [db]
+#   db:
+#     image: mysql:8
+#     environment: { MYSQL_DATABASE: tasks }
+
+【理解要点】
+镜像解决“在我机器上能跑”，Compose 解决“一组服务一起跑”。
+
+【跟做】
+写多阶段 Dockerfile 并构建镜像。
+编排 app + MySQL，配置健康检查与数据卷。
+docker compose up 后走一遍健康检查与 CRUD。
+
+【独立练习】
+独立把 Nginx 加入 compose，反向代理应用。
+
+【变式】
+对比 docker run 逐条命令与 compose 文件的维护成本，写成笔记。
+
+【项目任务】
+compose 文件是 L 阶段验收交付物（部署手册）的核心附件。
+
+【常见错误】
+latest 标签导致复现环境漂移
+容器内日志没挂出来，排错无从下手
+
+【运行方法】
+docker compose up（真实容器环境）
+
+【完成标准】
+一条命令起全栈，删容器重建后数据仍在，能解释镜像分层。
+
+【验收条件】
+compose 一键启动应用与数据库
+数据卷生效（重建后数据保留）
+容器间网络互通
+
+【证据清单】
+Dockerfile 与 compose 文件
+启动与健康检查输出
+
+【复测间隔（天）】
+1
+3
+7
+14

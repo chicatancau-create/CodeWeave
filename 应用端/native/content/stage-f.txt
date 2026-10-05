@@ -1,0 +1,29 @@
+F 关卡验收：Webpack 5 工程搭建
+手工搭建 Webpack 5 配置并解释每个环节（外部环境实验）。 本关聚焦：Entry、Output、Loader、Plugin。
+
+【阶段】
+F
+
+【技术栈】
+Webpack 5
+Node.js
+
+【运行要求】
+external
+
+【先决条件】
+stage-d
+
+【起始代码】
+module.exports = {
+  mode: "development",
+  // entry / output / module / plugins
+};
+
+【目标输出或验收点】
+手工搭建并解释一个 Webpack 5 工程
+
+【证据清单】
+npx webpack 构建成功日志
+产物文件列表
+一次 Tree Shaking 前后的体积对比

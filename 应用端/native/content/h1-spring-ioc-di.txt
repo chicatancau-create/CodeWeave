@@ -1,0 +1,76 @@
+IoC 与 DI：把对象的装配交给容器
+Bean、依赖注入与作用域
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · IDEA + Spring
+
+【目标】
+独立完成一个三层结构的 Spring 工程：Controller → Service → Repository 全部容器装配。
+
+【先备知识】
+g3-jdbc-mysql-crud
+
+【讲解】
+IoC 容器管理 Bean 的创建与生命周期；@Service/@Repository/@Component 声明 Bean。
+构造器注入让依赖不可变且必达，比字段注入更可测试。
+默认单例作用域：无状态的 Service 才能安全单例。
+
+【例子与反例】
+正例：构造器注入 + final 字段，单测里直接 new TaskService(mockRepo)
+反例：@Autowired 字段注入，脱离容器无法构造，依赖可被悄悄替换
+解释：可测试性来自“依赖显式可构造”
+
+【示例代码】
+@Service
+public class TaskService {
+    private final TaskRepository repo;
+    // 构造器注入：依赖不可变且必达
+    public TaskService(TaskRepository repo) {
+        this.repo = repo;
+    }
+}
+
+【理解要点】
+IoC 改变的是“谁负责 new”：容器装配依赖，类只声明自己需要什么。
+
+【跟做】
+建 Spring 工程，写三层空实现并跑通容器启动。
+给 Service 写一个不启动容器的纯 JUnit 单测。
+故意制造循环依赖，阅读报错并解释容器为什么拒绝。
+
+【独立练习】
+独立增加一个 TaskValidator Bean 并注入 Service，在保存前校验标题非空。
+
+【变式】
+用 @Scope("prototype") 演示多例 Bean 与单例的行为差异。
+
+【项目任务】
+三层结构是 H 阶段验收（SSM CRUD）的骨架，Controller 不得越过 Service 访问 Repository。
+
+【常见错误】
+字段注入导致单测困难
+在单例 Bean 里保存可变请求状态
+
+【运行方法】
+本地 IDEA 运行 Spring 容器（真实框架行为）
+
+【完成标准】
+三层装配跑通，Service 有不依赖容器的单元测试。
+
+【验收条件】
+三层全部容器装配
+Service 单测不启动容器即可运行
+能解释构造器注入的收益
+
+【证据清单】
+工程结构截图
+单测运行输出
+
+【复测间隔（天）】
+1
+3
+7
+14

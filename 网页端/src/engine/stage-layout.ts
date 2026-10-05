@@ -63,6 +63,16 @@ export type LaidNode = {
   shape: NodeShape
   /** 文字相对左边缘的缩进。圆头/斜边的形状要多让一点，否则字压在描边上。 */
   textInset: number
+  /**
+   * 从这一格的中心到**画布正中**的位移（SVG 用户单位，负值向左/向上）。
+   *
+   * 一步一步显现要用它：当前这一拍先在画布正中亮出来，被下一步顶替之后再滑回
+   * 自己的格子（`run-stage.css` 的 `g.rs-node.is-now`）。位移在这里算而不是在
+   * 组件里——画布尺寸是 `layoutStage` 的产物，组件拿不到「正中」是哪儿；
+   * 而且这是算术，放在纯函数里能单测，不用靠肉眼看截图。
+   */
+  enterDx: number
+  enterDy: number
 }
 
 /**
@@ -190,18 +200,33 @@ const loopPath = (from: LaidNode, to: LaidNode) => {
  * 渲染层拿到之后不再做任何算术，所以「画错位置」这件事可以在单测里抓住。
  */
 export function layoutStage(frame: StageFrame): StageLayout {
+  const count = frame.nodes.length
+  const rows = count === 0 ? 1 : rowOf(count - 1) + 1
+  const cols = Math.min(Math.max(count, 1), PER_ROW)
+  // 尺寸按内容算：三格的课不该拿到一块右半边全空的画布（缩放后字会白白变小）。
+  const width = ORIGIN_X + (cols - 1) * COL_STEP + NODE_W + RIGHT_PAD
+  const height = ORIGIN_Y + (rows - 1) * ROW_PITCH + NODE_H + BOTTOM_PAD
+  // 画布正中。「当前这一拍」从这里出场，让位之后滑回自己的格子——
+  // 尺寸必须先算出来，入场位移才知道要往哪边挪。
+  const centerX = width / 2
+  const centerY = height / 2
+
   const nodes: LaidNode[] = frame.nodes.map((node, index) => {
     const x = ORIGIN_X + colOf(index) * COL_STEP
     const y = ORIGIN_Y + rowOf(index) * ROW_PITCH
     const { shape, textInset } = shapeOf(node.kind, x, y)
-    return { node, index, x, y, shape, textInset }
+    return {
+      node,
+      index,
+      x,
+      y,
+      shape,
+      textInset,
+      // 留两位小数：位移直接写进 CSS 自定义属性，整数化会在大画布上显出半像素的错位。
+      enterDx: Math.round((centerX - (x + NODE_W / 2)) * 100) / 100,
+      enterDy: Math.round((centerY - (y + NODE_H / 2)) * 100) / 100,
+    }
   })
-
-  const rows = nodes.length === 0 ? 1 : rowOf(nodes.length - 1) + 1
-  const cols = Math.min(Math.max(nodes.length, 1), PER_ROW)
-  // 尺寸按内容算：三格的课不该拿到一块右半边全空的画布（缩放后字会白白变小）。
-  const width = ORIGIN_X + (cols - 1) * COL_STEP + NODE_W + RIGHT_PAD
-  const height = ORIGIN_Y + (rows - 1) * ROW_PITCH + NODE_H + BOTTOM_PAD
 
   const edges: LaidEdge[] = []
   for (let i = 0; i + 1 < nodes.length; i += 1) {

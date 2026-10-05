@@ -1110,6 +1110,7 @@ function WorkspaceShell({
                 onHelp={() => setHelpOpen(true)}
                 onCodeChange={handleCodeChange}
                 onRun={() => void execution.handleRun()}
+                onPlay={() => void execution.handlePlay()}
                 onStep={() => void execution.handleStep()}
                 onSeek={execution.handleSeek}
                 onReset={execution.handleReset}

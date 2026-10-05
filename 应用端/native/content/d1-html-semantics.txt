@@ -1,0 +1,78 @@
+HTML 语义化：不只是 div 和 span
+用结构标签表达内容含义
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · 浏览器 + VSCode
+
+【目标】
+独立完成一个含导航、两篇文章和页脚的语义化页面，并解释为什么不用全 div。
+
+【先备知识】
+java-env-a1（A1 环境清点）
+
+【讲解】
+header/nav/main/footer 表达页面结构；article/section 表达内容分块。
+button 自带键盘访问与语义，div onclick 两者都没有。
+label 的 for 与 input 的 id 关联后，点击文字即可聚焦输入框。
+
+【例子与反例】
+正例：<article><h2>标题</h2><p>正文</p></article>，label for="email" 关联邮箱输入框
+反例：全部用 div class="title"/div class="content"，结构含义全丢
+解释：辅助工具和搜索引擎读不懂无语义的 div 堆
+
+【示例代码】
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>语义化练习</title>
+</head>
+<body>
+  <!-- 用 nav / main / article / footer 完成结构 -->
+</body>
+</html>
+
+【理解要点】
+语义化是给搜索引擎和屏幕阅读器看的结构说明；div 没有含义。
+
+【跟做】
+在 VSCode 中建 HTML 文件并写出页面骨架。
+用 nav 包裹 3 个导航链接，main 内放 2 篇 article。
+浏览器打开检查结构，再用读屏模式或元素面板核对语义。
+
+【独立练习】
+独立创建注册表单：用户名、密码、邮箱、性别（单选）、兴趣（多选）与提交按钮，每个输入都有 label。
+
+【变式】
+为表单补齐 aria-label / aria-required 属性（无障碍变式）。
+
+【项目任务】
+语义化骨架是 D 阶段异步 CRUD 页面的地基。
+
+【常见错误】
+label 的 for 与 input 的 id 不匹配导致关联失效
+所有标签都用 div/span
+
+【运行方法】
+真实浏览器 + VSCode（本页不模拟 DOM 渲染）
+
+【完成标准】
+页面结构完整、能口述每个语义标签的选择理由。
+
+【验收条件】
+nav/main/article/footer 使用正确
+表单控件与 label 全部关联
+能解释语义化的两个收益
+
+【证据清单】
+HTML 结构截图
+浏览器打开后的完整渲染
+一段“为什么不用全 div”的说明
+
+【复测间隔（天）】
+1
+3
+7

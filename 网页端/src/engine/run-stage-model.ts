@@ -224,3 +224,47 @@ export function stageFrames(events: TraceEvent[], steps: StageStep[]): StageFram
   }
   return out
 }
+
+/**
+ * 还没运行时的那一帧：**只有骨架，没有一个假值**（2026-10-04）。
+ *
+ * 为什么要有它：在此之前，没点过运行的工作台里，右栏画布是整块不画的
+ * （`stageFrameAt` 对空 `events` 返回 null），同一位置露出的是那条**文字**拍轨
+ * （`.flow-chart`，「01 进入 main / L1 / 场景」）。用户看过成品后的原话是
+ * 「你现在的画布效果一直就是个文字而已」——运行之后画布接棒了，但**运行之前
+ * 这一眼仍然是文字**，而运行前恰恰是用户第一眼看到工作台的时候。
+ *
+ * 所以补这一个函数：把骨架按图形画出来（节点盒、形状、箭头、回边），
+ * 每个节点都是 `todo`（还没走到），没有数据格、没有输出、没有当前拍。
+ * 它说的是「这段程序有这几步」，**不冒充任何执行结果**——
+ * `ordinal` 全是 null（画 `--`）、`line` 用骨架自己的静态行号、`cells` 空数组、
+ * `caption` 是空串、`outputLines` 空。一个字都不编。
+ *
+ * 与 `stageFrameAt` 的分工：那个是「跑到第 N 拍的样子」，这个是「还没跑的样子」。
+ * 上层只在 `stageFrameAt` 返回 null（没事件）时才取它，所以两者不会打架。
+ */
+export function skeletonStageFrame(steps: StageStep[]): StageFrame | null {
+  if (steps.length === 0) return null
+  return {
+    index: 0,
+    // 没有拍就是 0 拍：计数器会显示 `01 / 00` 吗？不会——上层用 `stepTotal` 判断，
+    // 为 0 时整个控制条不画（见 `RunStage` 的 `canStep`）。
+    total: 0,
+    nodes: steps.map((step) => ({
+      id: step.id,
+      label: step.label,
+      kind: asKind(step.kind),
+      tone: asTone(step.tone),
+      ordinal: null,
+      state: 'todo',
+      line: step.line ?? null,
+      cells: [],
+      visit: 0,
+    })),
+    loopBackFrom: null,
+    loops: 0,
+    caption: '',
+    line: null,
+    outputLines: [],
+  }
+}

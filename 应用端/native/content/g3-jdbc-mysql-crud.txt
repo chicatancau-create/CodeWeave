@@ -1,0 +1,79 @@
+JDBC + MySQL：带事务的 CRUD
+连接、预编译、事务回滚
+
+【来源】
+CodeWeave 内置课程快照；学习进度由当前账户证据决定。
+
+【运行环境】
+外部环境 · MySQL + JDK
+
+【目标】
+独立完成 tasks 表的 JDBC CRUD，并演示一次事务回滚。
+
+【先备知识】
+g2-servlet-tomcat
+
+【讲解】
+参数一律用 ? 占位符 + setXxx 绑定，字符串拼接 SQL 等于开放注入。
+conn.setAutoCommit(false) 后的多条语句组成事务：commit 一起生效，rollback 全部撤销。
+try-with-resources 确保连接与语句必定关闭。
+
+【例子与反例】
+正例：WHERE status = ? 加 setString(1, "TODO")
+反例：把用户输入的 status 直接字符串拼接进 SQL 语句——经典注入漏洞
+解释：注入防护必须在语句构造层解决
+
+【示例代码】
+try (Connection conn = DriverManager.getConnection(URL, USER, PASS);
+     PreparedStatement ps = conn.prepareStatement("INSERT INTO tasks(title, status) VALUES (?, ?)")) {
+    conn.setAutoCommit(false);
+    ps.setString(1, "写周报");
+    ps.setString(2, "TODO");
+    ps.executeUpdate();
+    conn.commit();
+} catch (SQLException e) {
+    // conn.rollback(); 出错回滚，避免半截数据
+}
+
+【理解要点】
+PreparedStatement 同时解决 SQL 注入与重复编译；事务保证多语句要么全成要么全不做。
+
+【跟做】
+本地建库建表（tasks），加载数据库驱动依赖。
+完成 insert/list/update/delete 四个方法（全部预编译）。
+写一段两步转账式演示：第二步故意失败，验证第一步被回滚。
+
+【独立练习】
+独立给 DAO 增加分页查询（LIMIT ? OFFSET ?）。
+
+【变式】
+用 HikariCP 换掉裸连接，说明连接池解决了什么问题。
+
+【项目任务】
+TaskDao 直接接入 G2 的 Servlet，完成 G 阶段验收的完整闭环。
+
+【常见错误】
+连接/语句不关闭导致耗尽连接
+catch 里吞掉 SQLException 不回滚
+
+【运行方法】
+本地 MySQL + JDK（真实数据库）
+
+【完成标准】
+CRUD 四操作可用，回滚演示成功，能解释预编译与事务的价值。
+
+【验收条件】
+四个 CRUD 方法全部可用
+事务回滚演示成功
+全部 SQL 使用预编译
+
+【证据清单】
+建表 SQL
+CRUD 运行输出
+回滚演示记录
+
+【复测间隔（天）】
+1
+3
+7
+14

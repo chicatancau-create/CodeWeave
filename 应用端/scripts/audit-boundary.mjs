@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
-import { join, resolve, sep } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const forbidden = /(?:\.\.\/(?:frontend|backend)|【网页端】_WEB_CLIENT|E:[\\/]CodeWeave[\\/]workspace)/
@@ -11,6 +11,7 @@ function stripComments(source) {
 function walk(directory, files = []) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const full = join(directory, entry.name)
+    if (entry.isSymbolicLink()) throw new Error(`桌面端源码不接受符号链接：${full}`)
     if (entry.isDirectory()) walk(full, files)
     else if (/\.(mjs|js|cpp|h|hpp|json|cmake)$/.test(entry.name)) files.push(full)
   }
@@ -18,7 +19,7 @@ function walk(directory, files = []) {
 }
 
 const roots = ['src', 'native/src'].map((name) => join(root, name)).filter((dir) => existsSync(dir))
-const offenders = walk(root).filter((file) => roots.some((dir) => file.startsWith(`${dir}${sep}`)) && forbidden.test(stripComments(readFileSync(file, 'utf8'))))
+const offenders = roots.flatMap((directory) => walk(directory)).filter((file) => forbidden.test(stripComments(readFileSync(file, 'utf8'))))
 if (offenders.length) {
   console.error(`桌面端存在网页/后端源码路径：\n${offenders.join('\n')}`)
   process.exit(1)
