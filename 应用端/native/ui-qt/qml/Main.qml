@@ -101,7 +101,8 @@ Rectangle {
         readonly property int s10: 10; readonly property int s12: 12
         readonly property int s14: 14; readonly property int s16: 16
         readonly property int s20: 20; readonly property int s22: 22
-        readonly property int s24: 24; readonly property int s32: 32
+        readonly property int s24: 24; readonly property int s28: 28
+        readonly property int s32: 32
 
         // Shell metrics
         readonly property int topbarH: 68
@@ -657,15 +658,17 @@ Rectangle {
                 }
                 NavItem {
                     Layout.fillWidth: true
-                    glyph: "▥"; label: "代码草稿"; index: "02"
-                    active: root.page === "编辑器"
-                    onActivated: uiShell.selectPage("编辑器")
+                    glyph: "◈"; label: "实战挑战"; index: "02"
+                    badge: uiShell.challengeMeta.length > 0
+                           ? "" + uiShell.challengeMeta.length : ""
+                    active: root.page === "挑战"
+                    onActivated: uiShell.selectPage("挑战")
                 }
                 NavItem {
                     Layout.fillWidth: true
-                    glyph: "▶"; label: "运行记录"; index: "03"
-                    active: root.page === "运行记录"
-                    onActivated: uiShell.selectPage("运行记录")
+                    glyph: "▥"; label: "代码草稿"; index: "03"
+                    active: root.page === "草稿"
+                    onActivated: uiShell.selectPage("草稿")
                 }
                 NavItem {
                     Layout.fillWidth: true
@@ -675,9 +678,9 @@ Rectangle {
                 }
                 NavItem {
                     Layout.fillWidth: true
-                    glyph: "◉"; label: "个人中心"; index: "05"
-                    active: root.page === "账户"
-                    onActivated: uiShell.selectPage("账户")
+                    glyph: "◉"; label: "学习分析"; index: "05"
+                    active: root.page === "分析"
+                    onActivated: uiShell.selectPage("分析")
                 }
             }
 
@@ -814,10 +817,12 @@ Rectangle {
             anchors.bottomMargin: ds.s20
             currentIndex: {
                 switch (root.page) {
-                case "编辑器": return 1;
-                case "运行记录": return 2;
+                case "挑战": return 1;
+                case "草稿": return 2;
                 case "复习与进度": return 3;
-                case "账户": return 4;
+                case "分析": return 4;
+                case "账户": return 5;
+                case "编辑器": return 6;
                 default: return 0;
                 }
             }
@@ -826,11 +831,11 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
-            EditorPage {
+            ChallengePage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
-            RunLogPage {
+            DraftsPage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
@@ -838,7 +843,15 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
+            AnalyticsPage {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
             AccountPage {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+            EditorPage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
@@ -2440,153 +2453,288 @@ Rectangle {
     }
 
     // ── 04 复习中心 ────────────────────────────────────────────────────────
+    // ── 04 复习中心 ────────────────────────────────────────────────────────
     component ReviewPage: Item {
-        ColumnLayout {
+        id: reviewPage
+
+        ScrollView {
             anchors.fill: parent
-            spacing: ds.s16
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: ds.s12
-                ColumnLayout {
-                    spacing: 2
-                    RowLayout {
-                        spacing: ds.s8
-                        Rectangle {
-                            implicitWidth: 6
-                            implicitHeight: 6
-                            radius: 3
-                            color: ds.cyan
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-                        Text {
-                            text: "REVIEW CENTER"
-                            color: ds.faint
-                            font.family: ds.mono
-                            font.pixelSize: 10
-                            font.letterSpacing: 1
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-                    }
-                    Text {
-                        Layout.topMargin: ds.s4
-                        text: "复习中心"
-                        color: ds.ink
-                        font.family: ds.ui
-                        font.pixelSize: 20
-                        font.weight: Font.Bold
-                        font.letterSpacing: -0.5
-                    }
-                }
-                Item { Layout.fillWidth: true }
-                QuietButton {
-                    label: "重试读取发布规则"
-                    enabled: !uiShell.operationBusy
-                    onClicked: uiShell.refreshReviewSummary()
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: ds.s12
-                Repeater {
-                    model: [
-                        { k: "到期复习", v: "0" },
-                        { k: "已完成单元", v: "0" },
-                        { k: "连续打卡", v: "0 天" }
-                    ]
-                    delegate: Rectangle {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        implicitHeight: 78
-                        radius: ds.radius
-                        color: ds.panel
-                        border.color: ds.line
-                        border.width: 1
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: ds.s14
-                            spacing: ds.s4
-                            Text {
-                                text: modelData.k
-                                color: ds.muted
-                                font.family: ds.ui
-                                font.pixelSize: 12
-                            }
-                            Text {
-                                text: modelData.v
-                                color: ds.ink
-                                font.family: ds.mono
-                                font.pixelSize: 24
-                                font.weight: Font.Bold
-                            }
-                        }
-                    }
-                }
-            }
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            clip: true
 
             Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: progressText.implicitHeight + ds.s28
-                radius: ds.radius
-                color: ds.panel
-                border.color: ds.line
-                border.width: 1
-                Text {
-                    id: progressText
-                    anchors.fill: parent
-                    anchors.margins: ds.s14
-                    text: uiShell.progressSummary !== ""
-                          ? uiShell.progressSummary : "暂无进度数据"
-                    color: uiShell.progressSummary !== "" ? ds.ink : ds.faint
-                    font.family: ds.ui
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                radius: ds.radius
+                // .cw-review — a bordered, rounded panel (unlike .projects-view)
+                width: reviewPage.width
+                implicitHeight: reviewCol.implicitHeight + ds.s32 * 2
                 color: ds.page
                 border.color: ds.line
                 border.width: 1
+                radius: ds.radius
+
                 ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: ds.s14
-                    spacing: ds.s8
+                    id: reviewCol
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                        margins: ds.s32
+                        rightMargin: 29
+                    }
+                    spacing: 0
+
+                    // .module-heading
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 0
+                        spacing: ds.s14
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            RowLayout {
+                                spacing: ds.s8
+                                Rectangle {   // .eyebrow-dot — 6px FILLED here
+                                    implicitWidth: 6
+                                    implicitHeight: 6
+                                    radius: 3
+                                    color: ds.accent
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Text {
+                                    text: "复习中心"
+                                    color: ds.muted
+                                    font.family: ds.mono
+                                    font.pixelSize: 13
+                                    font.letterSpacing: 3.1
+                                    font.capitalization: Font.AllUppercase
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Text {
+                                Layout.topMargin: ds.s6
+                                Layout.bottomMargin: ds.s8
+                                text: "延迟复测"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 24
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.5
+                                lineHeight: 1.4
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "按本机排期：学完后第 1、3、7、14、30 天各一次，共 5 个节点"
+                                      + "——按这份节奏回顾已学内容；未通过的复测会降低掌握等级并重新安排。"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                        // .challenge-stats — the one stat line, bottom-right
+                        Text {
+                            text: "待复测 0 项 · 未来 7 天 0 项"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            Layout.alignment: Qt.AlignBottom
+                        }
+                    }
+
+                    // .rv-async.rv-empty.rv-async--failed — hairline strip
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        implicitHeight: asyncCol.implicitHeight + ds.s32
+                        color: "transparent"
+                        border.color: "transparent"
+                        Rectangle {
+                            anchors { left: parent.left; right: parent.right; top: parent.top }
+                            height: 1
+                            color: ds.line
+                        }
+                        Rectangle {
+                            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                            height: 1
+                            color: ds.lineStrong
+                        }
+                        ColumnLayout {
+                            id: asyncCol
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                top: parent.top
+                                topMargin: ds.s16
+                                rightMargin: ds.s16
+                            }
+                            spacing: ds.s10
+                            Text {
+                                Layout.fillWidth: true
+                                text: "读不到资料库发布规则：内容服务未连接或尚无可用快照。"
+                                      + "本页仍按本机兜底节奏排期，已排好的复测节点不受影响；可以重试读取。"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                            }
+                            QuietButton {
+                                implicitHeight: 44
+                                label: "重试读取发布规则"
+                                enabled: !uiShell.operationBusy
+                                onClicked: uiShell.refreshReviewSummary()
+                            }
+                        }
+                    }
+
+                    // .review-center-empty — no scheduled reviews
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        spacing: ds.s10
+                        visible: uiShell.reviewSummary === ""
+                        Rectangle {
+                            implicitWidth: 24
+                            implicitHeight: 24
+                            radius: 0
+                            color: "transparent"
+                            Layout.alignment: Qt.AlignLeft
+                            Text {
+                                anchors.centerIn: parent
+                                text: "◷"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 15
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "当前没有任何计划的复测。完成课程单元后会自动按计划安排。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 14
+                            lineHeight: 1.6
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    // Records, when the native ledger has any.
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        spacing: 0
+                        visible: uiShell.reviewSummary !== ""
+
+                        // .rv-block-heading
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: ds.s10
+                            spacing: ds.s12
+                            Text {
+                                text: "01"
+                                color: ds.accent
+                                font.family: ds.ui
+                                font.pixelSize: 32
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.96
+                                Layout.alignment: Qt.AlignBaseline
+                            }
+                            Text {
+                                text: "复测记录"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 20
+                                font.letterSpacing: -0.4
+                                lineHeight: 1.15
+                                Layout.alignment: Qt.AlignBaseline
+                            }
+                            Item { Layout.fillWidth: true }
+                            // .rv-mark--today — text only in a heading
+                            Text {
+                                text: "今日到期"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                Layout.alignment: Qt.AlignBaseline
+                            }
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: ds.s16
+                            height: 1
+                            color: ds.lineRaised
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 260
+                            color: "transparent"
+                            border.color: ds.line
+                            border.width: 1
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.margins: ds.s14
+                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                                TextArea {
+                                    text: uiShell.reviewSummary
+                                    readOnly: true
+                                    wrapMode: TextArea.Wrap
+                                    color: ds.ink
+                                    font.family: ds.ui
+                                    font.pixelSize: 14
+                                    background: null
+                                    Accessible.name: "复习记录"
+                                }
+                            }
+                        }
+                    }
+
+                    // Progress summary from the native ledger
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        spacing: 0
+                        visible: uiShell.progressSummary !== ""
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: ds.line
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.topMargin: ds.s12
+                            text: uiShell.progressSummary
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            lineHeight: 1.6
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    // .rv-footnote
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        height: 1
+                        color: ds.line
+                    }
                     Text {
-                        text: "复习记录"
-                        color: ds.ink
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s12
+                        Layout.preferredWidth: 616
+                        text: "本页只列 reviewDueKey 已安排的记录：逾期 0 项、今日 0 项、未来 7 天 0 项，"
+                              + "合计 0 项；没有到期安排的记录不计入任何分母。"
+                        color: ds.muted
                         font.family: ds.ui
                         font.pixelSize: 13
-                        font.weight: Font.DemiBold
-                    }
-                    Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
-                    ScrollView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                        TextArea {
-                            text: uiShell.reviewSummary
-                            readOnly: true
-                            wrapMode: TextArea.Wrap
-                            color: uiShell.reviewSummary !== "" ? ds.ink : ds.faint
-                            font.family: ds.ui
-                            font.pixelSize: 12
-                            background: null
-                            placeholderText: "暂无复习记录"
-                            placeholderTextColor: ds.faint
-                            Accessible.name: "复习记录"
-                        }
+                        lineHeight: 1.6
+                        wrapMode: Text.WordWrap
                     }
                 }
             }
         }
     }
 
-    // ── 05 个人中心 ────────────────────────────────────────────────────────
     component AccountPage: Item {
         ScrollView {
             anchors.fill: parent
@@ -2819,6 +2967,1317 @@ Rectangle {
                             font.family: ds.ui
                             font.pixelSize: 12
                             wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 02 实战挑战 ────────────────────────────────────────────────────────
+    // ── 02 实战挑战 ────────────────────────────────────────────────────────
+    component ChallengePage: Item {
+        id: challengePage
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            // .module-heading.challenge-overview
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s20
+                spacing: ds.s32
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    // .eyebrow — mono 13px, 0.24em tracking, uppercase, 7px ring
+                    RowLayout {
+                        spacing: ds.s10
+                        Rectangle {
+                            implicitWidth: 7
+                            implicitHeight: 7
+                            radius: 4
+                            color: "transparent"
+                            border.color: ds.accent
+                            border.width: 1
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "实战挑战"
+                            color: ds.muted
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            font.letterSpacing: 3.1
+                            font.capitalization: Font.AllUppercase
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    Text {
+                        Layout.topMargin: ds.s6
+                        Layout.bottomMargin: ds.s8
+                        text: "挑战关卡"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 24
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: -0.5
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "通过实际问题检验学习效果，每个关卡独立验收。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        elide: Text.ElideRight
+                    }
+                }
+
+                // .challenge-overview-stats — right-aligned column, 2px bar
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: 240
+                    spacing: ds.s10
+                    Text {
+                        Layout.fillWidth: true
+                        text: "已完成 0 / " + uiShell.challengeMeta.length
+                              + " · 筛选后 " + uiShell.challengeMeta.length + " 关"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        horizontalAlignment: Text.AlignRight
+                    }
+                    Rectangle {   // .challenge-progress — 2px track
+                        Layout.fillWidth: true
+                        implicitHeight: 2
+                        radius: ds.radius
+                        color: ds.lineRaised
+                        Rectangle {
+                            width: 0
+                            height: parent.height
+                            radius: ds.radius
+                            color: ds.accent
+                        }
+                    }
+                }
+            }
+
+            // .challenge-filters
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s20
+                implicitHeight: filterRow.implicitHeight + ds.s32
+                radius: ds.radius
+                color: "#12161d"
+                border.color: ds.line
+                border.width: 1
+
+                RowLayout {
+                    id: filterRow
+                    anchors { fill: parent; margins: ds.s16 }
+                    spacing: ds.s14
+
+                    // .challenge-filters-label
+                    RowLayout {
+                        spacing: ds.s8
+                        Text {
+                            text: "◫"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "筛选"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 2.6
+                            font.capitalization: Font.AllUppercase
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+
+                    // .challenge-filter-search
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 220
+                        spacing: ds.s4
+                        Text {
+                            text: "搜索"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 0.8
+                        }
+                        TextField {
+                            Layout.fillWidth: true
+                            implicitHeight: 44
+                            placeholderText: "标题 / 技术栈 / 说明"
+                            placeholderTextColor: ds.faint
+                            color: ds.ink
+                            font.family: ds.mono
+                            font.pixelSize: 14
+                            leftPadding: ds.s10
+                            rightPadding: ds.s10
+                            background: Rectangle {
+                                radius: ds.radiusSm
+                                color: ds.inset
+                                border.color: parent.activeFocus ? ds.accent : ds.lineStrong
+                                border.width: 1
+                            }
+                            Accessible.name: "搜索关卡"
+                        }
+                    }
+
+                    // 阶段 / 状态 selects
+                    Repeater {
+                        model: [
+                            { k: "阶段", v: "全部" },
+                            { k: "状态", v: "全部" }
+                        ]
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            spacing: ds.s4
+                            Text {
+                                text: modelData.k
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                font.letterSpacing: 0.8
+                            }
+                            Rectangle {
+                                implicitWidth: 124
+                                implicitHeight: 44
+                                radius: ds.radiusSm
+                                color: ds.inset
+                                border.color: ds.lineStrong
+                                border.width: 1
+                                RowLayout {
+                                    anchors { fill: parent; leftMargin: ds.s10; rightMargin: ds.s10 }
+                                    spacing: ds.s6
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.v
+                                        color: ds.ink
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        elide: Text.ElideRight
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                    Text {
+                                        text: "▾"
+                                        color: ds.faint
+                                        font.family: ds.ui
+                                        font.pixelSize: 11
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    QuietButton {
+                        implicitHeight: 44
+                        label: "更多筛选 ▾"
+                    }
+                }
+            }
+
+            // ol.challenge-grid — the page's own scroll box
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                GridView {
+                    id: challengeGrid
+                    anchors.fill: parent
+                    cellWidth: Math.floor(width / 3) - 1
+                    cellHeight: 236
+                    model: uiShell.challengeMeta
+                    clip: true
+
+                    delegate: Item {
+                        required property var modelData
+                        required property int index
+                        width: challengeGrid.cellWidth
+                        height: challengeGrid.cellHeight
+
+                        // .stage-card — mono text, hairline ledger
+                        Rectangle {
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                top: parent.top
+                                bottom: parent.bottom
+                                rightMargin: ds.s20
+                                bottomMargin: ds.s20
+                            }
+                            radius: ds.radius
+                            color: chHover.hovered ? "#161c24" : "transparent"
+
+                            // status left bar
+                            Rectangle {
+                                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                                width: 1
+                                color: {
+                                    const k = chStatus(modelData);
+                                    if (k === "external-pending") return ds.warning;
+                                    return ds.line;
+                                }
+                            }
+
+                            // Anchored rather than stacked: the meta row is pinned
+                            // to the bottom and the text is clipped from the top,
+                            // so a long title can never push the meta row into the
+                            // next grid cell.
+                            Item {
+                                anchors.fill: parent
+                                anchors.margins: ds.s14
+                                clip: true
+
+                                // .stage-card-top
+                                RowLayout {
+                                    id: cardTop
+                                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                                    spacing: ds.s10
+                                    Text {   // .stage-card-no
+                                        text: (index + 1) < 10 ? "0" + (index + 1) : "" + (index + 1)
+                                        color: ds.accent
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        font.letterSpacing: 2
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                    Rectangle {   // .stage-badge
+                                        implicitWidth: 26
+                                        implicitHeight: 26
+                                        radius: 0
+                                        color: "transparent"
+                                        border.color: ds.lineStrong
+                                        border.width: 1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.stageId || ""
+                                            color: ds.ink
+                                            font.family: ds.mono
+                                            font.pixelSize: 13
+                                            font.weight: Font.DemiBold
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    // .stage-status
+                                    Rectangle {
+                                        implicitWidth: stRow.implicitWidth + ds.s20
+                                        implicitHeight: 22
+                                        radius: 0
+                                        color: chStatus(modelData) === "external-pending"
+                                               ? "#241f0d" : "transparent"
+                                        border.color: chStatus(modelData) === "external-pending"
+                                                      ? ds.warning : ds.lineRaised
+                                        border.width: 1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        RowLayout {
+                                            id: stRow
+                                            anchors.centerIn: parent
+                                            spacing: ds.s6
+                                            Rectangle {
+                                                implicitWidth: 7
+                                                implicitHeight: 7
+                                                radius: 4
+                                                color: chStatus(modelData) === "external-pending"
+                                                       ? ds.warning : "transparent"
+                                                border.color: chStatus(modelData) === "external-pending"
+                                                              ? ds.warning : ds.lineRaised
+                                                border.width: 1
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                            Text {
+                                                text: chStatus(modelData) === "external-pending"
+                                                      ? "待实验" : "未开始"
+                                                color: chStatus(modelData) === "external-pending"
+                                                       ? ds.warning : ds.faint
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                font.weight: Font.DemiBold
+                                                font.letterSpacing: 0.8
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // .stage-card-meta — pinned to the bottom
+                                RowLayout {
+                                    id: cardMeta
+                                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                    spacing: ds.s10
+                                    Rectangle {   // .difficulty — neutral for all levels
+                                        implicitWidth: difLabel.implicitWidth + ds.s16
+                                        implicitHeight: 22
+                                        radius: 0
+                                        color: "transparent"
+                                        border.color: ds.lineRaised
+                                        border.width: 1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        Text {
+                                            id: difLabel
+                                            anchors.centerIn: parent
+                                            text: modelData.difficulty || ""
+                                            color: ds.muted
+                                            font.family: ds.mono
+                                            font.pixelSize: 13
+                                            font.letterSpacing: 1.8
+                                        }
+                                    }
+                                    Text {   // .stage-runner
+                                        text: modelData.runner === "external"
+                                              ? "外部环境实验" : "教学运行器"
+                                        color: "#7a828f"
+                                        font.family: ds.mono
+                                        font.pixelSize: 13
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    Text {   // .stage-card-action
+                                        text: "开始挑战"
+                                        color: ds.ink
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                }
+
+                                // hairline above the meta row
+                                Rectangle {
+                                    anchors { left: parent.left; right: parent.right
+                                               bottom: cardMeta.top; bottomMargin: ds.s6 }
+                                    height: 1
+                                    color: ds.line
+                                }
+
+                                ColumnLayout {
+                                    anchors {
+                                        left: parent.left
+                                        right: parent.right
+                                        top: cardTop.bottom
+                                        bottom: cardMeta.top
+                                        topMargin: ds.s8
+                                        bottomMargin: ds.s14
+                                    }
+                                    spacing: ds.s6
+
+                                    // .stage-title — shortTitle, mono
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: (modelData.title || "").replace(/^[A-M] 关卡验收：/, "")
+                                        color: ds.ink
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                        lineHeight: 1.45
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+
+                                    // .stage-card-summary — description + 本关聚焦
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: (modelData.description || "")
+                                              + ((modelData.stack || []).length > 0
+                                                 ? " 本关聚焦：" + modelData.stack.join("、") + "。"
+                                                 : "")
+                                        color: ds.muted
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        lineHeight: 1.6
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Item { Layout.fillHeight: true }
+                                }
+                            }
+
+                            HoverHandler { id: chHover; cursorShape: Qt.PointingHandCursor }
+                            // No native challenge runner exists yet, so the card
+                            // stays informational rather than navigating somewhere
+                            // that would pretend to run it.
+                        }
+                    }
+                }
+            }
+
+            // nav.challenge-pagination
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: ds.line
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: ds.s20
+                spacing: ds.s12
+                QuietButton { implicitHeight: 44; label: "‹ 上一页"; enabled: false }
+                Item { Layout.fillWidth: true }
+                Text {
+                    text: "第 1 / 2 页"
+                    color: ds.muted
+                    font.family: ds.ui
+                    font.pixelSize: 14
+                    font.letterSpacing: 0.8
+                    Layout.alignment: Qt.AlignVCenter
+                }
+                Item { Layout.fillWidth: true }
+                QuietButton { implicitHeight: 44; label: "下一页 ›"; enabled: false }
+            }
+        }
+    }
+
+    // Status classification shared by the challenge card.
+    function chStatus(item) {
+        return item.runner === "external" ? "external-pending" : "not-started";
+    }
+
+    // ── 03 代码草稿 ────────────────────────────────────────────────────────
+    // ── 03 代码草稿 ────────────────────────────────────────────────────────
+    component DraftsPage: Item {
+        id: draftsPage
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: ds.s28   // root gap clamp(20px, 2.4vw, 28px)
+
+            // .module-heading.project-overview
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: 0
+                spacing: ds.s32
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    // .eyebrow — 7px HOLLOW ring here, 13px mono label
+                    RowLayout {
+                        spacing: ds.s10
+                        Rectangle {
+                            implicitWidth: 7
+                            implicitHeight: 7
+                            radius: 4
+                            color: "transparent"
+                            border.color: ds.accent
+                            border.width: 1
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "我的练习项目"
+                            color: ds.muted
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            font.letterSpacing: 3.1
+                            font.capitalization: Font.AllUppercase
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    Text {
+                        Layout.topMargin: ds.s6
+                        Layout.bottomMargin: ds.s8
+                        text: "代码草稿"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 24
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: -0.5
+                        lineHeight: 1.4
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "保存你的练习代码，随时回来继续。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        lineHeight: 1.6
+                        elide: Text.ElideRight
+                    }
+                }
+
+                // .project-create
+                RowLayout {
+                    spacing: ds.s10
+                    Layout.alignment: Qt.AlignBottom
+                    ColumnLayout {
+                        spacing: ds.s6
+                        Text {
+                            text: "新项目语言"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 0.8
+                        }
+                        Rectangle {   // .setting-select
+                            implicitWidth: 148
+                            implicitHeight: 44
+                            radius: ds.radiusSm
+                            color: ds.inset
+                            border.color: ds.lineStrong
+                            border.width: 1
+                            RowLayout {
+                                anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
+                                spacing: ds.s6
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: uiShell.starterLanguage !== ""
+                                          ? uiShell.starterLanguage : "python"
+                                    color: ds.ink
+                                    font.family: ds.mono
+                                    font.pixelSize: 14
+                                    elide: Text.ElideRight
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Text {
+                                    text: "▾"
+                                    color: ds.faint
+                                    font.family: ds.ui
+                                    font.pixelSize: 11
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Accessible.role: Accessible.ComboBox
+                            Accessible.name: "新项目语言"
+                        }
+                    }
+                    // .project-create .primary-action — outlined pill (0,3,0 wins)
+                    Rectangle {
+                        id: newProjectBtn
+                        implicitWidth: npLabel.implicitWidth + 40
+                        implicitHeight: 44
+                        radius: 100
+                        color: npHover.hovered ? ds.accentFill : "transparent"
+                        border.color: ds.accent
+                        border.width: 1
+                        Layout.alignment: Qt.AlignBottom
+                        Text {
+                            id: npLabel
+                            anchors.centerIn: parent
+                            text: "新建项目"
+                            color: ds.ink
+                            font.family: ds.mono
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: 0.26
+                        }
+                        HoverHandler { id: npHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: uiShell.selectPage("编辑器") }
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "新建项目"
+                    }
+                }
+            }
+
+            // heading hairline
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: ds.s0
+                height: 1
+                color: ds.line
+            }
+
+            // .projects-layout — minmax(220px,300px) + 1fr
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: ds.s24
+
+                // .project-list-column
+                ColumnLayout {
+                    Layout.minimumWidth: 220
+                    Layout.maximumWidth: 300
+                    Layout.preferredWidth: 300
+                    Layout.fillHeight: true
+                    spacing: ds.s10
+
+                    // .projects-section-title — count on the right
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: ds.s8
+                        spacing: ds.s10
+                        Text {
+                            Layout.fillWidth: true
+                            text: "项目清单"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 2.6
+                            font.capitalization: Font.AllUppercase
+                        }
+                        Text {
+                            text: uiShell.hasSelectedContent ? "01 个" : "00 个"
+                            color: "#7a828f"
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                        }
+                    }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+
+                    // .project-card — real draft, when a course is open
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 72
+                        visible: uiShell.hasSelectedContent
+                        radius: ds.radius
+                        color: draftHover.hovered ? ds.accentFill : ds.panel
+                        border.color: draftHover.hovered ? ds.lineStrong : ds.line
+                        border.width: 1
+                        RowLayout {
+                            anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
+                            spacing: ds.s10
+                            Text {   // .project-card-no
+                                text: "01"
+                                color: ds.accent
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: 1.8
+                                Layout.alignment: Qt.AlignTop
+                                Layout.topMargin: ds.s6
+                            }
+                            Rectangle {   // .project-icon — 28px square, radius 0
+                                implicitWidth: 28
+                                implicitHeight: 28
+                                radius: 0
+                                color: "transparent"
+                                border.color: ds.line
+                                border.width: 1
+                                Layout.alignment: Qt.AlignVCenter
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "<>"
+                                    color: "#7a828f"
+                                    font.family: ds.mono
+                                    font.pixelSize: 10
+                                }
+                            }
+                            ColumnLayout {   // .project-card-body
+                                Layout.fillWidth: true
+                                spacing: ds.s4
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: uiShell.documentId || "未命名草稿"
+                                    color: ds.ink
+                                    font.family: ds.ui
+                                    font.pixelSize: 14
+                                    font.weight: Font.DemiBold
+                                    lineHeight: 1.5
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: (uiShell.starterLanguage || "—") + " · "
+                                          + (uiShell.draftDirty ? "有未保存改动" : "已保存")
+                                    color: ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+                                    font.letterSpacing: 0.5
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "revision " + uiShell.draftRevision
+                                    color: "#7a828f"
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                        HoverHandler { id: draftHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: uiShell.selectPage("编辑器") }
+                    }
+
+                    // .empty-state — dashed border, radius 8
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: emptyCol.implicitHeight + ds.s32
+                        visible: !uiShell.hasSelectedContent
+                        radius: ds.radius
+                        color: "transparent"
+                        border.color: ds.lineStrong
+                        border.width: 1
+                        ColumnLayout {
+                            id: emptyCol
+                            anchors { fill: parent; margins: ds.s16 }
+                            spacing: ds.s8
+                            Text {
+                                text: "<>"
+                                color: "#7a828f"
+                                font.family: ds.mono
+                                font.pixelSize: 22
+                                Layout.alignment: Qt.AlignLeft
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "还没有保存的项目"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "创建第一个项目开始练习"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+
+                // .project-detail — bordered panel, transparent fill
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    radius: ds.radius
+                    color: "transparent"
+                    border.color: ds.line
+                    border.width: 1
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: ds.s20
+                        spacing: ds.s16
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s12
+                            Text {
+                                Layout.fillWidth: true
+                                text: uiShell.hasSelectedContent
+                                      ? (uiShell.documentId || "未命名草稿")
+                                      : "未选择草稿"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 16
+                                font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                            }
+                            QuietButton {
+                                implicitHeight: 32
+                                label: "复制"
+                                enabled: false
+                            }
+                            QuietButton {
+                                implicitHeight: 32
+                                label: "删除"
+                                enabled: false
+                            }
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+
+                        // .project-zone--draft
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s10
+                            Text {
+                                text: "01"
+                                color: ds.accent
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: 1.8
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Text {
+                                text: "本机草稿"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "改动即时写入本机 · 未快照前回不到旧版本"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                elide: Text.ElideRight
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: ds.editorBg
+                            border.color: ds.line
+                            border.width: 1
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.margins: ds.s12
+                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                                TextArea {
+                                    text: uiShell.draftCode
+                                    readOnly: true
+                                    wrapMode: TextArea.Wrap
+                                    color: ds.muted
+                                    font.family: ds.mono
+                                    font.pixelSize: 12
+                                    background: null
+                                    placeholderText: "选择一门课程后可在此预览草稿"
+                                    placeholderTextColor: ds.faint
+                                    Accessible.name: "草稿预览"
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s10
+                            Text {
+                                Layout.fillWidth: true
+                                text: "保存状态：" + (uiShell.draftSaving ? "保存中…"
+                                      : (uiShell.draftDirty ? "未保存" : "已保存"))
+                                      + " · revision " + uiShell.draftRevision
+                                      + " / saved " + uiShell.savedRevision
+                                color: uiShell.draftDirty ? ds.warning : ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                elide: Text.ElideRight
+                            }
+                            QuietButton {
+                                implicitHeight: 32
+                                label: "保存检查点"
+                                enabled: uiShell.hasSelectedContent
+                                         && !uiShell.draftPersistenceBlocked
+                                onClicked: uiShell.saveDraft()
+                            }
+                            QuietButton {
+                                implicitHeight: 32
+                                label: "打开工作台"
+                                enabled: uiShell.hasSelectedContent
+                                onClicked: uiShell.selectPage("编辑器")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    component AnalyticsPage: Item {
+        id: analyticsPage
+
+        // Computed once so every row agrees on the same window.
+        readonly property string todayKey: Qt.formatDate(new Date(), "yyyy-MM-dd")
+        readonly property string weekStartKey: {
+            const d = new Date();
+            d.setDate(d.getDate() - 6);
+            return Qt.formatDate(d, "yyyy-MM-dd");
+        }
+        readonly property string period: weekStartKey + " 至 " + todayKey
+
+        // Table geometry. The web uses table-layout:fixed with the header row
+        // setting widths: 3.2em and 7em resolve against the 12.5px header font,
+        // giving 40px and 87.5px; column 2 is 24%; columns 4 and 5 split the rest.
+        readonly property real tblW: Math.max(0, width - ds.s32 * 2)
+        // .an-specs caps at 78ch; ~7px per char at the 14px body size.
+        readonly property real specWidth: Math.min(tblW, 546)
+        readonly property real colNum: 40
+        readonly property real colName: Math.floor(tblW * 0.24)
+        readonly property real colValue: 87.5
+        readonly property real colRest: Math.max(0, (tblW - colNum - colName - colValue) / 2)
+
+        ScrollView {
+            anchors.fill: parent
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            clip: true
+
+            Rectangle {
+                width: analyticsPage.width
+                implicitHeight: pageCol.implicitHeight + ds.s32 * 2
+                color: ds.page
+                border.color: ds.line
+                border.width: 1
+                radius: ds.radius
+
+                ColumnLayout {
+                    id: pageCol
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                        margins: ds.s32
+                        rightMargin: 29
+                    }
+                    spacing: 0
+
+                    // .module-heading — flush stack, no bottom margin
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 0
+                        spacing: ds.s20
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            // .eyebrow — the page's only mono text
+                            RowLayout {
+                                spacing: ds.s8
+                                Rectangle {   // .eyebrow-dot
+                                    implicitWidth: 6
+                                    implicitHeight: 6
+                                    radius: 3
+                                    color: ds.accent
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Text {
+                                    text: "学习分析"
+                                    color: ds.muted
+                                    font.family: ds.mono
+                                    font.pixelSize: 13
+                                    font.letterSpacing: 3.1
+                                    font.capitalization: Font.AllUppercase
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Text {
+                                text: "学习分析仪表盘"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 24
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.5
+                                lineHeight: 1.4
+                            }
+                            Text {
+                                Layout.topMargin: ds.s8
+                                text: "统计周期：近 7 天（" + analyticsPage.period + "，按学习证据时间）。"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+
+                    // dl.an-specs
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        Layout.bottomMargin: ds.s24
+                        spacing: 0
+                        Rectangle {   // list top hairline
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: analyticsPage.specWidth
+                            height: 1
+                            color: ds.line
+                        }
+                        Repeater {
+                            model: [
+                                { dt: "窗口",
+                                  dd: analyticsPage.weekStartKey + " 至 "
+                                      + analyticsPage.todayKey + "（含今天，共 7 个本地日期）" },
+                                { dt: "归日口径",
+                                  dd: "证据时间一律按本地日期归日，不把 UTC 日期当本地日期" },
+                                { dt: "数据来源",
+                                  dd: "仅本机学习证据：课程与复测记录、挑战验收记录、打卡记录" }
+                            ]
+                            delegate: ColumnLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: analyticsPage.specWidth
+                                spacing: 0
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: ds.s12
+                                    Layout.bottomMargin: ds.s12
+                                    spacing: ds.s12
+                                    Text {
+                                        // 11ch at 12.5px, uppercase-tracked
+                                        Layout.preferredWidth: 128
+                                        text: modelData.dt
+                                        color: ds.muted
+                                        font.family: ds.ui
+                                        font.pixelSize: 13
+                                        font.letterSpacing: 2.5
+                                        font.capitalization: Font.AllUppercase
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.dd
+                                        color: ds.ink
+                                        opacity: 0.82
+                                        font.family: ds.ui
+                                        font.pixelSize: 14
+                                        lineHeight: 1.6
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: ds.line
+                                }
+                            }
+                        }
+                    }
+
+                    // section.an-block ×3 — bare grids, no surface
+                    Repeater {
+                        model: [
+                            { idx: "01", icon: "◈", title: "近 7 天学习活动",
+                              rows: [
+                                { n: "完成课程单元", v: "0", b: "按 lessonId 去重，仅计通过证据",
+                                  d: "窗口 " + analyticsPage.period + " 内的课程证据" },
+                                { n: "课程练习次数", v: "0", b: "同一单元重复练习分别计数，与上一行是两个口径",
+                                  d: "窗口 " + analyticsPage.period + " 内的课程证据" },
+                                { n: "挑战通过（本机已验证）", v: "0", b: "仅认 passed / verified 状态",
+                                  d: "无分母，不折算百分比" },
+                                { n: "挑战通过（旧版迁移口径）", v: "0",
+                                  b: "记录缺失 status，按迁移语义单列为旧版，不混入上一行",
+                                  d: "无分母，不折算百分比" },
+                                { n: "复测通过", v: "0", b: "kind=review 且 passed 的证据",
+                                  d: "全部复测 0 次" },
+                                { n: "复测未通过", v: "0", b: "kind=review 且未通过的证据",
+                                  d: "全部复测 0 次" }
+                              ],
+                              note: "" },
+                            { idx: "02", icon: "▲", title: "复测完成率",
+                              rows: [
+                                { n: "复测完成率", v: "样本不足",
+                                  b: "通过 /（通过 + 未通过），四舍五入到整数百分比",
+                                  d: "全部复测 0 次（通过 0 · 未通过 0）",
+                                  a: "下一步：先到复习中心完成一次复测（通过或未通过都算一条记录），这一格才会出现比率。" },
+                                { n: "到期任务完成率", v: "未统计",
+                                  b: "需要计划任务分母；本机没有可复现的历史排期记录（STAT-01 第 4 条）",
+                                  d: "无分母，不折算百分比",
+                                  a: "下一步：等复习中心的排期按生效节奏累计出可复现的分母；本页不提供手填任务数的入口，也不拿活动次数顶替。" }
+                              ],
+                              note: "样本不足：近 7 天还没有复测记录。完成课程后按计划复测，这里会出现完成率。" },
+                            { idx: "03", icon: "◷", title: "连续打卡",
+                              rows: [
+                                { n: "连续打卡天数", v: "0",
+                                  b: "从今天往回数连续有打卡记录的日期（countStreak）",
+                                  d: "无分母，不折算百分比" },
+                                { n: "今日打卡状态", v: "未打卡", b: "打卡记录按本地日期键判定",
+                                  d: "今天 " + analyticsPage.todayKey },
+                                { n: "学习时长（近 7 天）", v: "未统计",
+                                  b: "没有时长数据源；不追溯编造（STAT-01 第 6 条）",
+                                  d: "无分母，不折算百分比",
+                                  a: "下一步：本页没有可开启的时长统计，也不拿活动次数折算时长；要跟踪投入时间请用下面「连续打卡」那一档，它是替代口径、不是时长。" }
+                              ],
+                              note: "学习时长按 STAT-01 第 6 条保持「未统计」：本机没有时长数据源，不用活动次数推算。" }
+                        ]
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            Layout.topMargin: index === 0 ? 0 : ds.s24
+                            spacing: 0
+
+                            // .an-block-heading — hairline underline, baseline row
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s10
+                                spacing: ds.s12
+                                Text {
+                                    text: modelData.idx
+                                    color: ds.accent
+                                    font.family: ds.ui
+                                    font.pixelSize: 32
+                                    font.weight: Font.DemiBold
+                                    font.letterSpacing: -0.96
+                                    Layout.alignment: Qt.AlignBaseline
+                                }
+                                Text {
+                                    text: modelData.icon
+                                    color: ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 15
+                                    Layout.alignment: Qt.AlignBaseline
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.title
+                                    color: ds.ink
+                                    font.family: ds.ui
+                                    font.pixelSize: 20
+                                    font.letterSpacing: -0.4
+                                    lineHeight: 1.15
+                                    Layout.alignment: Qt.AlignBaseline
+                                }
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s16
+                                height: 1
+                                color: ds.lineRaised
+                            }
+
+                            // table — fixed columns, hairline rows
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 0
+
+                                // thead
+                                Item {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 34
+                                    Rectangle {
+                                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                        height: 1
+                                        color: ds.lineRaised
+                                    }
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        spacing: 0
+                                        Repeater {
+                                            model: [
+                                                { t: "次", w: analyticsPage.colNum },
+                                                { t: "指标", w: analyticsPage.colName },
+                                                { t: "数值", w: analyticsPage.colValue },
+                                                { t: "派生口径", w: analyticsPage.colRest },
+                                                { t: "分母", w: analyticsPage.colRest }
+                                            ]
+                                            delegate: Text {
+                                                required property var modelData
+                                                Layout.preferredWidth: modelData.w
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.t
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                font.letterSpacing: 2.5
+                                                font.capitalization: Font.AllUppercase
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // tbody
+                                Repeater {
+                                    model: modelData.rows
+                                    delegate: Item {
+                                        required property var modelData
+                                        required property int index
+                                        Layout.fillWidth: true
+                                        implicitHeight: rowCol.implicitHeight + ds.s32
+                                        Rectangle {
+                                            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                            height: 1
+                                            color: ds.line
+                                        }
+                                        RowLayout {
+                                            id: rowCol
+                                            anchors {
+                                                left: parent.left
+                                                right: parent.right
+                                                top: parent.top
+                                                topMargin: ds.s14
+                                                rightMargin: 0
+                                            }
+                                            spacing: 0
+                                            Text {   // .an-row-idx
+                                                Layout.preferredWidth: analyticsPage.colNum
+                                                Layout.alignment: Qt.AlignTop
+                                                text: (index + 1) < 10 ? "0" + (index + 1) : "" + (index + 1)
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                            }
+                                            Text {   // .an-cell-name
+                                                Layout.preferredWidth: analyticsPage.colName
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.n
+                                                color: ds.ink
+                                                font.family: ds.ui
+                                                font.pixelSize: 14
+                                                lineHeight: 1.55
+                                                wrapMode: Text.WordWrap
+                                            }
+                                            Text {   // .an-cell-value — not dimmed for 样本不足
+                                                Layout.preferredWidth: analyticsPage.colValue
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.v
+                                                color: ds.ink
+                                                opacity: 0.82
+                                                font.family: ds.ui
+                                                font.pixelSize: 14
+                                                lineHeight: 1.55
+                                                wrapMode: Text.WordWrap
+                                            }
+                                            ColumnLayout {   // .an-cell-basis (+ action)
+                                                Layout.preferredWidth: analyticsPage.colRest
+                                                Layout.alignment: Qt.AlignTop
+                                                spacing: ds.s6
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: modelData.b
+                                                    color: ds.muted
+                                                    font.family: ds.ui
+                                                    font.pixelSize: 13
+                                                    lineHeight: 1.6
+                                                    wrapMode: Text.WordWrap
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    visible: modelData.a !== undefined
+                                                    text: modelData.a !== undefined ? modelData.a : ""
+                                                    color: ds.muted
+                                                    font.family: ds.ui
+                                                    font.pixelSize: 13
+                                                    lineHeight: 1.6
+                                                    wrapMode: Text.WordWrap
+                                                }
+                                            }
+                                            Text {   // .an-cell-den
+                                                Layout.preferredWidth: analyticsPage.colRest
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.d
+                                                color: modelData.d.indexOf("无分母") === 0 ? ds.ink : ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                lineHeight: 1.6
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // .an-honest — flat hairline strip, not a card
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 0
+                                Layout.preferredWidth: analyticsPage.tblW
+                                visible: modelData.note !== ""
+                                text: modelData.note
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                                topPadding: ds.s12
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                visible: modelData.note !== ""
+                                Layout.topMargin: 0
+                                height: 1
+                                color: ds.line
+                            }
                         }
                     }
                 }

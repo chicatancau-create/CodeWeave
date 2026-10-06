@@ -18,6 +18,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(QString currentPage READ currentPage NOTIFY currentPageChanged)
   Q_PROPERTY(QStringList publishedTitles READ publishedTitles NOTIFY publishedTitlesChanged)
   Q_PROPERTY(QVariantList lessonMeta READ lessonMeta NOTIFY publishedTitlesChanged)
+  Q_PROPERTY(QVariantList challengeMeta READ challengeMeta NOTIFY publishedTitlesChanged)
   Q_PROPERTY(QString selectedContentBody READ selectedContentBody NOTIFY selectedContentBodyChanged)
   Q_PROPERTY(QString starterLanguage READ starterLanguage NOTIFY starterCodeChanged)
   Q_PROPERTY(QString starterCode READ starterCode NOTIFY starterCodeChanged)
@@ -58,6 +59,7 @@ class UiShell final : public QObject {
   [[nodiscard]] QStringList publishedTitles() const;
   [[nodiscard]] QStringList publishedIds() const { return published_ids_; }
   [[nodiscard]] QVariantList lessonMeta() const { return lesson_meta_; }
+  [[nodiscard]] QVariantList challengeMeta() const { return challenge_meta_; }
   [[nodiscard]] QString selectedContentBody() const;
   [[nodiscard]] QString starterLanguage() const;
   [[nodiscard]] QString starterCode() const;
@@ -178,6 +180,7 @@ class UiShell final : public QObject {
   QStringList published_titles_;
   QStringList published_ids_;
   QVariantList lesson_meta_;
+  QVariantList challenge_meta_;
   QString selected_content_body_;
   QString starter_language_;
   QString starter_code_;

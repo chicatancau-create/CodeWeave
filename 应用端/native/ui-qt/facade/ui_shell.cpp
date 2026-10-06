@@ -119,6 +119,28 @@ void UiShell::loadPublishedContent(const QString& root) {
       meta.append(m);
     }
     lesson_meta_ = meta;
+
+    // Challenges drive the 实战挑战 page. Same one-time read as the lessons.
+    const auto challenges = doc.object().value(QStringLiteral("challenges")).toArray();
+    QVariantList challenge_meta;
+    for (const auto& entry : challenges) {
+      const auto obj = entry.toObject();
+      QVariantMap c;
+      c[QStringLiteral("id")] = obj.value(QStringLiteral("id")).toString();
+      c[QStringLiteral("stageId")] = obj.value(QStringLiteral("stageId")).toString();
+      c[QStringLiteral("track")] = obj.value(QStringLiteral("track")).toString();
+      c[QStringLiteral("title")] = obj.value(QStringLiteral("title")).toString();
+      c[QStringLiteral("description")] = obj.value(QStringLiteral("description")).toString();
+      c[QStringLiteral("language")] = obj.value(QStringLiteral("language")).toString();
+      c[QStringLiteral("difficulty")] = obj.value(QStringLiteral("difficulty")).toString();
+      c[QStringLiteral("runner")] = obj.value(QStringLiteral("runner")).toString();
+      QStringList stack;
+      for (const auto& s : obj.value(QStringLiteral("stack")).toArray())
+        stack.append(s.toString());
+      c[QStringLiteral("stack")] = stack;
+      challenge_meta.append(c);
+    }
+    challenge_meta_ = challenge_meta;
   }
   reloadPublishedContent();
 }

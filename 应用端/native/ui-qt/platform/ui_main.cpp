@@ -145,6 +145,11 @@ int main(int argc, char* argv[]) {
   if (smoke >= 0) {
     if (smoke + 1 >= arguments.size()) return 2;
     const auto screenshot = arguments.at(smoke + 1);
+    // Optional "--page <name>": capture a specific page instead of the default.
+    // Visual-comparison affordance only; it calls the same selectPage the UI does.
+    const auto page_arg = arguments.indexOf(QStringLiteral("--page"));
+    if (page_arg >= 0 && page_arg + 1 < arguments.size())
+      shell.selectPage(arguments.at(page_arg + 1));
     QObject::connect(&smoke_timer, &QTimer::timeout, &application, [&, screenshot] {
       if (++smoke_ticks > 100) { application.exit(3); return; }
       if (shell.contentBusy()) return;
