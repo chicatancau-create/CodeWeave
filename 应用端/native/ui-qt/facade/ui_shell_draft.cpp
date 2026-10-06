@@ -22,12 +22,17 @@ void UiShell::setStatus(const QString& status) {
 }
 
 bool UiShell::allowDocumentChange() {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_) return false;
   if (!draftDirty()) return true;
   setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
   return false;
 }
 
 void UiShell::clearDraft() {
+  hints_.clear();
+  execution_output_.clear();
+  emit hintsChanged();
+  emit executionOutputChanged();
   starter_language_.clear();
   starter_code_.clear();
   execution_policy_.clear();
@@ -45,7 +50,7 @@ void UiShell::clearDraft() {
 
 bool UiShell::setAccountContext(const codeweave::account::AccountService& session,
     const std::filesystem::path& workspace, const std::filesystem::path& nativeDataRoot) {
-  if (content_busy_ || draft_saving_ || backend_tasks_.busy() || !allowDocumentChange()) return false;
+  if (content_busy_ || draft_saving_ || !allowDocumentChange()) return false;
   std::filesystem::path account_root;
   const auto resolved = session.learning_data_root(nativeDataRoot, account_root);
   if (!resolved.ok) { setStatus(QString::fromUtf8(resolved.message)); return false; }
@@ -62,11 +67,13 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
 }
 
 bool UiShell::clearAccountContext() {
-  if (content_busy_ || draft_saving_ || backend_tasks_.busy() || !allowDocumentChange()) return false;
+  if (content_busy_ || draft_saving_ || !allowDocumentChange()) return false;
   active_account_id_.clear();
   ++account_generation_;
-  workspace_root_.clear();
-  data_root_.clear();
+  // Keep the configured workspace and account registry root available for a
+  // later login in the same process. Only the authenticated account root and
+  // its core lock are cleared here.
+  data_root_ = native_data_root_;
   personal_core_.reset();
   clearDraft();
   emit accountChanged();
@@ -79,11 +86,28 @@ void UiShell::discardDraftChanges() {
 }
 
 bool UiShell::requestClose() {
-  if (content_busy_ || draft_saving_) {
-    setStatus(QStringLiteral("后台任务正在完成，请稍后关闭"));
+  if (draftDirty()) {
+    setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
     return false;
   }
-  return allowDocumentChange();
+  if (draft_saving_) {
+    // 写提交中不取消：丢掉用户已经下达的持久化意图，比让他再点一次关闭更糟。
+    setStatus(QStringLiteral("草稿正在提交，请稍候再关闭"));
+    return false;
+  }
+  closing_ = true;
+  execution_cancelled_.store(true, std::memory_order_release);
+  if (content_busy_ || backend_tasks_.busy()) {
+    // 读任务可以被取消；关闭时排空并保持事件泵，而不是无泵地阻塞 join，
+    // 也不是简单拒绝关闭让用户对着一个转圈的窗口没办法。
+    if (!drain_backend_tasks(5000)) {
+      setStatus(QStringLiteral("后台任务未在限定时间内结束，已阻止关闭"));
+      return false;
+    }
+    content_busy_ = false;
+    emit contentBusyChanged();
+  }
+  return true;
 }
 
 void UiShell::loadAccountDraft() {
@@ -156,6 +180,7 @@ void UiShell::loadAccountDraft() {
 }
 
 void UiShell::saveDraft() {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_) return;
   if (!hasActiveAccount()) { setStatus(QStringLiteral("保存草稿前必须先登录账户")); return; }
   if (selected_content_id_.isEmpty() || starter_language_.isEmpty()) {
     setStatus(QStringLiteral("没有选中的课程文档，无法保存草稿")); return;
@@ -189,10 +214,15 @@ void UiShell::saveDraft() {
       draft_saving_ = false;
       emit draftSavingChanged();
       if (result.result.ok) {
+        // 执行器已保证：ok 意味着写盘确实发生。这里必须以它为准更新已保存基线，
+        // 否则会出现「磁盘是新的、UI 说还有未保存修改」的分裂（§14.5）。
         draft_saved_code_ = code;
         saved_revision_ = revision;
         emit draftDirtyChanged();
         setStatus(draftDirty() ? QStringLiteral("已保存提交时的草稿，当前编辑仍未保存") : QStringLiteral("草稿已保存"));
+      } else if (result.cancelled) {
+        // 走到这里说明 work 在动手前就拒绝了执行，磁盘未被动过 —— 保持 dirty 才是对的。
+        setStatus(QStringLiteral("草稿保存已取消，磁盘内容未改变"));
       } else {
         setStatus(QString::fromUtf8(result.result.message));
       }

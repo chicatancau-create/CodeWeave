@@ -8,6 +8,12 @@
 #include <QTimer>
 #include <QImage>
 #include <QQuickStyle>
+#include <QStandardPaths>
+#include <QProcessEnvironment>
+#include <QSettings>
+
+#include <filesystem>
+#include <string_view>
 
 class ShellView final : public QQuickView {
  public:
@@ -21,10 +27,56 @@ class ShellView final : public QQuickView {
   UiShell& shell_;
 };
 
+std::filesystem::path configured_tool(std::string_view language,
+    const std::filesystem::path& data_root) {
+  QString suffix;
+  QString executable;
+  if (language == "cpp") { suffix = QStringLiteral("CPP"); executable = QStringLiteral("g++.exe"); }
+  else if (language == "java") { suffix = QStringLiteral("JAVA"); executable = QStringLiteral("java.exe"); }
+  else if (language == "python") { suffix = QStringLiteral("PYTHON"); executable = QStringLiteral("python.exe"); }
+  else if (language == "javascript") { suffix = QStringLiteral("JAVASCRIPT"); executable = QStringLiteral("node.exe"); }
+  else return {};
+  const auto environment = QProcessEnvironment::systemEnvironment();
+  const auto override = environment.value(QStringLiteral("CODEWEAVE_NATIVE_") + suffix +
+      QStringLiteral("_TOOL"));
+  if (!override.isEmpty()) return std::filesystem::path(override.toStdWString());
+
+  const auto settings_path = data_root / "tools.ini";
+  QSettings settings(QString::fromStdWString(settings_path.wstring()), QSettings::IniFormat);
+  const auto stored = settings.value(QStringLiteral("tools/") +
+      QString::fromUtf8(language.data(), static_cast<int>(language.size()))).toString();
+  if (!stored.isEmpty()) return std::filesystem::path(stored.toStdWString());
+
+  const auto path_value = environment.value(QStringLiteral("PATH"));
+  for (const auto& entry : path_value.split(';', Qt::SkipEmptyParts)) {
+    auto directory = entry.trimmed();
+    if (directory.size() >= 2 && directory.front() == QLatin1Char('"') &&
+        directory.back() == QLatin1Char('"')) directory = directory.mid(1, directory.size() - 2);
+    if (directory.isEmpty() || directory.contains(QStringLiteral("WindowsApps"))) continue;
+    const auto candidate = std::filesystem::path(directory.toStdWString()) /
+        executable.toStdWString();
+    std::error_code error;
+    if (candidate.is_absolute() && std::filesystem::is_regular_file(candidate, error)) return candidate;
+  }
+  return {};
+}
+
 int main(int argc, char* argv[]) {
   QGuiApplication application(argc, argv);
   QQuickStyle::setStyle(QStringLiteral("Basic"));
   UiShell shell;
+  const auto workspace = QProcessEnvironment::systemEnvironment().value(
+      QStringLiteral("CODEWEAVE_NATIVE_WORKSPACE"), QCoreApplication::applicationDirPath());
+  const auto localAppData = QProcessEnvironment::systemEnvironment().value(
+      QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+  const auto nativeData = QDir(localAppData).filePath(QStringLiteral("CodeWeave"));
+  shell.configureAccountStorage(workspace.toStdWString(), nativeData.toStdWString());
+  const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
+  for (const auto language : {std::string_view("cpp"), std::string_view("java"),
+                              std::string_view("python"), std::string_view("javascript")}) {
+    shell.configureExecutionTool(QString::fromUtf8(language.data(),
+        static_cast<int>(language.size())), configured_tool(language, nativeDataPath));
+  }
   const auto contentRoot = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("content"));
   shell.loadPublishedContent(contentRoot);
   ShellView view(shell);

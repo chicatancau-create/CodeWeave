@@ -2,10 +2,13 @@
 
 #include "account_service.hpp"
 #include "backend_task_service.hpp"
+#include "execution_service.hpp"
 
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <atomic>
+#include <unordered_map>
 
 class UiShell final : public QObject {
   Q_OBJECT
@@ -29,6 +32,15 @@ class UiShell final : public QObject {
   Q_PROPERTY(bool hasSelectedContent READ hasSelectedContent NOTIFY selectedContentChanged)
   Q_PROPERTY(QString contentStatus READ contentStatus NOTIFY contentStatusChanged)
   Q_PROPERTY(bool contentBusy READ contentBusy NOTIFY contentBusyChanged)
+  Q_PROPERTY(bool accountBusy READ accountBusy NOTIFY accountBusyChanged)
+  Q_PROPERTY(QString accountStatus READ accountStatus NOTIFY accountStatusChanged)
+  Q_PROPERTY(QString accountName READ accountName NOTIFY accountChanged)
+  Q_PROPERTY(QString hints READ hints NOTIFY hintsChanged)
+  Q_PROPERTY(QString operationStatus READ operationStatus NOTIFY operationStatusChanged)
+  Q_PROPERTY(bool operationBusy READ operationBusy NOTIFY operationBusyChanged)
+  Q_PROPERTY(bool executionBusy READ executionBusy NOTIFY executionBusyChanged)
+  Q_PROPERTY(bool executionPaused READ executionPaused NOTIFY executionStateChanged)
+  Q_PROPERTY(QString executionOutput READ executionOutput NOTIFY executionOutputChanged)
 
  public:
   explicit UiShell(QObject* parent = nullptr);
@@ -37,6 +49,7 @@ class UiShell final : public QObject {
   [[nodiscard]] QString appTitle() const;
   [[nodiscard]] QString currentPage() const;
   [[nodiscard]] QStringList publishedTitles() const;
+  [[nodiscard]] QStringList publishedIds() const { return published_ids_; }
   [[nodiscard]] QString selectedContentBody() const;
   [[nodiscard]] QString starterLanguage() const;
   [[nodiscard]] QString starterCode() const;
@@ -54,6 +67,15 @@ class UiShell final : public QObject {
   [[nodiscard]] bool draftPersistenceBlocked() const;
   [[nodiscard]] QString contentStatus() const;
   [[nodiscard]] bool contentBusy() const;
+  [[nodiscard]] bool accountBusy() const;
+  [[nodiscard]] QString accountStatus() const;
+  [[nodiscard]] QString accountName() const;
+  [[nodiscard]] QString hints() const { return hints_; }
+  [[nodiscard]] QString operationStatus() const { return operation_status_; }
+  [[nodiscard]] bool operationBusy() const { return operation_busy_; }
+  [[nodiscard]] bool executionBusy() const { return execution_busy_; }
+  [[nodiscard]] bool executionPaused() const { return execution_control_.is_paused(); }
+  [[nodiscard]] QString executionOutput() const { return execution_output_; }
 
   Q_INVOKABLE void reloadPublishedContent();
   Q_INVOKABLE void openPublishedContent(int index);
@@ -62,12 +84,32 @@ class UiShell final : public QObject {
   Q_INVOKABLE void resetDraftCode();
   Q_INVOKABLE void saveDraft();
   void loadPublishedContent(const QString& root);
+  void configureAccountStorage(const std::filesystem::path& workspace,
+      const std::filesystem::path& nativeDataRoot);
   // Trusted C++ session boundary; never invokable from QML.
   bool setAccountContext(const codeweave::account::AccountService& session,
       const std::filesystem::path& workspace, const std::filesystem::path& nativeDataRoot);
   bool clearAccountContext();
   Q_INVOKABLE void discardDraftChanges();
   Q_INVOKABLE bool requestClose();
+  Q_INVOKABLE void login(const QString& identifier, const QString& password);
+  Q_INVOKABLE void registerAccount(const QString& name, const QString& identifier,
+      const QString& password);
+  Q_INVOKABLE void logout();
+  Q_INVOKABLE void loadHints();
+  Q_INVOKABLE void saveExternalEvidence(const QString& environment, const QString& command,
+      const QString& summary, const QString& artifactRef, const QString& reproducedOn);
+  Q_INVOKABLE void runCode();
+  Q_INVOKABLE void cancelExecution();
+  Q_INVOKABLE void pauseExecution();
+  Q_INVOKABLE void resumeExecution();
+  Q_INVOKABLE void stepExecution();
+
+  // Trusted host configuration; QML never supplies filesystem paths or tool paths.
+  // The executable is selected by the native host for the current language.
+  void configureExecutionTool(const QString& language, const std::filesystem::path& tool);
+  bool createBackup(const std::filesystem::path& source, const std::filesystem::path& target);
+  bool restoreBackup(const std::filesystem::path& backup, const std::filesystem::path& target);
 
   Q_INVOKABLE void selectPage(const QString& page);
 
@@ -84,12 +126,27 @@ class UiShell final : public QObject {
   void draftPersistenceBlockedChanged();
   void contentStatusChanged();
   void contentBusyChanged();
+  void accountBusyChanged();
+  void accountStatusChanged();
+  void hintsChanged();
+  void operationStatusChanged();
+  void operationBusyChanged();
+  void executionBusyChanged();
+  void executionStateChanged();
+  void executionOutputChanged();
 
  private:
   void clearDraft();
   void loadAccountDraft();
   bool allowDocumentChange();
   void setStatus(const QString& status);
+  // 进入 Closing、对在飞任务发取消、泵事件直到 worker 停止，然后才回收。
+  // 返回 false 表示预算内没停干净。
+  bool drain_backend_tasks(int budget_ms = 5000);
+  void setAccountStatus(const QString& status);
+  void authenticate(const QString& name, const QString& identifier,
+      const QString& password, bool registration);
+  void setOperationStatus(const QString& status);
   QString current_page_;
   QStringList published_titles_;
   QStringList published_ids_;
@@ -102,14 +159,28 @@ class UiShell final : public QObject {
   QString draft_saved_code_;
   QString selected_content_id_;
   QString active_account_id_;
+  QString account_status_;
+  QString hints_;
+  QString operation_status_;
+  QString execution_output_;
+  std::unordered_map<std::string, std::filesystem::path> execution_tools_;
+  std::atomic_bool execution_cancelled_{false};
+  codeweave::execution::ExecutionControl execution_control_;
+  bool execution_busy_{};
+  bool operation_busy_{};
+  bool closing_{};
   std::filesystem::path workspace_root_;
+  std::filesystem::path native_data_root_;
   std::filesystem::path data_root_;
   std::shared_ptr<codeweave::app::ApplicationCore> personal_core_;
+  std::shared_ptr<codeweave::account::AccountStore> account_store_;
+  std::unique_ptr<codeweave::account::AccountService> account_service_;
   std::uint64_t account_generation_{};
   std::uint64_t draft_revision_{};
   std::uint64_t saved_revision_{};
   bool draft_saving_{};
   bool draft_persistence_blocked_{};
+  bool account_busy_{};
   int selected_content_index_{-1};
   QString content_status_;
   QString content_root_;

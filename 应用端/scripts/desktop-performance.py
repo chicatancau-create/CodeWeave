@@ -32,8 +32,11 @@ def visible_window(pids, kind):
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
         name = ctypes.create_unicode_buffer(256)
         user32.GetClassNameW(hwnd, name, len(name))
-        expected = 'CodeWeaveNativeWindow' if kind == 'native' else 'Chrome_WidgetWin_1'
-        if pid.value in pids and name.value == expected and user32.IsWindowVisible(hwnd):
+        expected = {'native': 'CodeWeaveNativeWindow', 'electron': 'Chrome_WidgetWin_1'}.get(kind)
+        owned = pid.value in pids and user32.IsWindowVisible(hwnd)
+        # Qt window classes vary by Qt/Windows build; ownership plus visibility
+        # is the stable contract for this isolated benchmark.
+        if owned and (expected is None or name.value == expected):
             found.append(hwnd)
         return True
     user32.EnumWindows(visit, 0)
@@ -48,7 +51,10 @@ def tree(parent):
 def sample(exe, kind, workspace, profile):
     env = {k: v for k, v in os.environ.items() if not k.startswith('CODEWEAVE_')}
     env.pop('ELECTRON_RUN_AS_NODE', None)
-    env.update(CODEWEAVE_DESKTOP_WORKSPACE=str(workspace),
+    env.update(LOCALAPPDATA=str(workspace / 'localappdata'),
+               APPDATA=str(workspace / 'appdata'),
+               QT_QPA_PLATFORM='windows',
+               CODEWEAVE_DESKTOP_WORKSPACE=str(workspace),
                CODEWEAVE_DESKTOP_PROFILE=str(profile),
                CODEWEAVE_NATIVE_WORKSPACE=str(workspace),
                CODEWEAVE_NATIVE_DATA_ROOT=str(workspace / 'native-data'))
@@ -101,8 +107,9 @@ def sample(exe, kind, workspace, profile):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--electron', type=Path, required=True)
+    parser.add_argument('--electron', type=Path, help='optional legacy Electron executable')
     parser.add_argument('--native', type=Path, required=True)
+    parser.add_argument('--qt', type=Path, help='optional Qt deployment executable')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     root = Path(tempfile.mkdtemp(prefix='cw-visible-benchmark-'))
@@ -113,13 +120,21 @@ def main():
                   unmeasured=['OS cold startup', 'course loading', 'editor latency', 'cancel latency'],
                   executables={}, samples=[])
     try:
-        for kind in ['electron', 'native']:
+        kinds = ['native']
+        if args.electron is not None:
+            kinds.insert(0, 'electron')
+        if args.qt is not None:
+            kinds.append('qt')
+        for kind in kinds:
             exe = getattr(args, kind).resolve()
             result['executables'][kind] = dict(path=str(exe), sha256=hashlib.sha256(exe.read_bytes()).hexdigest())
         for phase, count in [('fresh-profile', 5), ('warm-profile', 10)]:
             for index in range(count):
                 # Alternate order to reduce persistent first-run bias.
-                for kind in (['electron', 'native'] if index % 2 == 0 else ['native', 'electron']):
+                order = list(kinds)
+                if index % 2:
+                    order.reverse()
+                for kind in order:
                     fixture = root / (f'{kind}-{phase}-{index}' if phase == 'fresh-profile' else f'{kind}-warm')
                     workspace = fixture / 'workspace'
                     (workspace / 'config').mkdir(parents=True, exist_ok=True)

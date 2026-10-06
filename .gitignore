@@ -59,3 +59,6 @@ Thumbs.db
 
 # 代理/工具配置目录，不入库
 .claude/
+
+# Local Qt preview shortcut (machine-specific installed path)
+/CodeWeave Qt 预览.lnk

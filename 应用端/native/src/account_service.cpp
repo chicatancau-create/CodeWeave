@@ -72,6 +72,13 @@ app::Result AccountService::logout() {
   return app::Result::success("已退出原生账户");
 }
 
+app::Result AccountService::adopt_authenticated_record(Record record) {
+  const auto valid = validate(record);
+  if (!valid.ok) return app::Result::failure("认证账户记录无效");
+  current_ = std::move(record);
+  return app::Result::success("认证会话已接管");
+}
+
 app::Result AccountService::learning_data_root(
     const std::filesystem::path& native_data_root,
     std::filesystem::path& result) const {
