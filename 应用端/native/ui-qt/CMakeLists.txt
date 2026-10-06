@@ -18,6 +18,8 @@ qt_add_executable(codeweave-qt
   platform/ui_main.cpp
   facade/ui_shell.cpp
   facade/ui_shell_draft.cpp
+  facade/ui_shell_account.cpp
+  facade/ui_shell_operations.cpp
   facade/ui_shell.hpp
 )
 
@@ -30,6 +32,22 @@ add_library(codeweave-content-qt STATIC
   ../src/content_contract.cpp
   ../src/content_repository.cpp
   ../src/backend_task_service.cpp
+  ../src/learning_contract.cpp
+  ../src/evidence_store.cpp
+  ../src/external_evidence_service.cpp
+  ../src/progress_store.cpp
+  ../src/review_service.cpp
+  ../src/legacy_import.cpp
+  ../src/challenge_service.cpp
+  ../src/backup_service.cpp
+  ../src/content_access.cpp
+  ../src/execution_contract.cpp
+  ../src/process_contract.cpp
+  ../src/execution_plan.cpp
+  ../src/process_runner.cpp
+  ../src/execution_service.cpp
+  ../src/trace_contract.cpp
+  ../src/trace_store.cpp
 )
 set_target_properties(codeweave-content-qt PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 target_include_directories(codeweave-content-qt PUBLIC ../src)
@@ -51,6 +69,9 @@ qt_add_qml_module(codeweave-qt
 
 target_include_directories(codeweave-qt PRIVATE facade)
 target_link_libraries(codeweave-qt PRIVATE Qt6::Quick Qt6::Qml Qt6::QuickControls2 codeweave-content-qt)
+if (WIN32)
+  target_link_libraries(codeweave-qt PRIVATE ole32 shell32 uuid)
+endif()
 if (MSVC)
   target_compile_options(codeweave-qt PRIVATE /W4 /permissive- /EHsc /utf-8)
 endif()
@@ -71,19 +92,36 @@ add_custom_target(codeweave-qt-deploy
     -OutputDir "${CMAKE_BINARY_DIR}/qt-deploy"
     -QmlDir "${CMAKE_CURRENT_SOURCE_DIR}/qml"
     -ContentDir "${CODEWEAVE_CONTENT_DIR}"
+    -ConfigDir "${CMAKE_SOURCE_DIR}/../../config"
     -QtBin "${CODEWEAVE_QT_BIN}"
   DEPENDS codeweave-qt
   VERBATIM
 )
 
 if (BUILD_TESTING)
+  find_program(CODEWEAVE_QT_TEST_CPP_TOOL NAMES g++.exe clang++.exe cl.exe)
+  find_program(CODEWEAVE_QT_TEST_JAVA_TOOL NAMES java.exe)
+  find_program(CODEWEAVE_QT_TEST_PYTHON_TOOL NAMES python.exe python3.exe)
+  find_program(CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL NAMES node.exe)
   add_executable(codeweave-qt-facade-tests
-    tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell.hpp)
+    tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell_account.cpp
+    facade/ui_shell_operations.cpp facade/ui_shell.hpp)
   target_include_directories(codeweave-qt-facade-tests PRIVATE facade)
   target_link_libraries(codeweave-qt-facade-tests PRIVATE Qt6::Core codeweave-content-qt)
   if (MSVC)
     target_compile_options(codeweave-qt-facade-tests PRIVATE /UNDEBUG /utf-8 /W4)
   endif()
-  add_test(NAME qt-facade COMMAND ${CMAKE_COMMAND} -E env
-    "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-qt-facade-tests> "${CODEWEAVE_CONTENT_DIR}")
+  if (CODEWEAVE_QT_TEST_CPP_TOOL AND CODEWEAVE_QT_TEST_JAVA_TOOL AND
+      CODEWEAVE_QT_TEST_PYTHON_TOOL AND CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL)
+    add_test(NAME qt-facade COMMAND ${CMAKE_COMMAND} -E env
+      "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-qt-facade-tests>
+      "${CODEWEAVE_CONTENT_DIR}" "${CODEWEAVE_QT_TEST_CPP_TOOL}"
+      "${CODEWEAVE_QT_TEST_JAVA_TOOL}" "${CODEWEAVE_QT_TEST_PYTHON_TOOL}"
+      "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}")
+  else()
+    add_test(NAME qt-facade COMMAND ${CMAKE_COMMAND} -E env
+      "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-qt-facade-tests>
+      "${CODEWEAVE_CONTENT_DIR}" "" "" "" "")
+    set_tests_properties(qt-facade PROPERTIES LABELS "tools-unavailable")
+  endif()
 endif()

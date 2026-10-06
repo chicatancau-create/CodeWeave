@@ -1,5 +1,7 @@
 # CodeWeave 应用端
 
+当前 Qt 预览入口：项目根目录 `CodeWeave Qt 预览.lnk`，指向 `%LOCALAPPDATA%/Programs/CodeWeave/CodeWeaveQtShell.exe`。2026-10-06 已实际安装并验证窗口启动。根目录 `CodeWeave.exe` 仍是 Win32 回滚版本，双击它会显示旧界面。Qt 已有四页功能骨架，尚未完整复刻原版视觉；详见 `工程文件/Qt发布候选清单.md`。
+
 应用端现在由 C++23/Win32 原生程序提供。根目录 `G:/CodeWeave/CodeWeave.exe` 与 `应用端/dist/native-final-20261005-r4/CodeWeave.exe` 是同一份已签名便携交付；运行不启动 Node、浏览器、网页服务器或 TCP 端口。
 
 交付目录必须保留 `CodeWeave.exe`、`content/` 和 `config/codeweave.config.example.json`。课程内容包包含 61 条课程、13 条挑战、13 个阶段、starter 代码、提示和运行策略。用户数据默认写入 `%LOCALAPPDATA%/CodeWeave`，按账户分目录保存；旧数据只能通过“数据”菜单主动导入或恢复到新目录。

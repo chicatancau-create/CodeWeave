@@ -16,6 +16,9 @@ class AccountService final {
   app::Result login(std::string_view identifier, std::string_view password);
   app::Result change_password(std::string_view current_password, std::string_view new_password);
   app::Result logout();
+  // Used by a UI adapter after a worker has authenticated the record. The
+  // adapter must only pass a record returned by this service's store.
+  app::Result adopt_authenticated_record(Record record);
   // Resolve an account-owned learning root without creating it. Callers must
   // snapshot this before constructing learning stores; no-session access fails
   // closed instead of falling back to a shared ledger.

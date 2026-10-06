@@ -2,7 +2,14 @@
 
 #include "content_repository.hpp"
 
+#include <QEventLoop>
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMetaObject>
+#include <QTimer>
 
 #include <filesystem>
 #include <memory>
@@ -12,9 +19,33 @@ UiShell::UiShell(QObject* parent)
     : QObject(parent), current_page_(QStringLiteral("学习")),
       content_status_(QStringLiteral("尚未加载课程内容")), backend_tasks_(4) {}
 
-UiShell::~UiShell() {
+// §14.5 要求：关闭时进入 Closing、对在飞任务发取消、**同时保持事件泵**，
+// 只有 worker 真停了才回收线程与服务。
+// 改之前是析构里 close() + wait_closed()：close() 不取消在飞任务，wait_closed()
+// 又在 UI 线程直接 join，于是冻结时长等于任务完整时长（备份/派生都是几百毫秒起）。
+bool UiShell::drain_backend_tasks(int budget_ms) {
+  closing_ = true;
+  execution_cancelled_.store(true, std::memory_order_release);
   backend_tasks_.close();
+  if (!backend_tasks_.stopped()) {
+    QEventLoop pump;
+    QTimer tick;
+    QObject::connect(&tick, &QTimer::timeout, &pump, [this, &pump] {
+      if (backend_tasks_.stopped()) pump.quit();
+    });
+    tick.start(15);
+    QTimer::singleShot(budget_ms, &pump, &QEventLoop::quit);
+    pump.exec();
+  }
+  if (!backend_tasks_.stopped()) return false;
   backend_tasks_.wait_closed();
+  return true;
+}
+
+UiShell::~UiShell() {
+  // 析构阶段没有可泵的事件循环宿主了，给足预算；超时也要走 wait_closed()，
+  // 因为 backend_tasks_ 作为成员随后会自己等 stopped 并 join —— 提前收干净是唯一选择。
+  if (!drain_backend_tasks(5000)) backend_tasks_.wait_closed();
 }
 
 QString UiShell::appTitle() const { return QStringLiteral("CodeWeave"); }
@@ -51,6 +82,44 @@ bool UiShell::contentBusy() const { return content_busy_; }
 
 void UiShell::loadPublishedContent(const QString& root) {
   content_root_ = root;
+  // Load lesson metadata from curriculum.v1.json adjacent to the content dir.
+  // This is the full curriculum object including description, level, languageLabel,
+  // and flow nodes — needed for the rich homepage cards and the execution canvas.
+  // The catalog.v1.tsv only has id/title/status/language, so we read the JSON.
+  QFile curriculum_file(QDir(root).filePath(QStringLiteral("curriculum.v1.json")));
+  if (curriculum_file.open(QIODevice::ReadOnly)) {
+    const auto doc = QJsonDocument::fromJson(curriculum_file.readAll());
+    const auto lessons = doc.object().value(QStringLiteral("lessons")).toArray();
+    QVariantList meta;
+    for (const auto& entry : lessons) {
+      const auto obj = entry.toObject();
+      QVariantMap m;
+      m[QStringLiteral("id")] = obj.value(QStringLiteral("id")).toString();
+      m[QStringLiteral("label")] = obj.value(QStringLiteral("label")).toString();
+      m[QStringLiteral("title")] = obj.value(QStringLiteral("title")).toString();
+      m[QStringLiteral("description")] = obj.value(QStringLiteral("description")).toString();
+      m[QStringLiteral("language")] = obj.value(QStringLiteral("language")).toString();
+      m[QStringLiteral("languageLabel")] = obj.value(QStringLiteral("languageLabel")).toString();
+      m[QStringLiteral("level")] = obj.value(QStringLiteral("level")).toString();
+      m[QStringLiteral("duration")] = obj.value(QStringLiteral("duration")).toString();
+      // Flatten flow nodes to a QVariantList so QML can render the canvas skeleton.
+      const auto flow_arr = obj.value(QStringLiteral("flow")).toArray();
+      QVariantList flow;
+      for (const auto& fn : flow_arr) {
+        const auto fn_obj = fn.toObject();
+        QVariantMap node;
+        node[QStringLiteral("id")] = fn_obj.value(QStringLiteral("id")).toString();
+        node[QStringLiteral("label")] = fn_obj.value(QStringLiteral("label")).toString();
+        node[QStringLiteral("kind")] = fn_obj.value(QStringLiteral("kind")).toString();
+        node[QStringLiteral("tone")] = fn_obj.value(QStringLiteral("tone")).toString();
+        node[QStringLiteral("line")] = fn_obj.value(QStringLiteral("line")).toInt();
+        flow.append(node);
+      }
+      m[QStringLiteral("flow")] = flow;
+      meta.append(m);
+    }
+    lesson_meta_ = meta;
+  }
   reloadPublishedContent();
 }
 
@@ -65,8 +134,14 @@ void UiShell::reloadPublishedContent() {
   struct ListedContent { QString id; QString title; };
   const auto listed = std::make_shared<std::vector<ListedContent>>();
   const auto task_id = QStringLiteral("qt-content-%1").arg(next_task_id_++).toStdString();
+  // 内容链此前不带代次：账户切换后，上一个账户排队的回调仍会无条件覆盖课程清单。
+  // 草稿链已有同款守卫（见 ui_shell_draft.cpp），这里补齐以统一口径。
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
   codeweave::backend::TaskRequest request;
   request.task_id = task_id;
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Read;
   request.work = [root, listed](const codeweave::backend::CancellationToken& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
@@ -82,9 +157,15 @@ void UiShell::reloadPublishedContent() {
     return result;
   };
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, listed](codeweave::backend::TaskResult result) mutable {
+      [this, listed, account, generation](codeweave::backend::TaskResult result) mutable {
         QMetaObject::invokeMethod(this,
-            [this, listed, result = std::move(result)]() mutable {
+            [this, listed, account, generation, result = std::move(result)]() mutable {
+              if (account != active_account_id_ || generation != account_generation_) {
+                // 账户已切换：丢弃旧视图，只把自己占用的忙碌位交还当前账户。
+                content_busy_ = false;
+                emit contentBusyChanged();
+                return;
+              }
               content_busy_ = false;
               if (result.result.ok) {
                 QStringList next_titles;
@@ -137,8 +218,13 @@ void UiShell::openPublishedContent(int index) {
   clearDraft();
   if (selection_changed) emit selectedContentChanged();
   const auto body = std::make_shared<QString>();
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto expected_id = selected_content_id_;
   codeweave::backend::TaskRequest request;
   request.task_id = QStringLiteral("qt-body-%1").arg(next_task_id_++).toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Read;
   request.work = [root, content_id, body](const codeweave::backend::CancellationToken& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
@@ -148,8 +234,15 @@ void UiShell::openPublishedContent(int index) {
     return result;
   };
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, body](codeweave::backend::TaskResult result) mutable {
-        QMetaObject::invokeMethod(this, [this, body, result = std::move(result)]() mutable {
+      [this, body, account, generation, expected_id](codeweave::backend::TaskResult result) mutable {
+        QMetaObject::invokeMethod(this, [this, body, account, generation, expected_id,
+            result = std::move(result)]() mutable {
+          if (account != active_account_id_ || generation != account_generation_ ||
+              expected_id != selected_content_id_) {
+            content_busy_ = false;
+            emit contentBusyChanged();
+            return;
+          }
           content_busy_ = false;
           if (result.result.ok) {
             selected_content_body_ = *body;
@@ -183,8 +276,13 @@ void UiShell::loadStarterCode() {
   const auto language = std::make_shared<QString>();
   const auto code = std::make_shared<QString>();
   const auto policy = std::make_shared<QString>();
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto expected_id = selected_id;
   codeweave::backend::TaskRequest request;
   request.task_id = QStringLiteral("qt-starter-%1").arg(next_task_id_++).toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Read;
   request.work = [root, content_id, language, code, policy](const codeweave::backend::CancellationToken& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
@@ -201,9 +299,17 @@ void UiShell::loadStarterCode() {
     return result;
   };
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, language, code, policy](codeweave::backend::TaskResult result) mutable {
-        QMetaObject::invokeMethod(this, [this, language, code, policy,
-            result = std::move(result)]() mutable {
+      [this, language, code, policy, account, generation, expected_id](codeweave::backend::TaskResult result) mutable {
+        QMetaObject::invokeMethod(this, [this, language, code, policy, account, generation,
+            expected_id, result = std::move(result)]() mutable {
+          // 这条回调会覆写 starter/baseline/draft 三组状态并触发 loadAccountDraft()，
+          // 旧账户或旧课程的迟到结果一旦落地就是「A 账户的草稿写进 B 账户视图」。
+          if (account != active_account_id_ || generation != account_generation_ ||
+              expected_id != selected_content_id_) {
+            content_busy_ = false;
+            emit contentBusyChanged();
+            return;
+          }
           content_busy_ = false;
           if (result.result.ok) {
             starter_language_ = *language;
@@ -237,6 +343,7 @@ void UiShell::loadStarterCode() {
 }
 
 void UiShell::updateDraftCode(const QString& code) {
+  if (closing_ || account_busy_) return;
   if (content_busy_ || draft_persistence_blocked_ || starter_language_.isEmpty() || draft_code_ == code) return;
   const auto was_dirty = draftDirty();
   draft_code_ = code;

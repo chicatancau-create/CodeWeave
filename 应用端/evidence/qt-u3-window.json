@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-06",
+  "exe": "G:/CodeWeave-qt/build-msvc/qt-deploy/CodeWeaveQtShell.exe",
+  "checks": [
+    "real window",
+    "published content",
+    "content body",
+    "starter code",
+    "account controls visible"
+  ],
+  "sha256": "BC0B2513C25342883C0F88372017C5C44F909B0251325FAA33B12A94F09D6B62",
+  "exitCode": 0,
+  "limitations": [
+    "not clean Windows",
+    "no IME/accessibility acceptance",
+    "no performance benchmark",
+    "no installer"
+  ]
+}

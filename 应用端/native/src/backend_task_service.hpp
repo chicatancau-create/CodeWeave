@@ -11,7 +11,7 @@
 
 namespace codeweave::backend {
 
-enum class TaskKind { Read, Account, Backup, Import, Draft };
+enum class TaskKind { Read, Account, Backup, Import, Draft, Evidence, Execute };
 
 class CancellationToken final {
  public:
@@ -52,9 +52,14 @@ class BackendTaskService final {
 
   app::Result submit(TaskRequest request, Completion completion);
   app::Result cancel(std::string_view task_id);
+  // 进入 Closing：拒绝新任务，并对**队列中与正在执行**的任务同时发取消。非阻塞。
   app::Result close();
+  // 阻塞回收 worker。UI 线程不得直接调它等一个未取消的任务（§14.5），
+  // 必须先 close() 再用 idle_stopped() 轮询并保持事件泵。
   app::Result wait_closed();
   [[nodiscard]] bool busy() const;
+  // worker 是否已彻底停止。供 UI 线程「泵事件直到可安全回收」使用。
+  [[nodiscard]] bool stopped() const;
   [[nodiscard]] std::size_t pending() const;
 
  private:
