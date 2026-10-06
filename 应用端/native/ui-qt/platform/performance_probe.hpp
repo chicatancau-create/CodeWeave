@@ -10,6 +10,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QPointer>
 #include <QQuickItem>
 #include <QQuickView>
 #include <QSaveFile>
@@ -21,6 +22,16 @@
 #include <mutex>
 #include <vector>
 
+struct SlowEventSample {
+  double duration_ms{};
+  int type{};
+  QString receiver_class;
+  QString object_name;
+  int depth{};
+  int workload_stage{};
+  double since_measurement_ms{};
+};
+
 inline double probe_clock() {
   return std::chrono::duration<double, std::milli>(
       std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -30,14 +41,28 @@ class MeasuredApplication final : public QGuiApplication {
  public:
   MeasuredApplication(int& argc, char** argv) : QGuiApplication(argc, argv) {}
   bool measuring{};
+  int workload_stage{};
+  double measurement_started{};
   std::vector<double> event_ms;
+  std::vector<SlowEventSample> slow_events;
   bool notify(QObject* receiver, QEvent* event) override {
-    if (!measuring || QThread::currentThread() != thread() || depth_ != 0)
+    if (QThread::currentThread() != thread() || !measuring)
       return QGuiApplication::notify(receiver, event);
+    // DeferredDelete and user callbacks can destroy the receiver during notify.
+    const QPointer<QObject> guarded_receiver(receiver);
+    const int event_type = static_cast<int>(event->type());
     ++depth_;
     const double start = probe_clock();
+    const int stage = workload_stage;
     const bool result = QGuiApplication::notify(receiver, event);
-    event_ms.push_back(probe_clock() - start);
+    const double duration = probe_clock() - start;
+    if (depth_ == 1) event_ms.push_back(duration);
+    if (duration >= 20.0 && slow_events.size() < 64) {
+      slow_events.push_back({duration, event_type,
+          guarded_receiver ? QString::fromLatin1(guarded_receiver->metaObject()->className()) : QStringLiteral("<deleted>"),
+          guarded_receiver ? guarded_receiver->objectName() : QString(),
+          depth_, stage, start - measurement_started});
+    }
     --depth_;
     return result;
   }
@@ -66,6 +91,7 @@ class WindowProbe final : public QObject {
     });
     timer_.setTimerType(Qt::PreciseTimer);
     timer_.start(16);
+    app_.measurement_started = probe_clock();
     app_.measuring = true;
   }
  private:
@@ -86,6 +112,16 @@ class WindowProbe final : public QObject {
       return array;
     };
     report.insert("main_thread_ms", samples(app_.event_ms));
+    QJsonArray slow_events;
+    for (const auto& sample : app_.slow_events) {
+      slow_events.append(QJsonObject{{"duration_ms", sample.duration_ms},
+          {"event_type", sample.type},
+          {"receiver_class", sample.receiver_class},
+          {"object_name", sample.object_name}, {"depth", sample.depth},
+          {"workload_stage", sample.workload_stage},
+          {"since_measurement_ms", sample.since_measurement_ms}});
+    }
+    report.insert("slow_events", slow_events);
     report.insert("cancel_ms", samples(cancels_));
     {
       std::lock_guard lock(mutex_);
@@ -98,6 +134,7 @@ class WindowProbe final : public QObject {
     app_.exit(saved && error.isEmpty() ? 0 : 4);
   }
   void tick() {
+    app_.workload_stage = stage_;
     const double now = probe_clock();
     if (now - entered_ > 45000) { finish(QStringLiteral("window workload timeout at stage %1").arg(stage_)); return; }
     switch (stage_) {

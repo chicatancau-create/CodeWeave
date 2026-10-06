@@ -220,7 +220,15 @@ Rectangle {
                                     font.family: "Cascadia Mono"; font.pixelSize: 14
                                     Accessible.name: "代码编辑器"
                                     background: null
-                                    placeholderText: "读取起始代码后开始编辑"
+                                    // Keep Chinese guidance out of the monospace placeholder layout.
+                                    // Qt 6.8 initializes that fallback synchronously even with nonempty text.
+                                    Text {
+                                        anchors.left: parent.left; anchors.leftMargin: editorArea.leftPadding
+                                        anchors.top: parent.top; anchors.topMargin: editorArea.topPadding
+                                        visible: editorArea.length === 0 && !editorArea.activeFocus
+                                        text: "读取起始代码后开始编辑"
+                                        color: theme.muted; font.pixelSize: 14
+                                    }
                                     onTextChanged: if (activeFocus) uiShell.updateDraftCode(text)
                                 }
                                 }
