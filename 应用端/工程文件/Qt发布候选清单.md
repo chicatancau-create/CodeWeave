@@ -52,6 +52,14 @@ python 应用端/scripts/qt-window-performance.py --exe G:/CodeWeave-qt/gates-fi
 
 后续优先定位主线程长事件并降低 Qt 资源开销；用户未接受取舍之前，不切换根入口。干净系统、旧 UI 视觉、完整 IME/UIA/DPI 与 Qt 许可材料仍是发布前独立门禁。
 
+### 2026-10-06 主线程长事件修复
+
+- [通过] 诊断探针记录了慢事件的接收者、嵌套深度和工作阶段。约 200–287 ms 的长事件稳定出现在首次进入编辑器（stage 4）的 `QQuickWindowIncubationController`，不是执行、账户哈希或端口服务。
+- [通过] 对照实验确认原 `TextArea` 的中文 `placeholderText` 与等宽字体初始化共同触发同步 QML incubation；改为保持原 `TextArea`/滚动/输入契约，只将中文提示移到独立的轻量 `Text`，避免占位文本走编辑器等宽布局初始化。
+- [通过] 修复后窗口探针 3 次合并样本：主线程事件 P95 0.5563 ms、最大 13.9541 ms（预算 16.7 ms）；frameSwapped P95 16.4319 ms（预算 20 ms）；编辑 P95 16.6996 ms（预算 50 ms）；取消 P95 72.5888 ms（预算 100 ms）。证据：`evidence/qt-window-gates-20261006-editor-hint.json`。
+- [通过] 诊断字段保留在 `performance_probe.hpp`，仅 `--benchmark-json` 启用；不会改变正式运行逻辑。frameSwapped 仍是提交帧代理，不是 DWM 实际呈现。
+- [失败] Qt 相对 Win32 的工作集和窗口出现时间门禁仍失败（此前中位数约 +247% / +121.6%），本轮没有放宽预算，也没有替换根目录 Win32 EXE。
+
 ### 本轮临时产物处置
 
 测试自建的 `cw-install-transaction-*`、`codeweave-lifecycle-*`、窗口探针临时数据由各脚本正常清理；最终部署、包、安装器和仓库 evidence 保留用于复现。以下均已核验位于 `G:/CodeWeave-qt` 的直接子路径且非 reparse point，但自动审批拒绝批量删除，仅返回 `blocked by policy`，因此保留：
