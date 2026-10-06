@@ -3,6 +3,11 @@
 #include "content_repository.hpp"
 
 #include <QEventLoop>
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMetaObject>
 #include <QTimer>
 
@@ -77,6 +82,44 @@ bool UiShell::contentBusy() const { return content_busy_; }
 
 void UiShell::loadPublishedContent(const QString& root) {
   content_root_ = root;
+  // Load lesson metadata from curriculum.v1.json adjacent to the content dir.
+  // This is the full curriculum object including description, level, languageLabel,
+  // and flow nodes — needed for the rich homepage cards and the execution canvas.
+  // The catalog.v1.tsv only has id/title/status/language, so we read the JSON.
+  QFile curriculum_file(QDir(root).filePath(QStringLiteral("curriculum.v1.json")));
+  if (curriculum_file.open(QIODevice::ReadOnly)) {
+    const auto doc = QJsonDocument::fromJson(curriculum_file.readAll());
+    const auto lessons = doc.object().value(QStringLiteral("lessons")).toArray();
+    QVariantList meta;
+    for (const auto& entry : lessons) {
+      const auto obj = entry.toObject();
+      QVariantMap m;
+      m[QStringLiteral("id")] = obj.value(QStringLiteral("id")).toString();
+      m[QStringLiteral("label")] = obj.value(QStringLiteral("label")).toString();
+      m[QStringLiteral("title")] = obj.value(QStringLiteral("title")).toString();
+      m[QStringLiteral("description")] = obj.value(QStringLiteral("description")).toString();
+      m[QStringLiteral("language")] = obj.value(QStringLiteral("language")).toString();
+      m[QStringLiteral("languageLabel")] = obj.value(QStringLiteral("languageLabel")).toString();
+      m[QStringLiteral("level")] = obj.value(QStringLiteral("level")).toString();
+      m[QStringLiteral("duration")] = obj.value(QStringLiteral("duration")).toString();
+      // Flatten flow nodes to a QVariantList so QML can render the canvas skeleton.
+      const auto flow_arr = obj.value(QStringLiteral("flow")).toArray();
+      QVariantList flow;
+      for (const auto& fn : flow_arr) {
+        const auto fn_obj = fn.toObject();
+        QVariantMap node;
+        node[QStringLiteral("id")] = fn_obj.value(QStringLiteral("id")).toString();
+        node[QStringLiteral("label")] = fn_obj.value(QStringLiteral("label")).toString();
+        node[QStringLiteral("kind")] = fn_obj.value(QStringLiteral("kind")).toString();
+        node[QStringLiteral("tone")] = fn_obj.value(QStringLiteral("tone")).toString();
+        node[QStringLiteral("line")] = fn_obj.value(QStringLiteral("line")).toInt();
+        flow.append(node);
+      }
+      m[QStringLiteral("flow")] = flow;
+      meta.append(m);
+    }
+    lesson_meta_ = meta;
+  }
   reloadPublishedContent();
 }
 
