@@ -34,8 +34,8 @@ Rectangle {
         readonly property color accentDim:   "#0d4f5c"
         // Text — --ds-text-primary / secondary / tertiary
         readonly property color text:        "#e8eef7"
-        readonly property color muted:       "rgba(224,234,248,0.6)"
-        readonly property color faint:       "rgba(224,234,248,0.36)"
+        readonly property color muted:       "#99e0eaf8"   // rgba(224,234,248,0.60)
+        readonly property color faint:       "#5ce0eaf8"   // rgba(224,234,248,0.36)
         // Semantic status — --ds-status-*
         readonly property color success:     "#3fd3a4"
         readonly property color warning:     "#ffc457"
@@ -52,6 +52,7 @@ Rectangle {
         readonly property string sans: "Segoe UI Variable, Segoe UI, Microsoft YaHei, sans-serif"
         // Space rhythm (4 pt base, matches --ds-space-*)
         readonly property int sp4: 4;  readonly property int sp8: 8
+        readonly property int sp10: 10
         readonly property int sp12: 12; readonly property int sp16: 16
         readonly property int sp20: 20; readonly property int sp24: 24
     }
@@ -461,7 +462,6 @@ Rectangle {
                                     wrapMode: TextArea.NoWrap
                                     color: ds.text; selectionColor: ds.accentDim
                                     font.family: "Cascadia Mono, Consolas, monospace"; font.pixelSize: 13
-                                    lineHeight: 1.5
                                     background: null
                                     Accessible.name: "代码编辑器"
                                     leftPadding: ds.sp12
@@ -681,7 +681,8 @@ Rectangle {
 
                 // Course grid (2-column)
                 ScrollView {
-                    Layout.preferredWidth: parent.width * 0.58; Layout.fillHeight: true
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.horizontalStretchFactor: 5
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     GridView {
                         id: courseGrid
@@ -776,6 +777,7 @@ Rectangle {
                 // Selected content detail panel
                 Rectangle {
                     Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.horizontalStretchFactor: 4
                     color: ds.panel; radius: 8; border.color: ds.border; border.width: 1
                     ColumnLayout {
                         anchors { fill: parent; margins: ds.sp16 }
@@ -977,17 +979,21 @@ Rectangle {
         id: cwBtn
         property string label: ""
         property bool enabled: true
+        // Primary (accent) styling for the main action on a page.
+        property bool accent: false
         signal clicked
         implicitWidth: btnLabel.implicitWidth + ds.sp16 * 2
         implicitHeight: 32
         radius: 4
-        color: btnMa.containsPress ? Qt.darker(ds.accent, 1.4) :
-               btnMa.containsMouse ? Qt.alpha(ds.accent, 0.18) : ds.panelRaised
-        border.color: cwBtn.enabled ? (btnMa.containsMouse ? ds.accent : ds.border) : ds.border
+        color: btnMa.containsPress ? Qt.darker(cwBtn.accent ? ds.accent : ds.border, 1.4) :
+               btnMa.containsMouse ? Qt.alpha(ds.accent, cwBtn.accent ? 0.28 : 0.18) :
+               (cwBtn.accent ? Qt.alpha(ds.accent, 0.16) : ds.panelRaised)
+        border.color: !cwBtn.enabled ? ds.border :
+                      (cwBtn.accent || btnMa.containsMouse) ? ds.accent : ds.border
         opacity: cwBtn.enabled ? 1.0 : 0.4
         Text {
             id: btnLabel; anchors.centerIn: parent
-            text: cwBtn.label; color: ds.text
+            text: cwBtn.label; color: cwBtn.accent ? ds.accent : ds.text
             font.pixelSize: 12; font.family: ds.sans
         }
         MouseArea {
