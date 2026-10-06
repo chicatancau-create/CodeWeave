@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory = $true)] [string] $OutputExe
 )
 $ErrorActionPreference = 'Stop'
+if (Test-Path -LiteralPath $OutputExe) { throw 'Installer output already exists; use a new artifact path.' }
 $package = (Resolve-Path -LiteralPath $PackageDir -ErrorAction Stop).Path
 if (-not (Test-Path -LiteralPath (Join-Path $package 'CodeWeaveQtShell.exe') -PathType Leaf)) { throw 'Qt package executable missing' }
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('codeweave-selfextract-' + [guid]::NewGuid().ToString('N'))

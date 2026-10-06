@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "scope": "isolated synthetic payload; Windows PowerShell installer transaction",
+  "checks": [
+    "initial-install",
+    "corrupt-payload-rejected",
+    "unlisted-payload-rejected",
+    "duplicate-and-traversal-manifest-rejected",
+    "unmanaged-installed-file-preserved",
+    "post-swap-failure-restores-old-version",
+    "upgrade-data-preserved",
+    "explicit-version-rollback-data-preserved"
+  ]
+}

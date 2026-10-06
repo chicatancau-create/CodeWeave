@@ -8,9 +8,16 @@ $ErrorActionPreference = 'Stop'
 $deploy = (Resolve-Path -LiteralPath $DeployDir -ErrorAction Stop).Path
 if (-not (Test-Path -LiteralPath (Join-Path $deploy 'CodeWeaveQtShell.exe') -PathType Leaf)) { throw 'Qt executable missing' }
 $output = [System.IO.Path]::GetFullPath($OutputDir)
-if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
+if ((Test-Path -LiteralPath $output) -and (Get-ChildItem -LiteralPath $output -Force | Select-Object -First 1)) {
+    throw 'Release output must be empty. Refusing to delete an existing directory.'
+}
+if ($output.TrimEnd('\').Equals($deploy.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase) -or
+    $output.StartsWith($deploy.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Release output must not be inside the deployment input.'
+}
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 Get-ChildItem -LiteralPath $deploy -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $output -Recurse -Force }
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'install-qt.ps1') -Destination $output
 # qmltooling contains developer debugger plugins (including qmldbg_tcp); the
 # shipped application never enables QML debugging, so keep it out of runtime.
 $qmlTooling = Join-Path $output 'qmltooling'

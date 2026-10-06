@@ -3,6 +3,7 @@
 #include "account_service.hpp"
 #include "backend_task_service.hpp"
 #include "execution_service.hpp"
+#include "review_service.hpp"
 
 #include <QObject>
 #include <QString>
@@ -41,6 +42,10 @@ class UiShell final : public QObject {
   Q_PROPERTY(bool executionBusy READ executionBusy NOTIFY executionBusyChanged)
   Q_PROPERTY(bool executionPaused READ executionPaused NOTIFY executionStateChanged)
   Q_PROPERTY(QString executionOutput READ executionOutput NOTIFY executionOutputChanged)
+  Q_PROPERTY(QString progressSummary READ progressSummary NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QString reviewSummary READ reviewSummary NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(int executionTimeout READ executionTimeout WRITE setExecutionTimeout NOTIFY executionOptionsChanged)
+  Q_PROPERTY(bool independentAttempt READ independentAttempt WRITE setIndependentAttempt NOTIFY independentAttemptChanged)
 
  public:
   explicit UiShell(QObject* parent = nullptr);
@@ -76,6 +81,12 @@ class UiShell final : public QObject {
   [[nodiscard]] bool executionBusy() const { return execution_busy_; }
   [[nodiscard]] bool executionPaused() const { return execution_control_.is_paused(); }
   [[nodiscard]] QString executionOutput() const { return execution_output_; }
+  [[nodiscard]] QString progressSummary() const { return progress_summary_; }
+  [[nodiscard]] QString reviewSummary() const { return review_summary_; }
+  [[nodiscard]] int executionTimeout() const { return execution_timeout_; }
+  void setExecutionTimeout(int milliseconds);
+  [[nodiscard]] bool independentAttempt() const { return independent_attempt_; }
+  void setIndependentAttempt(bool value);
 
   Q_INVOKABLE void reloadPublishedContent();
   Q_INVOKABLE void openPublishedContent(int index);
@@ -96,6 +107,13 @@ class UiShell final : public QObject {
   Q_INVOKABLE void registerAccount(const QString& name, const QString& identifier,
       const QString& password);
   Q_INVOKABLE void logout();
+  Q_INVOKABLE void changePassword(const QString& currentPassword, const QString& newPassword);
+  Q_INVOKABLE void openFreeProgram(const QString& language);
+  Q_INVOKABLE void requestDataAction(const QString& action);
+  Q_INVOKABLE void requestToolSelection();
+  bool performDataAction(const QString& action, const std::filesystem::path& source,
+      const std::filesystem::path& target);
+  [[nodiscard]] std::filesystem::path nativeDataRoot() const { return native_data_root_; }
   Q_INVOKABLE void loadHints();
   Q_INVOKABLE void saveExternalEvidence(const QString& environment, const QString& command,
       const QString& summary, const QString& artifactRef, const QString& reproducedOn);
@@ -104,6 +122,7 @@ class UiShell final : public QObject {
   Q_INVOKABLE void pauseExecution();
   Q_INVOKABLE void resumeExecution();
   Q_INVOKABLE void stepExecution();
+  Q_INVOKABLE void refreshReviewSummary();
 
   // Trusted host configuration; QML never supplies filesystem paths or tool paths.
   // The executable is selected by the native host for the current language.
@@ -114,6 +133,9 @@ class UiShell final : public QObject {
   Q_INVOKABLE void selectPage(const QString& page);
 
  signals:
+  void dataActionRequested(const QString& action);
+  void toolSelectionRequested(const QString& language);
+  void executionOptionsChanged();
   void currentPageChanged();
   void publishedTitlesChanged();
   void selectedContentBodyChanged();
@@ -134,6 +156,8 @@ class UiShell final : public QObject {
   void executionBusyChanged();
   void executionStateChanged();
   void executionOutputChanged();
+  void reviewSummaryChanged();
+  void independentAttemptChanged();
 
  private:
   void clearDraft();
@@ -163,10 +187,15 @@ class UiShell final : public QObject {
   QString hints_;
   QString operation_status_;
   QString execution_output_;
+  QString progress_summary_;
+  QString review_summary_;
+  bool independent_attempt_{};
+  bool hints_viewed_{};
   std::unordered_map<std::string, std::filesystem::path> execution_tools_;
   std::atomic_bool execution_cancelled_{false};
   codeweave::execution::ExecutionControl execution_control_;
   bool execution_busy_{};
+  int execution_timeout_{30000};
   bool operation_busy_{};
   bool closing_{};
   std::filesystem::path workspace_root_;

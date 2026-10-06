@@ -1,4 +1,6 @@
 #include "ui_shell.hpp"
+#include "performance_probe.hpp"
+#include "native_dialogs.hpp"
 
 #include <QGuiApplication>
 #include <QDir>
@@ -11,6 +13,10 @@
 #include <QStandardPaths>
 #include <QProcessEnvironment>
 #include <QSettings>
+#include <QTemporaryDir>
+#include <QUuid>
+#include <QDesktopServices>
+#include <QUrl>
 
 #include <filesystem>
 #include <string_view>
@@ -62,14 +68,21 @@ std::filesystem::path configured_tool(std::string_view language,
 }
 
 int main(int argc, char* argv[]) {
-  QGuiApplication application(argc, argv);
-  QQuickStyle::setStyle(QStringLiteral("Basic"));
+  const double entered = probe_clock();
+  MeasuredApplication application(argc, argv);
+  const auto arguments = application.arguments();
+  const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
+  if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
+  std::unique_ptr<QTemporaryDir> benchmark_data;
+  if (benchmark >= 0) benchmark_data = std::make_unique<QTemporaryDir>();
   UiShell shell;
   const auto workspace = QProcessEnvironment::systemEnvironment().value(
       QStringLiteral("CODEWEAVE_NATIVE_WORKSPACE"), QCoreApplication::applicationDirPath());
   const auto localAppData = QProcessEnvironment::systemEnvironment().value(
       QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-  const auto nativeData = QDir(localAppData).filePath(QStringLiteral("CodeWeave"));
+  if (benchmark >= 0 && !benchmark_data->isValid()) return 2;
+  const auto nativeData = benchmark >= 0 ? benchmark_data->path() :
+      QDir(localAppData).filePath(QStringLiteral("CodeWeave"));
   shell.configureAccountStorage(workspace.toStdWString(), nativeData.toStdWString());
   const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
   for (const auto language : {std::string_view("cpp"), std::string_view("java"),
@@ -80,6 +93,30 @@ int main(int argc, char* argv[]) {
   const auto contentRoot = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("content"));
   shell.loadPublishedContent(contentRoot);
   ShellView view(shell);
+  QObject::connect(&shell, &UiShell::toolSelectionRequested, &view, [&](const QString& language) {
+    const auto path = choose_native_path(reinterpret_cast<HWND>(view.winId()),
+        L"选择编译器或解释器", false, L"*.exe");
+    if (path.empty()) return;
+    shell.configureExecutionTool(language, path);
+    QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
+    settings.setValue(QStringLiteral("tools/") + language, QString::fromStdWString(path.wstring()));
+  });
+  QObject::connect(&shell, &UiShell::dataActionRequested, &view, [&](const QString& action) {
+    if (action == "open") {
+      QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdWString(shell.nativeDataRoot().wstring())));
+      return;
+    }
+    const auto owner = reinterpret_cast<HWND>(view.winId());
+    std::filesystem::path source;
+    if (action != "backup") {
+      source = choose_native_path(owner, L"选择备份目录或旧数据 JSON", action == "restore", L"*.json");
+      if (source.empty()) return;
+    }
+    const auto parent = choose_native_path(owner, L"选择保存位置（创建新目录，不覆盖已有数据）", true);
+    if (parent.empty()) return;
+    const auto target = parent / (L"CodeWeave-" + QUuid::createUuid().toString(QUuid::Id128).toStdWString());
+    shell.performDataAction(action, source, target);
+  });
   view.setMinimumSize(QSize(960, 720));
   view.setTitle(shell.appTitle());
   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
@@ -88,8 +125,10 @@ int main(int argc, char* argv[]) {
   if (view.status() == QQuickView::Error) return 1;
   view.show();
   // Read-only, real-window smoke. Never creates an account or a data root.
-  const auto arguments = application.arguments();
   const auto smoke = arguments.indexOf(QStringLiteral("--smoke-screenshot"));
+  std::unique_ptr<WindowProbe> probe;
+  if (benchmark >= 0) probe = std::make_unique<WindowProbe>(application, shell, view,
+      arguments.at(benchmark + 1), entered);
   QTimer smoke_timer;
   int smoke_step = 0;
   int smoke_ticks = 0;

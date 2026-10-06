@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string] $Installer,
-    [switch] $IncludeUpgrade
+    [switch] $IncludeUpgrade,
+    [string] $PreviousInstaller = ''
 )
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path $env:TEMP ('codeweave-lifecycle-' + [guid]::NewGuid().ToString('N'))
@@ -15,7 +16,8 @@ try {
     $env:LOCALAPPDATA=$local; $env:APPDATA=$app
     # Keep installer payloads and diagnostics inside this test's cleanup boundary.
     $env:TEMP=$temp; $env:TMP=$temp
-    $p=Start-Process -FilePath $Installer -PassThru
+    $firstInstaller = if ($PreviousInstaller) { $PreviousInstaller } else { $Installer }
+    $p=Start-Process -FilePath $firstInstaller -PassThru
     if(-not $p.WaitForExit(30000)){ $p.Kill(); throw 'install timeout' }
     if($p.ExitCode -ne 0){ throw "install exit $($p.ExitCode)" }
     if (@(Get-ChildItem -LiteralPath $temp -Force).Count -ne 0) { throw 'installer left temporary payloads' }
@@ -33,6 +35,8 @@ try {
         if (@(Get-ChildItem -LiteralPath $temp -Force).Count -ne 0) { throw 'upgrade left temporary payloads' }
         if(-not(Test-Path (Join-Path $data 'sentinel.txt'))){ throw 'user data lost during upgrade' }
         $after = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+        if ($PreviousInstaller -and $before -eq $after) { throw 'Cross-version upgrade did not change application hash' }
+        if ((Get-Content -LiteralPath (Join-Path $data 'sentinel.txt') -Raw).Trim() -ne 'preserve') { throw 'User data changed' }
         Write-Output "UPGRADE=PASS BEFORE_SHA256=$before AFTER_SHA256=$after"
     }
     $env:QT_QPA_PLATFORM='windows'
@@ -53,6 +57,11 @@ try {
     Write-Output 'UNINSTALL=PASS'
     Write-Output 'DATA_PRESERVED=PASS'
     Write-Output 'INSTALLER_TEMP_CLEANUP=PASS'
+}
+catch {
+    Get-ChildItem -LiteralPath $temp -Recurse -Filter 'error.txt' -ErrorAction SilentlyContinue |
+        ForEach-Object { Write-Output (Get-Content -LiteralPath $_.FullName -Raw) }
+    throw
 }
 finally {
     $env:LOCALAPPDATA=$oldLocal; $env:APPDATA=$oldApp; $env:QT_QPA_PLATFORM=$oldPlatform

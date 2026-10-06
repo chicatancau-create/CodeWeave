@@ -198,6 +198,24 @@ void test_backend_task_service_close_cancels_inflight_read() {
   assert(stopped_flag);
 }
 
+void test_worker_cannot_wait_for_itself() {
+  codeweave::backend::BackendTaskService service;
+  std::atomic_bool returned{false};
+  assert(service.submit({"self-close", "", 0, codeweave::backend::TaskKind::Read,
+      [](const auto&) { return codeweave::app::Result::success("done"); }},
+      [&](auto) {
+        assert(service.close().ok);
+        assert(!service.wait_closed().ok);
+        returned.store(true, std::memory_order_release);
+      }).ok);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  while (!returned.load(std::memory_order_acquire) && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  assert(returned.load(std::memory_order_acquire));
+  assert(service.wait_closed().ok);
+}
+
 void test_workspace_can_use_independent_application_data_root() {
   Fixture fixture;
   const auto profile = fixture.root.parent_path() / (fixture.root.filename().string() + "-profile");
@@ -1566,6 +1584,7 @@ int main(int argc, char** argv) {
   test_backend_task_service_is_bounded_cancellable_and_generation_safe();
   test_backend_task_service_keeps_successful_write_when_cancelled();
   test_backend_task_service_close_cancels_inflight_read();
+  test_worker_cannot_wait_for_itself();
   test_workspace_and_draft_round_trip();
   test_workspace_can_use_independent_application_data_root();
   test_workspace_rejects_symlink_data_root();
