@@ -4,9 +4,10 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 
 // ── Design tokens ────────────────────────────────────────────────────────────
-// Off-black canvas (#080d13), cold blue-grey text (#e7f6ff), cyan accent (#36d7ff).
-// Sidebar slightly lighter (#0d151f), panels at #111c28 / #192a3b.
-// Tone colours map to the web frontend's node tone system.
+// Matches the web frontend's tokens.css (EVENT HORIZON sci-fi theme, 2026-10).
+// Canvas: #05070d (cold deep blue-black). Accent: rgb(34,211,238) cold cyan.
+// Text: #e8eef7 (cold white). Panels at #0a0e18 raised / #070a12 overlay.
+// Border: cold blue translucent → resolved to #1c2a3a for QML solid color.
 
 Rectangle {
     id: root
@@ -17,34 +18,39 @@ Rectangle {
     // Keep benchmarkScrolling so the performance probe can drive the list.
     property bool benchmarkScrolling: false
 
-    // ── Token object ─────────────────────────────────────────────────────────
+    // ── Token object — values mirror tokens.css :root ─────────────────────
     QtObject {
         id: ds
-        readonly property color canvas:      "#080d13"
-        readonly property color sidebar:     "#0d151f"
-        readonly property color panel:       "#111c28"
-        readonly property color panelRaised: "#192a3b"
-        readonly property color border:      "#263c50"
-        readonly property color borderFaint: "#182437"
-        readonly property color accent:      "#36d7ff"
-        readonly property color accentDim:   "#1b5f75"
-        readonly property color text:        "#e7f6ff"
-        readonly property color muted:       "#7a9db5"
-        readonly property color faint:       "#3d5a70"
+        // Surfaces (--ds-canvas / --ds-canvas-raised / --ds-canvas-overlay)
+        readonly property color canvas:      "#05070d"
+        readonly property color sidebar:     "#070a12"
+        readonly property color panel:       "#070a12"
+        readonly property color panelRaised: "#0a0e18"
+        // Borders — --ds-line-hair: rgba(140,175,220,0.16) on #05070d → #151d27
+        readonly property color border:      "#1c2a3a"
+        readonly property color borderFaint: "#111820"
+        // Accent — --ds-scene-singularity: rgb(34,211,238)
+        readonly property color accent:      "#22d3ee"
+        readonly property color accentDim:   "#0d4f5c"
+        // Text — --ds-text-primary / secondary / tertiary
+        readonly property color text:        "#e8eef7"
+        readonly property color muted:       "rgba(224,234,248,0.6)"
+        readonly property color faint:       "rgba(224,234,248,0.36)"
+        // Semantic status — --ds-status-*
         readonly property color success:     "#3fd3a4"
         readonly property color warning:     "#ffc457"
         readonly property color danger:      "#ff8371"
-        readonly property color info:        "#4f7cff"
-        // Node tone → fill / stroke
-        readonly property color tonePurple:  "#a78bfa"
-        readonly property color toneBlue:    "#60a5fa"
-        readonly property color toneYellow:  "#fbbf24"
-        readonly property color toneCoral:   "#f87171"
-        readonly property color toneGreen:   "#34d399"
-        // Typography
-        readonly property string mono:       "Cascadia Mono, Consolas, monospace"
-        readonly property string sans:       "Segoe UI Variable, Segoe UI, sans-serif"
-        // Space rhythm (4 pt base)
+        readonly property color info:        "#5b86ff"
+        // Node tones — --ds-scene-nebula / status colours used as tone set
+        readonly property color tonePurple:  "#a78bfa"   // nebula purple
+        readonly property color toneBlue:    "#5b86ff"   // info blue
+        readonly property color toneYellow:  "#ffc457"   // warning amber
+        readonly property color toneCoral:   "#ff8371"   // danger coral
+        readonly property color toneGreen:   "#3fd3a4"   // success teal
+        // Typography — --ds-font-mono / --ds-font-cjk-ui
+        readonly property string mono: "Geist Mono, Cascadia Mono, Consolas, Microsoft YaHei, monospace"
+        readonly property string sans: "Segoe UI Variable, Segoe UI, Microsoft YaHei, sans-serif"
+        // Space rhythm (4 pt base, matches --ds-space-*)
         readonly property int sp4: 4;  readonly property int sp8: 8
         readonly property int sp12: 12; readonly property int sp16: 16
         readonly property int sp20: 20; readonly property int sp24: 24
