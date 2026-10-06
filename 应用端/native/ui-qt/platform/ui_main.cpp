@@ -16,6 +16,7 @@
 #include <QTemporaryDir>
 #include <QUuid>
 #include <QDesktopServices>
+#include <QScreen>
 #include <QUrl>
 
 #include <filesystem>
@@ -117,7 +118,16 @@ int main(int argc, char* argv[]) {
     const auto target = parent / (L"CodeWeave-" + QUuid::createUuid().toString(QUuid::Id128).toStdWString());
     shell.performDataAction(action, source, target);
   });
-  view.setMinimumSize(QSize(960, 720));
+  // The shell layout needs room for the 240px sidebar plus the 286px learning
+  // rail. Below roughly 1100px the hero's copy column starts eliding its title,
+  // so size the window to the screen instead of taking the window manager's
+  // default (which was landing on the 960x720 minimum).
+  view.setMinimumSize(QSize(1100, 720));
+  if (const auto* screen = QGuiApplication::primaryScreen()) {
+    const auto available = screen->availableGeometry();
+    view.resize(qMin(1440, static_cast<int>(available.width() * 0.92)),
+        qMin(900, static_cast<int>(available.height() * 0.92)));
+  }
   view.setTitle(shell.appTitle());
   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
   view.setResizeMode(QQuickView::SizeRootObjectToView);
