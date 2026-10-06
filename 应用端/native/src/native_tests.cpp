@@ -118,6 +118,86 @@ void test_backend_task_service_is_bounded_cancellable_and_generation_safe() {
       [](const auto&) { return codeweave::app::Result::success(); }}, {}).ok);
 }
 
+// 缺陷 B 的回归：work 已经成功落盘、期间又被请求取消时，结论不得被改写成失败。
+// 上面的既有用例让 work 自己在取消时返回 failure，所以恰好测不到这条路径。
+void test_backend_task_service_keeps_successful_write_when_cancelled() {
+  using codeweave::backend::BackendTaskService;
+  using codeweave::backend::TaskKind;
+  std::mutex mutex;
+  std::condition_variable condition;
+  std::vector<codeweave::backend::TaskResult> completed;
+  BackendTaskService service(4);
+  std::atomic_bool entered{false};
+  assert(service.submit({"write-committed", "account-1", 3, TaskKind::Draft,
+      [&](const auto& token) {
+        entered.store(true, std::memory_order_release);
+        condition.notify_all();
+        // 模拟「已经写入之后才被请求取消」：取消发生在副作用完成之后。
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        (void)token;
+        return codeweave::app::Result::success("已写入");
+      }}, [&](auto result) {
+        std::lock_guard lock(mutex);
+        completed.push_back(std::move(result));
+        condition.notify_all();
+      }).ok);
+  {
+    std::unique_lock lock(mutex);
+    assert(condition.wait_for(lock, std::chrono::seconds(2), [&] { return entered.load(); }));
+  }
+  assert(service.cancel("write-committed").ok);
+  {
+    std::unique_lock lock(mutex);
+    assert(condition.wait_for(lock, std::chrono::seconds(3), [&] { return completed.size() == 1; }));
+  }
+  // 副作用已经发生：必须上报成功，同时把「曾被取消」作为观察位保留给调用方。
+  assert(completed[0].result.ok);
+  assert(completed[0].cancelled);
+  assert(service.close().ok);
+  assert(service.wait_closed().ok);
+}
+
+// 缺陷 A 的回归：close() 必须能取消**正在执行**的读任务。
+// 改之前 close() 只遍历 queue，而在飞任务已被弹出，于是关闭要等它自己跑完。
+void test_backend_task_service_close_cancels_inflight_read() {
+  using codeweave::backend::BackendTaskService;
+  using codeweave::backend::TaskKind;
+  BackendTaskService service(4);
+  std::atomic_bool entered{false};
+  std::atomic_bool saw_cancel{false};
+  std::mutex mutex;
+  std::condition_variable condition;
+  bool stopped_flag{};
+  assert(service.submit({"slow-read", "account-1", 1, TaskKind::Read,
+      [&](const auto& token) {
+        entered.store(true, std::memory_order_release);
+        condition.notify_all();
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+        while (!token.cancelled() && std::chrono::steady_clock::now() < deadline) {
+          std::this_thread::yield();
+        }
+        saw_cancel.store(token.cancelled(), std::memory_order_release);
+        return token.cancelled() ? codeweave::app::Result::failure("cancelled")
+                                 : codeweave::app::Result::success("ran to completion");
+      }}, [&](codeweave::backend::TaskResult) {
+        std::lock_guard lock(mutex);
+        stopped_flag = true;
+        condition.notify_all();
+      }).ok);
+  {
+    std::unique_lock lock(mutex);
+    assert(condition.wait_for(lock, std::chrono::seconds(2), [&] { return entered.load(); }));
+  }
+  const auto began = std::chrono::steady_clock::now();
+  assert(service.close().ok);
+  assert(service.wait_closed().ok);
+  const auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - began).count();
+  assert(saw_cancel.load());   // 是 close() 把它停下来的，不是自己熬到超时
+  assert(waited < 2000);       // 关闭等待有界
+  assert(stopped_flag);
+}
+
 void test_workspace_can_use_independent_application_data_root() {
   Fixture fixture;
   const auto profile = fixture.root.parent_path() / (fixture.root.filename().string() + "-profile");
@@ -1484,6 +1564,8 @@ std::filesystem::path sibling_process_tool() {
 
 int main(int argc, char** argv) {
   test_backend_task_service_is_bounded_cancellable_and_generation_safe();
+  test_backend_task_service_keeps_successful_write_when_cancelled();
+  test_backend_task_service_close_cancels_inflight_read();
   test_workspace_and_draft_round_trip();
   test_workspace_can_use_independent_application_data_root();
   test_workspace_rejects_symlink_data_root();
