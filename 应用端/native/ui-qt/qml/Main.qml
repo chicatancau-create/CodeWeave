@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Rectangle {
@@ -23,6 +23,41 @@ Rectangle {
         readonly property color warning: "#ffd166"
     }
     property QtObject theme: themeObject
+    property bool benchmarkScrolling: false
+
+    Dialog {
+        id: passwordDialog
+        title: "修改密码"
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: { uiShell.changePassword(oldPassword.text, newPassword.text); oldPassword.clear(); newPassword.clear() }
+        onRejected: { oldPassword.clear(); newPassword.clear() }
+        contentItem: ColumnLayout {
+            TextField { id: oldPassword; placeholderText: "当前密码"; echoMode: TextInput.Password; Accessible.name: "当前密码" }
+            TextField { id: newPassword; placeholderText: "新密码"; echoMode: TextInput.Password; Accessible.name: "新密码" }
+        }
+    }
+
+    Dialog {
+        id: evidenceDialog
+        title: "记录外部实践证据"
+        anchors.centerIn: parent
+        width: Math.min(620, root.width - 48)
+        modal: true
+        standardButtons: Dialog.Save | Dialog.Cancel
+        onAccepted: uiShell.saveExternalEvidence(environmentField.text, commandField.text,
+            evidenceSummary.text, artifactField.text, dateField.text)
+        contentItem: ColumnLayout {
+            spacing: 10
+            Label { Layout.fillWidth: true; text: "保存为待核验记录，不会自动提升进度。"; wrapMode: Text.WordWrap }
+            TextField { id: environmentField; Layout.fillWidth: true; placeholderText: "环境与版本"; Accessible.name: "外部实践环境与版本" }
+            TextField { id: commandField; Layout.fillWidth: true; placeholderText: "执行命令或操作步骤"; Accessible.name: "外部实践命令" }
+            TextArea { id: evidenceSummary; Layout.fillWidth: true; Layout.preferredHeight: 130; placeholderText: "实际结果与待完成事项"; wrapMode: TextArea.Wrap; Accessible.name: "外部实践结果" }
+            TextField { id: artifactField; Layout.fillWidth: true; placeholderText: "产物引用（可选）"; Accessible.name: "外部实践产物引用" }
+            TextField { id: dateField; Layout.fillWidth: true; text: Qt.formatDate(new Date(), "yyyy-MM-dd"); placeholderText: "复现日期 YYYY-MM-DD"; Accessible.name: "外部实践复现日期" }
+        }
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -40,7 +75,7 @@ Rectangle {
                 Label { text: "原生应用端"; color: theme.accent; font.pixelSize: 12 }
                 Rectangle { Layout.fillWidth: true; height: 1; color: theme.border }
                 Repeater {
-                    model: ["学习", "编辑器", "运行记录", "账户"]
+                    model: ["学习", "编辑器", "运行记录", "账户", "复习与进度"]
                     delegate: Button {
                         required property string modelData
                         Layout.fillWidth: true
@@ -87,9 +122,14 @@ Rectangle {
                     id: pages
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    currentIndex: Math.max(0, ["学习", "编辑器", "运行记录", "账户"].indexOf(uiShell.currentPage))
+                    currentIndex: Math.max(0, ["学习", "编辑器", "运行记录", "账户", "复习与进度"].indexOf(uiShell.currentPage))
 
-                    Item {
+                    Loader {
+                        asynchronous: true
+                        property bool visited: false
+                        active: pages.currentIndex === 0 || visited
+                        onLoaded: visited = true
+                        sourceComponent: Item {
                         ColumnLayout {
                             anchors.fill: parent
                             spacing: 12
@@ -107,6 +147,15 @@ Rectangle {
                                     ScrollView {
                                         anchors.fill: parent; anchors.margins: 10
                                         ListView {
+                                            id: courseList
+                                            objectName: "courseList"
+                                            NumberAnimation on contentY {
+                                                running: root.benchmarkScrolling
+                                                from: 0
+                                                to: Math.max(1, courseList.contentHeight - courseList.height)
+                                                duration: 3000
+                                                loops: Animation.Infinite
+                                            }
                                             model: uiShell.publishedTitles
                                             spacing: 6
                                             delegate: Button {
@@ -132,6 +181,7 @@ Rectangle {
                                             Layout.fillWidth: true
                                             Button { text: "读取起始代码"; enabled: uiShell.hasSelectedContent && !uiShell.contentBusy; onClicked: uiShell.loadStarterCode() }
                                             Button { text: "读取提示"; enabled: uiShell.hasSelectedContent && !uiShell.contentBusy && !uiShell.operationBusy; onClicked: uiShell.loadHints() }
+                                            Button { text: "记录实践证据"; enabled: uiShell.hasActiveAccount && uiShell.hasSelectedContent && !uiShell.contentBusy && !uiShell.operationBusy; onClicked: evidenceDialog.open() }
                                             Item { Layout.fillWidth: true }
                                         }
                                         TextArea { Layout.fillWidth: true; Layout.preferredHeight: 90; text: uiShell.hints; readOnly: true; color: theme.muted; wrapMode: TextArea.Wrap; Accessible.name: "课程提示"; background: Rectangle { color: theme.canvas } placeholderText: "提示会显示在这里" }
@@ -139,9 +189,14 @@ Rectangle {
                                 }
                             }
                         }
+                        }
                     }
-
-                    Item {
+                    Loader {
+                        asynchronous: true
+                        property bool visited: false
+                        active: pages.currentIndex === 1 || visited
+                        onLoaded: visited = true
+                        sourceComponent: Item {
                         ColumnLayout {
                             anchors.fill: parent; spacing: 10
                             RowLayout {
@@ -153,9 +208,11 @@ Rectangle {
                             }
                             Rectangle {
                                 Layout.fillWidth: true; Layout.fillHeight: true; color: "#091018"; border.color: theme.border
-                                TextArea {
-                                    id: editorArea
+                                ScrollView {
                                     anchors.fill: parent; anchors.margins: 12
+                                TextArea {
+                                    objectName: "codeEditor"
+                                    id: editorArea
                                     text: uiShell.draftCode
                                     readOnly: uiShell.starterLanguage.length === 0 || uiShell.contentBusy || uiShell.draftPersistenceBlocked
                                     wrapMode: TextArea.NoWrap
@@ -166,12 +223,21 @@ Rectangle {
                                     placeholderText: "读取起始代码后开始编辑"
                                     onTextChanged: if (activeFocus) uiShell.updateDraftCode(text)
                                 }
+                                }
+                            }
+                            RowLayout {
+                                ComboBox { id: freeLanguage; model: ["cpp", "java", "python", "javascript"]; Accessible.name: "自由编程语言" }
+                                Button { text: "自由编程"; enabled: !uiShell.contentBusy && !uiShell.executionBusy; onClicked: uiShell.openFreeProgram(freeLanguage.currentText) }
+                                Button { text: "选择执行工具"; enabled: uiShell.starterLanguage.length > 0 && !uiShell.executionBusy; onClicked: uiShell.requestToolSelection() }
+                                Label { text: "超时（毫秒）"; color: theme.muted }
+                                SpinBox { from: 100; to: 120000; stepSize: 1000; editable: true; value: uiShell.executionTimeout; enabled: !uiShell.executionBusy; onValueModified: uiShell.executionTimeout = value; Accessible.name: "执行超时毫秒" }
                             }
                             RowLayout {
                                 Layout.fillWidth: true
                                 Button { text: uiShell.draftSaving ? "保存中…" : "保存草稿"; enabled: uiShell.hasActiveAccount && uiShell.draftDirty && !uiShell.contentBusy && !uiShell.draftSaving && !uiShell.draftPersistenceBlocked; onClicked: uiShell.saveDraft() }
                                 Button { text: "撤销未保存"; enabled: uiShell.draftDirty && !uiShell.draftSaving; onClicked: uiShell.discardDraftChanges() }
                                 Button { text: "恢复起始代码"; enabled: uiShell.starterLanguage.length > 0 && !uiShell.draftSaving; onClicked: uiShell.resetDraftCode() }
+                                CheckBox { text: "独立完成"; checked: uiShell.independentAttempt; enabled: !uiShell.executionBusy; onToggled: uiShell.independentAttempt = checked }
                                 Item { Layout.fillWidth: true }
                                 Button { text: uiShell.executionBusy ? "取消" : "运行"; enabled: uiShell.hasActiveAccount && uiShell.starterLanguage.length > 0 && !uiShell.contentBusy && !uiShell.operationBusy; onClicked: uiShell.executionBusy ? uiShell.cancelExecution() : uiShell.runCode() }
                                 Button { text: "暂停"; enabled: uiShell.executionBusy && !uiShell.executionPaused; onClicked: uiShell.pauseExecution() }
@@ -179,9 +245,15 @@ Rectangle {
                                 Button { text: "单步"; enabled: uiShell.executionBusy && uiShell.executionPaused; onClicked: uiShell.stepExecution() }
                             }
                         }
+                        }
                     }
 
-                    Item {
+                    Loader {
+                        asynchronous: true
+                        property bool visited: false
+                        active: pages.currentIndex === 2 || visited
+                        onLoaded: visited = true
+                        sourceComponent: Item {
                         ColumnLayout {
                             anchors.fill: parent; spacing: 12
                             Label { text: "运行记录"; color: theme.text; font.pixelSize: 18; font.bold: true }
@@ -191,9 +263,15 @@ Rectangle {
                             }
                             Label { Layout.fillWidth: true; text: uiShell.executionBusy ? (uiShell.executionPaused ? "状态：已暂停" : "状态：运行中") : "状态：已结束"; color: uiShell.executionPaused ? theme.warning : theme.muted }
                         }
+                        }
                     }
 
-                    Item {
+                    Loader {
+                        asynchronous: true
+                        property bool visited: false
+                        active: pages.currentIndex === 3 || visited
+                        onLoaded: visited = true
+                        sourceComponent: Item {
                         ColumnLayout {
                             anchors.fill: parent; spacing: 12
                             Label { text: "账户与本地数据"; color: theme.text; font.pixelSize: 18; font.bold: true }
@@ -218,8 +296,47 @@ Rectangle {
                                 Button { text: "登录"; visible: !uiShell.hasActiveAccount; enabled: !uiShell.accountBusy; onClicked: uiShell.login(idField.text, passwordField.text) }
                                 Button { text: "注册并登录"; visible: !uiShell.hasActiveAccount; enabled: !uiShell.accountBusy; onClicked: uiShell.registerAccount(nameField.text, idField.text, passwordField.text) }
                                 Button { text: "退出登录"; visible: uiShell.hasActiveAccount; enabled: !uiShell.accountBusy && !uiShell.draftSaving; onClicked: uiShell.logout() }
+                                Button { text: "修改密码"; visible: uiShell.hasActiveAccount; enabled: !uiShell.accountBusy; onClicked: passwordDialog.open() }
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Repeater {
+                                    model: [{name: "备份数据", action: "backup"}, {name: "恢复到新目录", action: "restore"},
+                                        {name: "导入旧账户", action: "import-users"}, {name: "导入旧学习记录", action: "import-learning"}, {name: "打开数据目录", action: "open"}]
+                                    delegate: Button {
+                                        required property var modelData
+                                        text: modelData.name
+                                        enabled: uiShell.hasActiveAccount && !uiShell.operationBusy && !uiShell.accountBusy && !uiShell.executionBusy
+                                        onClicked: uiShell.requestDataAction(modelData.action)
+                                    }
+                                }
                             }
                             Label { Layout.fillWidth: true; text: uiShell.accountStatus; color: theme.muted; wrapMode: Text.WordWrap }
+                        }
+                        }
+                    }
+
+                    Loader {
+                        asynchronous: true
+                        property bool visited: false
+                        active: pages.currentIndex === 4 || visited
+                        onLoaded: visited = true
+                        sourceComponent: Item {
+                        ColumnLayout {
+                            anchors.fill: parent; spacing: 12
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Label { text: "复习与进度"; color: theme.text; font.pixelSize: 18; font.bold: true }
+                                Item { Layout.fillWidth: true }
+                                Button { text: uiShell.operationBusy ? "读取中…" : "刷新记录"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy && !uiShell.executionBusy && !uiShell.accountBusy; onClicked: uiShell.refreshReviewSummary() }
+                            }
+                            Label { Layout.fillWidth: true; text: uiShell.progressSummary; color: theme.accent; wrapMode: Text.WordWrap }
+                            ScrollView {
+                                Layout.fillWidth: true; Layout.fillHeight: true
+                                TextArea { text: uiShell.reviewSummary; readOnly: true; wrapMode: TextArea.Wrap; color: theme.text; Accessible.name: "复习记录"; background: Rectangle { color: theme.panel } placeholderText: uiShell.hasActiveAccount ? "点击刷新读取已有学习证据与进度" : "登录后查看个人复习记录" }
+                            }
+                        }
                         }
                     }
                 }

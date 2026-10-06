@@ -29,8 +29,14 @@ bool UiShell::allowDocumentChange() {
 }
 
 void UiShell::clearDraft() {
+  independent_attempt_ = false;
+  hints_viewed_ = false;
+  emit independentAttemptChanged();
   hints_.clear();
   execution_output_.clear();
+  progress_summary_.clear();
+  review_summary_.clear();
+  emit reviewSummaryChanged();
   emit hintsChanged();
   emit executionOutputChanged();
   starter_language_.clear();

@@ -100,3 +100,43 @@ void UiShell::logout() {
     emit accountChanged();
   }
 }
+
+void UiShell::changePassword(const QString& currentPassword, const QString& newPassword) {
+  if (closing_ || account_busy_ || execution_busy_ || operation_busy_ || draft_saving_ ||
+      content_busy_ || !account_service_ || !account_service_->current()) {
+    setAccountStatus(QStringLiteral("请先登录并等待当前操作完成"));
+    return;
+  }
+  const auto store = account_store_;
+  const auto record = std::make_shared<codeweave::account::Record>(*account_service_->current());
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  account_busy_ = true;
+  emit accountBusyChanged();
+  codeweave::backend::TaskRequest request;
+  request.task_id = QStringLiteral("qt-password-%1").arg(next_task_id_++).toStdString();
+  request.kind = codeweave::backend::TaskKind::Account;
+  request.work = [store, record, oldPassword = currentPassword.toUtf8().toStdString(),
+      password = newPassword.toUtf8().toStdString()](const auto&) {
+    codeweave::account::AccountService service(*store);
+    auto result = service.adopt_authenticated_record(*record);
+    if (result.ok) result = service.change_password(oldPassword, password);
+    if (result.ok) *record = *service.current();
+    return result;
+  };
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, record, account, generation](auto result) {
+        QMetaObject::invokeMethod(this, [this, record, account, generation, result] {
+          account_busy_ = false;
+          emit accountBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          if (result.result.ok) account_service_->adopt_authenticated_record(*record);
+          setAccountStatus(QString::fromUtf8(result.result.message));
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    account_busy_ = false;
+    emit accountBusyChanged();
+    setAccountStatus(QString::fromUtf8(submitted.message));
+  }
+}

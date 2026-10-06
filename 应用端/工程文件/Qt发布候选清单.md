@@ -1,8 +1,68 @@
 # Qt 发布候选清单
 
-当前状态：Qt 内部预览可构建、安装和启动；U3 仅页面骨架，原版视觉与完整功能等价尚未验收，不标记 U1–U4/B0–B3 全部完成。正式公开发布仍需干净 Windows、DPI/IME/UIA、同机性能和 Qt 许可材料复核。
+当前状态（2026-10-06 本机补测）：Qt 已接通下述账户、学习、执行、复习和数据操作；原版视觉与完整功能等价尚未验收。安装包与部分交互指标通过，启动/工作集仍超预算，不标记 U1–U4/B0–B3 全部完成。用户确认暂无独立 Windows 测试系统，先完成本机验证；这不豁免干净系统门禁。
 
-## 当前已验证
+## 最新候选与门禁（本节覆盖后文历史记录）
+
+- 本机内部候选：`G:/CodeWeave-qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe`，31,201,345 字节（29.76 MiB）；展开包 `G:/CodeWeave-qt/gates-final-package-r6`，65.99 MiB。
+- 安装器 SHA-256：`C6DB532DE960853248BD890095B41FE1CA39F268801E865634A6FA09C1244739`；应用 EXE：`A48DF64E2EE4672DF2277A05EC9FFD13058931383EEA6238765949829C355CA8`。本候选未签名；历史自签结果不适用于新 hash。
+- 根 Win32 EXE、已有用户安装和真实数据均保留。新候选只在隔离目录安装验证，未更新用户正在使用的入口。
+
+| 门禁 | 本机证据 | 判定 |
+| --- | --- | --- |
+| 安装包 ≤50 MiB | 29.76 MiB，保留 Qt 图形回退和 MSVC app-local CRT | [通过] |
+| 工作集相对增长 ≤20% | Qt 98.812 / Win32 28.461 MiB，中位数，+247.2% | [失败]，未获取舍接受 |
+| 启动相对增长 ≤20% | 窗口出现 Qt 320.509 / Win32 144.629 ms，+121.6%；不等于完整可交互启动 | [失败]，完整同负载就绪对照未执行 |
+| 主线程事件 P95 ≤16.7 ms | 0.4984 ms；最大 234.9582 ms | [通过]，存在长事件，不能宣称无卡顿 |
+| 连续活动帧 P95 ≤20 ms | Qt frameSwapped 16.5893 ms | [通过]提交帧代理指标；DWM 实际呈现未通过验收 |
+| 编辑 P95 ≤50 ms | 按键发出到下一次 frameSwapped 16.5630 ms | [通过]代理指标；真实屏幕呈现未测 |
+| 取消 P95 ≤100 ms | 72.7103 ms，Python 循环任务，30 次 | [通过]本机合成负载 |
+| 安装/跨版本升级/卸载 | 0.1.0-preview → 0.1.1-internal-r6，EXE hash 改变；数据哨兵、窗口 smoke、临时载荷清理 | [先失败，修复后通过]开发机隔离验证 |
+| 安装失败恢复 | 损坏/额外/重复/越界清单拒绝；未知已安装文件保留；目录切换后失败恢复旧版；显式降版保留数据 | [通过]合成事务测试 |
+| U3 完整行为/视觉等价 | 下述映射与 facade 测试通过，不代表所有真实窗口流程验收 | [未执行]完整矩阵验收 |
+| U4 干净 Windows、DPI/IME/UIA | 用户暂无测试系统；未启用系统组件、未提升权限 | [未执行] |
+
+测量原始文件：`evidence/qt-resource-gates-20261006-final.json`、`evidence/qt-window-gates-20261006-release.json`、`evidence/qt-install-transaction-20261006.json`。资源样本双方各 15 次，交替顺序；新配置不等于 OS 冷缓存。资源脚本的 `status=passed` 只代表采样完成，不代表资源预算通过。工作集含共享页，采样中存在系统回收波动。窗口证据为 `evidence/qt-gates-window-20261006.png`。PresentMon/ETW 尝试因 access denied 失败；不得把 frameSwapped 当成显示器呈现。
+
+## 行为映射及证据边界
+
+Win32 `main.cpp` 中的控件 ID 并非 38 个独立页面。Qt 将操作合并为五页与原生对话框，页面数量不能单独证明功能相等。
+
+| 原生能力 | Qt 接入 | 当前证据 |
+| --- | --- | --- |
+| 注册/登录/退出/改密 | 账户页、密码对话框，后台 AccountService | 隔离 facade 回归，含错误旧密码 |
+| 目录/正文/starter/提示 | 学习页、异步内容服务 | CTest、真实窗口截图；提示降低独立完成判定 |
+| 草稿保存/恢复/账户隔离 | 编辑器，revision 与 dirty 保护 | 空草稿、坏文件、失败写入、重启恢复回归 |
+| 四语言自由编程与执行工具 | 编辑器、Windows 原生选择器、工具配置 | facade 四语言执行与自由草稿回归；选择器人工验收未执行 |
+| 运行/取消/暂停/继续/单步/超时 | 编辑器命令、运行记录页 | 核心/facade 测试；真实窗口取消测量；全套按钮操作尚未逐项取证 |
+| 挑战/独立完成/进度/复习 | 复习与进度页，唯一执行/证据 ID | 独立通过、提示降级、账户隔离回归 |
+| 外部实践证据 | 表单 → Pending 证据服务 | Pending 不自动计入完成的回归 |
+| 备份/恢复/旧账户与学习导入/数据目录 | 账户页 → 原生选择器 → 后台核心服务 | 备份/恢复和坏导入回归；恢复/导入写新目录，不自动激活或覆盖真实数据 |
+
+本次安装修复：原生启动 Windows PowerShell 时 `Get-FileHash` 无法加载，改用 .NET SHA-256；旧包长路径删除失败，改用经固定路径约束的扩展长度路径删除。安装脚本拒绝未列入清单的文件、重复/越界路径和 reparse point，阶段目录切换失败恢复旧程序。源码不更改账户格式或密码成本。Qt 后台 worker 自等待死锁已补回归。
+
+复现（仓库根目录）：
+
+```powershell
+G:\CodeWeave-qt\verify3.cmd
+& ./应用端/scripts/verify-qt-install-transaction.ps1
+& ./应用端/scripts/verify-qt-install-lifecycle.ps1 -Installer G:/CodeWeave-qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe -IncludeUpgrade -PreviousInstaller G:/CodeWeave-qt/CodeWeaveQt-0.1.0-preview-setup.exe
+python 应用端/scripts/qt-window-performance.py --exe G:/CodeWeave-qt/gates-final-package-r6/CodeWeaveQtShell.exe --output <新的证据文件>
+```
+
+后续优先定位主线程长事件并降低 Qt 资源开销；用户未接受取舍之前，不切换根入口。干净系统、旧 UI 视觉、完整 IME/UIA/DPI 与 Qt 许可材料仍是发布前独立门禁。
+
+### 本轮临时产物处置
+
+测试自建的 `cw-install-transaction-*`、`codeweave-lifecycle-*`、窗口探针临时数据由各脚本正常清理；最终部署、包、安装器和仓库 evidence 保留用于复现。以下均已核验位于 `G:/CodeWeave-qt` 的直接子路径且非 reparse point，但自动审批拒绝批量删除，仅返回 `blocked by policy`，因此保留：
+
+- `gates-final-package-r2`、`gates-final-package-r3`、`gates-final-package-r4`、`gates-final-package-r5`。
+- `CodeWeaveQt-0.1.1-internal-r2-setup.exe`、`CodeWeaveQt-0.1.1-internal-r3-setup.exe`、`CodeWeaveQt-0.1.1-internal-r4-setup.exe`、`CodeWeaveQt-0.1.1-internal-r5-setup.exe`。
+- `bootstrap-diagnostic-r3`、`bootstrap-diagnostic-r4`、`bootstrap-upgrade-diagnostic`、`install-diagnostic-r3`、`empty-delete`。
+
+这些是本轮生成的中间包或合成数据，不能作为当前安装入口。安全清理仅限上述逐项绝对路径，禁止使用目录通配符或触及 `gates-final-package-r6`、用户目录、历史构建及回滚材料。
+
+## 历史候选验证（不是当前候选的签名或验收）
 
 - Qt 6.8.3 + MSVC x64 Release 构建：`G:\CodeWeave-qt\verify3.cmd`，CTest 8/8。
 - Qt OFF 原生回归：`G:\CodeWeave-qt\build-off`，CTest 7/7。

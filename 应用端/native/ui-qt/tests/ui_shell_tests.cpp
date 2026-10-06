@@ -102,6 +102,30 @@ int main(int argc, char** argv) {
       wait_for([&] { return !shell.executionBusy(); });
       assert(shell.executionOutput() == expected);
     }
+    const auto challenge_index = shell.publishedIds().indexOf(QStringLiteral("stage-b"));
+    assert(challenge_index >= 0);
+    shell.openPublishedContent(challenge_index);
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.loadStarterCode();
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.setIndependentAttempt(true);
+    assert(shell.independentAttempt());
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy(); });
+    assert(shell.executionOutput() == QStringLiteral("15\n"));
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.progressSummary().contains(QStringLiteral("1 条")));
+    shell.loadHints();
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.setIndependentAttempt(true);
+    assert(!shell.independentAttempt());
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy(); });
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.progressSummary().contains(QStringLiteral("1 条")));
+    assert(shell.reviewSummary().contains(QStringLiteral("独立通过 1 次")));
     // An invalid host path is rejected before a task is queued and cannot be
     // used as a cross-language escape hatch.
     shell.configureExecutionTool(QStringLiteral("python"),
@@ -134,6 +158,12 @@ int main(int argc, char** argv) {
     assert(codeweave::learning::EvidenceStore(first_root).read_all(pending_evidence).ok);
     assert(!pending_evidence.empty() &&
         pending_evidence.back().state == codeweave::learning::EvidenceState::Pending);
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.progressSummary().contains(QStringLiteral("0 条")));
+    assert(shell.reviewSummary().contains(QStringLiteral("证据 1 条")));
+    assert(shell.reviewSummary().contains(QStringLiteral("通过 0 次")));
+    assert(shell.reviewSummary().contains(QStringLiteral("External evidence remains pending")));
     const auto file = draft_path(first_root, document);
     shell.updateDraftCode(QStringLiteral("中文 first\n"));
     const auto submitted_revision = shell.draftRevision();
@@ -171,6 +201,10 @@ int main(int argc, char** argv) {
     wait_for([&] { return shell.setAccountContext(second, workspace, data); });
     wait_for([&] { return !shell.contentBusy(); });
     assert(shell.accountGeneration() > generation && shell.draftCode() == shell.starterCode());
+    assert(shell.progressSummary().isEmpty() && shell.reviewSummary().isEmpty());
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.reviewSummary().contains(QStringLiteral("证据 0 条")));
     assert(!std::filesystem::exists(draft_path(second_root, document)));
     shell.updateDraftCode(QStringLiteral("survives restart"));
     shell.saveDraft();
@@ -204,6 +238,47 @@ int main(int argc, char** argv) {
   }
   assert(!std::filesystem::exists(first_root / ".native.lock"));
   assert(!std::filesystem::exists(second_root / ".native.lock"));
+  {
+    UiShell shell;
+    shell.configureAccountStorage(workspace, data);
+    shell.login(QStringLiteral("b@example.test"), QStringLiteral("Test-Password-123!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(shell.hasActiveAccount());
+    shell.changePassword(QStringLiteral("wrong"), QStringLiteral("Changed-Password-456!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(!shell.accountStatus().contains(QStringLiteral("密码已修改")));
+    shell.changePassword(QStringLiteral("Test-Password-123!"), QStringLiteral("Changed-Password-456!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(shell.accountStatus().contains(QStringLiteral("密码已修改")));
+    shell.logout();
+    shell.login(QStringLiteral("b@example.test"), QStringLiteral("Changed-Password-456!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(shell.hasActiveAccount());
+    shell.openFreeProgram(QStringLiteral("invalid"));
+    assert(shell.starterLanguage().isEmpty());
+    shell.openFreeProgram(QStringLiteral("python"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.documentId() == "free-python" && shell.starterLanguage() == "python");
+    shell.updateDraftCode(QStringLiteral("print('free program')"));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(!shell.draftDirty());
+    shell.openFreeProgram(QStringLiteral("cpp"));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.openFreeProgram(QStringLiteral("python"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.draftCode() == QStringLiteral("print('free program')"));
+    assert(shell.performDataAction(QStringLiteral("backup"), {}, workspace / "qt-backup"));
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(std::filesystem::exists(workspace / "qt-backup"));
+    assert(shell.performDataAction(QStringLiteral("restore"), workspace / "qt-backup", workspace / "qt-restored"));
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(std::filesystem::exists(workspace / "qt-restored"));
+    std::ofstream(workspace / "invalid-import.json") << "not json";
+    assert(shell.performDataAction(QStringLiteral("import-users"), workspace / "invalid-import.json", workspace / "invalid-target"));
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(!std::filesystem::exists(workspace / "invalid-target"));
+  }
   // A new facade restores a successfully saved document after shutdown.
   {
     UiShell shell;

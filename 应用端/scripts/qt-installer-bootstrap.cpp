@@ -94,16 +94,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   const std::wstring temp_text = temp.wstring();
   const std::wstring command =
       L"$ErrorActionPreference='Stop'; try { "
-      L"$target=Join-Path $env:LOCALAPPDATA 'Programs\\CodeWeave'; "
-      L"New-Item -ItemType Directory -Force -Path $target | Out-Null; "
-      L"tar.exe -xf " + quote(temp_text) + L" -C $target; "
+      L"$stage=Join-Path " + quote(temp_root.wstring()) + L" 'package'; "
+      L"New-Item -ItemType Directory -Path $stage | Out-Null; "
+      L"tar.exe -xf " + quote(temp_text) + L" -C $stage; "
       L"if ($LASTEXITCODE -ne 0) { throw 'package extraction failed' }; "
-      L"$sm=Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs\\CodeWeave'; "
-      L"New-Item -ItemType Directory -Force -Path $sm | Out-Null; "
-      L"$w=New-Object -ComObject WScript.Shell; "
-      L"$s=$w.CreateShortcut((Join-Path $sm 'CodeWeave.lnk')); "
-      L"$s.TargetPath=(Join-Path $target 'CodeWeaveQtShell.exe'); "
-      L"$s.WorkingDirectory=$target; $s.Save(); "
+      L"& (Join-Path $stage 'install-qt.ps1'); "
       L"} catch { $_ | Out-File -FilePath " + quote(error_file.wstring()) + L" -Encoding utf8; exit 1 }";
   const auto result = run_powershell(command);
   if (result != 0) {

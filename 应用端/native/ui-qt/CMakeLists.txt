@@ -35,6 +35,10 @@ add_library(codeweave-content-qt STATIC
   ../src/learning_contract.cpp
   ../src/evidence_store.cpp
   ../src/external_evidence_service.cpp
+  ../src/progress_store.cpp
+  ../src/review_service.cpp
+  ../src/legacy_import.cpp
+  ../src/challenge_service.cpp
   ../src/backup_service.cpp
   ../src/content_access.cpp
   ../src/execution_contract.cpp
@@ -65,6 +69,9 @@ qt_add_qml_module(codeweave-qt
 
 target_include_directories(codeweave-qt PRIVATE facade)
 target_link_libraries(codeweave-qt PRIVATE Qt6::Quick Qt6::Qml Qt6::QuickControls2 codeweave-content-qt)
+if (WIN32)
+  target_link_libraries(codeweave-qt PRIVATE ole32 shell32 uuid)
+endif()
 if (MSVC)
   target_compile_options(codeweave-qt PRIVATE /W4 /permissive- /EHsc /utf-8)
 endif()

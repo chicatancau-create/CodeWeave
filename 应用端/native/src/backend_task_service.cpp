@@ -163,13 +163,16 @@ app::Result BackendTaskService::wait_closed() {
   const auto state = state_;
   std::unique_lock lock(state->mutex);
   if (!state->closing) return app::Result::failure("后台任务服务尚未关闭");
+  // A completion callback may request shutdown from the worker itself. Check
+  // this before waiting: the worker cannot observe `stopped` while blocked in
+  // its own wait, and the previous order could deadlock forever.
+  if (state->worker.get_id() == std::this_thread::get_id()) {
+    return app::Result::failure("不能在 worker 线程内回收后台任务服务");
+  }
   state->condition.wait(lock, [&] { return state->stopped; });
   lock.unlock();
   // 从 worker 线程自己回收会死锁或留下 joinable 的 std::thread（析构时直接 terminate）。
   // 这里明确失败交回调用方处理，而不是静默跳过 join 假装成功。
-  if (state->worker.get_id() == std::this_thread::get_id()) {
-    return app::Result::failure("不能在 worker 线程内回收后台任务服务");
-  }
   if (state->worker.joinable()) state->worker.join();
   return app::Result::success("后台任务服务已停止");
 }

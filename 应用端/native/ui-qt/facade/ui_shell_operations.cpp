@@ -6,8 +6,12 @@
 #include "external_evidence_service.hpp"
 #include "process_contract.hpp"
 #include "trace_store.hpp"
+#include "challenge_service.hpp"
+#include "legacy_import.hpp"
 
 #include <QMetaObject>
+#include <QDate>
+#include <QUuid>
 
 #include <memory>
 #include <string>
@@ -19,9 +23,153 @@ QString normalized_output(const std::string& value) {
 }
 }
 
+void UiShell::setIndependentAttempt(bool value) {
+  const bool accepted = value && !hints_viewed_;
+  if (accepted == independent_attempt_) return;
+  independent_attempt_ = accepted;
+  emit independentAttemptChanged();
+}
+
 void UiShell::setOperationStatus(const QString& status) {
   operation_status_ = status;
   emit operationStatusChanged();
+}
+
+void UiShell::setExecutionTimeout(int milliseconds) {
+  if (execution_busy_) return;
+  if (milliseconds < 100 || milliseconds > 120000) {
+    setOperationStatus(QStringLiteral("执行超时必须在 100–120000 毫秒之间"));
+    return;
+  }
+  execution_timeout_ = milliseconds;
+  emit executionOptionsChanged();
+}
+
+void UiShell::openFreeProgram(const QString& language) {
+  if (content_busy_ || draft_saving_ || !allowDocumentChange()) return;
+  if (language != "cpp" && language != "java" && language != "python" && language != "javascript") {
+    setOperationStatus(QStringLiteral("不支持的自由编程语言"));
+    return;
+  }
+  clearDraft();
+  selected_content_index_ = -1;
+  selected_content_id_ = QStringLiteral("free-") + language;
+  starter_language_ = language;
+  execution_policy_ = QStringLiteral("native");
+  starter_code_ = language == "cpp" ? QStringLiteral("#include <iostream>\nint main() { std::cout << \"Hello\\n\"; }\n") :
+      language == "java" ? QStringLiteral("class Main { public static void main(String[] args) { System.out.println(\"Hello\"); } }\n") :
+      language == "python" ? QStringLiteral("print('Hello')\n") : QStringLiteral("console.log('Hello');\n");
+  draft_baseline_ = draft_code_ = draft_saved_code_ = starter_code_;
+  emit selectedContentChanged();
+  emit starterCodeChanged();
+  emit draftChanged();
+  if (hasActiveAccount()) loadAccountDraft();
+  selectPage(QStringLiteral("编辑器"));
+}
+
+void UiShell::requestToolSelection() {
+  if (!closing_ && !backend_tasks_.busy() && !starter_language_.isEmpty())
+    emit toolSelectionRequested(starter_language_);
+}
+
+void UiShell::requestDataAction(const QString& action) {
+  if (closing_ || backend_tasks_.busy() || draftDirty()) {
+    setOperationStatus(QStringLiteral("请先保存草稿并等待当前任务完成"));
+    return;
+  }
+  if (action != "backup" && action != "restore" && action != "import-users" &&
+      action != "import-learning" && action != "open") return;
+  if (!hasActiveAccount()) { setOperationStatus(QStringLiteral("请先登录")); return; }
+  emit dataActionRequested(action);
+}
+
+bool UiShell::performDataAction(const QString& action, const std::filesystem::path& source,
+    const std::filesystem::path& target) {
+  if (action == "backup") return createBackup(native_data_root_, target);
+  if (action == "restore") return restoreBackup(source, target);
+  if (closing_ || backend_tasks_.busy() || !hasActiveAccount() ||
+      (action != "import-users" && action != "import-learning")) return false;
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  request.task_id = QStringLiteral("qt-import-%1").arg(next_task_id_++).toStdString();
+  request.kind = codeweave::backend::TaskKind::Import;
+  const auto account = active_account_id_.toStdString();
+  request.work = [source, target, action, account](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("导入已取消");
+    codeweave::migration::LegacyImportReport report;
+    return action == "import-users" ? codeweave::migration::import_legacy_users(source, target, report) :
+        codeweave::migration::import_legacy_learning(source, account, target, report);
+  };
+  const auto submitted = backend_tasks_.submit(std::move(request), [this, target](auto result) {
+    QMetaObject::invokeMethod(this, [this, target, result] {
+      operation_busy_ = false;
+      emit operationBusyChanged();
+      setOperationStatus(QString::fromUtf8(result.result.message) +
+          (result.result.ok ? QStringLiteral("\n新目录：") + QString::fromStdWString(target.wstring()) : QString()));
+    }, Qt::QueuedConnection);
+  });
+  if (!submitted.ok) {
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+  return submitted.ok;
+}
+
+void UiShell::refreshReviewSummary() {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_ || !hasActiveAccount()) {
+    setOperationStatus(QStringLiteral("请先登录，并等待当前任务完成"));
+    return;
+  }
+  const auto root = data_root_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto summary = std::make_shared<codeweave::learning::ReviewSummary>();
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  request.task_id = QStringLiteral("qt-review-%1").arg(next_task_id_++).toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Read;
+  request.work = [root, summary](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("复习读取已取消");
+    const codeweave::learning::EvidenceStore evidence(root);
+    const codeweave::learning::ProgressStore progress(root);
+    return codeweave::learning::ReviewService(evidence, progress).summarize(*summary);
+  };
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, summary](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, summary,
+            result = std::move(result)] {
+          if (account != active_account_id_ || generation != account_generation_) return;
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          progress_summary_.clear();
+          review_summary_.clear();
+          if (result.result.ok) {
+            progress_summary_ = QStringLiteral("正式进度事实：%1 条（仅独立完成挑战计入）")
+                .arg(summary->progress_count);
+            review_summary_ = QStringLiteral("证据 %1 条，通过 %2 次，独立通过 %3 次\n")
+                .arg(summary->evidence_count).arg(summary->passed_count)
+                .arg(summary->independent_passed_count);
+            for (const auto& item : summary->items) {
+              review_summary_ += QStringLiteral("\n%1 / %2 · %3 · %4\n%5\n")
+                  .arg(QString::fromUtf8(item.content_id), QString::fromUtf8(item.exercise_id),
+                      QString::fromUtf8(item.latest_at), item.passed ? QStringLiteral("输出通过") : QStringLiteral("待复习"),
+                      QString::fromUtf8(item.latest_result));
+            }
+          }
+          emit reviewSummaryChanged();
+          setOperationStatus(QString::fromUtf8(result.result.message));
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
 }
 
 void UiShell::loadHints() {
@@ -59,6 +207,8 @@ void UiShell::loadHints() {
           emit contentBusyChanged();
           if (result.result.ok) {
             hints_ = *hints;
+            hints_viewed_ = true;
+            setIndependentAttempt(false);
             emit hintsChanged();
             setOperationStatus(QStringLiteral("提示已读取；使用提示不会自动计入独立完成"));
           } else {
@@ -83,10 +233,9 @@ void UiShell::saveExternalEvidence(const QString& environment, const QString& co
   const auto document = selected_content_id_;
   const auto account = active_account_id_;
   const auto generation = account_generation_;
-  const auto operation_id = QStringLiteral("op-qtexternal-%1").arg(
-      static_cast<qulonglong>(next_task_id_), 6, 16, QLatin1Char('0')).toStdString();
-  const auto evidence_id = QStringLiteral("qt-evidence-%1").arg(
-      static_cast<qulonglong>(next_task_id_)).toStdString();
+  const auto unique = QUuid::createUuid().toString(QUuid::Id128).toStdString();
+  const auto operation_id = "op-" + unique.substr(0, 20) + "-" + unique.substr(26);
+  const auto evidence_id = "qt-evidence-" + unique;
   operation_busy_ = true;
   emit operationBusyChanged();
   codeweave::backend::TaskRequest request;
@@ -158,18 +307,25 @@ void UiShell::runCode() {
   execution_cancelled_.store(false, std::memory_order_release);
   emit executionBusyChanged();
   const auto request_data = codeweave::execution::Request{
-      QStringLiteral("qt-run-%1").arg(next_task_id_++).toStdString(),
-      starter_language_.toStdString(), draft_code_.toUtf8().toStdString(), 30'000, 1'048'576};
+      (QStringLiteral("qt-run-") + QUuid::createUuid().toString(QUuid::Id128)).toStdString(),
+      starter_language_.toStdString(), draft_code_.toUtf8().toStdString(),
+      static_cast<std::uint32_t>(execution_timeout_), 1'048'576};
   const auto tool = tool_entry->second;
   const auto root = data_root_;
   const auto account = active_account_id_;
   const auto generation = account_generation_;
+  const auto document = selected_content_id_.toStdString();
+  const auto content_root = std::filesystem::path(content_root_.toStdWString());
+  const auto independent = independent_attempt_ && !hints_viewed_;
+  const auto hints_viewed = hints_viewed_;
+  const auto challenge_status = std::make_shared<QString>();
   codeweave::backend::TaskRequest request;
   request.task_id = QStringLiteral("qt-execute-%1").arg(next_task_id_++).toStdString();
   request.account_id = account.toStdString();
   request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Execute;
-  request.work = [request_data, tool, root, this](const auto& token) {
+  request.work = [request_data, tool, root, document, content_root, independent,
+      hints_viewed, challenge_status, this](const auto& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("执行已取消");
     std::error_code directory_error;
     std::filesystem::create_directories(root / "execution", directory_error);
@@ -177,10 +333,34 @@ void UiShell::runCode() {
     const auto result = codeweave::execution::ExecutionService{}.run(
         request_data, tool, root / "execution", &execution_cancelled_, &execution_control_);
     if (result.trace) {
-      codeweave::execution::TraceStore(root).append(*result.trace);
+      const auto saved = codeweave::execution::TraceStore(root).append(*result.trace);
+      if (!saved.ok) return saved;
     }
     if (!result.validation.ok) return result.validation;
     if (!result.process) return codeweave::app::Result::failure("执行没有返回进程结果");
+    if (result.process->started && result.process->execution_output_valid &&
+        !document.starts_with("free-")) {
+      codeweave::content::ContentRepository repository(content_root);
+      std::vector<codeweave::content::Exercise> exercises;
+      const auto loaded = repository.list_exercises(document, exercises);
+      if (!loaded.ok) return loaded;
+      if (!exercises.empty()) {
+        const auto& exercise = exercises.front();
+        codeweave::learning::EvidenceStore evidence(root);
+        codeweave::learning::ProgressStore progress(root);
+        const auto unique = QUuid::createUuid().toString(QUuid::Id128).toStdString();
+        const auto suffix = unique.substr(unique.size() - 6);
+        const codeweave::learning::ChallengeRequest challenge{
+            "qt-evidence-" + unique, document, exercise.exercise_id,
+            QDate::currentDate().toString(Qt::ISODate).toStdString(), exercise.expected_output,
+            "op-" + unique.substr(0, 20) + "-" + suffix,
+            independent, hints_viewed ? "L3" : exercise.hint_level};
+        const auto recorded = codeweave::learning::ChallengeService(evidence, progress)
+            .record_execution(challenge, *result.process);
+        if (!recorded.validation.ok) return recorded.validation;
+        *challenge_status = QString::fromUtf8(recorded.validation.message);
+      }
+    }
     if (result.process->started && result.process->exit_code == 0 &&
         result.process->error_code.empty() && !result.process->cancelled &&
         !result.process->timed_out && result.process->execution_output_valid) {
@@ -196,15 +376,16 @@ void UiShell::runCode() {
         "执行失败，退出码 " + std::to_string(result.process->exit_code));
   };
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation](codeweave::backend::TaskResult result) {
-        QMetaObject::invokeMethod(this, [this, account, generation,
+      [this, account, generation, challenge_status](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, challenge_status,
             result = std::move(result)]() mutable {
           if (account != active_account_id_ || generation != account_generation_) return;
           execution_busy_ = false;
           emit executionBusyChanged();
           execution_output_ = QString::fromUtf8(result.result.message);
           emit executionOutputChanged();
-          setOperationStatus(result.result.ok ? QStringLiteral("执行完成") : QStringLiteral("执行失败"));
+          setOperationStatus(!challenge_status->isEmpty() ? *challenge_status :
+              (result.result.ok ? QStringLiteral("执行完成") : QStringLiteral("执行失败")));
         }, Qt::QueuedConnection);
       });
   if (!submitted.ok) {
