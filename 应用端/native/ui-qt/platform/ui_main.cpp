@@ -7,6 +7,8 @@
 #include <QQmlContext>
 #include <QQuickView>
 #include <QCloseEvent>
+#include <QClipboard>
+#include <QKeyEvent>
 #include <QTimer>
 #include <QImage>
 #include <QQuickStyle>
@@ -103,7 +105,7 @@ bool u3_screenshot(U3MatrixContext& context, QQuickView& view, const QString& na
 bool u3_write_result(const U3MatrixContext& context) {
   QJsonObject result;
   result.insert(QStringLiteral("schemaVersion"), 1);
-  result.insert(QStringLiteral("mode"), QStringLiteral("qt-real-window-u3-matrix"));
+  result.insert(QStringLiteral("mode"), QStringLiteral("qt-real-window-input-matrix"));
   result.insert(QStringLiteral("isolatedData"), true);
   result.insert(QStringLiteral("checks"), context.checks);
   result.insert(QStringLiteral("screenshots"), context.screenshots);
@@ -122,6 +124,13 @@ bool u3_all_passed(const U3MatrixContext& context) {
     if (!value.toObject().value(QStringLiteral("passed")).toBool()) return false;
   }
   return true;
+}
+
+void send_editor_shortcut(QQuickView& view, int key, Qt::KeyboardModifiers modifiers) {
+  QKeyEvent press(QEvent::KeyPress, key, modifiers);
+  QCoreApplication::sendEvent(&view, &press);
+  QKeyEvent release(QEvent::KeyRelease, key, modifiers);
+  QCoreApplication::sendEvent(&view, &release);
 }
 
 int main(int argc, char* argv[]) {
@@ -444,10 +453,71 @@ int main(int argc, char* argv[]) {
               shell.draftCode().size() > 1024 * 1024);
           shell.resetDraftCode();
           u3_record(*context, QStringLiteral("editor-undo-reset"), !shell.draftDirty());
+          if (auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"))) {
+            editor->forceActiveFocus();
+            view.requestActivate();
+            context->step++;
+            return;
+          }
+          u3_record(*context, QStringLiteral("editor-focus"), false,
+              QStringLiteral("代码编辑器对象未找到"));
+          context->step = 99;
+          return;
+        case 66: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor || !editor->property("activeFocus").toBool()) return;
+          const QString marker = QStringLiteral("剪贴板🙂\n");
+          QGuiApplication::clipboard()->setText(marker);
+          send_editor_shortcut(view, Qt::Key_V, Qt::ControlModifier);
+          context->step++;
+          return;
+        }
+        case 67: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor) { context->step = 99; return; }
+          const auto text = editor->property("text").toString();
+          u3_record(*context, QStringLiteral("editor-clipboard-paste"), text.contains(QStringLiteral("剪贴板🙂")));
+          send_editor_shortcut(view, Qt::Key_Z, Qt::ControlModifier);
+          context->step++;
+          return;
+        }
+        case 68: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor) { context->step = 99; return; }
+          u3_record(*context, QStringLiteral("editor-undo"),
+              !editor->property("text").toString().contains(QStringLiteral("剪贴板🙂")));
+          send_editor_shortcut(view, Qt::Key_Y, Qt::ControlModifier);
+          context->step++;
+          return;
+        }
+        case 69: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor) { context->step = 99; return; }
+          u3_record(*context, QStringLiteral("editor-redo"),
+              editor->property("text").toString().contains(QStringLiteral("剪贴板🙂")));
+          shell.selectPage(QStringLiteral("学习"));
+          context->step++;
+          return;
+        }
+        case 70: {
+          auto* list = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("courseList"));
+          if (!list || !list->isVisible() || list->height() <= 0) return;
+          const auto content_height = list->property("contentHeight").toDouble();
+          if (content_height <= list->height()) {
+            u3_record(*context, QStringLiteral("course-scroll"), false,
+                QStringLiteral("课程列表没有可滚动内容"));
+            context->step = 99;
+            return;
+          }
+          list->setProperty("contentY", content_height - list->height());
+          const bool reached_end = list->property("contentY").toDouble() > 0;
+          list->setProperty("contentY", 0);
+          u3_record(*context, QStringLiteral("course-scroll"), reached_end);
           shell.selectPage(QStringLiteral("复习与进度"));
           shell.refreshReviewSummary();
           context->step = 7;
           return;
+        }
         case 7:
           if (shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("review-progress"), shell.currentPage() == QStringLiteral("复习与进度"));

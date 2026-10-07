@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "mode": "qt-scale-factor-window-smoke",
+  "executable": "G:/CodeWeave-qt/mycheck-build/qt-deploy-u4-input-r1/CodeWeaveQtShell.exe",
+  "executableSha256": "FF0ED5DA9B2338BF829DC82FE8A70EB90FF9AA82471A2330715259FA387C54A7",
+  "cases": [
+    {"scaleFactor": 1.0, "screenshot": "evidence/qt-u4-dpi-100-20261007.png", "width": 1800, "height": 1125, "screenshotSha256": "ED0CEC4B2602319004C793E8CEF7B2CB741866C2B955A81ADB417CE41AF39DBE", "passed": true},
+    {"scaleFactor": 1.5, "screenshot": "evidence/qt-u4-dpi-150-20261007.png", "width": 2353, "height": 1416, "screenshotSha256": "E9177005F5B7FA18FA459A5D1E657A67BA919B183282C4A4DDE9CB458310322A", "passed": true},
+    {"scaleFactor": 2.0, "screenshot": "evidence/qt-u4-dpi-200-20261007.png", "width": 2750, "height": 1800, "screenshotSha256": "B7B89D04D8196AB0B15B8D38BF94599830739D4A2D438B534FA8BF0E4F2823BF", "passed": true}
+  ],
+  "passed": true,
+  "limitations": [
+    "QT_SCALE_FACTOR simulates Qt scaling and is not a Windows Settings DPI acceptance test",
+    "Chinese IME and UI Automation were not measured in this run"
+  ]
+}
