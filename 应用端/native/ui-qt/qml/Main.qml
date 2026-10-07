@@ -827,33 +827,60 @@ Rectangle {
                 }
             }
 
-            StudyPage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "学习" || visited
+                onLoaded: visited = true
+                sourceComponent: StudyPage {}
             }
-            ChallengePage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "挑战" || visited
+                onLoaded: visited = true
+                sourceComponent: ChallengePage {}
             }
-            DraftsPage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "草稿" || visited
+                sourceComponent: DraftsPage {}
             }
-            ReviewPage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "复习与进度" || visited
+                onLoaded: visited = true
+                sourceComponent: ReviewPage {}
             }
-            AnalyticsPage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "分析" || visited
+                onLoaded: visited = true
+                sourceComponent: AnalyticsPage {}
             }
-            AccountPage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "账户" || visited
+                onLoaded: visited = true
+                sourceComponent: AccountPage {}
             }
-            EditorPage {
+            Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "编辑器" || visited
+                onLoaded: visited = true
+                sourceComponent: EditorPage {}
             }
         }
     }

@@ -1,6 +1,6 @@
 # CodeWeave 应用端
 
-当前 Qt 预览入口：项目根目录 `CodeWeave Qt 预览.lnk`，指向 `%LOCALAPPDATA%/Programs/CodeWeave/CodeWeaveQtShell.exe`。2026-10-06 已实际安装并验证窗口启动。根目录 `CodeWeave.exe` 仍是 Win32 回滚版本，双击它会显示旧界面。Qt 已有四页功能骨架，尚未完整复刻原版视觉；详见 `工程文件/Qt发布候选清单.md`。
+当前 Qt 预览入口：项目根目录 `CodeWeave Qt 预览.lnk`，指向 `%LOCALAPPDATA%/Programs/CodeWeave/CodeWeaveQtShell.exe`。2026-10-07 已将最新 Qt/QML 页面代码合入本地 `main`，并完成 Qt ON 构建、CTest 8/8 和七页真实窗口 smoke。根目录 `CodeWeave.exe` 仍是 Win32 回滚版本，双击它会显示旧界面；Qt 资源预算、编辑器专项、DPI/IME/UIA 和干净 Windows 仍未通过。详见 `工程文件/Qt发布候选清单.md`。
 
 应用端现在由 C++23/Win32 原生程序提供。根目录 `G:/CodeWeave/CodeWeave.exe` 与 `应用端/dist/native-final-20261005-r4/CodeWeave.exe` 是同一份已签名便携交付；运行不启动 Node、浏览器、网页服务器或 TCP 端口。
 
