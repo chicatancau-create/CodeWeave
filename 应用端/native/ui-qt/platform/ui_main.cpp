@@ -141,6 +141,12 @@ int main(int argc, char* argv[]) {
     matrix_context->screenshot_dir = QFileInfo(matrix_context->output).absolutePath();
     if (!matrix_context->data.isValid() || matrix_context->screenshot_dir.isEmpty()) return 2;
     QDir().mkpath(matrix_context->screenshot_dir);
+    const auto config_dir = QDir(matrix_context->data.path()).filePath(QStringLiteral("config"));
+    if (!QDir().mkpath(config_dir)) return 2;
+    QFile workspace_marker(QDir(config_dir).filePath(QStringLiteral("codeweave.config.example.json")));
+    if (!workspace_marker.open(QIODevice::WriteOnly | QIODevice::Truncate)) return 2;
+    workspace_marker.write("{}\n");
+    workspace_marker.close();
   }
   UiShell shell;
   const auto workspace = QProcessEnvironment::systemEnvironment().value(
@@ -372,6 +378,72 @@ int main(int argc, char* argv[]) {
           if (shell.executionBusy()) return;
           u3_record(*context, QStringLiteral("cpp-execution"), shell.executionOutput().contains(QStringLiteral("0: 3")),
               shell.executionOutput());
+          shell.openFreeProgram(QStringLiteral("python"));
+          context->step = 59;
+          return;
+        case 59:
+          if (shell.contentBusy()) return;
+          shell.updateDraftCode(QStringLiteral("import time\nfor i in range(100):\n    print(i)\n    time.sleep(0.02)\n"));
+          shell.setExecutionTimeout(5000);
+          shell.runCode();
+          context->step++;
+          return;
+        case 60:
+          if (!shell.executionBusy()) {
+            u3_record(*context, QStringLiteral("execution-pause"), false,
+                QStringLiteral("长任务未进入运行状态；status=%1；content=%2；language=%3；active=%4；dirty=%5；blocked=%6")
+                    .arg(shell.operationStatus(), shell.contentStatus(), shell.starterLanguage())
+                    .arg(shell.hasActiveAccount()).arg(shell.draftDirty()).arg(shell.draftPersistenceBlocked()));
+            context->step = 99;
+            return;
+          }
+          shell.pauseExecution();
+          if (!shell.executionPaused()) return;
+          u3_record(*context, QStringLiteral("execution-pause"), true);
+          context->step++;
+          return;
+        case 61:
+          if (!shell.executionPaused()) {
+            u3_record(*context, QStringLiteral("execution-step"), false,
+                QStringLiteral("暂停状态丢失"));
+            context->step = 99;
+            return;
+          }
+          shell.stepExecution();
+          u3_record(*context, QStringLiteral("execution-step"), shell.executionPaused());
+          shell.resumeExecution();
+          context->step++;
+          return;
+        case 62:
+          if (shell.executionPaused()) return;
+          u3_record(*context, QStringLiteral("execution-resume"), shell.executionBusy());
+          shell.cancelExecution();
+          context->step++;
+          return;
+        case 63:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("execution-cancel"),
+              shell.executionOutput().contains(QStringLiteral("取消")), shell.executionOutput());
+          shell.setExecutionTimeout(100);
+          shell.updateDraftCode(QStringLiteral("import time\ntime.sleep(2)\n"));
+          shell.runCode();
+          context->step++;
+          return;
+        case 64:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("execution-timeout"),
+              shell.executionOutput().contains(QStringLiteral("超时")), shell.executionOutput());
+          shell.openFreeProgram(QStringLiteral("python"));
+          context->step = 65;
+          return;
+        case 65:
+          if (shell.contentBusy()) return;
+          shell.updateDraftCode(QStringLiteral("中文🙂 e\u0301\n第二行\t缩进\n") + QString(1024 * 1024, QChar('x')));
+          u3_record(*context, QStringLiteral("editor-long-unicode-input"),
+              shell.draftCode().startsWith(QStringLiteral("中文🙂 e\u0301\n第二行\t缩进\n")) &&
+              shell.draftCode().size() > 1024 * 1024);
+          shell.resetDraftCode();
+          u3_record(*context, QStringLiteral("editor-undo-reset"), !shell.draftDirty());
           shell.selectPage(QStringLiteral("复习与进度"));
           shell.refreshReviewSummary();
           context->step = 7;
@@ -386,6 +458,7 @@ int main(int argc, char* argv[]) {
         case 8:
           u3_record(*context, QStringLiteral("page-challenge"), shell.currentPage() == QStringLiteral("挑战"));
           u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
+          shell.discardDraftChanges();
           shell.logout();
           context->step++;
           return;

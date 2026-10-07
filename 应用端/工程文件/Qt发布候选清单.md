@@ -5,13 +5,13 @@
 ### 2026-10-07 U3 真实窗口功能矩阵
 
 - [通过] 新增 `--u3-matrix-json` 隔离验收模式：运行在真实 `QQuickView` 窗口中，使用 `QTemporaryDir` 的工作区、账户和数据根，不读取或写入用户的 `%LOCALAPPDATA%\CodeWeave`。
-- [通过] 真实窗口矩阵覆盖课程目录/正文/starter、编辑器草稿保存、账户注册/退出/重新登录、Python/Java/JavaScript/C++ 四语言执行、复习进度、挑战页、草稿页和分析页；16 项检查全部通过。
-- [通过] 本轮证据：`evidence/qt-u3-matrix-20261007-r2.json`；窗口截图为 `evidence/u3-learning.png`、`u3-course.png`、`u3-editor.png`、`u3-review.png`、`u3-challenge.png`、`u3-drafts.png`、`u3-analysis.png`。
-- [未执行] 真实窗口的暂停/继续/单步/取消/超时按钮逐项取证、原生文件选择器、中文 IME、剪贴板/撤销重做、DPI/UIA、干净 Windows 和 DWM 实际呈现；这些仍不能由本轮矩阵代替。
+- [通过] 真实窗口矩阵覆盖课程目录/正文/starter、编辑器草稿保存、账户注册/退出/重新登录、Python/Java/JavaScript/C++ 四语言执行、暂停/单步/继续/取消/超时、复习进度、挑战页、草稿页和分析页；21 项控制检查与 2 项编辑器边界检查全部通过。
+- [通过] 本轮证据：`evidence/qt-u3-matrix-20261007-r7.json`；窗口截图为 `evidence/u3-learning.png`、`u3-course.png`、`u3-editor.png`、`u3-review.png`、`u3-challenge.png`、`u3-drafts.png`、`u3-analysis.png`。
+- [未执行] 原生文件选择器、中文 IME、真实剪贴板往返、DPI/UIA、干净 Windows 和 DWM 实际呈现；facade 已覆盖坏草稿只读保护，真实窗口仍未单独取证。
 
 ### 2026-10-07 主线合并与页面懒加载补测
 
-- [通过] 本地 `main` 已快进合入 `feat/qt-main-qml-complete`，当前 HEAD 为 `8e0bf82`；未推送远端。根目录 `CodeWeave.exe` 仍保留 Win32 回滚版本，Qt 预览 EXE 仍使用独立部署目录。
+- [通过] 本地 `main` 已快进合入 `feat/qt-main-qml-complete`，当前 HEAD 为 `8e0bf82`；本轮控制矩阵改动已在本地提交，未推送远端。根目录 `CodeWeave.exe` 仍保留 Win32 回滚版本，Qt 预览 EXE 仍使用独立部署目录。
 - [通过] 合并主线 Qt ON Release 构建、CTest 8/8、Node 4/4 和边界审计。
 - [通过] 七页真实窗口 smoke：学习路径、实战挑战、代码草稿、编辑器、运行记录、复习中心、学习分析均生成截图并退出 0。截图目录：`G:/CodeWeave-qt/merged-main-smoke-r2`。
 - [通过] 页面懒加载：`StackLayout` 改为当前页加载、访问后保留实例，避免启动时实例化全部七个页面。当前主线证据：`evidence/qt-window-gates-20261007-main-lazy-pages.json`。
@@ -36,7 +36,7 @@
 | 取消 P95 ≤100 ms | 72.7103 ms，Python 循环任务，30 次 | [通过]本机合成负载 |
 | 安装/跨版本升级/卸载 | 0.1.0-preview → 0.1.1-internal-r6，EXE hash 改变；数据哨兵、窗口 smoke、临时载荷清理 | [先失败，修复后通过]开发机隔离验证 |
 | 安装失败恢复 | 损坏/额外/重复/越界清单拒绝；未知已安装文件保留；目录切换后失败恢复旧版；显式降版保留数据 | [通过]合成事务测试 |
-| U3 完整行为/视觉等价 | `evidence/qt-u3-matrix-20261007-r2.json` 的 16 项真实窗口矩阵通过；控制器与编辑器专项仍缺 | [部分通过] |
+| U3 完整行为/视觉等价 | `evidence/qt-u3-matrix-20261007-r7.json` 的 23 项真实窗口矩阵通过；文件选择器、IME、DPI/UIA 等专项仍缺 | [部分通过] |
 | U4 干净 Windows、DPI/IME/UIA | 用户暂无测试系统；未启用系统组件、未提升权限 | [未执行] |
 
 测量原始文件：`evidence/qt-resource-gates-20261006-final.json`、`evidence/qt-window-gates-20261006-release.json`、`evidence/qt-install-transaction-20261006.json`。资源样本双方各 15 次，交替顺序；新配置不等于 OS 冷缓存。资源脚本的 `status=passed` 只代表采样完成，不代表资源预算通过。工作集含共享页，采样中存在系统回收波动。窗口证据为 `evidence/qt-gates-window-20261006.png`。PresentMon/ETW 尝试因 access denied 失败；不得把 frameSwapped 当成显示器呈现。
@@ -65,7 +65,7 @@ G:\CodeWeave-qt\verify3.cmd
 & ./应用端/scripts/verify-qt-install-transaction.ps1
 & ./应用端/scripts/verify-qt-install-lifecycle.ps1 -Installer G:/CodeWeave-qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe -IncludeUpgrade -PreviousInstaller G:/CodeWeave-qt/CodeWeaveQt-0.1.0-preview-setup.exe
 python 应用端/scripts/qt-window-performance.py --exe G:/CodeWeave-qt/gates-final-package-r6/CodeWeaveQtShell.exe --output <新的证据文件>
-G:/CodeWeave-qt/mycheck-build/qt-deploy-u3-r3/CodeWeaveQtShell.exe --u3-matrix-json G:/CodeWeave/应用端/evidence/qt-u3-matrix-20261007-r2.json
+G:/CodeWeave-qt/mycheck-build/qt-deploy-u3-r9/CodeWeaveQtShell.exe --u3-matrix-json G:/CodeWeave/应用端/evidence/qt-u3-matrix-20261007-r7.json
 ```
 
 后续优先定位主线程长事件并降低 Qt 资源开销；用户未接受取舍之前，不切换根入口。干净系统、旧 UI 视觉、完整 IME/UIA/DPI 与 Qt 许可材料仍是发布前独立门禁。
