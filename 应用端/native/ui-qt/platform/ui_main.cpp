@@ -16,6 +16,11 @@
 #include <QTemporaryDir>
 #include <QUuid>
 #include <QDesktopServices>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QScreen>
 #include <QUrl>
 
@@ -68,14 +73,75 @@ std::filesystem::path configured_tool(std::string_view language,
   return {};
 }
 
+struct U3MatrixContext {
+  QTemporaryDir data;
+  QJsonArray checks;
+  QJsonArray screenshots;
+  QString output;
+  QString screenshot_dir;
+  int step = 0;
+  int ticks = 0;
+};
+
+void u3_record(U3MatrixContext& context, const QString& name, bool passed,
+    const QString& detail = {}) {
+  QJsonObject item;
+  item.insert(QStringLiteral("name"), name);
+  item.insert(QStringLiteral("passed"), passed);
+  if (!detail.isEmpty()) item.insert(QStringLiteral("detail"), detail);
+  context.checks.append(item);
+}
+
+bool u3_screenshot(U3MatrixContext& context, QQuickView& view, const QString& name) {
+  const auto path = QDir(context.screenshot_dir).filePath(name + QStringLiteral(".png"));
+  const auto image = view.grabWindow();
+  const bool saved = view.isExposed() && !image.isNull() && image.save(path);
+  if (saved) context.screenshots.append(path);
+  return saved;
+}
+
+bool u3_write_result(const U3MatrixContext& context) {
+  QJsonObject result;
+  result.insert(QStringLiteral("schemaVersion"), 1);
+  result.insert(QStringLiteral("mode"), QStringLiteral("qt-real-window-u3-matrix"));
+  result.insert(QStringLiteral("isolatedData"), true);
+  result.insert(QStringLiteral("checks"), context.checks);
+  result.insert(QStringLiteral("screenshots"), context.screenshots);
+  bool passed = true;
+  for (const auto& value : context.checks) passed = passed && value.toObject().value("passed").toBool();
+  result.insert(QStringLiteral("passed"), passed);
+  QFile file(context.output);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+  file.write(QJsonDocument(result).toJson(QJsonDocument::Indented));
+  return file.flush();
+}
+
+bool u3_all_passed(const U3MatrixContext& context) {
+  if (context.checks.isEmpty()) return false;
+  for (const auto& value : context.checks) {
+    if (!value.toObject().value(QStringLiteral("passed")).toBool()) return false;
+  }
+  return true;
+}
+
 int main(int argc, char* argv[]) {
   const double entered = probe_clock();
   MeasuredApplication application(argc, argv);
   const auto arguments = application.arguments();
   const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
   if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
+  const auto matrix = arguments.indexOf(QStringLiteral("--u3-matrix-json"));
+  if (matrix >= 0 && matrix + 1 >= arguments.size()) return 2;
   std::unique_ptr<QTemporaryDir> benchmark_data;
   if (benchmark >= 0) benchmark_data = std::make_unique<QTemporaryDir>();
+  std::unique_ptr<U3MatrixContext> matrix_context;
+  if (matrix >= 0) {
+    matrix_context = std::make_unique<U3MatrixContext>();
+    matrix_context->output = arguments.at(matrix + 1);
+    matrix_context->screenshot_dir = QFileInfo(matrix_context->output).absolutePath();
+    if (!matrix_context->data.isValid() || matrix_context->screenshot_dir.isEmpty()) return 2;
+    QDir().mkpath(matrix_context->screenshot_dir);
+  }
   UiShell shell;
   const auto workspace = QProcessEnvironment::systemEnvironment().value(
       QStringLiteral("CODEWEAVE_NATIVE_WORKSPACE"), QCoreApplication::applicationDirPath());
@@ -83,8 +149,10 @@ int main(int argc, char* argv[]) {
       QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
   if (benchmark >= 0 && !benchmark_data->isValid()) return 2;
   const auto nativeData = benchmark >= 0 ? benchmark_data->path() :
-      QDir(localAppData).filePath(QStringLiteral("CodeWeave"));
-  shell.configureAccountStorage(workspace.toStdWString(), nativeData.toStdWString());
+      (matrix >= 0 ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
+      QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
+  const auto effectiveWorkspace = matrix >= 0 ? matrix_context->data.path() : workspace;
+  shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
   const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
   for (const auto language : {std::string_view("cpp"), std::string_view("java"),
                               std::string_view("python"), std::string_view("javascript")}) {
@@ -170,6 +238,193 @@ int main(int argc, char* argv[]) {
       application.exit(ok ? 0 : 3);
     });
     smoke_timer.start(100);
+  }
+  QTimer matrix_timer;
+  if (matrix >= 0) {
+    QObject::connect(&matrix_timer, &QTimer::timeout, &application, [&, context = matrix_context.get()] {
+      if (++context->ticks > 500) {
+        u3_record(*context, QStringLiteral("matrix-timeout"), false,
+            QStringLiteral("验收步骤超过 50 秒"));
+        u3_write_result(*context);
+        application.exit(3);
+        return;
+      }
+      switch (context->step) {
+        case 0:
+          if (shell.contentBusy() || shell.publishedIds().isEmpty()) return;
+          shell.selectPage(QStringLiteral("学习"));
+          u3_record(*context, QStringLiteral("window-content-loaded"),
+              !shell.publishedIds().isEmpty());
+          u3_record(*context, QStringLiteral("page-learning"), shell.currentPage() == QStringLiteral("学习"));
+          u3_screenshot(*context, view, QStringLiteral("u3-learning"));
+          context->step++;
+          return;
+        case 1: {
+          const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+          if (index < 0) {
+            u3_record(*context, QStringLiteral("course-selection"), false,
+                QStringLiteral("缺少 python-loop-sum 内容"));
+            context->step = 99;
+            return;
+          }
+          shell.openPublishedContent(index);
+          context->step++;
+          return;
+        }
+        case 2:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("course-selection"), shell.hasSelectedContent());
+          u3_screenshot(*context, view, QStringLiteral("u3-course"));
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 3:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("starter-code"), shell.starterLanguage() == QStringLiteral("python") &&
+              !shell.starterCode().isEmpty());
+          shell.selectPage(QStringLiteral("编辑器"));
+          u3_screenshot(*context, view, QStringLiteral("u3-editor"));
+          shell.registerAccount(QStringLiteral("Qt U3 Fixture"), QStringLiteral("qt-u3@example.test"),
+              QStringLiteral("Qt-U3-Test-Password-123!"));
+          context->step++;
+          return;
+        case 4:
+          if (shell.accountBusy()) return;
+          u3_record(*context, QStringLiteral("account-registration"), shell.hasActiveAccount());
+          if (!shell.hasActiveAccount()) { context->step = 99; return; }
+          shell.updateDraftCode(QStringLiteral("print(15)\n"));
+          shell.saveDraft();
+          context->step++;
+          return;
+        case 5:
+          if (shell.draftSaving()) return;
+          u3_record(*context, QStringLiteral("draft-save"), !shell.draftDirty());
+          shell.runCode();
+          context->step++;
+          return;
+        case 6:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("python-execution"), shell.executionOutput().contains(QStringLiteral("15")),
+              shell.executionOutput());
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("java-loop-sum"));
+            if (index < 0) { u3_record(*context, QStringLiteral("java-execution"), false,
+                QStringLiteral("缺少 java-loop-sum 内容")); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step = 50;
+          return;
+        case 50:
+          if (shell.contentBusy()) return;
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 51:
+          if (shell.contentBusy()) return;
+          shell.runCode();
+          context->step++;
+          return;
+        case 52:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("java-execution"), shell.executionOutput().contains(QStringLiteral("15")),
+              shell.executionOutput());
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("javascript-loop-sum"));
+            if (index < 0) { u3_record(*context, QStringLiteral("javascript-execution"), false,
+                QStringLiteral("缺少 javascript-loop-sum 内容")); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step = 53;
+          return;
+        case 53:
+          if (shell.contentBusy()) return;
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 54:
+          if (shell.contentBusy()) return;
+          shell.runCode();
+          context->step++;
+          return;
+        case 55:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("javascript-execution"), shell.executionOutput().contains(QStringLiteral("15")),
+              shell.executionOutput());
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("b1-array-basics"));
+            if (index < 0) { u3_record(*context, QStringLiteral("cpp-execution"), false,
+                QStringLiteral("缺少 b1-array-basics 内容")); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step = 56;
+          return;
+        case 56:
+          if (shell.contentBusy()) return;
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 57:
+          if (shell.contentBusy()) return;
+          shell.runCode();
+          context->step++;
+          return;
+        case 58:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("cpp-execution"), shell.executionOutput().contains(QStringLiteral("0: 3")),
+              shell.executionOutput());
+          shell.selectPage(QStringLiteral("复习与进度"));
+          shell.refreshReviewSummary();
+          context->step = 7;
+          return;
+        case 7:
+          if (shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("review-progress"), shell.currentPage() == QStringLiteral("复习与进度"));
+          u3_screenshot(*context, view, QStringLiteral("u3-review"));
+          shell.selectPage(QStringLiteral("挑战"));
+          context->step++;
+          return;
+        case 8:
+          u3_record(*context, QStringLiteral("page-challenge"), shell.currentPage() == QStringLiteral("挑战"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
+          shell.logout();
+          context->step++;
+          return;
+        case 9: {
+          if (shell.accountBusy()) return;
+          const bool logged_out = !shell.hasActiveAccount();
+          shell.login(QStringLiteral("qt-u3@example.test"), QStringLiteral("Qt-U3-Test-Password-123!"));
+          u3_record(*context, QStringLiteral("account-logout"), logged_out);
+          context->step++;
+          return;
+        }
+        case 10:
+          if (shell.accountBusy()) return;
+          u3_record(*context, QStringLiteral("account-login"), shell.hasActiveAccount());
+          shell.selectPage(QStringLiteral("草稿"));
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts"));
+          context->step++;
+          return;
+        case 11:
+          u3_record(*context, QStringLiteral("page-drafts"), shell.currentPage() == QStringLiteral("草稿"));
+          shell.selectPage(QStringLiteral("分析"));
+          u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
+          context->step++;
+          return;
+        case 12:
+          u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
+          if (!u3_write_result(*context)) { application.exit(3); return; }
+          application.exit(u3_all_passed(*context) ? 0 : 3);
+          context->step = 99;
+          return;
+        case 99:
+          if (!u3_write_result(*context)) application.exit(3);
+          else application.exit(3);
+          return;
+        default:
+          return;
+      }
+    });
+    matrix_timer.start(100);
   }
   return application.exec();
 }

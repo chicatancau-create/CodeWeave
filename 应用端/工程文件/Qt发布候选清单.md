@@ -2,6 +2,13 @@
 
 当前状态（2026-10-07 合并主线后补测）：最新 Qt/QML 页面代码已合入本地 `main`（`cfe0918`），Qt 已接通账户、学习、执行、复习和数据操作；七页真实窗口 smoke 通过。原版视觉与完整功能等价尚未验收，工作集/窗口出现仍超预算，不标记 U1–U4/B0–B3 全部完成。用户确认暂无独立 Windows 测试系统，先完成本机验证；这不豁免干净系统门禁。
 
+### 2026-10-07 U3 真实窗口功能矩阵
+
+- [通过] 新增 `--u3-matrix-json` 隔离验收模式：运行在真实 `QQuickView` 窗口中，使用 `QTemporaryDir` 的工作区、账户和数据根，不读取或写入用户的 `%LOCALAPPDATA%\CodeWeave`。
+- [通过] 真实窗口矩阵覆盖课程目录/正文/starter、编辑器草稿保存、账户注册/退出/重新登录、Python/Java/JavaScript/C++ 四语言执行、复习进度、挑战页、草稿页和分析页；16 项检查全部通过。
+- [通过] 本轮证据：`evidence/qt-u3-matrix-20261007-r2.json`；窗口截图为 `evidence/u3-learning.png`、`u3-course.png`、`u3-editor.png`、`u3-review.png`、`u3-challenge.png`、`u3-drafts.png`、`u3-analysis.png`。
+- [未执行] 真实窗口的暂停/继续/单步/取消/超时按钮逐项取证、原生文件选择器、中文 IME、剪贴板/撤销重做、DPI/UIA、干净 Windows 和 DWM 实际呈现；这些仍不能由本轮矩阵代替。
+
 ### 2026-10-07 主线合并与页面懒加载补测
 
 - [通过] 本地 `main` 已快进合入 `feat/qt-main-qml-complete`，当前 HEAD 为 `cfe0918`；未推送远端。根目录 `CodeWeave.exe` 仍保留 Win32 回滚版本，Qt 预览 EXE 仍使用独立部署目录。
@@ -29,7 +36,7 @@
 | 取消 P95 ≤100 ms | 72.7103 ms，Python 循环任务，30 次 | [通过]本机合成负载 |
 | 安装/跨版本升级/卸载 | 0.1.0-preview → 0.1.1-internal-r6，EXE hash 改变；数据哨兵、窗口 smoke、临时载荷清理 | [先失败，修复后通过]开发机隔离验证 |
 | 安装失败恢复 | 损坏/额外/重复/越界清单拒绝；未知已安装文件保留；目录切换后失败恢复旧版；显式降版保留数据 | [通过]合成事务测试 |
-| U3 完整行为/视觉等价 | 下述映射与 facade 测试通过，不代表所有真实窗口流程验收 | [未执行]完整矩阵验收 |
+| U3 完整行为/视觉等价 | `evidence/qt-u3-matrix-20261007-r2.json` 的 16 项真实窗口矩阵通过；控制器与编辑器专项仍缺 | [部分通过] |
 | U4 干净 Windows、DPI/IME/UIA | 用户暂无测试系统；未启用系统组件、未提升权限 | [未执行] |
 
 测量原始文件：`evidence/qt-resource-gates-20261006-final.json`、`evidence/qt-window-gates-20261006-release.json`、`evidence/qt-install-transaction-20261006.json`。资源样本双方各 15 次，交替顺序；新配置不等于 OS 冷缓存。资源脚本的 `status=passed` 只代表采样完成，不代表资源预算通过。工作集含共享页，采样中存在系统回收波动。窗口证据为 `evidence/qt-gates-window-20261006.png`。PresentMon/ETW 尝试因 access denied 失败；不得把 frameSwapped 当成显示器呈现。
@@ -58,6 +65,7 @@ G:\CodeWeave-qt\verify3.cmd
 & ./应用端/scripts/verify-qt-install-transaction.ps1
 & ./应用端/scripts/verify-qt-install-lifecycle.ps1 -Installer G:/CodeWeave-qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe -IncludeUpgrade -PreviousInstaller G:/CodeWeave-qt/CodeWeaveQt-0.1.0-preview-setup.exe
 python 应用端/scripts/qt-window-performance.py --exe G:/CodeWeave-qt/gates-final-package-r6/CodeWeaveQtShell.exe --output <新的证据文件>
+G:/CodeWeave-qt/mycheck-build/qt-deploy-u3-r3/CodeWeaveQtShell.exe --u3-matrix-json G:/CodeWeave/应用端/evidence/qt-u3-matrix-20261007-r2.json
 ```
 
 后续优先定位主线程长事件并降低 Qt 资源开销；用户未接受取舍之前，不切换根入口。干净系统、旧 UI 视觉、完整 IME/UIA/DPI 与 Qt 许可材料仍是发布前独立门禁。
