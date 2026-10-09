@@ -110,6 +110,30 @@ Rectangle {
         readonly property int railW: 286
         readonly property int radius: 8
         readonly property int radiusSm: 5
+
+        // Responsive sizes (from web tokens.css L152-168)
+        readonly property int sizeDisplay: Math.max(42, Math.min(root.width * 0.06, 96))  // clamp(2.6rem, 6vw, 6rem)
+        readonly property int sizeTitle: Math.max(27, Math.min(root.width * 0.036, 54))   // clamp(1.7rem, 3.6vw, 3.4rem)
+        readonly property int sizeBody: 16
+        readonly property int sizeControl: 13
+
+        // Animation system (from web tokens.css L238-256)
+        readonly property int durQuick: 150
+        readonly property int durBase: 220
+        readonly property int durSlow: 300
+        readonly property int durHover: 400
+        readonly property int durState: 500
+        // Easing curve: cubic-bezier(0.22, 1, 0.36, 1)
+        // Qt equivalent: Easing.OutCubic or custom Easing.Bezier
+        readonly property int easingType: Easing.OutCubic
+
+        // Glow effects (from web tokens.css L111-114)
+        // Note: Qt doesn't support CSS box-shadow syntax directly
+        // These will be implemented using DropShadow or layer effects in components
+        readonly property string glowNear: "0 0 0 1px rgba(34,211,238,0.28), 0 0 12px rgba(34,211,238,0.14)"
+        readonly property string glowPanel: "0 0 0 1px rgba(120,175,235,0.14), 0 8px 32px rgba(0,0,0,0.55)"
+        readonly property color glowNearColor: Qt.rgba(34/255, 211/255, 238/255, 0.14)
+        readonly property color glowPanelColor: Qt.rgba(0, 0, 0, 0.55)
     }
 
     // ── Shared components ───────────────────────────────────────────────────
@@ -201,12 +225,22 @@ Rectangle {
         implicitHeight: 36
         radius: 8
         color: ibtn.active || ibHover.hovered ? ds.accentSoft : "transparent"
+
+        // Smooth transition
+        Behavior on color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+
         Text {
             anchors.centerIn: parent
             text: ibtn.glyph
             color: ibtn.active || ibHover.hovered ? ds.accentHi : ds.muted
             font.family: ds.ui
             font.pixelSize: 15
+
+            Behavior on color {
+                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+            }
         }
         HoverHandler { id: ibHover; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: ibtn.clicked() }
@@ -226,6 +260,15 @@ Rectangle {
         color: !pbtn.enabled ? ds.inset : (pbtnHover.hovered ? ds.accentHi : ds.accent)
         border.color: pbtn.enabled ? ds.accentEdge : ds.line
         border.width: 1
+
+        // Smooth transitions
+        Behavior on color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+        Behavior on border.color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+
         Text {
             id: pLabel
             anchors.centerIn: parent
@@ -255,6 +298,15 @@ Rectangle {
         border.color: qbtnHover.hovered && qbtn.enabled ? ds.accent : ds.lineStrong
         border.width: 1
         opacity: qbtn.enabled ? 1.0 : 0.45
+
+        // Smooth transitions
+        Behavior on color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+        Behavior on border.color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+
         Text {
             id: qLabel
             anchors.centerIn: parent
@@ -262,6 +314,10 @@ Rectangle {
             color: qbtnHover.hovered && qbtn.enabled ? ds.accentHi : ds.ink
             font.family: ds.ui
             font.pixelSize: 13
+
+            Behavior on color {
+                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+            }
         }
         HoverHandler { id: qbtnHover; enabled: qbtn.enabled; cursorShape: Qt.PointingHandCursor }
         TapHandler { enabled: qbtn.enabled; onTapped: qbtn.clicked() }
@@ -284,6 +340,11 @@ Rectangle {
             color: ds.inset
             border.color: sf.activeFocus ? ds.accent : ds.lineStrong
             border.width: 1
+
+            // Smooth focus transition
+            Behavior on border.color {
+                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+            }
         }
         Accessible.role: Accessible.EditableText
     }
@@ -299,9 +360,19 @@ Rectangle {
         implicitWidth: pillRow.implicitWidth + ds.s24
         implicitHeight: 37
         radius: 6
-        color: pill.active ? ds.subjectOn : ds.subjectBg
+        color: pill.active ? ds.subjectOn : (pillHover.hovered ? ds.hoverWash : ds.subjectBg)
         border.color: pill.active ? ds.accentRing : ds.line
         border.width: 1
+
+        // Smooth transitions
+        Behavior on color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+        Behavior on border.color {
+            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+        }
+
+        HoverHandler { id: pillHover }
         RowLayout {
             id: pillRow
             anchors.centerIn: parent
@@ -320,13 +391,17 @@ Rectangle {
                     font.pixelSize: 11
                 }
             }
-            Text {
-                text: pill.label
-                color: pill.active ? ds.accent : ds.muted
-                font.family: ds.ui
-                font.pixelSize: 12
-                Layout.alignment: Qt.AlignVCenter
-            }
+                Text {
+                    text: pill.label
+                    color: pill.active ? ds.accent : (pillHover.hovered ? ds.ink : ds.muted)
+                    font.family: ds.ui
+                    font.pixelSize: 12
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Behavior on color {
+                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                    }
+                }
             Text {
                 text: pill.count
                 color: ds.faint
@@ -335,11 +410,11 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
             }
         }
-        HoverHandler { cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: pill.clicked() }
         Accessible.role: Accessible.Button
         Accessible.name: pill.label
     }
+
 
     // root grid backdrop (web .shell-decor)
     Canvas {
@@ -712,9 +787,24 @@ Rectangle {
                     Layout.bottomMargin: ds.s14
                     implicitHeight: 60
                     radius: 7
-                    color: ds.panel
+                    color: streakHover.hovered ? ds.cardHover : ds.panel
                     border.color: ds.line
                     border.width: 1
+
+                    HoverHandler {
+                        id: streakHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                    TapHandler {
+                        onTapped: {
+                            // TODO: Connect to check-in logic
+                        }
+                    }
+
+                    // Smooth transition
+                    Behavior on color {
+                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                    }
                     RowLayout {
                         anchors { fill: parent; leftMargin: ds.s10; rightMargin: ds.s10 }
                         spacing: ds.s10
@@ -984,6 +1074,11 @@ Rectangle {
                     border.color: ds.line
                     border.width: 1
                     Layout.alignment: Qt.AlignVCenter
+
+                    // Smooth hover effect
+                    Behavior on color {
+                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                    }
                     RowLayout {
                         id: ringCard
                         anchors.centerIn: parent
@@ -1470,10 +1565,18 @@ Rectangle {
                                         rightMargin: ds.s12
                                         bottomMargin: ds.s12
                                     }
-                                    radius: 7
+                                    radius: ds.radius
                                     color: unitHover.hovered ? ds.cardHover : ds.panel
                                     border.color: unitHover.hovered ? ds.accentRing : ds.line
                                     border.width: 1
+
+                                    // Smooth hover transition
+                                    Behavior on color {
+                                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                    }
 
                                     ColumnLayout {
                                         anchors.fill: parent

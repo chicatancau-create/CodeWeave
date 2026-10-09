@@ -1,6 +1,6 @@
 # CodeWeave 应用端
 
-当前 Qt 预览入口：项目根目录 `CodeWeave Qt 预览.lnk`，指向 `%LOCALAPPDATA%/Programs/CodeWeave/CodeWeaveQtShell.exe`。2026-10-07 已将最新 Qt/QML 页面代码合入本地 `main`，并完成 Qt ON 构建、CTest 8/8 和七页真实窗口 smoke。根目录 `CodeWeave.exe` 仍是 Win32 回滚版本，双击它会显示旧界面；Qt 资源预算、编辑器专项、DPI/IME/UIA 和干净 Windows 仍未通过。详见 `工程文件/Qt发布候选清单.md`。
+当前 Qt 预览入口只有项目根目录 `CodeWeave Qt 预览.lnk`，指向 `%LOCALAPPDATA%/Programs/CodeWeave/CodeWeaveQtShell.exe` 的完整 Qt 部署目录。根目录不再放手工复制的 Qt EXE；历史副本位于 `dist/本机Qt副本-20261008/`，不作为运行入口。根目录 `CodeWeave.exe` 是保留的 Win32 回滚版本。详见 `工程文件/Qt发布候选清单.md` 和 `工程文件/代码结构.md`。
 
 应用端现在由 C++23/Win32 原生程序提供。根目录 `G:/CodeWeave/CodeWeave.exe` 与 `应用端/dist/native-final-20261005-r4/CodeWeave.exe` 是同一份已签名便携交付；运行不启动 Node、浏览器、网页服务器或 TCP 端口。
 
@@ -28,6 +28,8 @@ python scripts/native-product-smoke.py --exe ..\CodeWeave.exe --screenshot evide
 - `scripts/package-native.mjs`：独立原生交付打包。
 - `scripts/native-product-smoke.py`：真实窗口回归。
 - `工程文件/`：本端总工程、后端工程、路线、审查和代码结构。
-- `dist/native-final-20261005-r4/`：当前便携交付目录。
+- `dist/native-final-20261005-r4/`：Win32 历史便携交付目录。
+- `dist/本机Qt副本-20261008/`：根目录遗留 Qt EXE 的归档副本，不是运行入口。
+- `scripts/历史本机脚本/`：旧的重复 Qt 重建脚本，仅供追溯。
 
 旧 Electron 启动器、旧构建树和历史工程记录已校验归档到 `G:/CodeWeave/备份区/native-integration-20261005/`，不随原生应用运行。
