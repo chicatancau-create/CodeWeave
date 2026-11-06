@@ -1,0 +1,22 @@
+{
+  "name": "codeweave-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeWeave C++23/Win32 desktop; Node is used only for build-time tools",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/audit-boundary.mjs && node scripts/native-release-audit.mjs && node --check scripts/package-native.mjs && node --check scripts/export-native-content.mjs",
+    "package": "node scripts/package-native.mjs",
+    "native:test": "ctest --test-dir ../../.local/qt/current -C Release --output-on-failure",
+    "native:build": "cmake --build ../../.local/qt/current --config Release",
+    "native:release": "cmake -S ../../.local/app/native -B ../../.local/qt/current/native-release -DBUILD_TESTING=OFF -DQEWEAVE_BUILD_UI_QT=OFF && cmake --build ../../.local/qt/current/native-release --config Release",
+    "native:content": "node scripts/export-native-content.mjs",
+    "native:audit": "node scripts/native-release-audit.mjs"
+  }
+}

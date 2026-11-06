@@ -1,0 +1,21 @@
+{
+  "schema": "codeweave.backend-timing.v1",
+  "status": "raw_samples",
+  "sample_count": 5,
+  "fixture": "synthetic-isolated",
+  "run_root_not_recorded": true,
+  "operations": [
+    {"name":"native_backup","samples":[{"ok":true,"duration_us":55878},{"ok":true,"duration_us":70796},{"ok":true,"duration_us":54106},{"ok":true,"duration_us":52720},{"ok":true,"duration_us":53341}]},
+    {"name":"legacy_users_import","samples":[{"ok":true,"duration_us":7375},{"ok":true,"duration_us":8543},{"ok":true,"duration_us":7295},{"ok":true,"duration_us":7238},{"ok":true,"duration_us":7373}]},
+    {"name":"legacy_learning_import","samples":[{"ok":true,"duration_us":1461},{"ok":true,"duration_us":2109},{"ok":true,"duration_us":1592},{"ok":true,"duration_us":2142},{"ok":true,"duration_us":1260}]},
+    {"name":"account_register","samples":[{"ok":true,"duration_us":80557},{"ok":true,"duration_us":103702},{"ok":true,"duration_us":72021},{"ok":true,"duration_us":75000},{"ok":true,"duration_us":84735}]},
+    {"name":"account_login","samples":[{"ok":true,"duration_us":68175},{"ok":true,"duration_us":88870},{"ok":true,"duration_us":67200},{"ok":true,"duration_us":76409},{"ok":true,"duration_us":78911}]},
+    {"name":"account_change_password","samples":[{"ok":true,"duration_us":222773},{"ok":true,"duration_us":218426},{"ok":true,"duration_us":315558},{"ok":true,"duration_us":249700},{"ok":true,"duration_us":225070}]},
+    {"name":"progress_append_100","samples":[{"ok":true,"duration_us":475881},{"ok":true,"duration_us":490370},{"ok":true,"duration_us":507710},{"ok":true,"duration_us":571570},{"ok":true,"duration_us":484457}]},
+    {"name":"progress_append_1000","samples":[{"ok":true,"duration_us":1329627},{"ok":true,"duration_us":1364626},{"ok":true,"duration_us":1355528},{"ok":true,"duration_us":1671144},{"ok":true,"duration_us":1338827}]},
+    {"name":"progress_append_10000","samples":[{"ok":true,"duration_us":924644},{"ok":true,"duration_us":948325},{"ok":true,"duration_us":907821},{"ok":true,"duration_us":910064},{"ok":true,"duration_us":898878}]},
+    {"name":"progress_hot_append_100","samples":[{"ok":true,"duration_us":15862},{"ok":true,"duration_us":14201},{"ok":true,"duration_us":15475},{"ok":true,"duration_us":14710},{"ok":true,"duration_us":14557}]},
+    {"name":"progress_hot_append_1000","samples":[{"ok":true,"duration_us":16665},{"ok":true,"duration_us":15276},{"ok":true,"duration_us":15682},{"ok":true,"duration_us":14758},{"ok":true,"duration_us":15236}]},
+    {"name":"progress_hot_append_10000","samples":[{"ok":true,"duration_us":15276},{"ok":true,"duration_us":13304},{"ok":true,"duration_us":12437},{"ok":true,"duration_us":14074},{"ok":true,"duration_us":13967}]}
+  ]
+}

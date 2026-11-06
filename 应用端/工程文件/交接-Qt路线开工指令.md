@@ -1,8 +1,8 @@
 # 应用端 Qt/QML 开工指令（ADR-UI-01 实施交接）
 
 > 交给**接手的 AI 执行体**。前置事实全部经本机实测，不是推断。
-> 工具链环境在仓库之外：`G:\CodeWeave-prep`（Qt 6.8.3 + PresentMon + 自检 + 冒烟工程），
-> Qt 的树外构建目录是 `G:\CodeWeave-qt`。两者都不随 git 走，换机需重建（见 §2 与 README）。
+> 工具链环境在仓库之外：`G:\CodeWeave\.local\prep`（Qt 6.8.3 + PresentMon + 自检 + 冒烟工程），
+> Qt 的树外构建目录是 `G:\CodeWeave\.local\qt`。两者都不随 git 走，换机需重建（见 §2 与 README）。
 >
 > 工程约束引自 `应用端/工程文件/总工程/应用端总工程.md`（§101/§113/§125/§127）、
 > `应用端后端工程.md`（§14、§11 变更登记模板）、`应用端麦当劳模型工程.md`（§1–§7）。
@@ -36,7 +36,7 @@
 **你的工作方式：**
 
 - 每完成一个可验证的小步，就单独提交一次，**不要把 U0a 到 U1 攒成一个大提交**。
-- 改坏时用：`git checkout bdd24ac -- 应用端/native`（只回退原生代码，保留你的其他改动）。
+- 改坏时用：`git checkout bdd24ac -- 应用端/项目/native`（只回退原生代码，保留你的其他改动）。
 - **不要 `git add -A`**，不要 `git push`，不要 `reset --hard`，除非用户明确要求。
 - 提交前跑 `git status --porcelain` 数一遍，确认没有把 `备份区/`、`native/build*`、
   `app-native-ascii`（**它是 junction，不是目录**）、`.claude/` 卷进去。
@@ -46,7 +46,7 @@
 
 **任何「可启动 / 已通过 / 已交付 / 已验证 / 性能提升」的表述，必须同时满足三条，否则一律写成「未验证」：**
 
-1. 指向一个**具体证据文件**（`应用端/evidence/` 下的截图、JSON、日志），或给出可复现命令；
+1. 指向一个**具体证据文件**（`应用端/项目/evidence/` 下的截图、JSON、日志），或给出可复现命令；
 2. 该证据是**本轮你自己跑出来的**，不是引用旧轮次、旧文档或推断；
 3. 证据与结论**口径一致**（测的是同一个产物、同一负载、同一台机器）。
 
@@ -91,13 +91,13 @@ exe 编译链接成功、部署目录完整，但启动即退出码 1、无窗�
 
 | 项 | 值 |
 |---|---|
-| Qt | **6.8.3 LTS**，路径 `G:\CodeWeave-prep\qt\6.8.3\msvc2022_64` |
-| CMake 前缀 | `-DCMAKE_PREFIX_PATH=G:/CodeWeave-prep/qt/6.8.3/msvc2022_64` |
+| Qt | **6.8.3 LTS**，路径 `G:\CodeWeave\.local\prep\qt\6.8.3\msvc2022_64` |
+| CMake 前缀 | `-DCMAKE_PREFIX_PATH=G:/CodeWeave/.local/prep/qt/6.8.3/msvc2022_64` |
 | 已装模块 | `qtimageformats` `qt5compat` `qtquicktimeline` `qtshadertools`（SVG 已在 qtbase 内） |
 | 编译器 | MSVC **14.44.35207**、Windows SDK **10.0.26100.0**、CMake **4.3.1**、Ninja **1.13.2** |
-| 环境自检 | 跑 `G:\CodeWeave-prep\check.cmd`，当前全绿（1 项 WARN，见坑 4） |
-| 呈现数据采集 | `G:\CodeWeave-prep\presentmon\PresentMon-2.6.0-x64.exe`（免安装） |
-| 可运行参考工程 | `G:\CodeWeave-prep\smoke-qtquick\`（含 `build.cmd`，黑底+青色发光环已验证渲染） |
+| 环境自检 | 跑 `G:\CodeWeave\.local\prep\check.cmd`，当前全绿（1 项 WARN，见坑 4） |
+| 呈现数据采集 | `G:\CodeWeave\.local\prep\presentmon\PresentMon-2.6.0-x64.exe`（免安装） |
+| 可运行参考工程 | `G:\CodeWeave\.local\prep\smoke-qtquick\`（含 `build.cmd`，黑底+青色发光环已验证渲染） |
 
 **为什么是 6.8.3 而不是 6.12.0**：`aqtinstall 3.3.0`（PyPI 最新）不支持 Qt 6.11+ 的新仓库布局
 （`qt.qt6.6120.win64_msvc2022_64/`），实测 `qt6_683/` HTTP 200、`qt6_6113/` 与 `qt6_6120/` 全 404。
@@ -107,7 +107,7 @@ exe 编译链接成功、部署目录完整，但启动即退出码 1、无窗�
 
 1. **中文路径废掉 QML 构建链。** `qmlimportscanner` 拿到乱码路径直接失败。
    → **Qt 目标必须在 ASCII 路径下构建**，不要放进 `G:\CodeWeave\应用端`。
-   建议工作树：`G:\CodeWeave-qt\`（源码副本或 junction 指向 `应用端\native`，但构建目录必须在 ASCII 路径）。
+   建议工作树：`G:\CodeWeave\.local\qt\`（源码副本或 junction 指向 `应用端\项目\native`，但构建目录必须在 ASCII 路径）。
 2. **`qt_policy(SET QTP0001 NEW)` 必须设**，且要写在 `find_package(Qt6 ...)` **之后**
    （`qt_policy` 由该包提供）。不设的后果：QML 不嵌资源 → `loadFromModule` **静默失败、退出码 -1、零报错**。
 3. **`windeployqt` 必须带 `--qmldir <含 qml 源文件的目录>`**。不带会生成**空的 `qml/` 目录**
@@ -124,7 +124,7 @@ exe 编译链接成功、部署目录完整，但启动即退出码 1、无窗�
 
 ## 5. 执行顺序（严格按此，不要并行铺开）
 
-**已有基线，别重测也别当没看见。** `应用端/evidence/window-performance.json` 与
+**已有基线，别重测也别当没看见。** `应用端/项目/evidence/window-performance.json` 与
 `window-performance-mt.json`（2026-10-05 03:36 / 03:46 UTC，status=passed）已给出同机对照：
 
 | 指标 | Electron 95.7 MiB | 原生 Win32 |

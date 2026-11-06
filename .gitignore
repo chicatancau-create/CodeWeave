@@ -62,3 +62,13 @@ Thumbs.db
 
 # Local Qt preview shortcut (machine-specific installed path)
 /CodeWeave Qt 预览.lnk
+
+# 固定三端布局：本机入口、SDK、构建与真实数据不进入 Git
+/.local/
+/应用端/开发环境/
+/应用端/构建产物/
+/*端/启动*端.lnk
+/应用端/项目/workspace/
+/应用端/项目/config/*.local.json
+/网页端/项目/server/data/
+*.tsbuildinfo

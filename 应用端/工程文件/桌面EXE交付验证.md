@@ -4,7 +4,7 @@
 
 ## 交付目录
 
-`应用端/dist/native-final-20261005-r4/` 只包含发布 EXE、版本化内容、配置示例、许可证、README 和 SHA-256 manifest。根目录 EXE 与该目录 EXE 由同一发布构建同步。
+`应用端/项目/dist/native-final-20261005-r4/` 只包含发布 EXE、版本化内容、配置示例、许可证、README 和 SHA-256 manifest。根目录 EXE 与该目录 EXE 由同一发布构建同步。
 
 ## 验证
 

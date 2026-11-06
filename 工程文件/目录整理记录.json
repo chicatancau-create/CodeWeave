@@ -1,0 +1,411 @@
+{
+  "date": "2026-11-06",
+  "sourceFilesBefore": 592,
+  "moves": [
+    {
+      "from": "G:\\CodeWeave\\网页端\\.claude",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.claude",
+      "files": 1,
+      "bytes": 181
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\.env.local",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.env.local",
+      "files": 1,
+      "bytes": 47
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\.gitignore",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.gitignore",
+      "files": 1,
+      "bytes": 116
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\.nvmrc",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.nvmrc",
+      "files": 1,
+      "bytes": 3
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\deploy",
+      "to": "G:\\CodeWeave\\网页端\\项目\\deploy",
+      "files": 2,
+      "bytes": 1162
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\dist",
+      "to": "G:\\CodeWeave\\网页端\\项目\\dist",
+      "files": 22,
+      "bytes": 1153292
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\eslint.config.js",
+      "to": "G:\\CodeWeave\\网页端\\项目\\eslint.config.js",
+      "files": 1,
+      "bytes": 1487
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\index.html",
+      "to": "G:\\CodeWeave\\网页端\\项目\\index.html",
+      "files": 1,
+      "bytes": 1242
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\node_modules",
+      "to": "G:\\CodeWeave\\网页端\\项目\\node_modules",
+      "files": 13077,
+      "bytes": 178196712
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\package.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\package.json",
+      "files": 1,
+      "bytes": 1675
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\pnpm-lock.yaml",
+      "to": "G:\\CodeWeave\\网页端\\项目\\pnpm-lock.yaml",
+      "files": 1,
+      "bytes": 89345
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\README.md",
+      "to": "G:\\CodeWeave\\网页端\\项目\\README.md",
+      "files": 1,
+      "bytes": 3106
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\scripts",
+      "to": "G:\\CodeWeave\\网页端\\项目\\scripts",
+      "files": 2,
+      "bytes": 2879
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\server",
+      "to": "G:\\CodeWeave\\网页端\\项目\\server",
+      "files": 34,
+      "bytes": 376683
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\src",
+      "to": "G:\\CodeWeave\\网页端\\项目\\src",
+      "files": 203,
+      "bytes": 2788660
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tests",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tests",
+      "files": 11,
+      "bytes": 56599
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tsconfig.app.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tsconfig.app.json",
+      "files": 1,
+      "bytes": 648
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tsconfig.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tsconfig.json",
+      "files": 1,
+      "bytes": 119
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tsconfig.node.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tsconfig.node.json",
+      "files": 1,
+      "bytes": 413
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\vite.config.ts",
+      "to": "G:\\CodeWeave\\网页端\\项目\\vite.config.ts",
+      "files": 1,
+      "bytes": 3593
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\vitest.config.ts",
+      "to": "G:\\CodeWeave\\网页端\\项目\\vitest.config.ts",
+      "files": 1,
+      "bytes": 2404
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\.gradle",
+      "to": "G:\\CodeWeave\\移动端\\项目\\.gradle",
+      "files": 7,
+      "bytes": 103
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\build.gradle.kts",
+      "to": "G:\\CodeWeave\\移动端\\项目\\build.gradle.kts",
+      "files": 1,
+      "bytes": 205
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\gradle.properties",
+      "to": "G:\\CodeWeave\\移动端\\项目\\gradle.properties",
+      "files": 1,
+      "bytes": 103
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\mobile-app",
+      "to": "G:\\CodeWeave\\移动端\\项目\\mobile-app",
+      "files": 4,
+      "bytes": 1666
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\mobile-core",
+      "to": "G:\\CodeWeave\\移动端\\项目\\mobile-core",
+      "files": 28,
+      "bytes": 600719
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\README.md",
+      "to": "G:\\CodeWeave\\移动端\\项目\\README.md",
+      "files": 1,
+      "bytes": 489
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\scripts",
+      "to": "G:\\CodeWeave\\移动端\\项目\\scripts",
+      "files": 1,
+      "bytes": 406
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\settings.gradle.kts",
+      "to": "G:\\CodeWeave\\移动端\\项目\\settings.gradle.kts",
+      "files": 1,
+      "bytes": 289
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\.gitignore",
+      "to": "G:\\CodeWeave\\应用端\\项目\\.gitignore",
+      "files": 1,
+      "bytes": 156
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\.runtime-check-profile",
+      "to": "G:\\CodeWeave\\应用端\\项目\\.runtime-check-profile",
+      "files": 76,
+      "bytes": 10973935
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\build-u0b-fix.log",
+      "to": "G:\\CodeWeave\\应用端\\项目\\build-u0b-fix.log",
+      "files": 1,
+      "bytes": 59733
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\cert",
+      "to": "G:\\CodeWeave\\应用端\\项目\\cert",
+      "files": 2,
+      "bytes": 2249
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\dist",
+      "to": "G:\\CodeWeave\\应用端\\项目\\dist",
+      "files": 689,
+      "bytes": 14332710
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\evidence",
+      "to": "G:\\CodeWeave\\应用端\\项目\\evidence",
+      "files": 62,
+      "bytes": 8648506
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\native",
+      "to": "G:\\CodeWeave\\应用端\\项目\\native",
+      "files": 328,
+      "bytes": 75843527
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\node_modules",
+      "to": "G:\\CodeWeave\\应用端\\项目\\node_modules",
+      "files": 7569,
+      "bytes": 471058976
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\package.json",
+      "to": "G:\\CodeWeave\\应用端\\项目\\package.json",
+      "files": 1,
+      "bytes": 979
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\pnpm-lock.yaml",
+      "to": "G:\\CodeWeave\\应用端\\项目\\pnpm-lock.yaml",
+      "files": 1,
+      "bytes": 4674
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\pnpm-workspace.yaml",
+      "to": "G:\\CodeWeave\\应用端\\项目\\pnpm-workspace.yaml",
+      "files": 1,
+      "bytes": 63
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\README.md",
+      "to": "G:\\CodeWeave\\应用端\\项目\\README.md",
+      "files": 1,
+      "bytes": 2872
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\scripts",
+      "to": "G:\\CodeWeave\\应用端\\项目\\scripts",
+      "files": 25,
+      "bytes": 89596
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\tests",
+      "to": "G:\\CodeWeave\\应用端\\项目\\tests",
+      "files": 2,
+      "bytes": 6634
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\workspace",
+      "to": "G:\\CodeWeave\\应用端\\项目\\workspace",
+      "files": 2,
+      "bytes": 836
+    },
+    {
+      "from": "G:\\CodeWeave-prep",
+      "to": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep",
+      "files": 15757,
+      "bytes": 2317085665
+    },
+    {
+      "from": "G:\\CodeWeave-qt",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\qt",
+      "files": 15222,
+      "bytes": 4320594658
+    },
+    {
+      "from": "G:\\CodeWeave\\CodeWeave.exe",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口\\CodeWeave.exe",
+      "files": 1,
+      "bytes": 859024
+    },
+    {
+      "from": "G:\\CodeWeave\\content",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口\\content",
+      "files": 93,
+      "bytes": 440233
+    },
+    {
+      "from": "G:\\CodeWeave\\config",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口\\config",
+      "files": 1,
+      "bytes": 74
+    },
+    {
+      "from": "G:\\CodeWeave\\build-check.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\build-check.log",
+      "files": 1,
+      "bytes": 137757
+    },
+    {
+      "from": "G:\\CodeWeave\\debug-build.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\debug-build.log",
+      "files": 1,
+      "bytes": 2611811
+    },
+    {
+      "from": "G:\\CodeWeave\\native-test-out.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\native-test-out.log",
+      "files": 1,
+      "bytes": 131
+    },
+    {
+      "from": "G:\\CodeWeave\\qt-test-out.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\qt-test-out.log",
+      "files": 1,
+      "bytes": 178
+    },
+    {
+      "from": "G:\\CodeWeave\\LICENSE",
+      "to": "G:\\CodeWeave\\工程文件\\LICENSE",
+      "files": 1,
+      "bytes": 1066
+    },
+    {
+      "from": "G:\\CodeWeave\\CodeWeave Qt 预览.lnk",
+      "to": "G:\\CodeWeave\\应用端\\启动应用端.lnk",
+      "files": 1,
+      "bytes": 1303
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\构建产物\\qt\\signing",
+      "to": "G:\\CodeWeave\\应用端\\开发环境\\signing",
+      "reason": "preserve private signing material or unknown account data; never upload"
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\构建产物\\qt\\tmp-data",
+      "to": "G:\\CodeWeave\\工作区\\data\\待核对数据\\qt-tmp-data",
+      "reason": "preserve private signing material or unknown account data; never upload"
+    }
+  ],
+  "deleted": [],
+  "integration": [
+    "Root content matched native/content byte for byte; retain native/content as canonical",
+    "Configuration marker integrated into current app project/config",
+    "Current environment inspector promoted into engineering tools",
+    "DeepTutor clean upstream clone represented by upstream commit and existing current comparison documents",
+    "Old H archive contains mismatched text and binary recovery records; not imported into canonical lessons"
+  ],
+  "validation": {
+    "web": {
+      "typecheck": "passed",
+      "lint": "passed",
+      "build": "passed",
+      "vitest": "83 files, 1281 tests passed with maxWorkers=2",
+      "baseline": "default parallel coverage run had one challenge-view timeout before changes"
+    },
+    "desktop": {
+      "node": "4/4 passed",
+      "build": "fresh Qt + native build passed",
+      "ctest": "8/8 passed"
+    },
+    "mobile": {
+      "boundary": "passed",
+      "entry": "read-only check passed; no Android Studio/APK",
+      "core": "1/1 CTest passed with CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON",
+      "android": "not executed; no Gradle wrapper/Gradle command"
+    },
+    "launchSmoke": {
+      "web": {
+        "status": "passed",
+        "health": {
+          "data": {
+            "status": "ok",
+            "uptimeSeconds": 0,
+            "project": "CodeWeave",
+            "instanceId": "f5dfc3df1059939c",
+            "buildId": "424dd349ebfe"
+          }
+        },
+        "browserRendered": true,
+        "htmlBytes": 6543,
+        "securityHeaders": true
+      },
+      "app": {
+        "status": "passed",
+        "visibleWindow": [
+          1454,
+          938
+        ],
+        "exe": "C:\\Users\\Admin\\AppData\\Local\\Programs\\CodeWeave\\CodeWeaveQtShell.exe",
+        "isolatedData": true
+      }
+    },
+    "diffCheck": "baseline Markdown hard-break trailing spaces and one blank EOF retained in existing user docs"
+  },
+  "cleanupPlan": [
+    "备份区（旧 ZIP、旧 Electron 缓存）",
+    "应用端/构建产物/qt 中除 current 外的旧构建、部署、安装包和临时文件",
+    "应用端/构建产物/待清理根入口、待清理日志",
+    "应用端/项目/dist 中旧交付版本",
+    "应用端/项目/native/build* 与 stage* 旧构建",
+    "应用端/开发环境/CodeWeave-prep 中除 qt 和 presentmon 外的已替代环境准备材料",
+    "工作区/build 旧 Electron 产物",
+    "应用端/项目/.runtime-check-profile 与旧构建日志"
+  ]
+}

@@ -14,7 +14,7 @@
 
 - [通过] 本地 `main` 已快进合入 `feat/qt-main-qml-complete`，当前 HEAD 为 `b682e1d`；本轮输入与缩放取证已在本地提交，未推送远端。根目录 `CodeWeave.exe` 仍保留 Win32 回滚版本，Qt 预览 EXE 仍使用独立部署目录。
 - [通过] 合并主线 Qt ON Release 构建、CTest 8/8、Node 4/4 和边界审计。
-- [通过] 七页真实窗口 smoke：学习路径、实战挑战、代码草稿、编辑器、运行记录、复习中心、学习分析均生成截图并退出 0。截图目录：`G:/CodeWeave-qt/merged-main-smoke-r2`。
+- [通过] 七页真实窗口 smoke：学习路径、实战挑战、代码草稿、编辑器、运行记录、复习中心、学习分析均生成截图并退出 0。截图目录：`G:/CodeWeave/.local/qt/merged-main-smoke-r2`。
 - [通过] 页面懒加载：`StackLayout` 改为当前页加载、访问后保留实例，避免启动时实例化全部七个页面。当前主线证据：`evidence/qt-window-gates-20261007-main-lazy-pages.json`。
 - [通过] 合并后交互代理指标：主线程 P95 `0.6780 ms`，frameSwapped P95 `17.3337 ms`，编辑 P95 `17.2007 ms`，取消 P95 `71.4517 ms`；这些不是 DWM 实际呈现证据。
 - [失败] 资源门禁仍失败：Win32/Qt 同机 15 次对照中，Win32 工作集冷/热中位数约 `27.78/27.77 MiB`、窗口出现约 `211.08/113.14 ms`；Qt 懒加载后约 `180.75/147.55 MiB`、窗口出现约 `542.41/568.64 ms`。证据：`evidence/qt-ui-benchmark-20261007-main-lazy-pages.json`。不能宣称 Qt 相对 Win32 性能达标。
@@ -22,7 +22,7 @@
 
 ## 最新候选与门禁（本节覆盖后文历史记录）
 
-- 本机内部候选：`G:/CodeWeave-qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe`，31,201,345 字节（29.76 MiB）；展开包 `G:/CodeWeave-qt/gates-final-package-r6`，65.99 MiB。
+- 本机内部候选：`G:/CodeWeave/.local/qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe`，31,201,345 字节（29.76 MiB）；展开包 `G:/CodeWeave/.local/qt/gates-final-package-r6`，65.99 MiB。
 - 安装器 SHA-256：`C6DB532DE960853248BD890095B41FE1CA39F268801E865634A6FA09C1244739`；应用 EXE：`A48DF64E2EE4672DF2277A05EC9FFD13058931383EEA6238765949829C355CA8`。本候选未签名；历史自签结果不适用于新 hash。
 - 根 Win32 EXE、已有用户安装和真实数据均保留。新候选只在隔离目录安装验证，未更新用户正在使用的入口。
 
@@ -62,11 +62,11 @@ Win32 `main.cpp` 中的控件 ID 并非 38 个独立页面。Qt 将操作合并�
 复现（仓库根目录）：
 
 ```powershell
-G:\CodeWeave-qt\verify3.cmd
-& ./应用端/scripts/verify-qt-install-transaction.ps1
-& ./应用端/scripts/verify-qt-install-lifecycle.ps1 -Installer G:/CodeWeave-qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe -IncludeUpgrade -PreviousInstaller G:/CodeWeave-qt/CodeWeaveQt-0.1.0-preview-setup.exe
-python 应用端/scripts/qt-window-performance.py --exe G:/CodeWeave-qt/gates-final-package-r6/CodeWeaveQtShell.exe --output <新的证据文件>
-G:/CodeWeave-qt/mycheck-build/qt-deploy-u4-input-r2/CodeWeaveQtShell.exe --u3-matrix-json G:/CodeWeave/应用端/evidence/qt-u4-input-20261007-r1.json
+G:\CodeWeave\.local\qt\verify3.cmd
+& ./应用端/项目/scripts/verify-qt-install-transaction.ps1
+& ./应用端/项目/scripts/verify-qt-install-lifecycle.ps1 -Installer G:/CodeWeave/.local/qt/CodeWeaveQt-0.1.1-internal-r6-setup.exe -IncludeUpgrade -PreviousInstaller G:/CodeWeave/.local/qt/CodeWeaveQt-0.1.0-preview-setup.exe
+python 应用端/项目/scripts/qt-window-performance.py --exe G:/CodeWeave/.local/qt/gates-final-package-r6/CodeWeaveQtShell.exe --output <新的证据文件>
+G:/CodeWeave/.local/qt/mycheck-build/qt-deploy-u4-input-r2/CodeWeaveQtShell.exe --u3-matrix-json G:/CodeWeave/应用端/项目/evidence/qt-u4-input-20261007-r1.json
 ```
 
 后续优先定位主线程长事件并降低 Qt 资源开销；用户未接受取舍之前，不切换根入口。干净系统、旧 UI 视觉、完整 IME/UIA/DPI 与 Qt 许可材料仍是发布前独立门禁。
@@ -81,7 +81,7 @@ G:/CodeWeave-qt/mycheck-build/qt-deploy-u4-input-r2/CodeWeaveQtShell.exe --u3-ma
 
 ### 本轮临时产物处置
 
-测试自建的 `cw-install-transaction-*`、`codeweave-lifecycle-*`、窗口探针临时数据由各脚本正常清理；最终部署、包、安装器和仓库 evidence 保留用于复现。以下均已核验位于 `G:/CodeWeave-qt` 的直接子路径且非 reparse point，但自动审批拒绝批量删除，仅返回 `blocked by policy`，因此保留：
+测试自建的 `cw-install-transaction-*`、`codeweave-lifecycle-*`、窗口探针临时数据由各脚本正常清理；最终部署、包、安装器和仓库 evidence 保留用于复现。以下均已核验位于 `G:/CodeWeave/.local/qt` 的直接子路径且非 reparse point，但自动审批拒绝批量删除，仅返回 `blocked by policy`，因此保留：
 
 - `gates-final-package-r2`、`gates-final-package-r3`、`gates-final-package-r4`、`gates-final-package-r5`。
 - `CodeWeaveQt-0.1.1-internal-r2-setup.exe`、`CodeWeaveQt-0.1.1-internal-r3-setup.exe`、`CodeWeaveQt-0.1.1-internal-r4-setup.exe`、`CodeWeaveQt-0.1.1-internal-r5-setup.exe`。
@@ -91,12 +91,12 @@ G:/CodeWeave-qt/mycheck-build/qt-deploy-u4-input-r2/CodeWeaveQtShell.exe --u3-ma
 
 ## 历史候选验证（不是当前候选的签名或验收）
 
-- Qt 6.8.3 + MSVC x64 Release 构建：`G:\CodeWeave-qt\verify3.cmd`，CTest 8/8。
-- Qt OFF 原生回归：`G:\CodeWeave-qt\build-off`，CTest 7/7。
+- Qt 6.8.3 + MSVC x64 Release 构建：`G:\CodeWeave\.local\qt\verify3.cmd`，CTest 8/8。
+- Qt OFF 原生回归：`G:\CodeWeave\.local\qt\build-off`，CTest 7/7。
 - Node 应用端门禁：`corepack pnpm test` 4/4；`corepack pnpm run check` 通过。
-- Windows 平台真实窗口 smoke：部署 EXE 退出码 0，生成 `应用端/evidence/qt-u3-window.png`。
+- Windows 平台真实窗口 smoke：部署 EXE 退出码 0，生成 `应用端/项目/evidence/qt-u3-window.png`。
 - Qt 部署目录含动态 Qt DLL、QML imports、`platforms/qwindows.dll`、内容和配置示例；不使用 Node、浏览器或端口。
-- 自解压当前用户安装器：`G:\CodeWeave-qt\CodeWeaveQt-0.1.0-preview-setup.exe`；安装目录 `%LOCALAPPDATA%\Programs\CodeWeave`，不提权、不写系统目录、不监听端口。
+- 自解压当前用户安装器：`G:\CodeWeave\.local\qt\CodeWeaveQt-0.1.0-preview-setup.exe`；安装目录 `%LOCALAPPDATA%\Programs\CodeWeave`，不提权、不写系统目录、不监听端口。
 - 最终安装器 SHA-256（2026-10-06 实测）：`3AEB94D769C1C5D5DD218400B1320D8A61CD55AACB90B5A69306208EBD2B0205`；签名 Qt EXE SHA-256：`3C6335DA206E5BF86934AD8AAE4229320C0CD8DA90084B4C30BDF33B129CC7CE`。
 - B2 隔离生命周期演练通过：安装、启动 smoke、卸载、用户数据哨兵保留均通过。
 - B2 升级覆盖演练通过：隔离安装器验证输出 `UPGRADE=PASS`，升级前后 EXE hash 一致且用户数据哨兵保留。
@@ -123,9 +123,9 @@ G:/CodeWeave-qt/mycheck-build/qt-deploy-u4-input-r2/CodeWeaveQtShell.exe --u3-ma
 ```powershell
 corepack pnpm test
 corepack pnpm run check
-G:\CodeWeave-qt\verify3.cmd
-ctest --test-dir G:\CodeWeave-qt\build-off --output-on-failure
-powershell -File 应用端/scripts/verify-qt-install-lifecycle.ps1 -Installer G:\CodeWeave-qt\CodeWeaveQt-0.1.0-preview-setup.exe
+G:\CodeWeave\.local\qt\verify3.cmd
+ctest --test-dir G:\CodeWeave\.local\qt\build-off --output-on-failure
+powershell -File 应用端/项目/scripts/verify-qt-install-lifecycle.ps1 -Installer G:\CodeWeave\.local\qt\CodeWeaveQt-0.1.0-preview-setup.exe
 ```
 
 ## IExpress 弹窗修复（2026-10-06）
@@ -135,7 +135,7 @@ powershell -File 应用端/scripts/verify-qt-install-lifecycle.ps1 -Installer G:
 - 安装器临时 ZIP 改为每次独立目录，成功后清理；失败删除大体积 ZIP 并提示诊断目录。路径按 PowerShell 字面量转义。该改动与旧 IExpress 弹窗是两个问题，不混淆根因。
 - [通过] 更新后的 verify-qt-install-lifecycle.ps1 -IncludeUpgrade：安装、同包重复覆盖、窗口 smoke、卸载、数据哨兵保留及 INSTALLER_TEMP_CLEANUP=PASS。测试的 TEMP/TMP/APPDATA/LOCALAPPDATA 均隔离。
 - [通过] 候选 manifest 1379 项校验，错误 0；上方安装器 SHA-256 已更新，Qt 应用 EXE hash 不变。自签证书仍不具备公共信任。
-- [已清理] 核对后删除旧生成文件 G:/CodeWeave-qt/~CodeWeaveQt-0.1.0-preview-setup.DDF 与 %TEMP%/CodeWeaveQtPackage.zip（后者已逐字节确认属于旧安装器载荷）。未删除源码、真实数据或其他构建目录。
+- [已清理] 核对后删除旧生成文件 G:/CodeWeave/.local/qt/~CodeWeaveQt-0.1.0-preview-setup.DDF 与 %TEMP%/CodeWeaveQtPackage.zip（后者已逐字节确认属于旧安装器载荷）。未删除源码、真实数据或其他构建目录。
 - [未执行] 干净 Windows、真正跨版本升级/回滚、完整旧 UI 复刻验收；此次安装问题修复不代表整个产品正式发布验收完成。
 
 ## 本机入口与版本化（2026-10-06）
