@@ -41,6 +41,19 @@ struct ReviewSummary {
   std::vector<ReviewItem> items;
 };
 
+struct AnalysisWindowSummary {
+  std::size_t practice_count{};
+  std::size_t completed_units{};
+  std::size_t challenge_passes{};
+  std::size_t review_passed{};
+  std::size_t review_failed{};
+};
+
+AnalysisWindowSummary summarize_analysis_window(
+    const std::vector<EvidenceRecord>& evidence,
+    const std::vector<MasteryEvidence>& mastery_evidence,
+    std::string_view first_day, std::string_view last_day);
+
 class ReviewService final {
  public:
   ReviewService(const EvidenceStore& evidence, const ProgressStore& progress,

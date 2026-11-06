@@ -16,7 +16,6 @@
 
 #include <fstream>
 #include <memory>
-#include <set>
 #include <string>
 
 namespace {
@@ -63,6 +62,13 @@ QString projection_status(codeweave::learning::ProgressStatus status) {
 
 std::string utc_timestamp() {
   return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs).toStdString();
+}
+
+void normalize_local_day(std::string& timestamp) {
+  auto parsed = QDateTime::fromString(QString::fromStdString(timestamp), Qt::ISODateWithMs);
+  if (!parsed.isValid()) parsed = QDateTime::fromString(QString::fromStdString(timestamp), Qt::ISODate);
+  if (parsed.isValid())
+    timestamp = parsed.toLocalTime().date().toString(Qt::ISODate).toStdString();
 }
 
 std::string operation_id_for(const char* prefix) {
@@ -194,7 +200,9 @@ void UiShell::refreshReviewSummary() {
   const auto workspace = workspace_root_;
   const auto account = active_account_id_;
   const auto generation = account_generation_;
-  const auto today = QDate::currentDate().toString(Qt::ISODate).toStdString();
+  const auto today_date = QDate::currentDate();
+  const auto today = today_date.toString(Qt::ISODate).toStdString();
+  const auto first_day = today_date.addDays(-6).toString(Qt::ISODate).toStdString();
   const auto summary = std::make_shared<codeweave::learning::ReviewSummary>();
   const auto projection = std::make_shared<codeweave::learning::ProgressProjection>();
   const auto projection_found = std::make_shared<bool>(false);
@@ -206,7 +214,9 @@ void UiShell::refreshReviewSummary() {
   request.account_id = account.toStdString();
   request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Read;
-  request.work = [root, workspace, today, summary, projection, projection_found](const auto& token) {
+  const auto analysis = std::make_shared<codeweave::learning::AnalysisWindowSummary>();
+  request.work = [root, workspace, today, first_day, summary, projection, projection_found,
+      analysis](const auto& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("复习读取已取消");
     const codeweave::learning::EvidenceStore evidence(root);
     const codeweave::learning::ProgressStore progress(root);
@@ -214,6 +224,16 @@ void UiShell::refreshReviewSummary() {
     const auto result = codeweave::learning::ReviewService(evidence, progress, &mastery)
         .summarize(*summary, today, codeweave::learning::ReviewPlan{});
     if (!result.ok) return result;
+    std::vector<codeweave::learning::EvidenceRecord> evidence_records;
+    std::vector<codeweave::learning::MasteryEvidence> mastery_records;
+    const auto evidence_read = evidence.read_all(evidence_records);
+    if (!evidence_read.ok) return evidence_read;
+    const auto mastery_read = mastery.read_all(mastery_records);
+    if (!mastery_read.ok) return mastery_read;
+    for (auto& record : evidence_records) normalize_local_day(record.at);
+    for (auto& record : mastery_records) normalize_local_day(record.at);
+    *analysis = codeweave::learning::summarize_analysis_window(
+        evidence_records, mastery_records, first_day, today);
     const auto source = read_progress_source(workspace);
     if (source.found) {
       *projection_found = true;
@@ -223,9 +243,10 @@ void UiShell::refreshReviewSummary() {
   };
   operation_task_id_ = task_name;
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation, summary, projection, projection_found, task_name](codeweave::backend::TaskResult result) {
+      [this, account, generation, summary, projection, projection_found, analysis, task_name](
+          codeweave::backend::TaskResult result) {
         QMetaObject::invokeMethod(this, [this, account, generation, summary,
-            projection, projection_found, task_name, result = std::move(result)] {
+            projection, projection_found, analysis, task_name, result = std::move(result)] {
           if (task_name != operation_task_id_) return;
           operation_task_id_.clear();
           operation_busy_ = false;
@@ -272,20 +293,31 @@ void UiShell::refreshReviewSummary() {
                       QString::fromUtf8(item.latest_at), item.passed ? QStringLiteral("输出通过") : QStringLiteral("待复习"),
                       QString::fromUtf8(item.latest_result));
             }
-            std::set<QString> completed_units;
-            for (const auto& item : summary->items) {
-              if (item.passed) completed_units.insert(QString::fromUtf8(item.content_id));
-            }
             analysis_snapshot_.insert(QStringLiteral("completedUnits"),
-                static_cast<qulonglong>(completed_units.size()));
+                static_cast<qulonglong>(analysis->completed_units));
             analysis_snapshot_.insert(QStringLiteral("practiceCount"),
-                static_cast<qulonglong>(summary->evidence_count));
+                static_cast<qulonglong>(analysis->practice_count));
             analysis_snapshot_.insert(QStringLiteral("verifiedPasses"),
-                static_cast<qulonglong>(summary->passed_count));
+                static_cast<qulonglong>(analysis->challenge_passes));
             analysis_snapshot_.insert(QStringLiteral("independentPasses"),
                 static_cast<qulonglong>(summary->independent_passed_count));
-            analysis_snapshot_.insert(QStringLiteral("reviewPassed"), QStringLiteral("暂无数据"));
-            analysis_snapshot_.insert(QStringLiteral("reviewFailed"), QStringLiteral("暂无数据"));
+            analysis_snapshot_.insert(QStringLiteral("reviewPassed"),
+                static_cast<qulonglong>(analysis->review_passed));
+            analysis_snapshot_.insert(QStringLiteral("reviewFailed"),
+                static_cast<qulonglong>(analysis->review_failed));
+            analysis_snapshot_.insert(QStringLiteral("reviewDueCount"),
+                static_cast<qulonglong>(summary->overdue_count + summary->today_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewOverdueCount"),
+                static_cast<qulonglong>(summary->overdue_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewTodayCount"),
+                static_cast<qulonglong>(summary->today_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewFuture7Days"),
+                static_cast<qulonglong>(summary->upcoming_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewNext7Days"),
+                static_cast<qulonglong>(summary->upcoming_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewScheduledCount"),
+                static_cast<qulonglong>(summary->overdue_count + summary->today_count +
+                    summary->upcoming_count));
             analysis_snapshot_.insert(QStringLiteral("streakDays"), QStringLiteral("暂无数据"));
             analysis_snapshot_.insert(QStringLiteral("todayCheckin"), QStringLiteral("暂无数据"));
             analysis_snapshot_.insert(QStringLiteral("projectionStatus"),

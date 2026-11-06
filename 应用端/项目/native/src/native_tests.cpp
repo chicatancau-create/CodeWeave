@@ -1350,6 +1350,28 @@ void test_review_summary_is_read_only_and_latest_first() {
   assert(summary.passed_count == 1 && summary.independent_passed_count == 1);
 }
 
+void test_analysis_window_filters_dates_and_evidence_types() {
+  using namespace codeweave::learning;
+  const std::vector<EvidenceRecord> evidence{
+      {"window-1", "lesson-a", "exercise-a", "2026-10-02T12:00:00Z", "ok", "ok"},
+      {"window-2", "lesson-a", "exercise-a", "2026-10-07T12:00:00Z", "ok", "ok"},
+      {"window-3", "lesson-b", "exercise-b", "2026-10-08T00:00:00Z", "ok", "bad"},
+      {"window-4", "lesson-c", "exercise-c", "2026-10-09T00:00:00Z", "ok", "ok"},
+      {"window-external", "lesson-d", "external-evidence", "2026-10-08", "ok", "ok"}};
+  const std::vector<MasteryEvidence> mastery{
+      {"challenge-in", MasteryEvidenceKind::Challenge, "c1", "", "2026-10-08", true},
+      {"challenge-fail", MasteryEvidenceKind::Challenge, "c2", "", "2026-10-08", false},
+      {"review-pass", MasteryEvidenceKind::Review, "r1", "", "2026-10-08", true},
+      {"review-fail", MasteryEvidenceKind::Review, "r2", "", "2026-10-08", false},
+      {"challenge-old", MasteryEvidenceKind::Challenge, "c3", "", "2026-10-01", true}};
+  const auto summary = summarize_analysis_window(evidence, mastery, "2026-10-02", "2026-10-08");
+  assert(summary.practice_count == 3 && summary.completed_units == 1);
+  assert(summary.challenge_passes == 1);
+  assert(summary.review_passed == 1 && summary.review_failed == 1);
+  const auto empty = summarize_analysis_window({}, {}, "2026-10-02", "2026-10-08");
+  assert(empty.practice_count == 0 && empty.completed_units == 0 && empty.challenge_passes == 0);
+}
+
 void test_content_owner_and_attachment_boundary_is_read_only() {
   Fixture fixture;
   const auto root = fixture.root / "vault";
@@ -1991,6 +2013,7 @@ int main(int argc, char** argv) {
   test_native_backup_restores_only_to_new_directory();
   test_native_backup_supports_another_windows_volume();
   test_review_summary_is_read_only_and_latest_first();
+  test_analysis_window_filters_dates_and_evidence_types();
   test_content_owner_and_attachment_boundary_is_read_only();
   test_progress_projection_is_read_only_and_conservative();
   test_manifest_dry_run_is_non_mutating_and_blocks_conflicts();

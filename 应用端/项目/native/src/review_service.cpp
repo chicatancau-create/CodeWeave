@@ -3,6 +3,7 @@
 #include "external_evidence_service.hpp"
 
 #include <algorithm>
+#include <set>
 
 namespace codeweave::learning {
 
@@ -24,6 +25,39 @@ std::string risk_name(const MasteryRecord& record, std::string_view today_key) {
 }
 
 }  // namespace
+
+AnalysisWindowSummary summarize_analysis_window(
+    const std::vector<EvidenceRecord>& evidence,
+    const std::vector<MasteryEvidence>& mastery_evidence,
+    std::string_view first_day, std::string_view last_day) {
+  AnalysisWindowSummary summary;
+  if (first_day.size() < 10 || last_day.size() < 10 || first_day > last_day) return summary;
+  std::set<std::string> completed;
+  const auto in_window = [first_day, last_day](std::string_view timestamp) {
+    if (timestamp.size() < 10) return false;
+    const auto day = timestamp.substr(0, 10);
+    return day >= first_day.substr(0, 10) && day <= last_day.substr(0, 10);
+  };
+  for (const auto& record : evidence) {
+    if (!in_window(record.at) || record.exercise_id == kExternalEvidenceExerciseId) continue;
+    ++summary.practice_count;
+    if (record.unfinished_items.empty() &&
+        output_matches(record.actual_result, record.expected_result)) {
+      completed.insert(record.content_id);
+    }
+  }
+  summary.completed_units = completed.size();
+  for (const auto& evidence_item : mastery_evidence) {
+    if (!in_window(evidence_item.at)) continue;
+    if (evidence_item.kind == MasteryEvidenceKind::Challenge && evidence_item.passed)
+      ++summary.challenge_passes;
+    if (evidence_item.kind == MasteryEvidenceKind::Review) {
+      if (evidence_item.passed) ++summary.review_passed;
+      else ++summary.review_failed;
+    }
+  }
+  return summary;
+}
 
 app::Result ReviewService::summarize(ReviewSummary& summary) const {
   return summarize(summary, {}, ReviewPlan{});

@@ -21,6 +21,12 @@ void UiShell::setStatus(const QString& status) {
   emit contentStatusChanged();
 }
 
+void UiShell::dismissContentStatus() {
+  if (content_status_.isEmpty()) return;
+  content_status_.clear();
+  emit contentStatusChanged();
+}
+
 bool UiShell::allowDocumentChange() {
   if (closing_ || operation_busy_ || execution_busy_ || account_busy_) return false;
   if (!draftDirty()) return true;

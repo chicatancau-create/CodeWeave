@@ -106,6 +106,7 @@ class UiShell final : public QObject {
   Q_INVOKABLE void updateDraftCode(const QString& code);
   Q_INVOKABLE void resetDraftCode();
   Q_INVOKABLE void saveDraft();
+  Q_INVOKABLE void dismissContentStatus();
   void loadPublishedContent(const QString& root);
   void configureAccountStorage(const std::filesystem::path& workspace,
       const std::filesystem::path& nativeDataRoot);

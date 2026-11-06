@@ -22,6 +22,25 @@ Rectangle {
 
     // Performance probe hooks — these exact names must survive.
     property bool benchmarkScrolling: false
+    property int selectedLessonIndex: 0
+    property int lessonStatusFilter: 0
+    readonly property int safeSelectedLessonIndex: uiShell.lessonMeta.length > 0
+        ? Math.max(0, Math.min(selectedLessonIndex, uiShell.lessonMeta.length - 1)) : -1
+    readonly property var selectedLesson: safeSelectedLessonIndex >= 0
+        ? uiShell.lessonMeta[safeSelectedLessonIndex] : null
+
+    function isErrorStatus(status) {
+        if (status === "" || status === "尚未加载课程内容" || status.indexOf("正在") === 0
+                || status.indexOf("已读取") === 0 || status.indexOf("课程正文已读取") === 0
+                || status.indexOf("起始代码已读取") === 0 || status.indexOf("草稿已保存") === 0
+                || status.indexOf("已保存提交时的草稿") === 0
+                || status.indexOf("草稿保存已取消") === 0
+                || status.indexOf("课程读取已取消") === 0
+                || status.indexOf("课程正文读取已取消") === 0
+                || status.indexOf("起始代码读取已取消") === 0)
+            return false;
+        return true;
+    }
 
     readonly property string page: uiShell.currentPage
 
@@ -46,6 +65,8 @@ Rectangle {
         readonly property color subjectOn:  "#153044"
         readonly property color tabActive:  "#161a21"   // #ffffff08 over panel
         readonly property color cardHover:  "#1b2531"
+        readonly property color hoverWash:  "#1b2531"
+        readonly property bool useLayerEffects: true
 
         // Lines — web values are translucent; these are the resolved composites
         readonly property color line:       "#20242b"   // #ffffff12
@@ -94,6 +115,7 @@ Rectangle {
         readonly property color toneYellow: "#ffc457"
         readonly property color toneCoral:  "#ff8371"
         readonly property color toneGreen:  "#3fd3a4"
+        readonly property color s0:         "#5b86ff"
 
         // Typography — mono is NOT overridden by the desktop theme
         readonly property string ui:   "Segoe UI, Microsoft YaHei, sans-serif"
@@ -736,8 +758,18 @@ Rectangle {
                 spacing: ds.s8
                 Layout.alignment: Qt.AlignVCenter
 
-                IconButton { glyph: "⚡"; tip: "快捷动作" }
-                IconButton { glyph: "🔔"; tip: "通知中心" }
+                BusyIndicator {
+                    running: uiShell.operationBusy || uiShell.contentBusy
+                             || uiShell.draftSaving || uiShell.executionBusy
+                    visible: running
+                    implicitWidth: 20
+                    implicitHeight: 20
+                    palette.highlight: ds.accent
+                    Accessible.name: "正在处理"
+                }
+
+                IconButton { glyph: "⚡"; tip: "快捷动作（待接入）"; enabled: false }
+                IconButton { glyph: "🔔"; tip: "通知中心（待接入）"; enabled: false }
 
                 // .desktop-local — 本机工作空间
                 Rectangle {
@@ -768,7 +800,11 @@ Rectangle {
                     }
                 }
 
-                IconButton { glyph: "⚙"; tip: "打开设置" }
+                IconButton {
+                    glyph: "⚙"
+                    tip: "账户与设置"
+                    onClicked: uiShell.selectPage("账户")
+                }
 
                 // .topbar-avatar
                 Rectangle {
@@ -947,15 +983,7 @@ Rectangle {
                     border.color: ds.line
                     border.width: 1
 
-                    HoverHandler {
-                        id: streakHover
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                    TapHandler {
-                        onTapped: {
-                            // TODO: Connect to check-in logic
-                        }
-                    }
+                    HoverHandler { id: streakHover }
 
                     // Smooth transition
                     Behavior on color {
@@ -983,14 +1011,16 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 1
                             Text {
-                                text: "连续打卡 0 天"
+                                text: uiShell.analysisSnapshot.streakDays === "暂无数据"
+                                      ? "连续打卡数据暂无"
+                                      : "连续打卡 " + uiShell.analysisSnapshot.streakDays + " 天"
                                 color: ds.ink
                                 font.family: ds.ui
                                 font.pixelSize: 13
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: "点击卡片完成今日打卡"
+                                text: uiShell.analysisSnapshot.todayCheckin || "打卡功能待接入"
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 12
@@ -1139,6 +1169,27 @@ Rectangle {
     component StudyPage: Item {
         id: studyPage
         property int subjectFilter: -1
+        readonly property var filteredLessons: {
+            const result = [];
+            const lessons = uiShell.lessonMeta;
+            for (let i = 0; i < lessons.length; ++i) {
+                const lesson = lessons[i];
+                const label = lesson.languageLabel || lesson.language || "";
+                if (subjectFilter >= 0 && subjectFilter !== subjectOptions.indexOf(label)) continue;
+                if (root.lessonStatusFilter !== 0) continue;
+                result.push(Object.assign({}, lesson, { originalIndex: i }));
+            }
+            return result;
+        }
+        readonly property var subjectOptions: {
+            const seen = [];
+            const lessons = uiShell.lessonMeta;
+            for (let i = 0; i < lessons.length; ++i) {
+                const label = lessons[i].languageLabel || lessons[i].language || "";
+                if (label !== "" && seen.indexOf(label) < 0) seen.push(label);
+            }
+            return seen;
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -1277,7 +1328,7 @@ Rectangle {
                             }
                             Text {
                                 anchors.centerIn: parent
-                                text: "0%"
+                                text: uiShell.progressSummary === "" ? "—" : "暂无"
                                 color: ds.ink
                                 font.family: ds.mono
                                 font.pixelSize: 11
@@ -1295,7 +1346,9 @@ Rectangle {
                                 font.weight: Font.DemiBold
                             }
                             Text {
-                                text: "已通过 0 / 13 关"
+                                text: uiShell.analysisSnapshot.verifiedPasses === undefined
+                                      ? "暂无进度数据"
+                                      : "近 7 天通过 " + uiShell.analysisSnapshot.verifiedPasses + " 次"
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 13
@@ -1316,13 +1369,7 @@ Rectangle {
                     spacing: ds.s8
                     Repeater {
                         model: {
-                            const seen = [];
-                            const list = uiShell.lessonMeta;
-                            for (let i = 0; i < list.length; ++i) {
-                                const lbl = list[i].languageLabel || list[i].language || "";
-                                if (lbl !== "" && seen.indexOf(lbl) < 0) seen.push(lbl);
-                            }
-                            return seen;
+                            return studyPage.subjectOptions;
                         }
                         delegate: SubjectPill {
                             required property var modelData
@@ -1330,16 +1377,27 @@ Rectangle {
                             symbol: modelData.slice(0, 2).toUpperCase()
                             label: modelData
                             count: {
-                                let n = 0;
-                                const list = uiShell.lessonMeta;
-                                for (let i = 0; i < list.length; ++i) {
-                                    if ((list[i].languageLabel || list[i].language) === modelData) ++n;
-                                }
-                                return "" + n;
+                                return "" + studyPage.filteredLessons.filter(function(item) {
+                                    return (item.languageLabel || item.language) === modelData;
+                                }).length;
                             }
                             active: studyPage.subjectFilter === index
-                            onClicked: studyPage.subjectFilter =
-                                       (studyPage.subjectFilter === index ? -1 : index)
+                            onClicked: {
+                                const nextFilter = studyPage.subjectFilter === index ? -1 : index;
+                                studyPage.subjectFilter = nextFilter;
+                                if (nextFilter < 0) {
+                                    root.selectedLessonIndex = 0;
+                                } else {
+                                    const lessons = uiShell.lessonMeta;
+                                    for (let i = 0; i < lessons.length; ++i) {
+                                        if ((lessons[i].languageLabel || lessons[i].language)
+                                                === modelData) {
+                                            root.selectedLessonIndex = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1550,8 +1608,9 @@ Rectangle {
                                     Text {
                                         id: heroTag1
                                         anchors.centerIn: parent
-                                        text: uiShell.lessonMeta.length > 0
-                                              ? (uiShell.lessonMeta[0].languageLabel || "Java") : "Java"
+                                    text: root.selectedLesson
+                                          ? (root.selectedLesson.languageLabel || root.selectedLesson.language || "")
+                                          : "暂无课程"
                                         color: ds.accent
                                         font.family: ds.ui
                                         font.pixelSize: 11
@@ -1578,8 +1637,7 @@ Rectangle {
                             Text {
                                 Layout.fillWidth: true
                                 Layout.topMargin: ds.s14
-                                text: uiShell.lessonMeta.length > 0
-                                      ? (uiShell.lessonMeta[0].title || "") : "当前科目暂无课程"
+                                text: root.selectedLesson ? (root.selectedLesson.title || "") : "当前筛选暂无课程"
                                 color: ds.ink
                                 font.family: ds.ui
                                 font.pixelSize: 24
@@ -1591,9 +1649,9 @@ Rectangle {
                             Text {
                                 Layout.fillWidth: true
                                 Layout.topMargin: ds.s8
-                                text: uiShell.lessonMeta.length > 0
-                                      ? (uiShell.lessonMeta[0].description || "从理解概念开始。")
-                                      : "切换科目，或从顶部资料库状态条同步内容。"
+                                text: root.selectedLesson
+                                      ? (root.selectedLesson.description || "课程说明暂无数据")
+                                      : "当前筛选没有课程，请调整科目筛选。"
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 13
@@ -1608,20 +1666,25 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: ds.s16
                                 PrimaryButton {
-                                    label: "进入学习  →"
-                                    enabled: uiShell.lessonMeta.length > 0
+                                    label: root.selectedLesson === null ? "选择课程"
+                                           : (uiShell.publishedIds.indexOf(root.selectedLesson.id) >= 0
+                                              ? "进入学习  →" : "课程尚未发布")
+                                    enabled: root.selectedLesson !== null
+                                             && uiShell.publishedIds.indexOf(root.selectedLesson.id) >= 0
                                     onClicked: {
-                                        if (uiShell.publishedIds.length > 0)
-                                            uiShell.openPublishedContent(0);
-                                        uiShell.selectPage("编辑器");
+                                        if (!root.selectedLesson) return;
+                                        const idx = uiShell.publishedIds.indexOf(root.selectedLesson.id);
+                                        if (idx >= 0) {
+                                            uiShell.openPublishedContent(idx);
+                                            uiShell.selectPage("编辑器");
+                                        }
                                     }
                                 }
                                 Text {
                                     Layout.fillWidth: true
-                                    text: "0 / " + (uiShell.lessonMeta.length > 0
-                                           ? (uiShell.lessonMeta[0].flow
-                                              ? uiShell.lessonMeta[0].flow.length : 0) : 0)
-                                          + " 个单元已有完成证据"
+                                    text: uiShell.analysisSnapshot.completedUnits === undefined
+                                          ? "暂无完成证据数据"
+                                          : uiShell.analysisSnapshot.completedUnits + " 个单元在近 7 天有完成证据"
                                     color: ds.muted
                                     font.family: ds.ui
                                     font.pixelSize: 11
@@ -1649,7 +1712,7 @@ Rectangle {
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                text: "" + uiShell.lessonMeta.length
+                                text: "" + studyPage.filteredLessons.length
                                 color: ds.faint
                                 font.family: ds.mono
                                 font.pixelSize: 11
@@ -1667,16 +1730,25 @@ Rectangle {
                                     implicitWidth: fLabel.implicitWidth + ds.s20
                                     implicitHeight: 21
                                     radius: 4
-                                    color: index === 0 ? ds.tabActive : "transparent"
-                                    border.color: index === 0 ? ds.line : "transparent"
+                                    property bool available: index === 0
+                                    opacity: available ? 1 : 0.45
+                                    color: index === root.lessonStatusFilter ? ds.tabActive : "transparent"
+                                    border.color: index === root.lessonStatusFilter ? ds.line : "transparent"
                                     border.width: 1
                                     Text {
                                         id: fLabel
                                         anchors.centerIn: parent
                                         text: modelData
-                                        color: index === 0 ? ds.ink : ds.muted
+                                        color: index === root.lessonStatusFilter ? ds.ink : ds.muted
                                         font.family: ds.ui
                                         font.pixelSize: 11
+                                    }
+                                    HoverHandler { id: statusFilterHover }
+                                    ToolTip.visible: index > 0 && statusFilterHover.hovered
+                                    ToolTip.text: "完成状态尚未提供逐课程数据"
+                                    TapHandler {
+                                        enabled: index === 0
+                                        onTapped: root.lessonStatusFilter = index
                                     }
                                 }
                             }
@@ -1694,8 +1766,17 @@ Rectangle {
                             anchors.fill: parent
                             cellWidth: Math.floor(width / 2) - 1
                             cellHeight: 150
-                            model: uiShell.lessonMeta
+                            model: studyPage.filteredLessons
                             clip: true
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: courseGrid.count === 0
+                                text: "当前筛选暂无课程"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                            }
 
                             NumberAnimation on contentY {
                                 running: root.benchmarkScrolling
@@ -1727,7 +1808,9 @@ Rectangle {
                                     // 悬停态: 遮光层二档 rgba(220, 233, 251, 0.055)
                                     color: unitHover.hovered ? Qt.rgba(220/255, 233/255, 251/255, 0.055)
                                                              : Qt.rgba(220/255, 233/255, 251/255, 0.028)
-                                    border.color: unitHover.hovered ? ds.lineRaised : ds.line
+                                    border.color: modelData.originalIndex === root.selectedLessonIndex
+                                                  ? ds.accentRing
+                                                  : (unitHover.hovered ? ds.lineRaised : ds.line)
                                     border.width: 1
 
                                     // 220ms 缓动过渡
@@ -1798,7 +1881,7 @@ Rectangle {
                                                     Layout.alignment: Qt.AlignVCenter
                                                 }
                                                 Text {
-                                                    text: "待学习"
+                                                    text: "暂无状态数据"
                                                     color: ds.faint
                                                     font.family: ds.ui
                                                     font.pixelSize: 13
@@ -1865,13 +1948,7 @@ Rectangle {
 
                                     HoverHandler { id: unitHover; cursorShape: Qt.PointingHandCursor }
                                     TapHandler {
-                                        onTapped: {
-                                            const idx = uiShell.publishedIds.indexOf(modelData.id);
-                                            if (idx >= 0) {
-                                                uiShell.openPublishedContent(idx);
-                                                uiShell.selectPage("编辑器");
-                                            }
-                                        }
+                                        onTapped: root.selectedLessonIndex = modelData.originalIndex
                                     }
                                 }
                             }
@@ -1997,7 +2074,9 @@ Rectangle {
                                             width: snippetScroll.availableWidth
                                             text: uiShell.selectedContentBody !== ""
                                                   ? uiShell.selectedContentBody
-                                                  : "public class Main {\n    public static void main(String[] args) {\n        int total = 0;\n        for (int i = 1; i <= 5; i++) {\n            total += i;\n        }\n        System.out.println(total);\n    }\n}"
+                                                  : (root.selectedLesson
+                                                     ? "所选课程正文尚未加载"
+                                                     : "选择课程后展示代码")
                                             color: ds.codeInk
                                             font.family: ds.mono
                                             font.pixelSize: 11
@@ -2076,9 +2155,9 @@ Rectangle {
                                     }
                                     Text {
                                         Layout.fillWidth: true
-                                        text: uiShell.lessonMeta.length > 0
-                                              ? (uiShell.lessonMeta[0].title || "从科目列表开始")
-                                              : "从科目列表开始"
+                                        text: root.selectedLesson
+                                              ? (root.selectedLesson.title || "课程标题暂无数据")
+                                              : "选择课程后查看今日计划"
                                         color: ds.faint
                                         font.family: ds.ui
                                         font.pixelSize: 13
@@ -2233,6 +2312,34 @@ Rectangle {
             anchors.fill: parent
             spacing: ds.s12
 
+            Rectangle {
+                Layout.fillWidth: true
+                visible: root.isErrorStatus(uiShell.contentStatus)
+                implicitHeight: statusRow.implicitHeight + ds.s16
+                radius: ds.radiusSm
+                color: ds.bannerBg
+                border.color: ds.warning
+                RowLayout {
+                    id: statusRow
+                    anchors.fill: parent
+                    anchors.margins: ds.s8
+                    Text {
+                        Layout.fillWidth: true
+                        text: uiShell.contentStatus
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }
+                    QuietButton {
+                        label: "重试保存"
+                        enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
+                        onClicked: uiShell.saveDraft()
+                    }
+                    QuietButton { label: "知道了"; onClicked: uiShell.dismissContentStatus() }
+                }
+            }
+
             // Workspace header
             RowLayout {
                 Layout.fillWidth: true
@@ -2262,6 +2369,10 @@ Rectangle {
                     label: uiShell.draftDirty ? "保存草稿 *" : "保存草稿"
                     enabled: uiShell.hasSelectedContent && !uiShell.draftPersistenceBlocked
                     onClicked: uiShell.saveDraft()
+                }
+                QuietButton {
+                    label: "记录实践证据"
+                    onClicked: evidenceDialog.open()
                 }
                 QuietButton {
                     label: "重置"
@@ -2424,7 +2535,12 @@ Rectangle {
                                 anchors { fill: parent; leftMargin: ds.s14; rightMargin: ds.s14 }
                                 spacing: ds.s8
                                 Text {
-                                    text: "行 1，列 1"
+                                    text: {
+                                        const before = codeEditor.text.slice(0, codeEditor.cursorPosition);
+                                        const lines = before.split("\n");
+                                        return "行 " + lines.length + "，列 "
+                                            + (lines[lines.length - 1].length + 1);
+                                    }
                                     color: ds.muted
                                     font.family: ds.mono
                                     font.pixelSize: 12
@@ -2491,7 +2607,7 @@ Rectangle {
                                     Text {
                                         id: counterText
                                         anchors.centerIn: parent
-                                        text: uiShell.executionBusy ? "01 / 07" : "00 / 00"
+                                        text: "执行轨迹待接入"
                                         color: ds.accent
                                         font.family: ds.mono
                                         font.pixelSize: 11
@@ -2532,8 +2648,7 @@ Rectangle {
                                 }
 
                                 Repeater {
-                                    model: uiShell.lessonMeta.length > 0
-                                           ? (uiShell.lessonMeta[0].flow || []) : []
+                                    model: root.selectedLesson ? (root.selectedLesson.flow || []) : []
                                     delegate: Item {
                                         required property var modelData
                                         required property int index
@@ -2579,8 +2694,7 @@ Rectangle {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    visible: uiShell.lessonMeta.length === 0
-                                             || (uiShell.lessonMeta[0].flow || []).length === 0
+                                    visible: !root.selectedLesson || (root.selectedLesson.flow || []).length === 0
                                     text: "选择课程后显示程序状态图"
                                     color: ds.faint
                                     font.family: ds.ui
@@ -2676,101 +2790,6 @@ Rectangle {
         }
     }
 
-    // ── 03 运行记录 ────────────────────────────────────────────────────────
-    component RunLogPage: Item {
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: ds.s12
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: ds.s8
-                Text {
-                    text: "运行记录"
-                    color: ds.ink
-                    font.family: ds.ui
-                    font.pixelSize: 22
-                    font.weight: Font.DemiBold
-                }
-                Item { Layout.fillWidth: true }
-                Rectangle {
-                    implicitWidth: runPill.implicitWidth + ds.s16
-                    implicitHeight: 24
-                    radius: 12
-                    color: uiShell.executionBusy ? "#12251c"
-                           : (uiShell.executionPaused ? "#241f0d" : ds.panel)
-                    border.color: uiShell.executionBusy ? ds.success
-                                  : (uiShell.executionPaused ? ds.warning : ds.line)
-                    border.width: 1
-                    Text {
-                        id: runPill
-                        anchors.centerIn: parent
-                        text: uiShell.executionBusy ? "运行中"
-                              : (uiShell.executionPaused ? "已暂停" : "空闲")
-                        color: uiShell.executionBusy ? ds.success
-                               : (uiShell.executionPaused ? ds.warning : ds.muted)
-                        font.family: ds.ui
-                        font.pixelSize: 11
-                    }
-                }
-            }
-
-            Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                radius: ds.radius
-                color: ds.editorBg
-                border.color: ds.line
-                border.width: 1
-                ScrollView {
-                    anchors.fill: parent
-                    anchors.margins: ds.s14
-                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                    TextArea {
-                        text: uiShell.executionOutput
-                        readOnly: true
-                        wrapMode: TextArea.Wrap
-                        color: ds.ink
-                        font.family: ds.mono
-                        font.pixelSize: 13
-                        background: null
-                        placeholderText: "运行输出将显示在这里"
-                        placeholderTextColor: ds.faint
-                        Accessible.name: "运行输出"
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: ds.s8
-                QuietButton {
-                    label: "取消"
-                    enabled: uiShell.executionBusy
-                    onClicked: uiShell.cancelExecution()
-                }
-                QuietButton {
-                    label: "暂停"
-                    enabled: uiShell.executionBusy && !uiShell.executionPaused
-                    onClicked: uiShell.pauseExecution()
-                }
-                QuietButton {
-                    label: "继续"
-                    enabled: uiShell.executionBusy && uiShell.executionPaused
-                    onClicked: uiShell.resumeExecution()
-                }
-                QuietButton {
-                    label: "单步"
-                    enabled: uiShell.executionPaused
-                    onClicked: uiShell.stepExecution()
-                }
-                Item { Layout.fillWidth: true }
-            }
-        }
-    }
-
     // ── 04 复习中心 ────────────────────────────────────────────────────────
     // ── 04 复习中心 ────────────────────────────────────────────────────────
     component ReviewPage: Item {
@@ -2852,7 +2871,11 @@ Rectangle {
                         }
                         // .challenge-stats — the one stat line, bottom-right
                         Text {
-                            text: "待复测 0 项 · 未来 7 天 0 项"
+                            text: "待复测 " + (uiShell.analysisSnapshot.reviewDueCount === undefined
+                                  ? "暂无数据" : uiShell.analysisSnapshot.reviewDueCount)
+                                  + " 项 · 未来 7 天 "
+                                  + (uiShell.analysisSnapshot.reviewNext7Days === undefined
+                                      ? "暂无数据" : uiShell.analysisSnapshot.reviewNext7Days) + " 项"
                             color: ds.muted
                             font.family: ds.ui
                             font.pixelSize: 13
@@ -2862,6 +2885,7 @@ Rectangle {
 
                     // .rv-async.rv-empty.rv-async--failed — hairline strip
                     Rectangle {
+                        visible: root.isErrorStatus(uiShell.contentStatus)
                         Layout.fillWidth: true
                         Layout.topMargin: ds.s24
                         implicitHeight: asyncCol.implicitHeight + ds.s32
@@ -2889,8 +2913,7 @@ Rectangle {
                             spacing: ds.s10
                             Text {
                                 Layout.fillWidth: true
-                                text: "读不到资料库发布规则：内容服务未连接或尚无可用快照。"
-                                      + "本页仍按本机兜底节奏排期，已排好的复测节点不受影响；可以重试读取。"
+                                text: uiShell.contentStatus
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 14
@@ -2899,9 +2922,13 @@ Rectangle {
                             }
                             QuietButton {
                                 implicitHeight: 44
-                                label: "重试读取发布规则"
+                                label: "重试读取"
                                 enabled: !uiShell.operationBusy
                                 onClicked: uiShell.refreshReviewSummary()
+                            }
+                            QuietButton {
+                                label: "知道了"
+                                onClicked: uiShell.dismissContentStatus()
                             }
                         }
                     }
@@ -3041,8 +3068,14 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.topMargin: ds.s12
                         Layout.preferredWidth: 616
-                        text: "本页只列 reviewDueKey 已安排的记录：逾期 0 项、今日 0 项、未来 7 天 0 项，"
-                              + "合计 0 项；没有到期安排的记录不计入任何分母。"
+                        text: uiShell.analysisSnapshot.reviewScheduledCount === undefined
+                              ? "本页只列 reviewDueKey 已安排的记录；暂无排期数据。"
+                              : "本页只列 reviewDueKey 已安排的记录：逾期 "
+                                + uiShell.analysisSnapshot.reviewOverdueCount + " 项，今日 "
+                                + uiShell.analysisSnapshot.reviewTodayCount + " 项，未来 7 天 "
+                                + uiShell.analysisSnapshot.reviewFuture7Days + " 项，合计 "
+                                + uiShell.analysisSnapshot.reviewScheduledCount
+                                + " 项；没有到期安排的记录不计入任何分母。"
                         color: ds.muted
                         font.family: ds.ui
                         font.pixelSize: 13
@@ -3297,6 +3330,7 @@ Rectangle {
     // ── 02 实战挑战 ────────────────────────────────────────────────────────
     component ChallengePage: Item {
         id: challengePage
+        readonly property int pageCount: Math.max(1, Math.ceil(uiShell.challengeMeta.length / 12))
 
         ColumnLayout {
             anchors.fill: parent
@@ -3760,7 +3794,7 @@ Rectangle {
                 QuietButton { implicitHeight: 44; label: "‹ 上一页"; enabled: false }
                 Item { Layout.fillWidth: true }
                 Text {
-                    text: "第 1 / 2 页"
+                    text: "第 1 / " + challengePage.pageCount + " 页"
                     color: ds.muted
                     font.family: ds.ui
                     font.pixelSize: 14
@@ -3786,6 +3820,34 @@ Rectangle {
         ColumnLayout {
             anchors.fill: parent
             spacing: ds.s28   // root gap clamp(20px, 2.4vw, 28px)
+
+            Rectangle {
+                Layout.fillWidth: true
+                visible: root.isErrorStatus(uiShell.contentStatus)
+                implicitHeight: draftStatusRow.implicitHeight + ds.s16
+                radius: ds.radiusSm
+                color: ds.bannerBg
+                border.color: ds.warning
+                RowLayout {
+                    id: draftStatusRow
+                    anchors.fill: parent
+                    anchors.margins: ds.s8
+                    Text {
+                        Layout.fillWidth: true
+                        text: uiShell.contentStatus
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }
+                    QuietButton {
+                        label: "重试保存"
+                        enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
+                        onClicked: uiShell.saveDraft()
+                    }
+                    QuietButton { label: "知道了"; onClicked: uiShell.dismissContentStatus() }
+                }
+            }
 
             // .module-heading.project-overview
             RowLayout {
@@ -4261,6 +4323,20 @@ Rectangle {
             const value = uiShell.analysisSnapshot[key]
             return value === undefined || value === null ? fallback : String(value)
         }
+        readonly property string reviewRate: {
+            const passed = uiShell.analysisSnapshot.reviewPassed;
+            const failed = uiShell.analysisSnapshot.reviewFailed;
+            if (passed === undefined || failed === undefined) return "暂无数据";
+            const total = Number(passed) + Number(failed);
+            return total === 0 ? "样本不足" : Math.round(Number(passed) / total * 100) + "%";
+        }
+        readonly property string reviewRateDetail: {
+            const passed = uiShell.analysisSnapshot.reviewPassed;
+            const failed = uiShell.analysisSnapshot.reviewFailed;
+            if (passed === undefined || failed === undefined) return "暂无复测数据";
+            return "近 7 天复测 " + (Number(passed) + Number(failed))
+                + " 次（通过 " + passed + " · 未通过 " + failed + "）";
+        }
 
         ScrollView {
             anchors.fill: parent
@@ -4405,7 +4481,7 @@ Rectangle {
                                   d: "窗口 " + analyticsPage.period + " 内的课程证据" },
                                 { n: "课程练习次数", v: analyticsPage.metric("practiceCount", "暂无数据"), b: "同一单元重复练习分别计数，与上一行是两个口径",
                                   d: "窗口 " + analyticsPage.period + " 内的课程证据" },
-                                { n: "挑战通过（本机已验证）", v: analyticsPage.metric("verifiedPasses", "暂无数据"), b: "仅认 passed / verified 状态",
+                                { n: "挑战通过记录", v: analyticsPage.metric("verifiedPasses", "暂无数据"), b: "仅统计 Challenge 类型且通过的记录",
                                   d: "无分母，不折算百分比" },
                                 { n: "挑战通过（旧版迁移口径）", v: "暂无数据",
                                   b: "记录缺失 status，按迁移语义单列为旧版，不混入上一行",
@@ -4416,18 +4492,20 @@ Rectangle {
                                   d: "当前数据源未提供复测分类" }
                               ],
                               note: "" },
-                            { idx: "02", icon: "▲", title: "复测完成率",
+                            { idx: "02", icon: "▲", title: "近 7 天复测通过率",
                               rows: [
-                                { n: "复测完成率", v: "样本不足",
+                                { n: "近 7 天复测通过率", v: analyticsPage.reviewRate,
                                   b: "通过 /（通过 + 未通过），四舍五入到整数百分比",
-                                  d: "全部复测 0 次（通过 0 · 未通过 0）",
-                                  a: "下一步：先到复习中心完成一次复测（通过或未通过都算一条记录），这一格才会出现比率。" },
+                                  d: analyticsPage.reviewRateDetail,
+                                  a: analyticsPage.reviewRate === "样本不足"
+                                      ? "下一步：到复习中心完成一次复测后，这里会显示比率。"
+                                      : "该比率只反映近 7 天复测结果，不代表到期任务完成率。" },
                                 { n: "到期任务完成率", v: "未统计",
                                   b: "需要计划任务分母；本机没有可复现的历史排期记录（STAT-01 第 4 条）",
                                   d: "无分母，不折算百分比",
                                   a: "下一步：等复习中心的排期按生效节奏累计出可复现的分母；本页不提供手填任务数的入口，也不拿活动次数顶替。" }
                               ],
-                              note: "样本不足：近 7 天还没有复测记录。完成课程后按计划复测，这里会出现完成率。" },
+                              note: "复测通过率只统计近 7 天的通过与未通过复测记录。" },
                             { idx: "03", icon: "◷", title: "连续打卡",
                               rows: [
                                 { n: "连续打卡天数", v: analyticsPage.metric("streakDays", "暂无数据"),
