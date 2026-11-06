@@ -2795,6 +2795,15 @@ Rectangle {
     component ReviewPage: Item {
         id: reviewPage
 
+        function itemsForGroup(groupKey) {
+            return uiShell.reviewItems.filter(function(item) { return item.group === groupKey; });
+        }
+
+        function lessonTitle(contentId) {
+            const lesson = uiShell.lessonMeta.find(function(item) { return item.id === contentId; });
+            return lesson ? lesson.title : contentId;
+        }
+
         ScrollView {
             anchors.fill: parent
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -3010,26 +3019,139 @@ Rectangle {
                             height: 1
                             color: ds.lineRaised
                         }
-                        Rectangle {
+                    }
+
+                    Repeater {
+                        model: [
+                            { key: "overdue", label: "逾期复测" },
+                            { key: "today", label: "今日到期" },
+                            { key: "upcoming", label: "未来 7 天" }
+                        ]
+                        delegate: ColumnLayout {
+                            required property var modelData
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 260
-                            color: "transparent"
-                            border.color: ds.line
-                            border.width: 1
-                            ScrollView {
-                                anchors.fill: parent
-                                anchors.margins: ds.s14
-                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                                TextArea {
-                                    text: uiShell.reviewSummary
-                                    readOnly: true
-                                    wrapMode: TextArea.Wrap
+                            Layout.topMargin: ds.s24
+                            spacing: 0
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s10
+                                Text {
+                                    text: modelData.label
                                     color: ds.ink
                                     font.family: ds.ui
-                                    font.pixelSize: 14
-                                    background: null
-                                    Accessible.name: "复习记录"
+                                    font.pixelSize: 18
+                                    font.weight: Font.DemiBold
                                 }
+                                Text {
+                                    text: "(" + reviewPage.itemsForGroup(modelData.key).length + ")"
+                                    color: ds.muted
+                                    font.family: ds.mono
+                                    font.pixelSize: 13
+                                }
+                                Item { Layout.fillWidth: true }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s6
+                                spacing: ds.s10
+                                Repeater {
+                                    model: ["课程 / 练习", "到期日", "下一节点", "掌握度", "操作"]
+                                    delegate: Text {
+                                        required property string modelData
+                                        Layout.fillWidth: true
+                                        text: modelData
+                                        color: ds.faint
+                                        font.family: ds.ui
+                                        font.pixelSize: 12
+                                    }
+                                }
+                            }
+
+                            Repeater {
+                                model: reviewPage.itemsForGroup(modelData.key)
+                                delegate: ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: ds.s6
+
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Layout.topMargin: ds.s8
+                                        Layout.bottomMargin: ds.s8
+                                        spacing: ds.s10
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 260
+                                            text: reviewPage.lessonTitle(modelData.contentId)
+                                                  + " / " + modelData.exerciseId
+                                            color: ds.ink
+                                            font.family: ds.ui
+                                            font.pixelSize: 13
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 110
+                                            text: modelData.dueKey || "—"
+                                            color: ds.muted
+                                            font.family: ds.mono
+                                            font.pixelSize: 12
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 110
+                                            text: "第 " + (modelData.nextNodeIndex + 1) + " 次"
+                                            color: ds.muted
+                                            font.family: ds.ui
+                                            font.pixelSize: 12
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 90
+                                            text: "等级 " + modelData.masteryLevel
+                                            color: ds.muted
+                                            font.family: ds.ui
+                                            font.pixelSize: 12
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 310
+                                            spacing: ds.s4
+                                            QuietButton {
+                                                implicitHeight: 36
+                                                label: "通过"
+                                                enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
+                                                onClicked: uiShell.reviewItem(modelData.itemId, true, "")
+                                            }
+                                            QuietButton {
+                                                implicitHeight: 36
+                                                label: "稍后提醒"
+                                                enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
+                                                onClicked: uiShell.snoozeReview(modelData.itemId)
+                                            }
+                                            QuietButton {
+                                                implicitHeight: 36
+                                                label: "查看课程"
+                                                enabled: uiShell.publishedIds.indexOf(modelData.contentId) >= 0
+                                                onClicked: uiShell.openPublishedContent(
+                                                    uiShell.publishedIds.indexOf(modelData.contentId))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s8
+                                visible: reviewPage.itemsForGroup(modelData.key).length === 0
+                                text: "此分组暂无复测项目。"
+                                color: ds.faint
+                                font.family: ds.ui
+                                font.pixelSize: 13
                             }
                         }
                     }
@@ -3330,7 +3452,66 @@ Rectangle {
     // ── 02 实战挑战 ────────────────────────────────────────────────────────
     component ChallengePage: Item {
         id: challengePage
-        readonly property int pageCount: Math.max(1, Math.ceil(uiShell.challengeMeta.length / 12))
+        property string searchText: ""
+        property string stageFilter: "全部"
+        property string trackFilter: "全部"
+        property string difficultyFilter: "全部"
+        property string runnerFilter: "全部"
+        property string sortFilter: "A—M 顺序"
+        property bool moreFiltersOpen: false
+        property int currentPage: 1
+        readonly property int pageSize: 12
+        readonly property var filteredChallenges: filterChallenges()
+        readonly property int pageCount: Math.max(1, Math.ceil(filteredChallenges.length / pageSize))
+        readonly property var pageChallenges: filteredChallenges.slice((currentPage - 1) * pageSize,
+                                                                       currentPage * pageSize)
+        readonly property string activeFilterSummary: {
+            const labels = [];
+            if (searchText.trim()) labels.push("搜索：" + searchText.trim());
+            if (stageFilter !== "全部") labels.push("阶段：" + stageFilter);
+            if (trackFilter !== "全部") labels.push("轨道：" + trackFilter);
+            if (difficultyFilter !== "全部") labels.push("难度：" + difficultyFilter);
+            if (runnerFilter !== "全部") labels.push("运行方式：" + runnerFilter);
+            if (sortFilter !== "A—M 顺序") labels.push("排序：" + sortFilter);
+            return labels.join("  ·  ");
+        }
+
+        function uniqueValues(field) {
+            const values = [];
+            uiShell.challengeMeta.forEach(function(item) {
+                const value = item[field] || "";
+                if (value && values.indexOf(value) < 0) values.push(value);
+            });
+            values.sort();
+            values.unshift("全部");
+            return values;
+        }
+
+        function filterChallenges() {
+            const query = searchText.trim().toLocaleLowerCase();
+            const result = uiShell.challengeMeta.filter(function(item) {
+                const searchable = [item.title, item.description, item.stageId, item.track,
+                                    (item.stack || []).join(" ")].join(" ").toLocaleLowerCase();
+                return (!query || searchable.indexOf(query) >= 0)
+                    && (stageFilter === "全部" || item.stageId === stageFilter)
+                    && (trackFilter === "全部" || item.track === trackFilter)
+                    && (difficultyFilter === "全部" || item.difficulty === difficultyFilter)
+                    && (runnerFilter === "全部" || item.runner === runnerFilter);
+            });
+            if (sortFilter === "标题") result.sort(function(a, b) { return a.title.localeCompare(b.title); });
+            return result;
+        }
+
+        function clearFilters() {
+            challengeSearch.text = "";
+            searchText = "";
+            stageFilter = "全部";
+            trackFilter = "全部";
+            difficultyFilter = "全部";
+            runnerFilter = "全部";
+            sortFilter = "A—M 顺序";
+            currentPage = 1;
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -3394,24 +3575,12 @@ Rectangle {
                     spacing: ds.s10
                     Text {
                         Layout.fillWidth: true
-                        text: "已完成 0 / " + uiShell.challengeMeta.length
-                              + " · 筛选后 " + uiShell.challengeMeta.length + " 关"
+                        text: "共 " + uiShell.challengeMeta.length + " 关 · 筛选后 "
+                              + challengePage.filteredChallenges.length + " 关"
                         color: ds.muted
                         font.family: ds.ui
                         font.pixelSize: 14
                         horizontalAlignment: Text.AlignRight
-                    }
-                    Rectangle {   // .challenge-progress — 2px track
-                        Layout.fillWidth: true
-                        implicitHeight: 2
-                        radius: ds.radius
-                        color: ds.lineRaised
-                        Rectangle {
-                            width: 0
-                            height: parent.height
-                            radius: ds.radius
-                            color: ds.accent
-                        }
                     }
                 }
             }
@@ -3420,7 +3589,7 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.bottomMargin: ds.s20
-                implicitHeight: filterRow.implicitHeight + ds.s32
+                implicitHeight: filterRow.implicitHeight + (challengePage.moreFiltersOpen ? 72 : 0) + ds.s32
                 radius: ds.radius
                 color: "#12161d"
                 border.color: ds.line
@@ -3428,7 +3597,8 @@ Rectangle {
 
                 RowLayout {
                     id: filterRow
-                    anchors { fill: parent; margins: ds.s16 }
+                    anchors { left: parent.left; right: parent.right; top: parent.top;
+                              leftMargin: ds.s16; rightMargin: ds.s16; topMargin: ds.s16 }
                     spacing: ds.s14
 
                     // .challenge-filters-label
@@ -3465,6 +3635,7 @@ Rectangle {
                             font.letterSpacing: 0.8
                         }
                         TextField {
+                            id: challengeSearch
                             Layout.fillWidth: true
                             implicitHeight: 44
                             placeholderText: "标题 / 技术栈 / 说明"
@@ -3481,53 +3652,34 @@ Rectangle {
                                 border.width: 1
                             }
                             Accessible.name: "搜索关卡"
+                            onTextChanged: {
+                                challengePage.searchText = text;
+                                challengePage.currentPage = 1;
+                            }
                         }
                     }
 
-                    // 阶段 / 状态 selects
-                    Repeater {
-                        model: [
-                            { k: "阶段", v: "全部" },
-                            { k: "状态", v: "全部" }
-                        ]
-                        delegate: ColumnLayout {
-                            required property var modelData
-                            spacing: ds.s4
-                            Text {
-                                text: modelData.k
-                                color: ds.muted
-                                font.family: ds.ui
-                                font.pixelSize: 13
-                                font.letterSpacing: 0.8
-                            }
-                            Rectangle {
-                                implicitWidth: 124
-                                implicitHeight: 44
-                                radius: ds.radiusSm
-                                color: ds.inset
-                                border.color: ds.lineStrong
-                                border.width: 1
-                                RowLayout {
-                                    anchors { fill: parent; leftMargin: ds.s10; rightMargin: ds.s10 }
-                                    spacing: ds.s6
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: modelData.v
-                                        color: ds.ink
-                                        font.family: ds.mono
-                                        font.pixelSize: 14
-                                        elide: Text.ElideRight
-                                        Layout.alignment: Qt.AlignVCenter
-                                    }
-                                    Text {
-                                        text: "▾"
-                                        color: ds.faint
-                                        font.family: ds.ui
-                                        font.pixelSize: 11
-                                        Layout.alignment: Qt.AlignVCenter
-                                    }
-                                }
-                            }
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "阶段"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            Layout.preferredWidth: 108
+                            implicitHeight: 44
+                            model: challengePage.uniqueValues("stageId")
+                            currentIndex: Math.max(0, model.indexOf(challengePage.stageFilter))
+                            onActivated: { challengePage.stageFilter = currentText; challengePage.currentPage = 1; }
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "轨道"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            Layout.preferredWidth: 140
+                            implicitHeight: 44
+                            model: challengePage.uniqueValues("track")
+                            currentIndex: Math.max(0, model.indexOf(challengePage.trackFilter))
+                            onActivated: { challengePage.trackFilter = currentText; challengePage.currentPage = 1; }
                         }
                     }
 
@@ -3535,29 +3687,113 @@ Rectangle {
 
                     QuietButton {
                         implicitHeight: 44
-                        label: "更多筛选 ▾"
+                        label: challengePage.moreFiltersOpen ? "收起筛选" : "更多筛选"
+                        onClicked: challengePage.moreFiltersOpen = !challengePage.moreFiltersOpen
+                    }
+                }
+
+                RowLayout {
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom;
+                              leftMargin: ds.s16; rightMargin: ds.s16; bottomMargin: ds.s12 }
+                    visible: challengePage.moreFiltersOpen
+                    spacing: ds.s12
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "难度"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            Layout.preferredWidth: 140
+                            implicitHeight: 44
+                            model: challengePage.uniqueValues("difficulty")
+                            currentIndex: Math.max(0, model.indexOf(challengePage.difficultyFilter))
+                            onActivated: { challengePage.difficultyFilter = currentText; challengePage.currentPage = 1; }
+                        }
+                    }
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "运行方式"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            Layout.preferredWidth: 170
+                            implicitHeight: 44
+                            textRole: "label"
+                            model: [
+                                { value: "全部", label: "全部" },
+                                { value: "teaching", label: "教学运行器" },
+                                { value: "external", label: "外部环境实验" }
+                            ]
+                            currentIndex: Math.max(0, model.findIndex(function(item) {
+                                return item.value === challengePage.runnerFilter;
+                            }))
+                            onActivated: {
+                                challengePage.runnerFilter = model[currentIndex].value;
+                                challengePage.currentPage = 1;
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "排序"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            Layout.preferredWidth: 150
+                            implicitHeight: 44
+                            model: ["A—M 顺序", "标题"]
+                            currentIndex: Math.max(0, model.indexOf(challengePage.sortFilter))
+                            onActivated: { challengePage.sortFilter = currentText; challengePage.currentPage = 1; }
+                        }
+                    }
+                    Item { Layout.fillWidth: true }
+                    QuietButton {
+                        implicitHeight: 44
+                        label: "清除筛选"
+                        enabled: challengePage.searchText !== "" || challengePage.stageFilter !== "全部"
+                                 || challengePage.trackFilter !== "全部"
+                                 || challengePage.difficultyFilter !== "全部"
+                                 || challengePage.runnerFilter !== "全部"
+                                 || challengePage.sortFilter !== "A—M 顺序"
+                        onClicked: challengePage.clearFilters()
                     }
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s12
+                visible: challengePage.activeFilterSummary !== ""
+                spacing: ds.s10
+                Text {
+                    Layout.fillWidth: true
+                    text: challengePage.activeFilterSummary
+                    color: ds.muted
+                    font.family: ds.ui
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                }
+                QuietButton {
+                    implicitHeight: 36
+                    label: "清除筛选"
+                    onClicked: challengePage.clearFilters()
+                }
+            }
+
             // ol.challenge-grid — the page's own scroll box
-            ScrollView {
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                GridView {
-                    id: challengeGrid
+                ScrollView {
                     anchors.fill: parent
-                    cellWidth: Math.floor(width / 3) - 1
-                    cellHeight: 236
-                    model: uiShell.challengeMeta
-                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    GridView {
+                        id: challengeGrid
+                        anchors.fill: parent
+                        cellWidth: Math.max(1, Math.floor(width / 3) - 1)
+                        cellHeight: 236
+                        model: challengePage.pageChallenges
+                        clip: true
 
-                    delegate: Item {
-                        required property var modelData
-                        required property int index
-                        width: challengeGrid.cellWidth
-                        height: challengeGrid.cellHeight
+                        delegate: Item {
+                            required property var modelData
+                            required property int index
+                            width: challengeGrid.cellWidth
+                            height: challengeGrid.cellHeight
 
                         // .stage-card — mono text, hairline ledger
                         Rectangle {
@@ -3777,6 +4013,35 @@ Rectangle {
                             // stays informational rather than navigating somewhere
                             // that would pretend to run it.
                         }
+                        }
+                    }
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        width: Math.min(parent.width - ds.s32, 420)
+                        visible: challengePage.filteredChallenges.length === 0
+                        spacing: ds.s10
+                        Text {
+                            Layout.fillWidth: true
+                            text: uiShell.challengeMeta.length === 0
+                                  ? "暂无可用的挑战数据。" : "当前筛选条件下没有匹配的关卡。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 14
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                        }
+                        QuietButton {
+                            Layout.alignment: Qt.AlignHCenter
+                            implicitHeight: 44
+                            label: "清除筛选"
+                            visible: uiShell.challengeMeta.length > 0
+                            enabled: challengePage.searchText !== "" || challengePage.stageFilter !== "全部"
+                                     || challengePage.trackFilter !== "全部"
+                                     || challengePage.difficultyFilter !== "全部"
+                                     || challengePage.sortFilter !== "A—M 顺序"
+                                     || challengePage.runnerFilter !== "全部"
+                            onClicked: challengePage.clearFilters()
+                        }
                     }
                 }
             }
@@ -3791,10 +4056,16 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: ds.s20
                 spacing: ds.s12
-                QuietButton { implicitHeight: 44; label: "‹ 上一页"; enabled: false }
+                QuietButton {
+                    implicitHeight: 44
+                    label: "‹ 上一页"
+                    enabled: challengePage.currentPage > 1
+                    onClicked: challengePage.currentPage = Math.max(1, challengePage.currentPage - 1)
+                }
                 Item { Layout.fillWidth: true }
                 Text {
-                    text: "第 1 / " + challengePage.pageCount + " 页"
+                    text: challengePage.filteredChallenges.length === 0
+                          ? "暂无匹配关卡" : "第 " + challengePage.currentPage + " / " + challengePage.pageCount + " 页"
                     color: ds.muted
                     font.family: ds.ui
                     font.pixelSize: 14
@@ -3802,7 +4073,13 @@ Rectangle {
                     Layout.alignment: Qt.AlignVCenter
                 }
                 Item { Layout.fillWidth: true }
-                QuietButton { implicitHeight: 44; label: "下一页 ›"; enabled: false }
+                QuietButton {
+                    implicitHeight: 44
+                    label: "下一页 ›"
+                    enabled: challengePage.currentPage < challengePage.pageCount
+                    onClicked: challengePage.currentPage = Math.min(challengePage.pageCount,
+                                                                     challengePage.currentPage + 1)
+                }
             }
         }
     }
