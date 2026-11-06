@@ -4,7 +4,7 @@ rem Copies the freshly built executable when the installed preview is closed.
 rem This helper never kills processes by image name; close only the preview
 rem instance you started before rerunning it.
 setlocal
-set "SRC=%~dp0..\..\..\..\.local\qt\current\ui-qt\CodeWeaveQtShell.exe"
+set "SRC=%~dp0..\..\..\.local\qt\current\ui-qt\CodeWeaveQtShell.exe"
 set "DST=%LOCALAPPDATA%\Programs\CodeWeave\CodeWeaveQtShell.exe"
 
 if not exist "%SRC%" (

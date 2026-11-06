@@ -8,4 +8,12 @@ Android/Kotlin UI 位于 `mobile-app/`，独立 C++ 核心位于 `mobile-core/`�
 
 结构检查：`node scripts/boundary-check.mjs`。C++ 核心可用 CMake 配置、构建和 CTest 验证。Android 编译与设备运行尚未验证，此处不提供不存在的 gradlew.bat 命令。
 
+本机 MSVC 核心验证命令（需启用共享库符号导出）：
+
+```powershell
+cmake -S mobile-core -B .gradle/layout-native-check -G "Visual Studio 17 2022" -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
+cmake --build .gradle/layout-native-check --config Release
+ctest --test-dir .gradle/layout-native-check -C Release --output-on-failure
+```
+
 固定规则见仓库根 `AGENTS.md`。有效内容并入当前版本，必要源码备份到 Git，本地不留重复旧版本。

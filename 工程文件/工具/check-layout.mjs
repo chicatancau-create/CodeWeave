@@ -24,4 +24,7 @@ for (const [alias, target] of [['app', '应用端/项目'], ['prep', '应用端/
   assert.equal(realpathSync(resolve(root, '.local', alias)), realpathSync(resolve(root, target)))
 }
 assert(readFileSync(resolve(root, 'AGENTS.md'), 'utf8').includes('最外层只允许一个启动链接'))
+for (const name of readdirSync(resolve(root, '应用端/构建产物/qt'))) {
+  assert.equal(name, 'current', `只允许一份当前 Qt 构建，禁止旧副本：${name}`)
+}
 console.log('Layout passed: three products, one shortcut each, internal tooling, no external project copies.')

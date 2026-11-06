@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string[]] $Files,
-    [string] $SigningDir = (Join-Path $PSScriptRoot '../../../开发环境/signing')
+    [string] $SigningDir = (Join-Path $PSScriptRoot '../../开发环境/signing')
 )
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $SigningDir | Out-Null

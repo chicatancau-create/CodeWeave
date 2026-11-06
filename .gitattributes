@@ -1,2 +1,4 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
+# These published payloads contain SHA-256 digests; checkout must preserve bytes.
+**/native/content/** -text
