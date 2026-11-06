@@ -7,7 +7,7 @@
  *
  * 记忆化：`open` 是本组件内部状态，`memo` 后「打开通知面板」不再牵动搜索行与账户菜单重渲染。
  */
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { visibleNotifications } from '../../utils/notifications'
 
@@ -28,10 +28,15 @@ export const NotificationCenter = memo(function NotificationCenter({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const closeAndMark = () => {
+  const itemsRef = useRef(items)
+  const onCloseRef = useRef(onClose)
+  itemsRef.current = items
+  onCloseRef.current = onClose
+
+  const closeAndMark = useCallback(() => {
     setOpen(false)
-    onClose(items.map((item) => item.id))
-  }
+    onCloseRef.current(itemsRef.current.map((item) => item.id))
+  }, [])
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -52,9 +57,7 @@ export const NotificationCenter = memo(function NotificationCenter({
       window.removeEventListener('mousedown', onDown)
       window.removeEventListener('keydown', onKey)
     }
-    // 只在 open 变化时重绑：否则每次渲染都会注销并重新注册一对全局监听。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, closeAndMark])
 
   const KIND_LABELS: Record<string, string> = {
     'review-due': '复测',

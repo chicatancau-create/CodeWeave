@@ -206,7 +206,7 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary scope="app">
       {auth.user ? (
         <ContentProvider key={auth.user.id} enabled>
           <WorkspaceShell
@@ -965,7 +965,7 @@ function WorkspaceShell({
         totalStages={displayStages.length}
       />
 
-      <div className="main-content" id="main-content">
+      <div className="main-content">
         {/* 装饰层：发丝线取景框，档位 10（geometry.md §5 裁定 1）。空元素 + aria-hidden
             + pointer-events:none，画线全部用伪元素，因此不截获鼠标键盘、也不进辅助技术
             朗读顺序（§5.3 第 6 条）。工作台（.is-immersive）下由 CSS 收起不挂载。 */}
@@ -1012,7 +1012,7 @@ function WorkspaceShell({
           onOpenHelp={() => setHelpOpen(true)}
         />
 
-        <main className="content-wrap">
+        <main className="content-wrap" id="main-content" tabIndex={-1}>
           <ContentSourceBanner />
           <details className="desktop-vault-settings">
             <summary>资料库连接与拥有者设置</summary>

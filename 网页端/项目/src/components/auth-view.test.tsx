@@ -201,7 +201,10 @@ describe('LOGIN-01 错误显示优先级', () => {
 
   it('无服务端错误时显示连接提示', () => {
     render(<AuthView {...baseProps} mode="login" connectionError="unavailable" />)
-    expect(screen.getByText(/无法连接本地服务/)).toBeDefined()
+    const hint = screen.getByText(/无法连接本地服务/)
+    expect(hint).toBeDefined()
+    expect(hint.textContent).toContain('corepack pnpm server:start')
+    expect(hint.textContent).toContain('corepack pnpm dev')
   })
 })
 

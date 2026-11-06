@@ -210,8 +210,7 @@ export function ChallengesView({ challenges, progress, unitsByStage, onOpenUnit,
       )
     }
     return filtered
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challenges, progress, runResults, filters])
+  }, [challenges, progress, filters, statusOf, sessionStatusOf])
 
   const selectedChallenge = useMemo(
     () => challenges.find((challenge) => challenge.id === selectedId) ?? challenges[0],

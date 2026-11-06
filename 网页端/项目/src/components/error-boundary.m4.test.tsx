@@ -132,6 +132,12 @@ describe('M4 错误态 · 明确错误与下一步（§11.2）', () => {
     expect(screen.getByRole('button', { name: /重新载入页面/ })).toBeTruthy()
   })
 
+  it('应用级边界说明整壳故障，局部边界默认文案不变', () => {
+    render(<ErrorBoundary scope="app"><Boom /></ErrorBoundary>)
+    expect(screen.getByRole('heading', { name: '应用发生错误，请刷新重试' })).toBeTruthy()
+    expect(screen.queryByText(/只影响这一块区域/)).toBeNull()
+  })
+
   it('如实说明不空数据覆盖，并给出恢复入口（导出留档 / 从导出文件恢复）', () => {
     renderBoundary()
     expect(screen.getByText('你的数据现在怎么样')).toBeTruthy()

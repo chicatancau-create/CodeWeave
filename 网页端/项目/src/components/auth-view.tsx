@@ -34,8 +34,8 @@ type AuthViewProps = {
 }
 
 const CONNECTION_HINTS: Record<string, string> = {
-  unavailable: '无法连接本地服务。请通过 CodeCanvas-OneClick.cmd 或 pnpm run start 启动完整服务后刷新页面。',
-  bad_response: '服务返回了异常响应，可能正在升级或未构建前端产物。请运行 pnpm run build 后重启服务。',
+  unavailable: '无法连接本地服务。请在网页端项目目录运行 corepack pnpm server:start 启动服务，或运行 corepack pnpm dev 启动开发页面后重试。',
+  bad_response: '服务返回了异常响应，可能正在升级或未构建前端产物。请在网页端项目目录运行 corepack pnpm build 后重启服务。',
   request_failed: '服务暂时无法处理请求，请稍后重试。',
 }
 

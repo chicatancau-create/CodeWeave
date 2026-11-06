@@ -63,6 +63,11 @@ describe('App 入口', () => {
     expect(screen.getByRole('heading', { name: '你的学习路径' })).toBeTruthy()
     // 13 个挑战阶段（A—M）体现在欢迎区文案
     expect(screen.getByText(/学习计划共 13 个阶段/)).toBeTruthy()
+    const skipLink = screen.getByRole('link', { name: '跳到主内容' })
+    const main = document.querySelector('main#main-content')
+    expect(skipLink.getAttribute('href')).toBe('#main-content')
+    expect(main?.getAttribute('tabindex')).toBe('-1')
+    expect(document.querySelector('.main-content#main-content')).toBeNull()
   })
 
   it('认证接口失败时不白屏，回退到登录页', async () => {

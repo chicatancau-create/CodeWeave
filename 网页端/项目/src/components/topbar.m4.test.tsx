@@ -12,6 +12,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GlobalTopbar } from './topbar'
+import { NotificationCenter } from './topbar/Notifications'
 import type { AuthUser } from '../hooks/use-auth'
 import type { NotificationItem } from '../utils/notifications'
 import type { SearchTarget } from '../utils/search'
@@ -24,6 +25,7 @@ const { readFileSync } = (await import(fsSpecifier)) as {
 }
 const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
 const cssRaw = readFileSync(`${moduleDir}/../styles.css`, 'utf8')
+const desktopTheme = readFileSync(`${moduleDir}/../design/desktop-theme.css`, 'utf8')
 /* 否定断言只看真实声明，不看注释（M3 的同款做法）：注释里会提到被禁止的写法。 */
 const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '')
 const appSource = readFileSync(`${moduleDir}/../app.tsx`, 'utf8')
@@ -117,6 +119,22 @@ describe('§5.2 清楚的当前入口 · 编号是真实文本', () => {
   })
 })
 
+describe('桌面主题断点', () => {
+  it('桌面布局令牌与派生定位只在 1201px 以上覆盖基础响应式规则', () => {
+    const desktopStart = desktopTheme.indexOf('@media (min-width: 1201px) {')
+    const reducedMotionStart = desktopTheme.indexOf('@media (prefers-reduced-motion: reduce)')
+    expect(desktopStart).toBeGreaterThan(-1)
+    expect(reducedMotionStart).toBeGreaterThan(desktopStart)
+    const desktopRules = desktopTheme.slice(desktopStart, reducedMotionStart)
+    expect(desktopTheme.slice(0, desktopStart)).not.toMatch(/--(?:sidebar-w|topbar-h|tap-min):/)
+    expect(desktopRules).toContain('--sidebar-w: 240px')
+    expect(desktopRules).toContain('--topbar-h: 68px')
+    expect(desktopRules).toContain('.app-shell .sidebar { top: var(--topbar-h)')
+    expect(desktopRules).not.toContain('@media (max-width: 1200px)')
+    expect(desktopRules).not.toContain('@media (max-width: 1000px)')
+  })
+})
+
 describe('§5.2 保留行为 · 全局搜索', () => {
   it('按 `/` 聚焦搜索输入框', () => {
     setup()
@@ -197,6 +215,20 @@ describe('§5.2 保留行为 · 通知中心', () => {
     fireEvent.click(trigger)
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(document.activeElement).toBe(trigger)
+  })
+
+  it.each(['Escape', 'outside click'])('面板打开期间通知更新后，%s 按最新列表标记已读', (closeBy) => {
+    const onClose = vi.fn()
+    const onNavigateView = vi.fn()
+    const latestItems: NotificationItem[] = [
+      { id: 'n3', kind: 'review-due', title: '最新复习提醒', dateKey: '2026-09-21' },
+    ]
+    const { rerender } = render(<NotificationCenter items={items} onClose={onClose} onNavigateView={onNavigateView} />)
+    fireEvent.click(screen.getByRole('button', { name: '通知中心（2 条未读）' }))
+    rerender(<NotificationCenter items={latestItems} onClose={onClose} onNavigateView={onNavigateView} />)
+    if (closeBy === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
+    else fireEvent.mouseDown(document.body)
+    expect(onClose).toHaveBeenCalledWith(['n3'])
   })
 
   it('点击某条通知跳到对应视图并上报已读', () => {

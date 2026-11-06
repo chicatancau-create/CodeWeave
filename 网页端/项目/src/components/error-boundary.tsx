@@ -5,6 +5,7 @@ import './error-boundary.css'
 type ErrorBoundaryProps = {
   children: ReactNode
   fallback?: (error: Error, reset: () => void) => ReactNode
+  scope?: 'app' | 'view'
 }
 
 type ErrorBoundaryState = {
@@ -87,11 +88,12 @@ async function copyToClipboard(text: string): Promise<boolean> {
 
 type CopyState = 'idle' | 'copied' | 'failed'
 
-function DefaultErrorScreen({ error, componentStack, occurredAt, onReset }: {
+function DefaultErrorScreen({ error, componentStack, occurredAt, onReset, scope }: {
   error: Error
   componentStack: string | null
   occurredAt: string | null
   onReset: () => void
+  scope: 'app' | 'view'
 }) {
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const report = buildErrorReport(error, componentStack, occurredAt)
@@ -114,10 +116,12 @@ function DefaultErrorScreen({ error, componentStack, occurredAt, onReset }: {
           错误边界 · 已拦截
         </p>
         <h2 id="cw-error-title" className="cw-error-title">
-          这一屏没能显示出来
+          {scope === 'app' ? '应用发生错误，请刷新重试' : '这一屏没能显示出来'}
         </h2>
         <p className="cw-error-lede">
-          异常被组件树拦下，只影响这一块区域；页面其余部分与导航仍可使用。下面依次是：出了什么事、你的数据现在怎么样、下一步做什么。
+          {scope === 'app'
+            ? '应用界面暂时无法继续显示。重新载入页面会重新启动前端，不会改动任何数据。下面依次是：出了什么事、你的数据现在怎么样、下一步做什么。'
+            : '异常被组件树拦下，只影响这一块区域；页面其余部分与导航仍可使用。下面依次是：出了什么事、你的数据现在怎么样、下一步做什么。'}
         </p>
 
         <section className="cw-error-block" aria-label="错误详情">
@@ -235,6 +239,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           componentStack={this.state.componentStack}
           occurredAt={this.state.occurredAt}
           onReset={this.handleReset}
+          scope={this.props.scope ?? 'view'}
         />
       )
     }
