@@ -499,15 +499,30 @@ int main(int argc, char* argv[]) {
           view.resize(1100, 720);
           break;
         case 18:
-          if (!settings_scroll || settings_scroll->height() <= 0 || settings_scroll->width() <= 0 ||
-              settings_scroll->property("contentHeight").toReal() <= 0) {
-            diagnostic = QStringLiteral("Settings content is clipped at 1100x720: viewport=%1x%2 content=%3")
-                .arg(settings_scroll ? settings_scroll->width() : -1)
-                .arg(settings_scroll ? settings_scroll->height() : -1)
-                .arg(settings_scroll ? settings_scroll->property("contentHeight").toReal() : -1);
-            write_smoke_report();
-            application.exit(1);
-            return;
+          {
+            const QPointF dialog_origin(settings->property("x").toReal(), settings->property("y").toReal());
+            const auto dialog_width = settings->property("width").toReal();
+            const auto dialog_height = settings->property("height").toReal();
+            const auto content_width = settings_scroll->property("contentWidth").toReal();
+            const auto content_height = settings_scroll->property("contentHeight").toReal();
+            const bool layout_valid = view.size() == QSize(1100, 720) &&
+                settings_scroll->height() > 0 && settings_scroll->width() > 0 && content_width > 0 &&
+                content_width <= settings_scroll->width() + 1 && content_height > 0 &&
+                dialog_origin.x() >= 0 && dialog_origin.y() >= 0 &&
+                dialog_width > 0 && dialog_height > 0 &&
+                dialog_origin.x() + dialog_width <= view.rootObject()->width() + 1 &&
+                dialog_origin.y() + dialog_height <= view.rootObject()->height() + 1;
+            if (!layout_valid) {
+              diagnostic = QStringLiteral("Settings layout is invalid at 1100x720: window=%1x%2 viewport=%3x%4 content=%5x%6 dialog=%7,%8 %9x%10")
+                  .arg(view.width()).arg(view.height())
+                  .arg(settings_scroll->width()).arg(settings_scroll->height())
+                  .arg(content_width).arg(content_height)
+                  .arg(dialog_origin.x()).arg(dialog_origin.y())
+                  .arg(dialog_width).arg(dialog_height);
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
           }
           if (!capture_topbar(QStringLiteral("topbar-settings-small"))) { application.exit(1); return; }
           {
@@ -521,7 +536,14 @@ int main(int argc, char* argv[]) {
           }
           break;
         case 19:
-          if (settings->property("opened").toBool() || !require_focus(settings_button)) return;
+          if (settings->property("opened").toBool() || !require_focus(settings_button)) {
+            if (diagnostic == QStringLiteral("running")) {
+              diagnostic = QStringLiteral("Settings did not close on outside click or return focus");
+              write_smoke_report();
+              application.exit(1);
+            }
+            return;
+          }
           view.resize(1440, 900);
           QMetaObject::invokeMethod(quick, "open");
           break;

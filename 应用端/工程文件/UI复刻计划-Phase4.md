@@ -192,6 +192,7 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 - [通过] 可见真实窗口 smoke 覆盖面包屑随页面变化、快捷动作与通知互斥、搜索空态及 Esc、弹窗打开/关闭和焦点归还；`topbar-smoke.json` 为 `passed` 且 QML 警告为空。
 - [通过] 真实桌面截图检查快捷动作、通知、设置、帮助及 1100×720 设置窗口；小窗口下设置项和关闭操作均可见，内容未被裁切。
 - [通过] 当前 Qt Release 构建与 CTest 9/9、`node --test 应用端/项目/native/ui-qt/tests/learning_catalog_tests.mjs` 5/5、`node 工程文件/工具/check-layout.mjs`、`git diff --check`。
+- [先失败，修复后通过] 自审增强小窗口尺寸/宽度/边界及点击外部关闭断言，初次误将 Popup 转为 QQuickItem 导致 smoke 失败；改为使用公开几何属性后标准构建/CTest 9/9 及可见 smoke 再次通过。
 - [未执行] 网页端逐像素截图差分、真实账户设置持久化（偏好仍明确禁用并标注待接入）及生产资料库联调。截图和复现说明见 `验收证据/Phase4-P1-1-3-topbar-20261107/README.md`。
 
 ### 2026-11-07 P1 1.6（工作台页首与分区导航）
