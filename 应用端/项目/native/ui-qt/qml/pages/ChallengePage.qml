@@ -39,7 +39,25 @@ Item {
         readonly property int pageSize: 12
         readonly property var filteredChallenges: filterChallenges()
         function chStatus(item) {
+            const record = uiShell.challengeProgress[item.id];
+            if (record && (record.status === "passed" || record.status === "verified")) return "passed";
+            if (record && record.status === "submitted") return "pending-verify";
+            if (record && record.status === "rejected") return "rejected";
             return item.runner === "external" ? "external-pending" : "not-started";
+        }
+        function statusLabel(item) {
+            const status = chStatus(item);
+            if (status === "passed") return "已通过";
+            if (status === "pending-verify") return "待确认";
+            if (status === "rejected") return "未通过";
+            return status === "external-pending" ? "待实验" : "未开始";
+        }
+        function statusColor(item) {
+            const status = chStatus(item);
+            if (status === "passed") return ds.success;
+            if (status === "pending-verify") return ds.accent;
+            if (status === "rejected") return ds.danger;
+            return status === "external-pending" ? ds.warning : ds.faint;
         }
         function challengeSequence(item) {
             const index = uiShell.challengeMeta.findIndex(function(challenge) {
@@ -430,6 +448,7 @@ Item {
                                     if (k === "ready-to-submit") return ds.info;        // 可提交：info 色
                                     if (k === "pending-verify") return ds.accent;       // 待确认：accent 色
                                     if (k === "passed") return ds.success;              // 已通过：success 色
+                                    if (k === "rejected") return ds.danger;             // 人工驳回：danger 色
                                     return ds.line;
                                 }
 
@@ -509,10 +528,8 @@ Item {
                                                 Layout.alignment: Qt.AlignVCenter
                                             }
                                             Text {
-                                                text: chStatus(modelData) === "external-pending"
-                                                      ? "待实验" : "未开始"
-                                                color: chStatus(modelData) === "external-pending"
-                                                       ? ds.warning : ds.faint
+                                                text: challengePage.statusLabel(modelData)
+                                                color: challengePage.statusColor(modelData)
                                                 font.family: ds.ui
                                                 font.pixelSize: 13
                                                 font.weight: Font.DemiBold
@@ -988,6 +1005,10 @@ Item {
                                 wrapMode: Text.WrapAnywhere
                             }
                         }
+                        ChallengeSubmissionPanel {
+                            ds: challengePage.ds
+                            Layout.fillWidth: true
+                        }
                     }
                 }
             }
@@ -1005,7 +1026,7 @@ Item {
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: "挑战提交历史暂不可用。"
+                    text: "本关已保存 " + uiShell.challengeHistory.length + " 条提交记录"
                     color: ds.muted
                     font.family: ds.ui
                     font.pixelSize: 13

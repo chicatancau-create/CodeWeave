@@ -1,12 +1,22 @@
 #include "ui_shell.hpp"
 #include "evidence_store.hpp"
 #include "challenge_runtime.hpp"
+#include "challenge_submission_store.hpp"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QElapsedTimer>
+#include <QDate>
+#include <QDateTime>
+#include <QFile>
+#include <QDir>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLockFile>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QTimer>
 
 #include <cassert>
 #include <condition_variable>
@@ -37,6 +47,93 @@ std::string read_file(const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 }
+
+void test_challenge_submission_store() {
+  QTemporaryDir temporary;
+  assert(temporary.isValid());
+  const auto root = temporary.path();
+  const ChallengeSubmissionStore store(root);
+  QVariantList records;
+  assert(store.read(records).ok && records.isEmpty());
+  const QVariantMap record{
+      {"id", "submission-0123456789abcdef0123456789abcdef"}, {"challengeId", "stage-b"},
+      {"submittedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+      {"status", "passed"}, {"tier", "teaching"}, {"judgeMode", "exact-lines"},
+      {"evidence", "Immutable evidence snapshot"}, {"code", "print(15)"},
+      {"expected", QVariantList{QStringLiteral("15")}}, {"output", QVariantList{QStringLiteral("15")}},
+      {"observation", ""}, {"reviewedAt", ""}};
+  assert(store.append(record, records).ok && records.size() == 1);
+  const auto new_account_root = QDir(root).filePath("new-account");
+  assert(!QDir(new_account_root).exists());
+  QVariantList first_submission;
+  assert(ChallengeSubmissionStore(new_account_root).append(record, first_submission).ok);
+  assert(first_submission.size() == 1 && QDir(new_account_root).exists());
+  assert(store.append(record, records).ok && records.size() == 1);
+  auto conflict = record;
+  conflict["evidence"] = "Different evidence";
+  assert(!store.append(conflict, records).ok);
+  assert(!store.review(record.value("id").toString(), false, {}, records).ok);
+  auto external = record;
+  external["id"] = "submission-1123456789abcdef0123456789abcdef";
+  external["challengeId"] = "stage-a";
+  external["status"] = "submitted";
+  external["tier"] = "external";
+  external["judgeMode"] = "";
+  external["code"] = "";
+  external["output"] = QVariantList{};
+  assert(store.append(external, records).ok && records.size() == 2);
+  const auto id = external.value("id").toString();
+  assert(!store.review(id, true, "invented-observation", records).ok);
+  assert(!store.review("missing-submission", true, {}, records).ok);
+  assert(store.review(id, true, "completed", records).ok);
+  const auto reviewed = records.last().toMap();
+  assert(reviewed.value("status") == "verified" && reviewed.value("observation") == "completed");
+  assert(reviewed.value("evidence") == external.value("evidence") &&
+      reviewed.value("submittedAt") == external.value("submittedAt"));
+  assert(!store.review(id, false, {}, records).ok);
+  const ChallengeSubmissionStore reopened(root);
+  assert(reopened.read(records).ok && records.last().toMap() == reviewed);
+  external["id"] = "submission-2123456789abcdef0123456789abcdef";
+  assert(store.append(external, records).ok && records.size() == 3);
+  assert(store.review(external.value("id").toString(), false, "attempted", records).ok);
+  assert(records.last().toMap().value("status") == "rejected");
+  // A different account's empty directory cannot see this account's history.
+  QTemporaryDir other_account;
+  QVariantList other;
+  assert(ChallengeSubmissionStore(other_account.path()).read(other).ok && other.isEmpty());
+  const auto file_path = QDir(root).filePath("learning/challenge-submissions.v1.json");
+  QLockFile lock(file_path + ".lock");
+  assert(lock.tryLock(0));
+  assert(!store.append(record, records).ok);
+  lock.unlock();
+  QFile file(file_path);
+  assert(file.open(QIODevice::ReadOnly));
+  const auto original = file.readAll();
+  file.close();
+  assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  assert(file.write("broken-json") == 11);
+  file.close();
+  assert(!store.read(records).ok && !store.append(record, records).ok);
+  assert(file.open(QIODevice::ReadOnly) && file.readAll() == "broken-json");
+  file.close();
+  assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  assert(file.write(original) == original.size());
+  file.close();
+  auto bad = record;
+  bad["status"] = "verified";
+  assert(!store.append(bad, records).ok);
+  bad = record; bad["output"] = QVariantList{QStringLiteral("150")};
+  assert(!store.append(bad, records).ok);
+  bad = record; bad["code"] = QString(65537, 'x');
+  assert(!store.append(bad, records).ok);
+  bad = record; bad["challengeId"] = "../outside";
+  assert(!store.append(bad, records).ok);
+  QTemporaryDir blocked;
+  const auto blocked_root = std::filesystem::path(blocked.path().toStdWString());
+  std::ofstream(blocked_root / "learning") << "not a directory";
+  assert(!ChallengeSubmissionStore(blocked.path()).append(record, records).ok);
+  assert(read_file(blocked_root / "learning") == "not a directory");
+}
 }  // namespace
 
 struct UiShellTestAccess {
@@ -60,6 +157,7 @@ int main(int argc, char** argv) {
   QCoreApplication application(argc, argv);
   if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") return challenge_worker_main();
   assert(argc == 6);
+  test_challenge_submission_store();
   QTemporaryDir temporary;
   assert(temporary.isValid());
   const auto workspace = std::filesystem::path(temporary.path().toStdWString()) / L"中文工作区";
@@ -143,6 +241,75 @@ int main(int argc, char** argv) {
     assert(shell.documentId() == lesson_before_challenge);
     assert(!std::filesystem::exists(challenge_learning_root / "evidence.v1.log"));
     assert(!std::filesystem::exists(challenge_learning_root / "progress.v1.log"));
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    shell.submitChallenge(QStringLiteral("Executed the current challenge and retained its output."), {});
+    assert(shell.challengeHistoryBusy());
+    assert(!shell.setAccountContext(second, workspace, data));
+    shell.submitChallenge(QStringLiteral("Duplicate click while saving"), {});
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    if (shell.challengeHistory().size() != 1)
+      std::cerr << "Challenge submission failed: " << shell.challengeHistoryStatus().toStdString()
+                << "; account root exists: " << std::filesystem::exists(challenge_learning_root.parent_path()) << '\n';
+    assert(shell.challengeHistory().size() == 1);
+    const auto saved_challenge = shell.challengeHistory().first().toMap();
+    assert(saved_challenge.value("status") == "passed" && saved_challenge.value("judgeMode") == "exact-lines");
+    shell.submitChallenge(QStringLiteral("Executed the current challenge and retained its output."), {});
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().size() == 1);
+    shell.updateChallengeCode(QStringLiteral("console.log('changed after submission')"));
+    shell.submitChallenge(QStringLiteral("Cannot submit stale output"), {});
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().first().toMap() == saved_challenge);
+    shell.openChallenge(QStringLiteral("stage-a"));
+    assert(shell.challengeHistory().isEmpty());
+    const QVariantMap external_fields{
+        {"environment", "Windows 11 local fixture"}, {"command", "codeweave-check --isolated"},
+        {"resultSummary", QStringLiteral("已保存工具链的版本输出记录，并附上构建错误日志与修复说明")},
+        {"artifactRef", "fixture-report.txt"}, {"reproducedOn", QDate::currentDate().toString(Qt::ISODate)}};
+    shell.submitChallenge({}, {});
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    auto sensitive = external_fields;
+    sensitive["command"] = "password=example-secret";
+    shell.submitChallenge({}, sensitive);
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    auto unrelated = external_fields;
+    unrelated["resultSummary"] = QStringLiteral("完成了相关工作，详细内容见附件说明文档");
+    shell.submitChallenge({}, unrelated);
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    assert(shell.challengeHistoryStatus().contains(QStringLiteral("验收点")));
+    auto future = external_fields;
+    future["reproducedOn"] = QDate::currentDate().addDays(1).toString(Qt::ISODate);
+    shell.submitChallenge({}, future);
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    shell.submitChallenge({}, external_fields);
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().size() == 1);
+    const auto pending = shell.challengeHistory().first().toMap();
+    assert(pending.value("status") == "submitted" && pending.value("tier") == "external");
+    assert(shell.challengeProgress().value("stage-a").toMap().value("status") == "submitted");
+    shell.reviewChallengeSubmission(pending.value("id").toString(), true, "completed");
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().first().toMap().value("status") == "verified");
+    assert(shell.challengeProgress().value("stage-a").toMap().value("status") == "verified");
+    shell.refreshChallengeHistory();
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().first().toMap().value("evidence") == pending.value("evidence"));
+    auto revised_fields = external_fields;
+    revised_fields["resultSummary"] = QStringLiteral("再次运行，已保存一次构建报错的完整日志。");
+    shell.submitChallenge({}, revised_fields);
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().size() == 2);
+    assert(shell.challengeProgress().value("stage-a").toMap().value("status") == "verified");
+    const auto retry = shell.challengeHistory().first().toMap();
+    shell.reviewChallengeSubmission(retry.value("id").toString(), false, "attempted");
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().first().toMap().value("status") == "rejected");
+    shell.submitChallenge({}, revised_fields);
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().size() == 3);
+    assert(shell.challengeHistory().at(1).toMap().value("status") == "rejected");
+    shell.openChallenge(QStringLiteral("stage-j"));
+    shell.reviewChallengeSubmission(pending.value("id").toString(), false, {});
+    assert(!shell.challengeHistoryBusy());
+    assert(shell.challengeHistory().size() == 1 && shell.challengeHistory().first().toMap() == saved_challenge);
     shell.openChallenge(QStringLiteral("stage-d"));
     shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');"));
     shell.runChallenge();
@@ -368,6 +535,46 @@ int main(int argc, char** argv) {
     assert(read_file(file) == std::string("bad\0text", 8));
     wait_for([&] { return shell.clearAccountContext(); });
     assert(shell.requestClose());
+  }
+  // Reload a submitted snapshot in another shell, then close with a write
+  // queued behind a read. Shutdown must drain the write without losing it.
+  {
+    UiShell shell;
+    shell.configureAccountStorage(workspace, data);
+    shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.login("qt@example.test", "Test-Password-123!");
+    wait_for([&] { return !shell.accountBusy() && !shell.challengeHistoryBusy(); });
+    shell.openChallenge("stage-j");
+    assert(shell.challengeHistory().size() == 1);
+    assert(shell.challengeHistory().first().toMap().value("code").toString().contains("console.log"));
+    assert(shell.setAccountContext(second, workspace, data));
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    shell.openChallenge("stage-j");
+    assert(shell.challengeHistory().isEmpty() && shell.challengeProgress().isEmpty());
+    shell.openChallenge("stage-a");
+    std::mutex mutex;
+    std::condition_variable condition;
+    bool started = false, release = false;
+    assert(UiShellTestAccess::block_worker(shell, mutex, condition, started, release));
+    {
+      std::unique_lock lock(mutex);
+      assert(condition.wait_for(lock, std::chrono::seconds(5), [&] { return started; }));
+    }
+    shell.submitChallenge({}, QVariantMap{
+        {"environment", "Windows isolated shutdown fixture"}, {"command", "fixture-check"},
+        {"resultSummary", QStringLiteral("错误原因与修复步骤说明已留存，提交须在关闭前写入。")},
+        {"artifactRef", ""}, {"reproducedOn", QDate::currentDate().toString(Qt::ISODate)}});
+    assert(shell.challengeHistoryBusy());
+    assert(!shell.setAccountContext(first, workspace, data));
+    QTimer::singleShot(20, [&] {
+      { std::lock_guard lock(mutex); release = true; }
+      condition.notify_all();
+    });
+    assert(shell.requestClose());
+    QVariantList stored;
+    assert(ChallengeSubmissionStore(QString::fromStdWString(second_root.wstring())).read(stored).ok);
+    assert(stored.size() == 1 && stored.first().toMap().value("status") == "submitted");
   }
   // Account changes are allowed while a read is in flight. The old callback
   // must be ignored after the generation changes and must not overwrite the

@@ -28,7 +28,8 @@ void UiShell::dismissContentStatus() {
 }
 
 bool UiShell::allowDocumentChange() {
-  if (closing_ || operation_busy_ || execution_busy_ || challenge_run_busy_ || account_busy_) return false;
+  if (closing_ || operation_busy_ || execution_busy_ || challenge_run_busy_ ||
+      (challenge_history_busy_ && challenge_history_write_) || account_busy_) return false;
   if (!draftDirty()) return true;
   setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
   return false;
@@ -65,6 +66,11 @@ void UiShell::clearChallengeDrafts() {
   closeChallenge();
   challenge_drafts_.clear();
   challenge_run_result_.clear();
+  challenge_submissions_.clear();
+  challenge_history_status_.clear();
+  challenge_history_task_id_.clear();
+  challenge_history_busy_ = false;
+  emit challengeHistoryChanged();
   emit challengeCodeChanged();
   emit challengeRunResultChanged();
 }
@@ -96,6 +102,7 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   clearDraft();
   emit accountChanged();
   if (hasSelectedContent()) loadStarterCode();
+  refreshChallengeHistory();
   return true;
 }
 

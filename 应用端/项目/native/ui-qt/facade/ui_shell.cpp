@@ -182,6 +182,7 @@ void UiShell::openChallenge(const QString& challengeId) {
   emit challengeSelectionChanged();
   emit challengeCodeChanged();
   emit challengeRunResultChanged();
+  emit challengeHistoryChanged();
 }
 
 void UiShell::closeChallenge() {
@@ -192,6 +193,7 @@ void UiShell::closeChallenge() {
   challenge_run_result_.clear();
   emit challengeSelectionChanged();
   emit challengeRunResultChanged();
+  emit challengeHistoryChanged();
 }
 
 QString UiShell::challengeCode() const {

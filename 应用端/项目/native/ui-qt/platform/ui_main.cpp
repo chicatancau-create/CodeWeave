@@ -157,6 +157,18 @@ QQuickItem* u3_find_item(QQuickItem* parent, const QString& name) {
   return nullptr;
 }
 
+bool u3_reveal_challenge_item(QQuickItem* root, const QString& name) {
+  auto* scroll = u3_find_item(root, QStringLiteral("challengeLabSection"));
+  auto* item = u3_find_item(root, name);
+  auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+  if (!flick || !item || !item->isVisible()) return false;
+  const auto target = flick->property("contentY").toReal() + item->mapToItem(flick, QPointF()).y();
+  flick->setProperty("contentY", std::clamp(target, 0.0,
+      std::max(0.0, scroll->property("contentHeight").toReal() - flick->height())));
+  const auto top = item->mapToItem(flick, QPointF()).y();
+  return top >= -1 && top + item->height() <= flick->height() + 1;
+}
+
 int main(int argc, char* argv[]) {
   if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") {
     QCoreApplication application(argc, argv);
@@ -1239,6 +1251,132 @@ int main(int argc, char* argv[]) {
         case 214: {
           u3_record(*context, QStringLiteral("challenge-code-draft-restored-after-reopen"),
               shell.challengeCode() == QStringLiteral("console.log('待办数量: 20');"));
+          shell.updateChallengeCode(shell.selectedChallenge().value(QStringLiteral("starterCode")).toString());
+          shell.runChallenge();
+          context->step = 215;
+          return;
+        }
+        case 215: {
+          if (shell.challengeRunBusy() || shell.challengeHistoryBusy()) return;
+          auto* note = u3_find_item(view.rootObject(), QStringLiteral("challengeEvidenceNote"));
+          auto* submit = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmit"));
+          if (note) note->setProperty("text", QStringLiteral("已运行当前代码，输出命中全部验收点。<b>原文保留</b>"));
+          const bool submitted = submit && submit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy();
+          u3_record(*context, QStringLiteral("challenge-form-submits-successful-local-snapshot"), submitted);
+          context->step = 216;
+          return;
+        }
+        case 216: {
+          if (shell.challengeHistoryBusy()) return;
+          auto* status = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          const auto history = shell.challengeHistory();
+          u3_record(*context, QStringLiteral("challenge-local-history-and-progress-visible"),
+              history.size() == 1 && history.first().toMap().value("status") == "passed" && status &&
+              status->property("text").toString().contains(QStringLiteral("自动判定通过")) &&
+              shell.challengeProgress().value("stage-d").toMap().value("status") == "passed",
+              shell.challengeHistoryStatus());
+          auto* evidence = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmissionEvidence-0"));
+          u3_record(*context, QStringLiteral("challenge-evidence-is-rendered-as-plain-text"),
+              evidence && evidence->property("textFormat").toInt() == int(Qt::PlainText) &&
+              evidence->property("text").toString().contains(QStringLiteral("<b>原文保留</b>")));
+          view.resize(1440, 900);
+          context->step = 217;
+          return;
+        }
+        case 217:
+          if (view.size() != QSize(1440, 900)) return;
+          u3_record(*context, QStringLiteral("challenge-history-scroll-reaches-submission"),
+              u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0")));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-submitted"), QSize(1440, 900));
+          view.resize(1100, 720);
+          context->step = 218;
+          return;
+        case 218: {
+          if (view.size() != QSize(1100, 720)) return;
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("challengeLabSection"));
+          u3_record(*context, QStringLiteral("challenge-history-small-window-scroll-without-overflow"),
+              scroll && scroll->property("contentWidth").toReal() <= scroll->width() + 1 &&
+              u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0")));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-submitted-small"), QSize(1100, 720));
+          shell.openChallenge(QStringLiteral("stage-a"));
+          context->step = 219;
+          return;
+        }
+        case 219: {
+          const std::pair<const char*, QString> fields[]{
+              {"challengeExternalEnvironment", QStringLiteral("Windows 11 隔离验收环境")},
+              {"challengeExternalCommand", QStringLiteral("codeweave-check --isolated")},
+              {"challengeExternalSummary", QStringLiteral("已完成外部实验，保存一次构建报错的完整日志供人工检查。")},
+              {"challengeExternalArtifact", QStringLiteral("isolated-build-report.txt")},
+              {"challengeExternalDate", QDate::currentDate().toString(Qt::ISODate)}};
+          bool filled = true;
+          for (const auto& [name, value] : fields) {
+            auto* field = u3_find_item(view.rootObject(), QString::fromLatin1(name));
+            filled = filled && field && field->setProperty("text", value);
+          }
+          auto* submit = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmit"));
+          u3_record(*context, QStringLiteral("challenge-external-form-submits-pending-evidence"),
+              filled && submit && submit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy());
+          context->step = 220;
+          return;
+        }
+        case 220: {
+          if (shell.challengeHistoryBusy()) return;
+          auto* status = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          u3_record(*context, QStringLiteral("challenge-external-pending-does-not-auto-pass"),
+              shell.challengeHistory().size() == 1 && status &&
+              status->property("text").toString().contains(QStringLiteral("待人工确认")) &&
+              shell.challengeProgress().value("stage-a").toMap().value("status") == "submitted",
+              shell.challengeHistoryStatus());
+          u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeVerify-0"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-pending-small"), QSize(1100, 720));
+          auto* observation = u3_find_item(view.rootObject(), QStringLiteral("challengeObservation-0"));
+          if (observation) observation->setProperty("currentIndex", 2);
+          auto* verify = u3_find_item(view.rootObject(), QStringLiteral("challengeVerify-0"));
+          u3_record(*context, QStringLiteral("challenge-manual-verification-button-dispatches"),
+              verify && QMetaObject::invokeMethod(verify, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy());
+          context->step = 221;
+          return;
+        }
+        case 221: {
+          if (shell.challengeHistoryBusy()) return;
+          const auto record = shell.challengeHistory().isEmpty() ? QVariantMap{} : shell.challengeHistory().first().toMap();
+          u3_record(*context, QStringLiteral("challenge-manual-verification-persists-observation"),
+              record.value("status") == "verified" && record.value("observation") == "partially-completed" &&
+              !record.value("reviewedAt").toString().isEmpty());
+          u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-verified-small"), QSize(1100, 720));
+          auto* summary = u3_find_item(view.rootObject(), QStringLiteral("challengeExternalSummary"));
+          if (summary) summary->setProperty("text", QStringLiteral("第二次实验的错误原因与修复步骤说明已留存，尚需人工复查。"));
+          auto* submit = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmit"));
+          if (submit) QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection);
+          context->step = 222;
+          return;
+        }
+        case 222: {
+          if (shell.challengeHistoryBusy()) return;
+          auto* reject = u3_find_item(view.rootObject(), QStringLiteral("challengeReject-0"));
+          u3_record(*context, QStringLiteral("challenge-manual-rejection-button-dispatches"),
+              shell.challengeHistory().size() == 2 && reject &&
+              QMetaObject::invokeMethod(reject, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy());
+          context->step = 223;
+          return;
+        }
+        case 223:
+          if (shell.challengeHistoryBusy()) return;
+          u3_record(*context, QStringLiteral("challenge-rejection-preserves-previous-review"),
+              shell.challengeHistory().size() == 2 &&
+              shell.challengeHistory().first().toMap().value("status") == "rejected" &&
+              shell.challengeHistory().last().toMap().value("status") == "verified");
+          view.resize(context->detail_restore_size);
+          context->step = 224;
+          return;
+        case 224: {
+          if (view.size() != context->detail_restore_size) return;
+          u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-review-history"));
           shell.closeChallenge();
           shell.discardDraftChanges();
           shell.selectPage(QStringLiteral("账户"));
@@ -1848,7 +1986,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("twenty-four-page-screenshots"), context->screenshots.size() == 24,
+          u3_record(*context, QStringLiteral("page-and-challenge-history-screenshots"), context->screenshots.size() == 29,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

@@ -83,9 +83,9 @@ bool reproduced_date(std::string_view text) {
 }
 }  // namespace
 
-app::Result save_external_evidence(EvidenceStore& store, std::string_view content_id,
+app::Result prepare_external_evidence(std::string_view content_id,
     const ExternalEvidenceFields& fields, std::string_view operation_id,
-    std::string_view evidence_id) {
+    std::string_view evidence_id, EvidenceRecord& evidence) {
   const std::array<std::string_view, 5> values{fields.environment, fields.command,
       fields.result_summary, fields.artifact_ref, fields.reproduced_on};
   std::array<std::string, 5> clean;
@@ -102,11 +102,20 @@ app::Result save_external_evidence(EvidenceStore& store, std::string_view conten
   if (!reproduced_date(clean[4])) return app::Result::failure("复现日期无效或晚于今天");
   const auto actual = "执行环境：" + clean[0] + "\n执行命令：" + clean[1] +
       "\n结果摘要：" + clean[2] + "\n复现日期：" + clean[4];
-  EvidenceRecord evidence{std::string(evidence_id), std::string(content_id),
+  evidence = EvidenceRecord{std::string(evidence_id), std::string(content_id),
       std::string(kExternalEvidenceExerciseId), clean[4], "外部证据待人工确认",
       actual, RanBy::Learner, false, "L1",
       clean[3].empty() ? std::vector<std::string>{} : std::vector<std::string>{clean[3]},
       {"外部执行真实性和验收点尚未人工确认"}, EvidenceState::Pending, std::string(operation_id)};
+  return validate_evidence(evidence);
+}
+
+app::Result save_external_evidence(EvidenceStore& store, std::string_view content_id,
+    const ExternalEvidenceFields& fields, std::string_view operation_id,
+    std::string_view evidence_id) {
+  EvidenceRecord evidence;
+  const auto prepared = prepare_external_evidence(content_id, fields, operation_id, evidence_id, evidence);
+  if (!prepared.ok) return prepared;
   bool duplicate = false;
   const auto saved = store.append_idempotent(evidence, duplicate);
   if (!saved.ok) return saved;

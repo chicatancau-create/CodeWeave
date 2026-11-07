@@ -14,6 +14,9 @@
 #include <QVariantMap>
 #include <atomic>
 #include <unordered_map>
+#include <functional>
+
+class ChallengeSubmissionStore;
 
 class UiShell final : public QObject {
   Q_OBJECT
@@ -28,6 +31,10 @@ class UiShell final : public QObject {
   Q_PROPERTY(QString challengeCode READ challengeCode NOTIFY challengeCodeChanged)
   Q_PROPERTY(QVariantMap challengeRunResult READ challengeRunResult NOTIFY challengeRunResultChanged)
   Q_PROPERTY(bool challengeRunBusy READ challengeRunBusy NOTIFY challengeRunBusyChanged)
+  Q_PROPERTY(QVariantList challengeHistory READ challengeHistory NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(QVariantMap challengeProgress READ challengeProgress NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(bool challengeHistoryBusy READ challengeHistoryBusy NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(QString challengeHistoryStatus READ challengeHistoryStatus NOTIFY challengeHistoryChanged)
   Q_PROPERTY(QString selectedContentBody READ selectedContentBody NOTIFY selectedContentBodyChanged)
   Q_PROPERTY(QString starterLanguage READ starterLanguage NOTIFY starterCodeChanged)
   Q_PROPERTY(QString starterCode READ starterCode NOTIFY starterCodeChanged)
@@ -79,6 +86,10 @@ class UiShell final : public QObject {
   [[nodiscard]] QString challengeCode() const;
   [[nodiscard]] QVariantMap challengeRunResult() const { return challenge_run_result_; }
   [[nodiscard]] bool challengeRunBusy() const { return challenge_run_busy_; }
+  [[nodiscard]] QVariantList challengeHistory() const;
+  [[nodiscard]] QVariantMap challengeProgress() const;
+  [[nodiscard]] bool challengeHistoryBusy() const { return challenge_history_busy_; }
+  [[nodiscard]] QString challengeHistoryStatus() const { return challenge_history_status_; }
   [[nodiscard]] QString selectedContentBody() const;
   [[nodiscard]] QString starterLanguage() const;
   [[nodiscard]] QString starterCode() const;
@@ -123,6 +134,10 @@ class UiShell final : public QObject {
   Q_INVOKABLE void updateChallengeCode(const QString& code);
   Q_INVOKABLE void runChallenge();
   Q_INVOKABLE void cancelChallenge();
+  Q_INVOKABLE void refreshChallengeHistory();
+  Q_INVOKABLE void submitChallenge(const QString& evidence, const QVariantMap& externalEvidence);
+  Q_INVOKABLE void reviewChallengeSubmission(const QString& submissionId, bool passed,
+      const QString& observation);
   Q_INVOKABLE void openPublishedContent(int index);
   Q_INVOKABLE void loadStarterCode();
   Q_INVOKABLE void updateDraftCode(const QString& code);
@@ -180,6 +195,7 @@ class UiShell final : public QObject {
   void challengeCodeChanged();
   void challengeRunResultChanged();
   void challengeRunBusyChanged();
+  void challengeHistoryChanged();
   void selectedContentBodyChanged();
   void selectedContentChanged();
   void starterCodeChanged();
@@ -206,6 +222,8 @@ class UiShell final : public QObject {
   friend struct UiShellTestAccess;
   void clearDraft();
   void clearChallengeDrafts();
+  void performChallengeHistoryTask(bool write,
+      std::function<codeweave::app::Result(const ChallengeSubmissionStore&, QVariantList&)> work);
   void loadAccountDraft();
   bool allowDocumentChange();
   void setStatus(const QString& status);
@@ -228,6 +246,11 @@ class UiShell final : public QObject {
   std::atomic_bool challenge_cancelled_{false};
   QString challenge_task_id_;
   std::uint64_t challenge_revision_{};
+  QVariantList challenge_submissions_;
+  bool challenge_history_busy_{};
+  bool challenge_history_write_{};
+  QString challenge_history_status_;
+  QString challenge_history_task_id_;
   QString selected_content_body_;
   QString starter_language_;
   QString starter_code_;

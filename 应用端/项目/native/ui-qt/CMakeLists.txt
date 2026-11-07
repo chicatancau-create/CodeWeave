@@ -29,6 +29,8 @@ qt_add_executable(codeweave-qt
   facade/ui_shell_draft.cpp
   facade/ui_shell_account.cpp
   facade/ui_shell_operations.cpp
+  facade/ui_shell_challenges.cpp
+  facade/challenge_submission_store.cpp
   facade/ui_shell.hpp
 )
 qt_add_resources(codeweave-qt challenge_runtime_resource PREFIX "/challenge"
@@ -92,6 +94,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/ShellDialog.qml
     qml/components/PreferenceToggle.qml
     qml/components/SubjectPill.qml
+    qml/components/ChallengeSubmissionPanel.qml
     qml/components/LearningCatalog.js
     qml/pages/AccountPage.qml
     qml/pages/AnalyticsPage.qml
@@ -160,7 +163,7 @@ if (BUILD_TESTING)
   endif()
   add_executable(codeweave-qt-facade-tests
     tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell_account.cpp
-    facade/ui_shell_operations.cpp facade/ui_shell.hpp)
+    facade/ui_shell_operations.cpp facade/ui_shell_challenges.cpp facade/challenge_submission_store.cpp facade/ui_shell.hpp)
   qt_add_resources(codeweave-qt-facade-tests challenge_runtime_test_resource PREFIX "/challenge"
     BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES "${CHALLENGE_TEACHING_RUNTIME}")
   target_include_directories(codeweave-qt-facade-tests PRIVATE facade)

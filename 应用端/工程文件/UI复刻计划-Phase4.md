@@ -17,7 +17,7 @@ Phase 2/3 主要打磨已有区块。下表保留最初盘点中的历史粗估�
 | 外壳（顶栏/侧栏/浮层/弹窗） | `app.tsx`、`components/topbar/*`、`modals.tsx` | Main.qml L1-L1100 | ~55% |
 | 学习概览 + 阶段明细 | `desktop-learning-home.tsx`、`learning-path-view.tsx` | `qml/pages/StudyPage.qml`、`LearningDetailsPage.qml` | 筛选与明细交互已实测；同尺寸视觉仍待收尾 |
 | 学习工作台 | `learning-workspace-view.tsx` + `learning-workspace/*`、`run-stage`、`flow-chart`、`variable-panel`、`console-panel` | EditorPage L2199、RunLogPage L2641 | ~30% |
-| 实战挑战 | `challenges-view.tsx` + `challenges/*` | `qml/pages/ChallengePage.qml` | 筛选、分页、详情、隔离运行与逐条判定已验收；正式提交/复核历史、持久化草稿和网页端视觉等价待做 |
+| 实战挑战 | `challenges-view.tsx` + `challenges/*` | `qml/pages/ChallengePage.qml` | 筛选、分页、详情、隔离运行、逐条判定及账户提交/复核历史已验收；持久化草稿、全局统计联动和网页端视觉等价待做 |
 | 代码草稿 | `projects-view.tsx` | DraftsPage L3744 | ~50% |
 | 复习中心 | `review-center-view.tsx` | `qml/pages/ReviewPage.qml` | 三组非空表格与行操作已运行验收；同状态网页视觉对比待做 |
 | 学习分析 | `analytics-view.tsx` | AnalyticsPage L4202 | 结构 ~95%，数据全部写死 |
@@ -137,7 +137,8 @@ Phase 2/3 主要打磨已有区块。下表保留最初盘点中的历史粗估�
 | P2 2.1 复习中心三组表格 | 非空运行验收通过 | 2026-11-07 | 隔离账户构造逾期/今日/未来 7 天排期；三组分组、查看课程、通过、稍后提醒及刷新后掌握度均通过，矩阵 101/101；见 `验收证据/Phase4-P2-2-1-review-20261107/` |
 | P2 2.2 挑战详情页 | 结构与元数据运行验收通过，视觉等价未验收 | 2026-11-07 | 真实窗口矩阵覆盖目标输出、证据、前置、起始代码、不可用运行状态及关闭回列表；1440×900 与 1100×720 截图见 `验收证据/Phase4-P2-2-2-challenge-20261107/`。不含判定、提交历史和网页逐区块比较 |
 | P2 2.3 判定明细与挑战运行 | 完成（隔离运行/结果展示）；未提交证据 | 2026-11-07 | C++ exact-lines 核心、Qt 隔离子进程和真实窗口逐条结果已验收；111/111，24 张截图，QML 无警告。运行检查不写学习账本；挑战草稿仅进程内保存。见 `验收证据/Phase4-P2-2-3-challenge-run-20261107/` |
-| P2 2.4–2.6、2.8–2.9 | ⏳ | - | - |
+| P2 2.4 提交记录与人工复核 | 完成（独立账户挑战档案）；视觉等价未验收 | 2026-11-07 | CTest 9/9；真实窗口矩阵 122/122，29 张截图，QML 无警告；重载、幂等、损坏保护、账户隔离及关闭写入已验证。见 `验收证据/Phase4-P2-2-4-submissions-20261107/` |
+| P2 2.5–2.6、2.8–2.9 | ⏳ | - | - |
 | P2 2.7 学习分析数据绑定与近 7 天口径 | ⚠️ 部分完成 | 2026-11-07 | 聚合测试 native-core 1/1；QML 静态检查通过；facade/Qt 界面未运行 |
 | P3 | ⏸️ 等结构 ≥90% | - | - |
 
