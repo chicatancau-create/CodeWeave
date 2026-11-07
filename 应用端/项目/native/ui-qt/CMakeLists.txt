@@ -79,6 +79,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/QuietButton.qml
     qml/components/ShellPopup.qml
     qml/components/SubjectPill.qml
+    qml/components/LearningCatalog.js
     qml/pages/AccountPage.qml
     qml/pages/AnalyticsPage.qml
     qml/pages/ChallengePage.qml
@@ -88,6 +89,7 @@ qt_add_qml_module(codeweave-qt
     qml/pages/SecurityPage.qml
     qml/pages/PrivacyPage.qml
     qml/pages/StudyPage.qml
+    qml/pages/LearningDetailsPage.qml
 )
 
 target_include_directories(codeweave-qt PRIVATE facade)
@@ -139,6 +141,10 @@ if (BUILD_TESTING)
   find_program(CODEWEAVE_QT_TEST_JAVA_TOOL NAMES java.exe)
   find_program(CODEWEAVE_QT_TEST_PYTHON_TOOL NAMES python.exe python3.exe)
   find_program(CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL NAMES node.exe)
+  if (CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL)
+    add_test(NAME qt-learning-catalog COMMAND "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}"
+      --test "${CMAKE_CURRENT_SOURCE_DIR}/tests/learning_catalog_tests.mjs")
+  endif()
   add_executable(codeweave-qt-facade-tests
     tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell_account.cpp
     facade/ui_shell_operations.cpp facade/ui_shell.hpp)

@@ -215,8 +215,9 @@ void UiShell::refreshReviewSummary() {
   request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Read;
   const auto analysis = std::make_shared<codeweave::learning::AnalysisWindowSummary>();
+  const auto lesson_states = std::make_shared<QVariantMap>();
   request.work = [root, workspace, today, first_day, summary, projection, projection_found,
-      analysis](const auto& token) {
+      analysis, lesson_states](const auto& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("复习读取已取消");
     const codeweave::learning::EvidenceStore evidence(root);
     const codeweave::learning::ProgressStore progress(root);
@@ -230,6 +231,34 @@ void UiShell::refreshReviewSummary() {
     if (!evidence_read.ok) return evidence_read;
     const auto mastery_read = mastery.read_all(mastery_records);
     if (!mastery_read.ok) return mastery_read;
+    // All-time lesson facts use the same six-state contract as the web client.
+    // Reading/practice signals and challenge results alone are not lesson completion.
+    for (const auto& record : mastery_records) {
+      const auto id = QString::fromStdString(record.ref_id);
+      auto states = lesson_states->value(id).toMap();
+      const auto note = QString::fromUtf8(record.note);
+      if (record.kind == codeweave::learning::MasteryEvidenceKind::Lesson) {
+        if (note.startsWith(QStringLiteral("学习信号：已阅读 · "))) states[QStringLiteral("read")] = true;
+        if (note.startsWith(QStringLiteral("学习信号：已练习 · "))) states[QStringLiteral("practiced")] = true;
+        const auto lines = note.split('\n');
+        bool external = true;
+        for (const auto& label : {QStringLiteral("执行环境："), QStringLiteral("执行命令："),
+                                 QStringLiteral("结果摘要："), QStringLiteral("复现日期：")}) {
+          bool found = false;
+          for (const auto& line : lines) if (line.startsWith(label)) { found = true; break; }
+          external = external && found;
+        }
+        if (external) states[QStringLiteral("submittedEvidence")] = true;
+        if (record.passed) {
+          const auto key = record.verification == codeweave::learning::CompletionVerification::AutoVerified
+              ? QStringLiteral("autoVerifiedPassed") : QStringLiteral("selfDeclaredPassed");
+          states[key] = true;
+        }
+      } else if (record.kind == codeweave::learning::MasteryEvidenceKind::Review && record.passed) {
+        states[QStringLiteral("reviewMastered")] = true;
+      }
+      if (!states.isEmpty()) lesson_states->insert(id, states);
+    }
     for (auto& record : evidence_records) normalize_local_day(record.at);
     for (auto& record : mastery_records) normalize_local_day(record.at);
     *analysis = codeweave::learning::summarize_analysis_window(
@@ -243,10 +272,10 @@ void UiShell::refreshReviewSummary() {
   };
   operation_task_id_ = task_name;
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation, summary, projection, projection_found, analysis, task_name](
+      [this, account, generation, summary, projection, projection_found, analysis, lesson_states, task_name](
           codeweave::backend::TaskResult result) {
         QMetaObject::invokeMethod(this, [this, account, generation, summary,
-            projection, projection_found, analysis, task_name, result = std::move(result)] {
+            projection, projection_found, analysis, lesson_states, task_name, result = std::move(result)] {
           if (task_name != operation_task_id_) return;
           operation_task_id_.clear();
           operation_busy_ = false;
@@ -260,7 +289,10 @@ void UiShell::refreshReviewSummary() {
           review_summary_.clear();
           review_items_.clear();
           analysis_snapshot_.clear();
+          lesson_evidence_states_.clear();
+          lesson_evidence_ready_ = result.result.ok;
           if (result.result.ok) {
+            lesson_evidence_states_ = *lesson_states;
             progress_summary_ = QStringLiteral("正式进度事实：%1 条（仅独立完成挑战计入）")
                 .arg(summary->progress_count);
             review_summary_ = QStringLiteral("证据 %1 条，通过 %2 次，独立通过 %3 次\n"

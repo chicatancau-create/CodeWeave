@@ -98,6 +98,7 @@ int main(int argc, char** argv) {
     shell.registerAccount(QStringLiteral("Qt Fixture"), QStringLiteral("qt@example.test"),
         QStringLiteral("Test-Password-123!"));
     wait_for([&] { return !shell.accountBusy(); });
+    if (!shell.hasActiveAccount()) std::cerr << "Registration failed: " << shell.accountStatus().toStdString() << '\n';
     assert(shell.hasActiveAccount() && !shell.accountName().isEmpty());
     shell.logout();
     assert(!shell.hasActiveAccount());
@@ -372,6 +373,62 @@ int main(int argc, char** argv) {
     UiShell shell;
     shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
     // Destruction while a read is queued/active must reclaim the worker.
+  }
+  {
+    codeweave::account::AccountService learning_account(store);
+    assert(learning_account.register_account("Learning fixture", "learning@example.test", "Test-Password-123!").ok);
+    std::filesystem::path learning_root;
+    assert(learning_account.learning_data_root(data, learning_root).ok);
+    codeweave::learning::MasteryStore mastery(learning_root);
+    const auto append = [&](const std::string& id, const std::string& ref,
+        codeweave::learning::MasteryEvidenceKind kind, bool passed,
+        codeweave::learning::CompletionVerification verification, const std::string& note) {
+      codeweave::learning::MasteryEvidence record{id, kind, ref, note, "2025-01-01T00:00:00Z", passed,
+          verification, codeweave::learning::RanBy::Learner, true, "L1", "op-learning-" +
+              QCryptographicHash::hash(QByteArray::fromStdString(id), QCryptographicHash::Sha256).toHex().left(6).toStdString()};
+      bool duplicate = false;
+      assert(mastery.append_idempotent(record, duplicate).ok && !duplicate);
+    };
+    using Kind = codeweave::learning::MasteryEvidenceKind;
+    using Verification = codeweave::learning::CompletionVerification;
+    append("read-only", "python-loop-sum", Kind::Lesson, false, Verification::SelfDeclared,
+        "学习信号：已阅读 · 课程正文已阅读");
+    append("practiced-only", "python-loop-sum", Kind::Lesson, false, Verification::SelfDeclared,
+        "学习信号：已练习 · 一次实际运行");
+    append("external-pending", "python-loop-sum", Kind::Lesson, false, Verification::SelfDeclared,
+        "执行环境：test\n执行命令：test\n结果摘要：pending\n复现日期：2025-01-01");
+    append("self-passed", "python-condition", Kind::Lesson, true, Verification::SelfDeclared, "完成声明");
+    append("auto-passed", "java-loop-sum", Kind::Lesson, true, Verification::AutoVerified, "真实验证记录 fixture");
+    append("review-passed", "c-loop-sum", Kind::Review, true, Verification::SelfDeclared, "复测通过");
+    append("challenge-only", "javascript-loop-sum", Kind::Challenge, true, Verification::AutoVerified, "挑战不算课程完成");
+    UiShell shell;
+    shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(!shell.lessonEvidenceReady() && shell.lessonEvidenceStates().isEmpty());
+    assert(shell.setAccountContext(learning_account, workspace, data));
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.lessonEvidenceReady());
+    const auto learning_signals = shell.lessonEvidenceStates().value("python-loop-sum").toMap();
+    assert(learning_signals.value("read").toBool() && learning_signals.value("practiced").toBool() && learning_signals.value("submittedEvidence").toBool());
+    assert(!learning_signals.value("selfDeclaredPassed").toBool() && !learning_signals.value("autoVerifiedPassed").toBool() && !learning_signals.value("reviewMastered").toBool());
+    // Completion facts remain all-time even though the analysis window is seven days.
+    assert(shell.lessonEvidenceStates().value("python-condition").toMap().value("selfDeclaredPassed").toBool());
+    assert(shell.lessonEvidenceStates().value("java-loop-sum").toMap().value("autoVerifiedPassed").toBool());
+    assert(shell.lessonEvidenceStates().value("c-loop-sum").toMap().value("reviewMastered").toBool());
+    assert(!shell.lessonEvidenceStates().contains("javascript-loop-sum"));
+    const auto first_lesson = shell.lessonMeta().first().toMap();
+    assert(!first_lesson.value("code").toString().isEmpty() && !first_lesson.value("prerequisites").toList().isEmpty());
+    std::ofstream(learning_root / "learning" / "mastery.v1.log", std::ios::trunc) << "invalid fixture record\n";
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(!shell.lessonEvidenceReady() && shell.lessonEvidenceStates().isEmpty());
+    assert(shell.clearAccountContext());
+    assert(!shell.lessonEvidenceReady() && shell.lessonEvidenceStates().isEmpty());
+    assert(shell.setAccountContext(second, workspace, data));
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.lessonEvidenceReady() && !shell.lessonEvidenceStates().contains("python-condition"));
   }
   std::cout << "Qt facade: account isolation, revisions, persistence, failures and shutdown passed\n";
 }

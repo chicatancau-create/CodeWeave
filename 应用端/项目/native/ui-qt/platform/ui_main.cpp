@@ -141,9 +141,18 @@ void send_editor_shortcut(QQuickView& view, int key, Qt::KeyboardModifiers modif
   QCoreApplication::sendEvent(&view, &release);
 }
 
+QQuickItem* u3_find_item(QQuickItem* parent, const QString& name) {
+  if (parent->objectName() == name) return parent;
+  for (auto* child : parent->childItems()) {
+    if (auto* found = u3_find_item(child, name)) return found;
+  }
+  return nullptr;
+}
+
 int main(int argc, char* argv[]) {
   for (int index = 1; index < argc; ++index) {
-    if (std::string_view(argv[index]) == "--visual-comparison-json")
+    if (std::string_view(argv[index]) == "--visual-comparison-json" ||
+        std::string_view(argv[index]) == "--u3-matrix-json")
       QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Floor);
   }
   const double entered = probe_clock();
@@ -542,6 +551,11 @@ int main(int argc, char* argv[]) {
           context->step++;
           return;
         case 1: {
+          auto* completed = u3_find_item(view.rootObject(), QStringLiteral("lessonStatusFilter-2"));
+          const bool guest_disabled = completed && !completed->property("available").toBool();
+          if (completed) QMetaObject::invokeMethod(completed, "choose", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("learning-guest-completion-filter-disabled"),
+              guest_disabled && view.rootObject()->property("lessonStatusFilter").toInt() == 0);
           const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
           if (index < 0) {
             u3_record(*context, QStringLiteral("course-selection"), false,
@@ -987,8 +1001,7 @@ int main(int argc, char* argv[]) {
           return;
         }
         case 13: {
-          if (shell.accountBusy()) return;
-          shell.selectPage(QStringLiteral("学习"));
+          if (shell.accountBusy() || shell.operationBusy() || shell.contentBusy()) return;
           shell.logout();
           const bool logged_out = !shell.hasActiveAccount();
           u3_record(*context, QStringLiteral("account-logout"), logged_out);
@@ -1141,13 +1154,258 @@ int main(int argc, char* argv[]) {
           return;
         }
         case 22:
+          shell.selectPage(QStringLiteral("学习"));
+          context->step = 80;
+          return;
+        case 80: {
+          if (shell.contentBusy() || shell.operationBusy() || shell.accountBusy()) return;
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          u3_record(*context, QStringLiteral("learning-completion-evidence-loaded"),
+              study && shell.lessonEvidenceReady() && study->property("completedLessonCount").toInt() == 0);
+          if (!study || !shell.lessonEvidenceReady()) { context->step = 99; return; }
+          const auto subjects = study->property("subjectOptions").toStringList();
+          QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection,
+              Q_ARG(QVariant, subjects.indexOf(QStringLiteral("Python"))));
+          const auto lessons = shell.lessonMeta();
+          for (qsizetype index = 0; index < lessons.size(); ++index) {
+            if (lessons.at(index).toMap().value(QStringLiteral("id")) == QStringLiteral("python-condition"))
+              QMetaObject::invokeMethod(study, "selectCourse", Qt::DirectConnection, Q_ARG(QVariant, index));
+          }
+          context->step++;
+          return;
+        }
+        case 81: {
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          auto* hero = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningHeroTitle"));
+          auto* plan = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningPlanTitle"));
+          auto* code = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningCodePreview"));
+          const auto selected = view.rootObject()->property("selectedLesson").toMap();
+          u3_record(*context, QStringLiteral("learning-selection-updates-hero-plan-and-code"),
+              study && hero && plan && code && selected.value(QStringLiteral("id")) == QStringLiteral("python-condition") &&
+              hero->property("text") == selected.value(QStringLiteral("title")) &&
+              plan->property("text") == selected.value(QStringLiteral("title")) &&
+              code->property("text").toString() == selected.value(QStringLiteral("code")).toString().split('\n').mid(0, 13).join('\n'));
+          auto* completed = u3_find_item(view.rootObject(), QStringLiteral("lessonStatusFilter-2"));
+          if (completed) QMetaObject::invokeMethod(completed, "choose", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 82: {
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          auto* empty = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningEmptyFilter"));
+          u3_record(*context, QStringLiteral("learning-completed-filter-empty-state"),
+              study && study->property("filteredLessons").toList().isEmpty() && empty && empty->isVisible());
+          u3_record(*context, QStringLiteral("learning-empty-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-empty")));
+          // All records are written inside the matrix's disposable account, never the user's workspace.
+          codeweave::learning::MasteryStore mastery(shell.nativeDataRoot() / "accounts" / shell.activeAccountId().toStdWString());
+          using Kind = codeweave::learning::MasteryEvidenceKind;
+          using Verification = codeweave::learning::CompletionVerification;
+          const auto append = [&](const std::string& id, const std::string& ref, Kind kind, bool passed,
+              Verification verification, const std::string& note) {
+            const codeweave::learning::MasteryEvidence record{id, kind, ref, note, "2025-01-01T00:00:00Z", passed,
+                verification, codeweave::learning::RanBy::Learner, true, "L1", "op-matrix-" +
+                    QCryptographicHash::hash(QByteArray::fromStdString(id), QCryptographicHash::Sha256).toHex().left(6).toStdString()};
+            bool duplicate = false;
+            return mastery.append_idempotent(record, duplicate).ok && !duplicate;
+          };
+          const bool seeded = append("matrix-read", "python-loop-sum", Kind::Lesson, false, Verification::SelfDeclared,
+                  "学习信号：已阅读 · 已读原文") &&
+              append("matrix-self", "python-condition", Kind::Lesson, true, Verification::SelfDeclared, "完成声明") &&
+              append("matrix-auto", "java-loop-sum", Kind::Lesson, true, Verification::AutoVerified, "自动验证 fixture") &&
+              append("matrix-review", "c-loop-sum", Kind::Review, true, Verification::SelfDeclared, "复测通过") &&
+              append("matrix-challenge", "javascript-loop-sum", Kind::Challenge, true, Verification::AutoVerified, "挑战 fixture");
+          u3_record(*context, QStringLiteral("learning-isolated-evidence-fixture-created"), seeded);
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 83: {
+          if (shell.operationBusy()) return;
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          if (!study) { u3_record(*context, QStringLiteral("learning-filter-controls"), false); context->step = 99; return; }
+          const auto subjects = study->property("subjectOptions").toStringList();
+          const auto lessons = shell.lessonMeta();
+          const QStringList completed_ids{QStringLiteral("python-condition"), QStringLiteral("java-loop-sum"), QStringLiteral("c-loop-sum")};
+          bool combinations = shell.lessonEvidenceReady();
+          for (int subject = -1; subject < subjects.size(); ++subject) {
+            QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection, Q_ARG(QVariant, subject));
+            int expected_completed = 0;
+            for (int status = 0; status < 3; ++status) {
+              auto* filter = u3_find_item(view.rootObject(), QStringLiteral("lessonStatusFilter-") + QString::number(status));
+              combinations = combinations && filter && filter->property("available").toBool();
+              if (filter) QMetaObject::invokeMethod(filter, "choose", Qt::DirectConnection);
+              QStringList expected;
+              for (const auto& value : lessons) {
+                const auto lesson = value.toMap();
+                const auto label = lesson.value(QStringLiteral("languageLabel")).toString().isEmpty()
+                    ? lesson.value(QStringLiteral("language")).toString() : lesson.value(QStringLiteral("languageLabel")).toString();
+                const auto id = lesson.value(QStringLiteral("id")).toString();
+                if ((subject < 0 || label == subjects.at(subject)) &&
+                    (status == 0 || completed_ids.contains(id) == (status == 2))) expected.append(id);
+              }
+              QStringList actual;
+              for (const auto& value : study->property("filteredLessons").toList()) {
+                const auto lesson = value.toMap();
+                const auto original = lesson.value(QStringLiteral("originalIndex")).toInt();
+                combinations = combinations && original >= 0 && original < lessons.size() &&
+                    lessons.at(original).toMap().value(QStringLiteral("id")) == lesson.value(QStringLiteral("id"));
+                actual.append(lesson.value(QStringLiteral("id")).toString());
+              }
+              combinations = combinations && actual == expected;
+              if (status == 2) expected_completed = expected.size();
+            }
+            combinations = combinations && study->property("completedLessonCount").toInt() == expected_completed;
+          }
+          u3_record(*context, QStringLiteral("learning-all-subject-status-combinations-and-original-indices"), combinations);
+          u3_record(*context, QStringLiteral("learning-reading-and-challenge-not-completion"),
+              shell.lessonEvidenceStates().value(QStringLiteral("python-loop-sum")).toMap().value(QStringLiteral("read")).toBool() &&
+              !shell.lessonEvidenceStates().contains(QStringLiteral("javascript-loop-sum")));
+          QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection,
+              Q_ARG(QVariant, subjects.indexOf(QStringLiteral("Python"))));
+          const auto filtered = study->property("filteredLessons").toList();
+          if (!filtered.isEmpty()) QMetaObject::invokeMethod(study, "selectCourse", Qt::DirectConnection,
+              Q_ARG(QVariant, filtered.first().toMap().value(QStringLiteral("originalIndex"))));
+          context->step++;
+          return;
+        }
+        case 84: {
+          auto* number = u3_find_item(view.rootObject(), QStringLiteral("lessonNumber-python-condition"));
+          auto* count = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningCompletionCount"));
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          u3_record(*context, QStringLiteral("learning-filtered-sequence-starts-at-one-and-count-is-subject-scoped"),
+              number && number->property("text").toString() == QStringLiteral("01") && count && study &&
+              count->property("text").toString() == QStringLiteral("1 / %1 个单元已有完成证据")
+                  .arg(study->property("subjectLessons").toList().size()));
+          u3_record(*context, QStringLiteral("learning-completed-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-completed")));
+          auto* enter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningContinue"));
+          u3_record(*context, QStringLiteral("learning-enter-selected-course-action"),
+              enter && enter->property("enabled").toBool() && QMetaObject::invokeMethod(enter, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 85: {
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("learning-enter-resolves-published-id-and-syncs-selection"),
+              shell.currentPage() == QStringLiteral("编辑器") && shell.documentId() == QStringLiteral("python-condition") &&
+              view.rootObject()->property("selectedLesson").toMap().value(QStringLiteral("id")) == shell.documentId());
+          shell.updateDraftCode(QStringLiteral("print('preserve unsaved selection')"));
+          const auto selected = view.rootObject()->property("selectedLessonIndex");
+          QVariant opened;
+          QMetaObject::invokeMethod(view.rootObject(), "openLesson", Qt::DirectConnection,
+              Q_RETURN_ARG(QVariant, opened), Q_ARG(QVariant, 0));
+          u3_record(*context, QStringLiteral("learning-changing-course-preserves-unsaved-draft"),
+              !opened.toBool() && shell.documentId() == QStringLiteral("python-condition") && shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("print('preserve unsaved selection')") &&
+              view.rootObject()->property("selectedLessonIndex") == selected);
+          shell.discardDraftChanges();
+          shell.refreshReviewSummary();
+          shell.selectPage(QStringLiteral("学习"));
+          context->step++;
+          return;
+        }
+        case 86: {
+          if (shell.operationBusy() || shell.contentBusy()) return;
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          u3_record(*context, QStringLiteral("learning-queued-refresh-finishes-after-busy"),
+              study && !study->property("evidenceRefreshPending").toBool() && shell.lessonEvidenceReady());
+          auto* details = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsOpen"));
+          u3_record(*context, QStringLiteral("learning-details-open-action"), details &&
+              QMetaObject::invokeMethod(details, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 87: {
+          auto* details = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsRoot"));
+          const auto groups = details ? details->property("groups").toList() : QVariantList{};
+          const auto lessons = details ? details->property("lessons").toList() : QVariantList{};
+          bool stages = details && details->isVisible() && !lessons.isEmpty() &&
+              details->property("statistics").toList().size() == 5 && groups.size() == 11 &&
+              details->property("publishedStageCount").toInt() == 0 && details->property("stageGapCount").toInt() == 0 &&
+              details->property("unitGapCount").toInt() == lessons.size();
+          for (int index = 0; index < std::min(10, static_cast<int>(groups.size())); ++index) {
+            stages = stages && groups.at(index).toMap().value(QStringLiteral("key")) == QStringLiteral("S%1").arg(index) &&
+                groups.at(index).toMap().value(QStringLiteral("lessons")).toList().isEmpty();
+          }
+          stages = stages && !groups.isEmpty() && groups.last().toMap().value(QStringLiteral("lessons")).toList().size() == lessons.size();
+          u3_record(*context, QStringLiteral("learning-details-five-statistics-and-truthful-stage-groups"), stages);
+          u3_record(*context, QStringLiteral("learning-details-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-details")));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          auto* open = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsOpen"));
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          u3_record(*context, QStringLiteral("learning-details-escape-restores-trigger-focus"),
+              study && !study->property("showDetails").toBool() && open && open->hasActiveFocus());
+          if (open) QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 88: {
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          const auto subjects = study ? study->property("subjectOptions").toStringList() : QStringList{};
+          auto* subject = u3_find_item(view.rootObject(), QStringLiteral("detailSubject-") +
+              QString::number(subjects.indexOf(QStringLiteral("Java"))));
+          u3_record(*context, QStringLiteral("learning-details-subject-selection"), subject &&
+              QMetaObject::invokeMethod(subject, "clicked", Qt::DirectConnection) && study &&
+              study->property("subjectFilter").toInt() == subjects.indexOf(QStringLiteral("Java")));
+          context->step++;
+          return;
+        }
+        case 89: {
+          auto* lesson = u3_find_item(view.rootObject(), QStringLiteral("detailLesson-java-loop-sum"));
+          if (lesson) lesson->forceActiveFocus();
+          send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+          auto* selected = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("detailSelectedTitle"));
+          u3_record(*context, QStringLiteral("learning-details-lesson-keyboard-selection"), lesson && selected &&
+              view.rootObject()->property("selectedLesson").toMap().value(QStringLiteral("id")) == QStringLiteral("java-loop-sum") &&
+              selected->property("text") == lesson->property("text"));
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 90: {
+          auto* scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsScroll"));
+          auto* enter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsContinue"));
+          auto* title = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("detailSelectedTitle"));
+          u3_record(*context, QStringLiteral("learning-details-small-window-scrolls-without-overlap"),
+              scroll && scroll->property("contentHeight").toReal() > scroll->height() &&
+              scroll->property("contentWidth").toReal() <= scroll->width() && enter && title &&
+              title->mapToItem(enter, QPointF(0, title->height())).y() <= 0);
+          u3_record(*context, QStringLiteral("learning-details-small-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-details-small")));
+          if (scroll) {
+            auto* flickable = scroll->property("contentItem").value<QObject*>();
+            if (flickable) flickable->setProperty("contentY", std::max(0.0,
+                scroll->property("contentHeight").toReal() - scroll->property("availableHeight").toReal()));
+          }
+          context->step++;
+          return;
+        }
+        case 91: {
+          u3_record(*context, QStringLiteral("learning-details-selected-unit-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-details-selected")));
+          auto* enter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsContinue"));
+          u3_record(*context, QStringLiteral("learning-details-enter-action"), enter && enter->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(enter, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 92:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("learning-details-enter-target"), shell.currentPage() == QStringLiteral("编辑器") &&
+              shell.documentId() == QStringLiteral("java-loop-sum"));
+          view.resize(1440, 900);
+          context->step = 24;
+          return;
+        case 24:
           shell.selectPage(QStringLiteral("分析"));
           u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
-          context->step++;
+          context->step = 23;
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("thirteen-page-screenshots"), context->screenshots.size() == 13,
+          u3_record(*context, QStringLiteral("eighteen-page-screenshots"), context->screenshots.size() == 18,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

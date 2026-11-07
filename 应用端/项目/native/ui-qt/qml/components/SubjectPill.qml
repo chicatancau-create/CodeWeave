@@ -10,11 +10,14 @@ Rectangle {
         property string count: ""
         property bool active: false
         signal clicked
+        activeFocusOnTab: enabled
+        Keys.onReturnPressed: clicked()
+        Keys.onSpacePressed: clicked()
         implicitWidth: pillRow.implicitWidth + ds.s24
         implicitHeight: 37
         radius: 6
         color: pill.active ? ds.subjectOn : (pillHover.hovered ? ds.hoverWash : ds.subjectBg)
-        border.color: pill.active ? ds.accentRing : ds.line
+        border.color: pill.activeFocus ? ds.accent : (pill.active ? ds.accentRing : ds.line)
         border.width: 1
 
         // Smooth transitions

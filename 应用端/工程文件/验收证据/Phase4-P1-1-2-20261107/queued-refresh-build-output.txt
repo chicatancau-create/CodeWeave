@@ -1,0 +1,34 @@
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR)
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR)
+-- Configuring done (1.8s)
+-- Generating done (0.4s)
+-- Build files have been written to: G:/CodeWeave/.local/qt/current
+[1/51] Automatic MOC and UIC for target codeweave-qt-facade-tests
+[2/49] Automatic MOC and UIC for target codeweave-qt
+[3/48] Running AUTOMOC file extraction for target codeweave-qt
+[4/48] Running moc --collect-json for target codeweave-qt
+[5/6] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\platform\ui_main.cpp.obj
+[6/6] Linking CXX executable ui-qt\CodeWeaveQtShell.exe
+Test project G:/CodeWeave/.local/qt/current
+    Start 1: native-core
+1/9 Test #1: native-core ......................   Passed    3.53 sec
+    Start 2: native-content-delivery
+2/9 Test #2: native-content-delivery ..........   Passed    0.05 sec
+    Start 3: native-startup
+3/9 Test #3: native-startup ...................   Passed    0.05 sec
+    Start 4: native-gui-smoke
+4/9 Test #4: native-gui-smoke .................   Passed    0.38 sec
+    Start 5: native-gui-interaction-smoke
+5/9 Test #5: native-gui-interaction-smoke .....   Passed    0.29 sec
+    Start 6: native-cpp-compile-run
+6/9 Test #6: native-cpp-compile-run ...........   Passed    5.33 sec
+    Start 7: qt-qml-load
+7/9 Test #7: qt-qml-load ......................   Passed    4.95 sec
+    Start 8: qt-learning-catalog
+8/9 Test #8: qt-learning-catalog ..............   Passed    0.17 sec
+    Start 9: qt-facade
+9/9 Test #9: qt-facade ........................   Passed   11.65 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Total Test time (real) =  26.43 sec

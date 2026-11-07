@@ -68,6 +68,8 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   const auto resolved = session.learning_data_root(nativeDataRoot, account_root);
   if (!resolved.ok) { setStatus(QString::fromUtf8(resolved.message)); return false; }
   active_account_id_ = QString::fromUtf8(session.current()->id);
+  lesson_evidence_states_.clear();
+  lesson_evidence_ready_ = false;
   ++account_generation_;
   execution_output_.clear();
   execution_output_error_ = false;
@@ -91,6 +93,8 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
 bool UiShell::clearAccountContext() {
   if (draft_saving_ || !allowDocumentChange()) return false;
   active_account_id_.clear();
+  lesson_evidence_states_.clear();
+  lesson_evidence_ready_ = false;
   ++account_generation_;
   execution_output_.clear();
   execution_output_error_ = false;

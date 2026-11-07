@@ -1,0 +1,206 @@
+-- The CXX compiler identification is MSVC 19.44.35229.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR)
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR)
+-- Configuring done (4.1s)
+-- Generating done (0.3s)
+-- Build files have been written to: G:/CodeWeave/.local/qt/current
+[1/2] Cleaning additional files...
+[2/2] Cleaning all built files...
+Cleaning... 128 files.
+[1/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\content_contract.cpp.obj
+[2/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\account_service.cpp.obj
+[3/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\backend_task_service.cpp.obj
+[4/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\account.cpp.obj
+[5/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\password_crypto.cpp.obj
+[6/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\app_core.cpp.obj
+[7/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\account_store.cpp.obj
+[8/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\content_repository.cpp.obj
+[9/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\mastery_contract.cpp.obj
+[10/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\learning_contract.cpp.obj
+[11/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\mastery_service.cpp.obj
+[12/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\review_scheduler.cpp.obj
+[13/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\mastery_store.cpp.obj
+[14/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\external_evidence_service.cpp.obj
+[15/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\operation_index.cpp.obj
+[16/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\evidence_store.cpp.obj
+[17/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\review_service.cpp.obj
+[18/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\progress_projection.cpp.obj
+[19/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\progress_store.cpp.obj
+[20/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\legacy_import.cpp.obj
+[21/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\challenge_service.cpp.obj
+[22/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\execution_contract.cpp.obj
+[23/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\content_access.cpp.obj
+[24/147] Copying codeweave-qt qml sources into build dir
+[25/147] Copying codeweave-qt qml resources into build dir
+[26/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\backup_service.cpp.obj
+[27/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\process_contract.cpp.obj
+[28/147] Running qmlimportscanner for codeweave-qt
+[29/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\execution_plan.cpp.obj
+[30/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\trace_contract.cpp.obj
+[31/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\process_runner.cpp.obj
+[32/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\execution_service.cpp.obj
+[33/147] Building CXX object CMakeFiles\codeweave-test-process-tool.dir\src\test_process_tool.cpp.obj
+[34/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\trace_store.cpp.obj
+[35/147] Linking CXX static library ui-qt\codeweave-content-qt.lib
+[36/147] Building CXX object CMakeFiles\codeweave-core.dir\src\account.cpp.obj
+[37/147] Building CXX object CMakeFiles\codeweave-core.dir\src\app_core.cpp.obj
+[38/147] Automatic MOC and UIC for target codeweave-qt
+[39/147] Running AUTOMOC file extraction for target codeweave-qt
+[40/147] Building CXX object CMakeFiles\codeweave-core.dir\src\account_service.cpp.obj
+[41/147] Building CXX object CMakeFiles\codeweave-core.dir\src\content_contract.cpp.obj
+[42/147] Running moc --collect-json for target codeweave-qt
+[43/147] Building CXX object CMakeFiles\codeweave-core.dir\src\account_store.cpp.obj
+[44/147] Building CXX object CMakeFiles\codeweave-core.dir\src\password_crypto.cpp.obj
+[45/147] Automatic QML type registration for target codeweave-qt
+[46/147] Building CXX object CMakeFiles\codeweave-core.dir\src\content_repository.cpp.obj
+[47/147] Building CXX object CMakeFiles\codeweave-core.dir\src\mastery_contract.cpp.obj
+[48/147] Building CXX object CMakeFiles\codeweave-core.dir\src\content_access.cpp.obj
+[49/147] Building CXX object CMakeFiles\codeweave-core.dir\src\mastery_service.cpp.obj
+[50/147] Building CXX object CMakeFiles\codeweave-core.dir\src\learning_contract.cpp.obj
+[51/147] Building CXX object CMakeFiles\codeweave-core.dir\src\review_scheduler.cpp.obj
+[52/147] Building CXX object CMakeFiles\codeweave-core.dir\src\mastery_store.cpp.obj
+[53/147] Building CXX object CMakeFiles\codeweave-core.dir\src\operation_index.cpp.obj
+[54/147] Building CXX object CMakeFiles\codeweave-core.dir\src\challenge_service.cpp.obj
+[55/147] Building CXX object CMakeFiles\codeweave-core.dir\src\progress_projection.cpp.obj
+[56/147] Building CXX object CMakeFiles\codeweave-core.dir\src\review_service.cpp.obj
+[57/147] Building CXX object CMakeFiles\codeweave-core.dir\src\evidence_store.cpp.obj
+[58/147] Building CXX object CMakeFiles\codeweave-core.dir\src\external_evidence_service.cpp.obj
+[59/147] Building CXX object CMakeFiles\codeweave-core.dir\src\progress_store.cpp.obj
+[60/147] Building CXX object CMakeFiles\codeweave-core.dir\src\manifest_dry_run.cpp.obj
+[61/147] Building CXX object CMakeFiles\codeweave-core.dir\src\migration_dry_run.cpp.obj
+[62/147] Building CXX object CMakeFiles\codeweave-core.dir\src\migration_staging.cpp.obj
+[63/147] Building CXX object CMakeFiles\codeweave-core.dir\src\execution_contract.cpp.obj
+[64/147] Building CXX object CMakeFiles\codeweave-core.dir\src\backend_task_service.cpp.obj
+[65/147] Building CXX object CMakeFiles\codeweave-core.dir\src\migration_contract.cpp.obj
+[66/147] Building CXX object CMakeFiles\codeweave-core.dir\src\process_contract.cpp.obj
+[67/147] Building CXX object CMakeFiles\codeweave-core.dir\src\legacy_import.cpp.obj
+[68/147] Running rcc for resource qmake_CodeWeave_Ui
+[69/147] Linking CXX executable codeweave-cpp-runner.exe
+[70/147] Generating .rcc/qmlcache/codeweave-qt_qmlcache_loader.cpp
+[71/147] Building CXX object CMakeFiles\codeweave-core.dir\src\execution_plan.cpp.obj
+[72/147] Building CXX object CMakeFiles\codeweave-core.dir\src\backup_service.cpp.obj
+[73/147] Generating .rcc/qmlcache/codeweave-qt_qml/DesignSystem_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/DesignSystem_qml.cpp.aotstats
+[74/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/NavItem_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/NavItem_qml.cpp.aotstats
+[75/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/IconButton_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/IconButton_qml.cpp.aotstats
+[76/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/ShellField_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/ShellField_qml.cpp.aotstats
+[77/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/PrimaryButton_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/PrimaryButton_qml.cpp.aotstats
+[78/147] Generating .rcc/qmlcache/codeweave-qt_qml/Main_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/Main_qml.cpp.aotstats
+[79/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/QuietButton_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/QuietButton_qml.cpp.aotstats
+[80/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/LearningCatalog_js.cpp
+[81/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/ShellPopup_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/ShellPopup_qml.cpp.aotstats
+[82/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/SubjectPill_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/SubjectPill_qml.cpp.aotstats
+[83/147] Building CXX object CMakeFiles\codeweave-core.dir\src\trace_contract.cpp.obj
+[84/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/AccountPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/AccountPage_qml.cpp.aotstats
+[85/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/AnalyticsPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/AnalyticsPage_qml.cpp.aotstats
+[86/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/ChallengePage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/ChallengePage_qml.cpp.aotstats
+[87/147] Building CXX object CMakeFiles\codeweave-core.dir\src\process_runner.cpp.obj
+[88/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/DraftsPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/DraftsPage_qml.cpp.aotstats
+[89/147] Building CXX object CMakeFiles\codeweave-core.dir\src\execution_service.cpp.obj
+[90/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/EditorPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/EditorPage_qml.cpp.aotstats
+[91/147] Running rcc for resource codeweave-qt_raw_qml_0
+[92/147] Running rcc for resource codeweave-qt_raw_qml_0_extra_qmldirs
+[93/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/ReviewPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/ReviewPage_qml.cpp.aotstats
+[94/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/SecurityPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/SecurityPage_qml.cpp.aotstats
+[95/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/PrivacyPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/PrivacyPage_qml.cpp.aotstats
+[96/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/LearningDetailsPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/LearningDetailsPage_qml.cpp.aotstats
+[97/147] Generating .rcc/qmlcache/codeweave-qt_qml/pages/StudyPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/StudyPage_qml.cpp.aotstats
+[98/147] Building CXX object CMakeFiles\codeweave-core.dir\src\trace_store.cpp.obj
+[99/147] Automatic MOC and UIC for target codeweave-qt-facade-tests
+[100/147] Linking CXX static library codeweave-core.lib
+[101/147] Building CXX object CMakeFiles\codeweave-content-delivery-tests.dir\src\content_delivery_tests.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[102/147] Building CXX object CMakeFiles\codeweave-backend-benchmark.dir\src\backend_benchmark.cpp.obj
+[103/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\codeweave-qt_autogen\mocs_compilation.cpp.obj
+[104/147] Building CXX object CMakeFiles\codeweave-native.dir\src\main.cpp.obj
+[105/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\facade\ui_shell_draft.cpp.obj
+[106/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.qt\rcc\qrc_qmake_CodeWeave_Ui.cpp.obj
+[107/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\facade\ui_shell.cpp.obj
+[108/147] Building CXX object CMakeFiles\codeweave-native-tests.dir\src\native_tests.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[109/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\facade\ui_shell_account.cpp.obj
+[110/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\codeweave-qt_qmltyperegistrations.cpp.obj
+[111/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qmlcache_loader.cpp.obj
+[112/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\facade\ui_shell_operations.cpp.obj
+[113/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\DesignSystem_qml.cpp.obj
+[114/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\NavItem_qml.cpp.obj
+[115/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\IconButton_qml.cpp.obj
+[116/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\Main_qml.cpp.obj
+[117/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\ShellField_qml.cpp.obj
+[118/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\QuietButton_qml.cpp.obj
+[119/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\PrimaryButton_qml.cpp.obj
+[120/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\ShellPopup_qml.cpp.obj
+[121/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\SubjectPill_qml.cpp.obj
+[122/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\components\LearningCatalog_js.cpp.obj
+[123/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\platform\ui_main.cpp.obj
+[124/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\AccountPage_qml.cpp.obj
+[125/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\AnalyticsPage_qml.cpp.obj
+[126/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\DraftsPage_qml.cpp.obj
+[127/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.qt\rcc\qrc_codeweave-qt_raw_qml_0.cpp.obj
+[128/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.qt\rcc\qrc_codeweave-qt_raw_qml_0_extra_qmldirs.cpp.obj
+[129/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\EditorPage_qml.cpp.obj
+[130/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\ChallengePage_qml.cpp.obj
+[131/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\ReviewPage_qml.cpp.obj
+[132/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\SecurityPage_qml.cpp.obj
+[133/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\PrivacyPage_qml.cpp.obj
+[134/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\StudyPage_qml.cpp.obj
+Q:\include\QtCore\qmetatype.h(462) : warning C4702: 无法访问的代码
+Q:\include\QtCore\qvariant.h(553) : warning C4702: 无法访问的代码
+Q:\include\QtCore\qvariant.h(558) : warning C4702: 无法访问的代码
+Q:\include\QtQml\qjsengine.h(111) : warning C4702: 无法访问的代码
+[135/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\LearningDetailsPage_qml.cpp.obj
+[136/147] Linking CXX executable codeweave-native.exe
+[137/147] Linking CXX executable codeweave-native-tests.exe
+[138/147] Linking CXX executable codeweave-content-delivery-tests.exe
+[139/147] Linking CXX executable codeweave-backend-benchmark.exe
+[140/147] Linking CXX executable ui-qt\CodeWeaveQtShell.exe
+[141/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\codeweave-qt-facade-tests_autogen\mocs_compilation.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[142/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell_draft.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[143/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[144/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell_account.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[145/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\tests\ui_shell_tests.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[146/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell_operations.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[147/147] Linking CXX executable ui-qt\codeweave-qt-facade-tests.exe
+Test project G:/CodeWeave/.local/qt/current
+    Start 1: native-core
+1/9 Test #1: native-core ......................   Passed    3.24 sec
+    Start 2: native-content-delivery
+2/9 Test #2: native-content-delivery ..........   Passed    0.04 sec
+    Start 3: native-startup
+3/9 Test #3: native-startup ...................   Passed    0.04 sec
+    Start 4: native-gui-smoke
+4/9 Test #4: native-gui-smoke .................   Passed    0.34 sec
+    Start 5: native-gui-interaction-smoke
+5/9 Test #5: native-gui-interaction-smoke .....   Passed    0.32 sec
+    Start 6: native-cpp-compile-run
+6/9 Test #6: native-cpp-compile-run ...........   Passed    5.65 sec
+    Start 7: qt-qml-load
+7/9 Test #7: qt-qml-load ......................   Passed    5.01 sec
+    Start 8: qt-learning-catalog
+8/9 Test #8: qt-learning-catalog ..............   Passed    0.17 sec
+    Start 9: qt-facade
+9/9 Test #9: qt-facade ........................   Passed   11.79 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Total Test time (real) =  26.62 sec

@@ -33,6 +33,32 @@ Rectangle {
     property bool settingsOpen: false
     property bool helpOpen: false
     function openEvidenceDialog() { evidenceDialog.open(); }
+    function openLesson(index) {
+        if (index < 0 || index >= uiShell.lessonMeta.length || uiShell.contentBusy
+                || uiShell.operationBusy || uiShell.accountBusy || uiShell.draftSaving) return false;
+        const lesson = uiShell.lessonMeta[index];
+        const publishedIndex = uiShell.publishedIds.indexOf(lesson.id);
+        if (publishedIndex < 0) return false;
+        if (uiShell.documentId !== lesson.id || !uiShell.hasSelectedContent) {
+            uiShell.openPublishedContent(publishedIndex);
+            if (uiShell.documentId !== lesson.id) return false;
+        }
+        selectedLessonIndex = index;
+        uiShell.selectPage("编辑器");
+        return true;
+    }
+
+    Connections {
+        target: uiShell
+        function onSelectedContentChanged() {
+            for (let index = 0; index < uiShell.lessonMeta.length; index++) {
+                if (uiShell.lessonMeta[index].id === uiShell.documentId) {
+                    root.selectedLessonIndex = index;
+                    return;
+                }
+            }
+        }
+    }
 
     function searchResults(query) {
         const needle = query.trim().toLocaleLowerCase();
@@ -61,7 +87,7 @@ Rectangle {
         if (accountPopup.opened) accountPopup.close();
     }
     readonly property int safeSelectedLessonIndex: uiShell.lessonMeta.length > 0
-        ? Math.max(0, Math.min(selectedLessonIndex, uiShell.lessonMeta.length - 1)) : -1
+        ? (selectedLessonIndex >= 0 && selectedLessonIndex < uiShell.lessonMeta.length ? selectedLessonIndex : 0) : -1
     readonly property var selectedLesson: safeSelectedLessonIndex >= 0
         ? uiShell.lessonMeta[safeSelectedLessonIndex] : null
     readonly property int stageCount: uiShell.challengeMeta.map(function(item) { return item.stageId; })
@@ -441,8 +467,7 @@ Rectangle {
                     if (currentIndex < 0 || currentIndex >= count) return;
                     const result = model[currentIndex];
                     if (result.kind === "lesson") {
-                        root.selectedLessonIndex = result.index;
-                        uiShell.openPublishedContent(result.index);
+                        root.openLesson(result.index);
                     } else uiShell.selectPage("挑战");
                     searchField.text = "";
                     searchPopup.close();
@@ -471,8 +496,7 @@ Rectangle {
                     TapHandler {
                         onTapped: {
                             if (modelData.kind === "lesson") {
-                                root.selectedLessonIndex = modelData.index;
-                                uiShell.openPublishedContent(modelData.index);
+                                root.openLesson(modelData.index);
                             } else {
                                 uiShell.selectPage("挑战");
                             }
@@ -523,7 +547,7 @@ Rectangle {
                     Layout.fillWidth: true
                     label: "继续学习"
                     enabled: root.selectedLesson !== null
-                    onClicked: { quickPopup.close(); uiShell.openPublishedContent(root.selectedLessonIndex); }
+                    onClicked: { quickPopup.close(); root.openLesson(root.safeSelectedLessonIndex); }
                 }
                 QuietButton {
                     id: reviewAction

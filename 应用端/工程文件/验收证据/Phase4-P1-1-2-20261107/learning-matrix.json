@@ -1,0 +1,377 @@
+{
+    "checks": [
+        {
+            "name": "window-content-loaded",
+            "passed": true
+        },
+        {
+            "name": "page-learning",
+            "passed": true
+        },
+        {
+            "name": "learning-guest-completion-filter-disabled",
+            "passed": true
+        },
+        {
+            "name": "course-selection",
+            "passed": true
+        },
+        {
+            "name": "starter-code",
+            "passed": true
+        },
+        {
+            "name": "account-registration",
+            "passed": true
+        },
+        {
+            "detail": "草稿已保存",
+            "name": "draft-save",
+            "passed": true
+        },
+        {
+            "detail": "15\n",
+            "name": "python-execution",
+            "passed": true
+        },
+        {
+            "name": "console-copy-output",
+            "passed": true
+        },
+        {
+            "name": "console-clear-display-preserves-result",
+            "passed": true
+        },
+        {
+            "detail": "15\n",
+            "name": "java-execution",
+            "passed": true
+        },
+        {
+            "detail": "15\n",
+            "name": "javascript-execution",
+            "passed": true
+        },
+        {
+            "detail": "0: 3\n1: 1\n2: 4\n3: 1\n4: 5\n",
+            "name": "cpp-execution",
+            "passed": true
+        },
+        {
+            "name": "execution-pause",
+            "passed": true
+        },
+        {
+            "name": "execution-step",
+            "passed": true
+        },
+        {
+            "name": "execution-resume",
+            "passed": true
+        },
+        {
+            "detail": "执行已取消",
+            "name": "execution-cancel",
+            "passed": true
+        },
+        {
+            "detail": "执行超时",
+            "name": "execution-timeout",
+            "passed": true
+        },
+        {
+            "name": "console-error-row-style",
+            "passed": true
+        },
+        {
+            "name": "editor-long-unicode-input",
+            "passed": true
+        },
+        {
+            "name": "editor-undo-reset",
+            "passed": true
+        },
+        {
+            "name": "editor-clipboard-paste",
+            "passed": true
+        },
+        {
+            "name": "editor-undo",
+            "passed": true
+        },
+        {
+            "name": "editor-redo",
+            "passed": true
+        },
+        {
+            "name": "course-scroll",
+            "passed": true
+        },
+        {
+            "name": "review-progress",
+            "passed": true
+        },
+        {
+            "name": "page-challenge",
+            "passed": true
+        },
+        {
+            "name": "challenge-filter-controls-loaded",
+            "passed": true
+        },
+        {
+            "name": "challenge-filter-combination",
+            "passed": true
+        },
+        {
+            "name": "challenge-title-search",
+            "passed": true
+        },
+        {
+            "name": "challenge-title-sort",
+            "passed": true
+        },
+        {
+            "name": "challenge-pagination-boundaries-and-stable-sequence",
+            "passed": true
+        },
+        {
+            "name": "challenge-empty-filter-state",
+            "passed": true
+        },
+        {
+            "name": "challenge-filter-reset",
+            "passed": true
+        },
+        {
+            "name": "account-profile-page-and-sibling-links",
+            "passed": true
+        },
+        {
+            "name": "profile-to-security-navigation",
+            "passed": true
+        },
+        {
+            "name": "account-security-page-and-disabled-boundaries",
+            "passed": true
+        },
+        {
+            "name": "security-to-privacy-navigation",
+            "passed": true
+        },
+        {
+            "name": "account-privacy-page-and-data-actions",
+            "passed": true
+        },
+        {
+            "name": "privacy-to-security-navigation",
+            "passed": true
+        },
+        {
+            "name": "security-to-profile-navigation",
+            "passed": true
+        },
+        {
+            "name": "account-logout",
+            "passed": true
+        },
+        {
+            "name": "account-login-intro-visible-for-guest",
+            "passed": true
+        },
+        {
+            "name": "account-login",
+            "passed": true
+        },
+        {
+            "name": "draft-course-selection",
+            "passed": true
+        },
+        {
+            "name": "draft-structure-and-actual-capabilities",
+            "passed": true
+        },
+        {
+            "detail": "草稿已读取",
+            "name": "draft-loaded-success-hides-error-banner",
+            "passed": true
+        },
+        {
+            "name": "draft-empty-code-has-zero-lines",
+            "passed": true
+        },
+        {
+            "name": "draft-line-count-updates-after-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-fault-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "draft-save-action-starts-and-disables",
+            "passed": true
+        },
+        {
+            "name": "draft-save-failure-visible-and-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-error-dismiss-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "name": "page-drafts",
+            "passed": true
+        },
+        {
+            "name": "draft-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-completion-evidence-loaded",
+            "passed": true
+        },
+        {
+            "name": "learning-selection-updates-hero-plan-and-code",
+            "passed": true
+        },
+        {
+            "name": "learning-completed-filter-empty-state",
+            "passed": true
+        },
+        {
+            "name": "learning-empty-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-isolated-evidence-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "learning-all-subject-status-combinations-and-original-indices",
+            "passed": true
+        },
+        {
+            "name": "learning-reading-and-challenge-not-completion",
+            "passed": true
+        },
+        {
+            "name": "learning-filtered-sequence-starts-at-one-and-count-is-subject-scoped",
+            "passed": true
+        },
+        {
+            "name": "learning-completed-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-enter-selected-course-action",
+            "passed": true
+        },
+        {
+            "name": "learning-enter-resolves-published-id-and-syncs-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-changing-course-preserves-unsaved-draft",
+            "passed": true
+        },
+        {
+            "name": "learning-queued-refresh-finishes-after-busy",
+            "passed": true
+        },
+        {
+            "name": "learning-details-open-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-five-statistics-and-truthful-stage-groups",
+            "passed": true
+        },
+        {
+            "name": "learning-details-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "learning-details-subject-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-lesson-keyboard-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-selected-unit-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-target",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "18",
+            "name": "eighteen-page-screenshots",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-drafts-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-learning-empty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-learning-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-learning-details.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-learning-details-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-learning-details-selected.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/learning-queued-final-run/u3-analysis.png"
+    ]
+}

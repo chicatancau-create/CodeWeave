@@ -4,36 +4,88 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import QtQuick.Effects
 import "../components"
+import "../components/LearningCatalog.js" as Catalog
 
 Item {
     property var hostRoot
     property QtObject ds
         id: studyPage
+        objectName: "studyPageRoot"
         property int subjectFilter: -1
+        property bool showDetails: false
+        property bool evidenceRefreshPending: false
+        readonly property var allLessons: uiShell.lessonMeta.map(function(lesson, index) {
+            return Object.assign({}, lesson, { originalIndex: index });
+        })
+        readonly property var subjectLessons: allLessons.filter(function(lesson) {
+            return subjectFilter < 0 || Catalog.subjectLabel(lesson) === subjectOptions[subjectFilter];
+        })
+        readonly property int completedLessonCount: uiShell.lessonEvidenceReady ? subjectLessons.filter(function(lesson) {
+            return Catalog.holdsCompletion(uiShell.lessonEvidenceStates[lesson.id]);
+        }).length : 0
         readonly property var filteredLessons: {
-            const result = [];
-            const lessons = uiShell.lessonMeta;
-            for (let i = 0; i < lessons.length; ++i) {
-                const lesson = lessons[i];
-                const label = lesson.languageLabel || lesson.language || "";
-                if (subjectFilter >= 0 && subjectFilter !== subjectOptions.indexOf(label)) continue;
-                if (hostRoot.lessonStatusFilter !== 0) continue;
-                result.push(Object.assign({}, lesson, { originalIndex: i }));
-            }
-            return result;
+            if (hostRoot.lessonStatusFilter === 0) return subjectLessons;
+            if (!uiShell.lessonEvidenceReady) return [];
+            return subjectLessons.filter(function(lesson) {
+                return Catalog.holdsCompletion(uiShell.lessonEvidenceStates[lesson.id]) === (hostRoot.lessonStatusFilter === 2);
+            });
         }
         readonly property var subjectOptions: {
             const seen = [];
             const lessons = uiShell.lessonMeta;
             for (let i = 0; i < lessons.length; ++i) {
-                const label = lessons[i].languageLabel || lessons[i].language || "";
+                const label = Catalog.subjectLabel(lessons[i]);
                 if (label !== "" && seen.indexOf(label) < 0) seen.push(label);
             }
             return seen;
         }
+        function selectCourse(index) {
+            if (index >= 0 && index < uiShell.lessonMeta.length) hostRoot.selectedLessonIndex = index;
+        }
+        function selectSubject(index) {
+            subjectFilter = index >= 0 && index < subjectOptions.length ? index : -1;
+            const current = subjectLessons.find(function(lesson) { return lesson.originalIndex === hostRoot.safeSelectedLessonIndex; });
+            if (!current && subjectLessons.length > 0) selectCourse(subjectLessons[0].originalIndex);
+        }
+        function refreshEvidence() {
+            evidenceRefreshPending = visible && uiShell.hasActiveAccount;
+            flushEvidenceRefresh();
+        }
+        function flushEvidenceRefresh() {
+            if (evidenceRefreshPending && visible && uiShell.hasActiveAccount
+                    && !uiShell.operationBusy && !uiShell.accountBusy && !uiShell.executionBusy) {
+                evidenceRefreshPending = false;
+                uiShell.refreshReviewSummary();
+            }
+        }
+        Component.onCompleted: refreshEvidence()
+        onVisibleChanged: { if (visible) refreshEvidence(); }
+        Connections {
+            target: uiShell
+            function onAccountChanged() { hostRoot.lessonStatusFilter = 0; studyPage.refreshEvidence(); }
+            function onOperationBusyChanged() { studyPage.flushEvidenceRefresh(); }
+            function onAccountBusyChanged() { studyPage.flushEvidenceRefresh(); }
+            function onExecutionBusyChanged() { studyPage.flushEvidenceRefresh(); }
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: studyPage.showDetails
+            visible: active
+            sourceComponent: LearningDetailsPage {
+                ds: studyPage.ds
+                hostRoot: studyPage.hostRoot
+                lessons: studyPage.subjectLessons
+                subjects: studyPage.subjectOptions
+                subjectIndex: studyPage.subjectFilter
+                onSubjectChosen: function(index) { studyPage.selectSubject(index); }
+                onBackRequested: { studyPage.showDetails = false; detailsButton.forceActiveFocus(); }
+            }
+        }
 
         ColumnLayout {
             anchors.fill: parent
+            visible: !studyPage.showDetails
             spacing: 0
 
             // .content-source-banner — source-status strip (not dismissible)
@@ -59,7 +111,7 @@ Item {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "当前显示的是内置课程快照（未迁移到资料库），阶段按旧口径展示。"
+                        text: "当前课程来自本机发布目录，阶段与来源按课程标注展示。"
                         color: ds.ink
                         font.family: ds.ui
                         font.pixelSize: 12
@@ -221,27 +273,12 @@ Item {
                             symbol: modelData.slice(0, 2).toUpperCase()
                             label: modelData
                             count: {
-                                return "" + studyPage.filteredLessons.filter(function(item) {
-                                    return (item.languageLabel || item.language) === modelData;
+                                return "" + studyPage.allLessons.filter(function(item) {
+                                    return Catalog.subjectLabel(item) === modelData;
                                 }).length;
                             }
                             active: studyPage.subjectFilter === index
-                            onClicked: {
-                                const nextFilter = studyPage.subjectFilter === index ? -1 : index;
-                                studyPage.subjectFilter = nextFilter;
-                                if (nextFilter < 0) {
-                                    hostRoot.selectedLessonIndex = 0;
-                                } else {
-                                    const lessons = uiShell.lessonMeta;
-                                    for (let i = 0; i < lessons.length; ++i) {
-                                        if ((lessons[i].languageLabel || lessons[i].language)
-                                                === modelData) {
-                                            hostRoot.selectedLessonIndex = i;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
+                            onClicked: studyPage.selectSubject(studyPage.subjectFilter === index ? -1 : index)
                         }
                     }
                 }
@@ -296,11 +333,12 @@ Item {
                             }
                         }
                         Item { Layout.fillWidth: true }
-                        Text {
-                            text: "阶段与来源明细  ›"
-                            color: ds.accent
-                            font.family: ds.ui
-                            font.pixelSize: 12
+                        QuietButton {
+                            id: detailsButton
+                            ds: studyPage.ds
+                            objectName: "learningDetailsOpen"
+                            label: "阶段与来源明细"
+                            onClicked: studyPage.showDetails = true
                             Layout.alignment: Qt.AlignBottom
                         }
                     }
@@ -479,6 +517,7 @@ Item {
                             }
 
                             Text {
+                                objectName: "learningHeroTitle"
                                 Layout.fillWidth: true
                                 Layout.topMargin: ds.s14
                                 text: hostRoot.selectedLesson ? (hostRoot.selectedLesson.title || "") : "当前筛选暂无课程"
@@ -512,25 +551,22 @@ Item {
                                 PrimaryButton {
 
                                     ds: studyPage.ds
+                                    objectName: "learningContinue"
                                     label: hostRoot.selectedLesson === null ? "选择课程"
                                            : (uiShell.publishedIds.indexOf(hostRoot.selectedLesson.id) >= 0
                                               ? "进入学习  →" : "课程尚未发布")
                                     enabled: hostRoot.selectedLesson !== null
+                                             && !uiShell.contentBusy && !uiShell.operationBusy
+                                             && !uiShell.accountBusy && !uiShell.draftSaving && !uiShell.executionBusy
                                              && uiShell.publishedIds.indexOf(hostRoot.selectedLesson.id) >= 0
-                                    onClicked: {
-                                        if (!hostRoot.selectedLesson) return;
-                                        const idx = uiShell.publishedIds.indexOf(hostRoot.selectedLesson.id);
-                                        if (idx >= 0) {
-                                            uiShell.openPublishedContent(idx);
-                                            uiShell.selectPage("编辑器");
-                                        }
-                                    }
+                                    onClicked: hostRoot.openLesson(hostRoot.safeSelectedLessonIndex)
                                 }
                                 Text {
                                     Layout.fillWidth: true
-                                    text: uiShell.analysisSnapshot.completedUnits === undefined
+                                    objectName: "learningCompletionCount"
+                                    text: !uiShell.lessonEvidenceReady
                                           ? "暂无完成证据数据"
-                                          : uiShell.analysisSnapshot.completedUnits + " 个单元在近 7 天有完成证据"
+                                          : studyPage.completedLessonCount + " / " + studyPage.subjectLessons.length + " 个单元已有完成证据"
                                     color: ds.muted
                                     font.family: ds.ui
                                     font.pixelSize: 11
@@ -573,13 +609,22 @@ Item {
                                 delegate: Rectangle {
                                     required property var modelData
                                     required property int index
+                                    objectName: "lessonStatusFilter-" + index
                                     implicitWidth: fLabel.implicitWidth + ds.s20
                                     implicitHeight: 21
                                     radius: 4
-                                    property bool available: index === 0
+                                    property bool available: index === 0 || uiShell.lessonEvidenceReady
+                                    activeFocusOnTab: available
+                                    function choose() { if (available) hostRoot.lessonStatusFilter = index; }
+                                    Keys.onReturnPressed: choose()
+                                    Keys.onSpacePressed: choose()
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: modelData
+                                    Accessible.checkable: true
+                                    Accessible.checked: index === hostRoot.lessonStatusFilter
                                     opacity: available ? 1 : 0.45
                                     color: index === hostRoot.lessonStatusFilter ? ds.tabActive : "transparent"
-                                    border.color: index === hostRoot.lessonStatusFilter ? ds.line : "transparent"
+                                    border.color: activeFocus ? ds.accent : (index === hostRoot.lessonStatusFilter ? ds.line : "transparent")
                                     border.width: 1
                                     Text {
                                         id: fLabel
@@ -590,11 +635,11 @@ Item {
                                         font.pixelSize: 11
                                     }
                                     HoverHandler { id: statusFilterHover }
-                                    ToolTip.visible: index > 0 && statusFilterHover.hovered
-                                    ToolTip.text: "完成状态尚未提供逐课程数据"
+                                    ToolTip.visible: !available && statusFilterHover.hovered
+                                    ToolTip.text: "登录并读取完成证据后可筛选"
                                     TapHandler {
-                                        enabled: index === 0
-                                        onTapped: hostRoot.lessonStatusFilter = index
+                                        enabled: parent.available
+                                        onTapped: parent.choose()
                                     }
                                 }
                             }
@@ -616,6 +661,7 @@ Item {
                             clip: true
 
                             Text {
+                                objectName: "learningEmptyFilter"
                                 anchors.centerIn: parent
                                 visible: courseGrid.count === 0
                                 text: "当前筛选暂无课程"
@@ -654,7 +700,7 @@ Item {
                                     // 悬停态: 遮光层二档 rgba(220, 233, 251, 0.055)
                                     color: unitHover.hovered ? Qt.rgba(220/255, 233/255, 251/255, 0.055)
                                                              : Qt.rgba(220/255, 233/255, 251/255, 0.028)
-                                    border.color: modelData.originalIndex === hostRoot.selectedLessonIndex
+                                    border.color: activeFocus ? ds.accent : modelData.originalIndex === hostRoot.selectedLessonIndex
                                                   ? ds.accentRing
                                                   : (unitHover.hovered ? ds.lineRaised : ds.line)
                                     border.width: 1
@@ -706,6 +752,7 @@ Item {
                                                 border.color: ds.unitBadgeEd
                                                 border.width: 1
                                                 Text {
+                                                    objectName: "lessonNumber-" + modelData.id
                                                     anchors.centerIn: parent
                                                     text: (index + 1) < 10
                                                           ? "0" + (index + 1) : "" + (index + 1)
@@ -727,7 +774,8 @@ Item {
                                                     Layout.alignment: Qt.AlignVCenter
                                                 }
                                                 Text {
-                                                    text: "暂无状态数据"
+                                                    text: !uiShell.lessonEvidenceReady ? "暂无状态数据"
+                                                        : (Catalog.holdsCompletion(uiShell.lessonEvidenceStates[modelData.id]) ? "已有完成证据" : "待学习")
                                                     color: ds.faint
                                                     font.family: ds.ui
                                                     font.pixelSize: 13
@@ -793,8 +841,13 @@ Item {
                                     }
 
                                     HoverHandler { id: unitHover; cursorShape: Qt.PointingHandCursor }
+                                    activeFocusOnTab: true
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: modelData.title
+                                    Keys.onReturnPressed: studyPage.selectCourse(modelData.originalIndex)
+                                    Keys.onSpacePressed: studyPage.selectCourse(modelData.originalIndex)
                                     TapHandler {
-                                        onTapped: hostRoot.selectedLessonIndex = modelData.originalIndex
+                                        onTapped: studyPage.selectCourse(modelData.originalIndex)
                                     }
                                 }
                             }
@@ -887,8 +940,8 @@ Item {
                                             Text {
                                                 Layout.leftMargin: ds.s6
                                                 Layout.fillWidth: true
-                                                text: uiShell.hasSelectedContent
-                                                      ? (uiShell.documentId || "选择课程")
+                                                text: hostRoot.selectedLesson
+                                                      ? (hostRoot.selectedLesson.title || "选择课程")
                                                       : "选择课程"
                                                 color: ds.faint
                                                 font.family: ds.ui
@@ -918,11 +971,10 @@ Item {
                                             // ScrollView a NoWrap Text otherwise
                                             // collapses and the panel renders empty.
                                             width: snippetScroll.availableWidth
-                                            text: uiShell.selectedContentBody !== ""
-                                                  ? uiShell.selectedContentBody
-                                                  : (hostRoot.selectedLesson
-                                                     ? "所选课程正文尚未加载"
-                                                     : "选择课程后展示代码")
+                                            objectName: "learningCodePreview"
+                                            text: hostRoot.selectedLesson && hostRoot.selectedLesson.code
+                                                  ? hostRoot.selectedLesson.code.split("\n").slice(0, 13).join("\n")
+                                                  : "选择带代码的课程后展示代码"
                                             color: ds.codeInk
                                             font.family: ds.mono
                                             font.pixelSize: 11
@@ -1001,6 +1053,7 @@ Item {
                                     }
                                     Text {
                                         Layout.fillWidth: true
+                                        objectName: "learningPlanTitle"
                                         text: hostRoot.selectedLesson
                                               ? (hostRoot.selectedLesson.title || "课程标题暂无数据")
                                               : "选择课程后查看今日计划"
@@ -1080,7 +1133,7 @@ Item {
                                     font.pixelSize: 13
                                 }
                                 Text {
-                                    text: "暂无分科统计"
+                                    text: uiShell.lessonEvidenceReady ? studyPage.completedLessonCount + "/" + studyPage.subjectLessons.length : "暂无完成证据数据"
                                     color: ds.ink
                                     font.family: ds.mono
                                     font.pixelSize: 13

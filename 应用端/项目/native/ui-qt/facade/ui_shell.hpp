@@ -53,6 +53,8 @@ class UiShell final : public QObject {
   Q_PROPERTY(QString reviewSummary READ reviewSummary NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY reviewItemsChanged)
   Q_PROPERTY(QVariantMap analysisSnapshot READ analysisSnapshot NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QVariantMap lessonEvidenceStates READ lessonEvidenceStates NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(bool lessonEvidenceReady READ lessonEvidenceReady NOTIFY reviewSummaryChanged)
   Q_PROPERTY(int executionTimeout READ executionTimeout WRITE setExecutionTimeout NOTIFY executionOptionsChanged)
   Q_PROPERTY(bool independentAttempt READ independentAttempt WRITE setIndependentAttempt NOTIFY independentAttemptChanged)
 
@@ -97,6 +99,8 @@ class UiShell final : public QObject {
   [[nodiscard]] QString reviewSummary() const { return review_summary_; }
   [[nodiscard]] QVariantList reviewItems() const { return review_items_; }
   [[nodiscard]] QVariantMap analysisSnapshot() const { return analysis_snapshot_; }
+  [[nodiscard]] QVariantMap lessonEvidenceStates() const { return lesson_evidence_states_; }
+  [[nodiscard]] bool lessonEvidenceReady() const { return lesson_evidence_ready_; }
   [[nodiscard]] int executionTimeout() const { return execution_timeout_; }
   void setExecutionTimeout(int milliseconds);
   [[nodiscard]] bool independentAttempt() const { return independent_attempt_; }
@@ -235,6 +239,8 @@ class UiShell final : public QObject {
   bool draft_saving_{};
   bool draft_persistence_blocked_{};
   bool account_busy_{};
+  QVariantMap lesson_evidence_states_;
+  bool lesson_evidence_ready_{};
   int selected_content_index_{-1};
   QString content_status_;
   QString content_root_;

@@ -1,0 +1,22 @@
+{
+  "isolatedApi": true,
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "screenshots": [
+    "web-learning-python.png",
+    "web-learning-details.png",
+    "web-learning-details-selected.png"
+  ],
+  "errors": [],
+  "selectedTitle": "循环是怎么工作的？",
+  "statistics": [
+    "当前科目Python",
+    "课程单元6 个",
+    "编号阶段0 / 10 个已发布",
+    "缺口6 个单元 · 0 处阶段缺口",
+    "下一推荐01 · 循环是怎么工作的？"
+  ],
+  "passed": true
+}

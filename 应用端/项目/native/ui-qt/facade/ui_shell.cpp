@@ -102,6 +102,13 @@ void UiShell::loadPublishedContent(const QString& root) {
       m[QStringLiteral("languageLabel")] = obj.value(QStringLiteral("languageLabel")).toString();
       m[QStringLiteral("level")] = obj.value(QStringLiteral("level")).toString();
       m[QStringLiteral("duration")] = obj.value(QStringLiteral("duration")).toString();
+      for (const auto* field : {"stageId", "reading", "code", "fileName", "legacy", "contentId",
+                               "source", "exercise", "executable"}) {
+        const auto key = QString::fromLatin1(field);
+        if (obj.contains(key)) m[key] = obj.value(key).toVariant();
+      }
+      m[QStringLiteral("prerequisites")] = obj.value(QStringLiteral("content")).toObject()
+          .value(QStringLiteral("prerequisites")).toVariant();
       // Flatten flow nodes to a QVariantList so QML can render the canvas skeleton.
       const auto flow_arr = obj.value(QStringLiteral("flow")).toArray();
       QVariantList flow;
