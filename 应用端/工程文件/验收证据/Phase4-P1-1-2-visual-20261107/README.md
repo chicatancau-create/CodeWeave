@@ -4,7 +4,7 @@
 
 ## 本轮实际验证
 
-- `build-output.txt`：标准入口 `cmd /c 工程文件\工具\构建当前Qt.cmd` 的最终输出，Release 构建和 CTest 9/9 通过。
+- `build-output.txt`：标准入口 `cmd /c 工程文件\工具\构建当前Qt.cmd` 的最终输出（归档时仅移除两行尾随空格），Release 构建和 CTest 9/9 通过。
 - `learning-matrix.json`：可见真实窗口矩阵 91/91，18 张截图，`qml-no-warnings` 通过。账户、证据和草稿均由临时 fixture 创建，正常退出后释放；未访问真实工作区。
 - 同目录保留全部 18 张 `u3-*.png`，可检查全局字体调整对各页面的影响。明细首屏为 1440×900，小窗口及所选课程底部为 1100×720；其他截图尺寸以原图为准，并非全部同尺寸。
 - 目录纯函数测试 `node --test 应用端/项目/native/ui-qt/tests/learning_catalog_tests.mjs` 5/5；`node 工程文件/工具/check-layout.mjs` 和 `git diff --check` 通过。
