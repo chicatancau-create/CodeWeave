@@ -964,6 +964,47 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("javascript-execution"), shell.executionOutput().contains(QStringLiteral("15")),
               shell.executionOutput());
           {
+            const auto trace_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            int snapshot_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              const auto event = trace_events.at(index).toMap();
+              if (event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                  event.value(QStringLiteral("sourceLine")).toInt() == 5 &&
+                  event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "15") {
+                snapshot_index = static_cast<int>(index);
+                break;
+              }
+            }
+            auto* events = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            const bool snapshot_visible = events && line && variables && snapshot_index >= 0 &&
+                events->setProperty("currentIndex", snapshot_index) && line->property("visible").toBool() &&
+                line->property("text").toString() == QStringLiteral("源码第 5 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 15")) &&
+                !variables->property("text").toString().contains(QStringLiteral("Symbol("));
+            u3_record(*context, QStringLiteral("javascript-source-snapshot-line-and-local-variable"), snapshot_visible);
+            u3_record(*context, QStringLiteral("javascript-snapshots-exclude-module-wrapper-lines"),
+                std::none_of(trace_events.begin(), trace_events.end(), [](const auto& value) {
+                  const auto event = value.toMap();
+                  return event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                      event.value(QStringLiteral("sourceLine")).toInt() > 5;
+                }));
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            const auto fifth_line = shell.draftCode().lastIndexOf(QStringLiteral("console.log"));
+            QRectF rectangle;
+            const bool aligned = editor && numbers && fifth_line >= 0 &&
+                QMetaObject::invokeMethod(editor, "positionToRectangle", Q_RETURN_ARG(QRectF, rectangle),
+                    Q_ARG(int, static_cast<int>(fifth_line))) &&
+                std::abs(numbers->y() + 4 * numbers->property("lineAdvance").toReal() -
+                    rectangle.y()) < 1.0;
+            u3_record(*context, QStringLiteral("editor-gutter-matches-source-line-position"), aligned);
+            u3_record(*context, QStringLiteral("javascript-source-snapshot-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-javascript-source-snapshot")));
+          }
+          {
             const auto index = shell.publishedIds().indexOf(QStringLiteral("b1-array-basics"));
             if (index < 0) { u3_record(*context, QStringLiteral("cpp-execution"), false,
                 QStringLiteral("缺少 b1-array-basics 内容")); context->step = 99; return; }
@@ -2736,7 +2777,7 @@ int main(int argc, char* argv[]) {
         }
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 52,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 53,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

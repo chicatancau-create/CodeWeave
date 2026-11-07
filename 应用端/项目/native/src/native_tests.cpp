@@ -1988,7 +1988,7 @@ void test_execution_service_runs_external_language(const std::string& language,
               << result.process->output << "\n";
   }
   assert(result.process->output == expected_output);
-  if (language == "python") {
+  if (language == "python" || language == "javascript") {
     assert(result.trace.has_value());
     const auto& events = result.trace->events();
     const auto step = std::find_if(events.begin(), events.end(), [](const auto& event) {
@@ -1997,11 +1997,121 @@ void test_execution_service_runs_external_language(const std::string& language,
     assert(step != events.end());
     assert(step->payload.find("\"line\":") != std::string::npos);
     assert(step->payload.find("\"variables\":") != std::string::npos);
+    if (language == "javascript") {
+      const auto second_line = std::find_if(events.begin(), events.end(), [](const auto& event) {
+        return event.kind == codeweave::execution::EventKind::SourceStep &&
+            event.payload.find("\"line\":2") != std::string::npos;
+      });
+      assert(second_line != events.end());
+      assert(second_line->payload.find("\"total\":\"7\"") != std::string::npos);
+      const auto third_line = std::find_if(events.begin(), events.end(), [](const auto& event) {
+        return event.kind == codeweave::execution::EventKind::SourceStep &&
+            event.payload.find("\"line\":3") != std::string::npos &&
+            event.payload.find("\"total\":\"9\"") != std::string::npos;
+      });
+      assert(third_line != events.end());
+    }
   }
   assert(std::filesystem::is_empty(root, error) && !error);
   std::filesystem::remove_all(root, error);
 #else
   (void)language; (void)runtime; (void)source; (void)expected_output;
+#endif
+}
+
+void test_javascript_source_trace_preserves_failures_and_bounds(const std::filesystem::path& runtime) {
+#ifdef _WIN32
+  if (runtime.empty()) return;
+  Fixture fixture;
+  const auto execution_root = fixture.root / "execution";
+  assert(std::filesystem::create_directory(execution_root));
+  codeweave::execution::ExecutionService service;
+  const auto run = [&](std::string source) {
+    const auto result = service.run({"javascript-trace-boundary", "javascript", std::move(source), 10'000, 4096},
+        runtime, execution_root);
+    assert(result.validation.ok && result.process && result.process->started && result.trace);
+    assert(std::filesystem::is_empty(execution_root));
+    std::size_t count = 0;
+    std::size_t bytes = 0;
+    for (const auto& event : result.trace->events()) {
+      if (event.kind != codeweave::execution::EventKind::SourceStep) continue;
+      assert(event.payload.size() <= 8192);
+      ++count;
+      bytes += event.payload.size();
+    }
+    assert(count <= 512 && bytes <= 256 * 1024);
+    return result;
+  };
+  const auto failure = run("let total = 7;\nthrow new Error('trace failure');\n");
+  assert(failure.process->exit_code != 0 && !failure.process->error_code.empty());
+  assert(failure.process->output.find("trace failure") != std::string::npos);
+  assert(failure.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  const auto syntax = run("let = {\n");
+  assert(syntax.process->exit_code != 0 && !syntax.process->error_code.empty());
+  const auto module = run("import path from 'node:path';\nconsole.log(path.sep.length);\n");
+  assert(module.process->exit_code == 0 && module.process->output == "1\n");
+  assert(std::none_of(module.trace->events().begin(), module.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }));
+  const auto awaited = run("console.log(await Promise.resolve(7));\n");
+  assert(awaited.process->exit_code == 0 && awaited.process->output == "7\n");
+  const auto local_module = execution_root / "local-module.cjs";
+  {
+    std::ofstream module_file(local_module);
+    module_file << "module.exports = 7;\n";
+    module_file.close();
+    assert(module_file);
+  }
+  const auto required = service.run({"javascript-relative-require", "javascript",
+      "console.log(require('./local-module.cjs'));\nconsole.log(__filename, __dirname, module.id);\n"
+      "console.log(require.resolve('./local-module.cjs').endsWith('local-module.cjs'), require.main === undefined);\n",
+      10'000, 4096},
+      runtime, execution_root);
+  assert(required.process && required.process->exit_code == 0 &&
+      required.process->output == "7\n[stdin] . [stdin]\ntrue true\n");
+  assert(std::filesystem::remove(local_module) && std::filesystem::is_empty(execution_root));
+  const auto global = run("var total = 7;\nconsole.log(this === globalThis, globalThis.total);\n");
+  assert(global.process->exit_code == 0 && global.process->output == "true 7\n");
+  assert(std::none_of(global.trace->events().begin(), global.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"Symbol(") != std::string::npos;
+  }));
+  assert(std::any_of(global.trace->events().begin(), global.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto shadowed = run("const JSON = 7;\nconst Object = 9;\nconsole.log(JSON + Object);\n");
+  assert(shadowed.process->exit_code == 0 && shadowed.process->output == "16\n");
+  const auto shebang = run("#!/usr/bin/env node\nlet total = 7;\nconsole.log(total);\n");
+  assert(shebang.process->exit_code == 0 && shebang.process->output == "7\n");
+  assert(std::none_of(shebang.trace->events().begin(), shebang.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        (event.payload.find("\"line\":4") != std::string::npos ||
+         event.payload.find("\"line\":5") != std::string::npos);
+  }));
+  assert(std::any_of(shebang.trace->events().begin(), shebang.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":3") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto asynchronous = run("setTimeout(() => {\nlet total = 7;\nconsole.log(total);\n}, 20);\n");
+  assert(asynchronous.process->exit_code == 0 && asynchronous.process->output == "7\n");
+  assert(std::any_of(asynchronous.trace->events().begin(), asynchronous.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto bounded = run("const object = { get dangerous() { throw new Error('getter executed'); } };\n"
+      "let total = 0;\nfor (let i = 0; i < 2000; ++i) {\ntotal += i;\n}\nconsole.log(total);\n");
+  assert(bounded.process->exit_code == 0 && bounded.process->output == "1999000\n");
+  assert(std::count_if(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }) == 512);
+  const auto timeout = service.run({"javascript-trace-timeout", "javascript", "while (true) {}\n", 100, 4096},
+      runtime, execution_root);
+  assert(timeout.process && timeout.process->timed_out);
+  assert(std::filesystem::is_empty(execution_root));
+#else
+  (void)runtime;
 #endif
 }
 
@@ -2148,7 +2258,9 @@ int main(int argc, char** argv) {
       "print(42)\n", "42\r\n");
   test_execution_service_runs_external_language("javascript",
       argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{},
-      "console.log(42)\n", "42\n");
+      "let total = 7;\ntotal += 2;\nconsole.log(total);\n", "9\n");
+  test_javascript_source_trace_preserves_failures_and_bounds(
+      argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{});
   test_trace_contract_is_ordered_and_bounded();
   test_trace_store_paginates_and_summarizes();
   std::cout << "native core tests passed\n";

@@ -371,23 +371,30 @@ Item {
                                 Item {
                                     Layout.preferredWidth: 44
                                     Layout.fillHeight: true
+                                    clip: true
                                     Text {
-                                        anchors {
-                                            fill: parent
-                                            topMargin: ds.s12
-                                            rightMargin: ds.s10
+                                        objectName: "codeLineNumbers"
+                                        width: parent.width - ds.s10
+                                        y: codeEditor.topPadding - codeScroll.contentItem.contentY
+                                        readonly property real lineAdvance: {
+                                            const firstBreak = codeEditor.text.indexOf("\n");
+                                            return firstBreak >= 0
+                                                ? codeEditor.positionToRectangle(firstBreak + 1).y
+                                                  - codeEditor.positionToRectangle(0).y
+                                                : codeEditor.cursorRectangle.height;
                                         }
                                         text: {
                                             const n = (uiShell.draftCode + "\n").split("\n").length;
                                             let t = "";
                                             for (let i = 1; i < n; ++i) t += i + "\n";
-                                            return t;
+                                            return t.slice(0, -1);
                                         }
                                         color: ds.muted
                                         font.family: ds.mono
                                         font.pixelSize: 13
                                         horizontalAlignment: Text.AlignRight
-                                        lineHeight: 1.4
+                                        lineHeight: lineAdvance
+                                        lineHeightMode: Text.FixedHeight
                                         Accessible.ignored: true
                                     }
                                 }
@@ -397,6 +404,8 @@ Item {
                                     color: ds.line
                                 }
                                 ScrollView {
+                                    id: codeScroll
+                                    objectName: "codeScroll"
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     ScrollBar.horizontal.policy: ScrollBar.AsNeeded
@@ -663,7 +672,7 @@ Item {
                                     }
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "Python 显示所选源码步骤快照；其他语言暂不支持"
+                                        text: "Python / JavaScript 源码步骤快照；其他语言暂不支持"
                                         color: ds.faint
                                         font.family: ds.ui
                                         font.pixelSize: 11

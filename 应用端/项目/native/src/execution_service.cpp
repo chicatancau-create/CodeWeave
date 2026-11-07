@@ -1,4 +1,5 @@
 #include "execution_service.hpp"
+#include "javascript_trace_runner.hpp"
 
 #include <fstream>
 #include <random>
@@ -76,10 +77,10 @@ std::filesystem::path unique_java_directory(const std::filesystem::path& root,
       std::to_string(random()) + "-" + std::to_string(random()));
 }
 
-std::filesystem::path unique_python_directory(const std::filesystem::path& root,
-    std::string_view) {
+std::filesystem::path unique_source_trace_directory(const std::filesystem::path& root,
+    std::string_view language) {
   std::random_device random;
-  return root / ("python-" + std::to_string(random()) + "-" + std::to_string(random()));
+  return root / (std::string(language) + "-" + std::to_string(random()) + "-" + std::to_string(random()));
 }
 
 bool write_file(const std::filesystem::path& path, std::string_view contents) {
@@ -140,7 +141,7 @@ finally:
     sys.settrace(None)
 )PY";
 
-bool append_python_steps(const std::filesystem::path& snapshot_path, Trace& trace) {
+bool append_source_steps(const std::filesystem::path& snapshot_path, Trace& trace) {
   std::error_code error;
   const auto status = std::filesystem::symlink_status(snapshot_path, error);
   if (error || !std::filesystem::is_regular_file(status) || std::filesystem::is_symlink(status)) return false;
@@ -180,33 +181,49 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
   ProcessPlan plan{};
   const auto validation = build_process_plan(request, executable, working_directory, plan);
   if (!validation.ok) return {validation, std::nullopt, std::nullopt};
-  if (request.language == "python") {
+  if (request.language == "python" || request.language == "javascript") {
+    const bool python = request.language == "python";
     std::error_code directory_error;
-    const auto python_directory = unique_python_directory(working_directory, request.session_id);
-    const bool created = std::filesystem::create_directory(python_directory, directory_error);
+    const auto trace_directory = unique_source_trace_directory(working_directory, request.language);
+    const bool created = std::filesystem::create_directory(trace_directory, directory_error);
     if (!created || directory_error) {
-      return {app::Result::failure(created ? "Python 隔离工作目录创建后不可用"
-                                           : "Python 隔离工作目录已被占用或无法创建"),
+      return {app::Result::failure(created ? "源码追踪隔离工作目录创建后不可用"
+                                           : "源码追踪隔离工作目录已被占用或无法创建"),
           std::nullopt, std::nullopt};
     }
-    TemporaryDirectory python_cleanup(python_directory);
-    const auto source_path = python_directory / "program.py";
-    const auto runner_path = python_directory / "runner.py";
-    const auto snapshot_path = python_directory / "snapshots.jsonl";
-    if (!write_file(source_path, request.source) || !write_file(runner_path, kPythonTraceRunner)) {
-      return {app::Result::failure("创建 Python 源码追踪文件失败"), std::nullopt, std::nullopt};
+    TemporaryDirectory trace_cleanup(trace_directory);
+    const auto source_path = trace_directory / (python ? "program.py" : "program.cjs");
+    const auto runner_path = trace_directory / (python ? "runner.py" : "runner.cjs");
+    const auto snapshot_path = trace_directory / "snapshots.jsonl";
+    const auto syntax_fallback_path = trace_directory / "syntax-fallback";
+    if (!write_file(source_path, request.source) ||
+        !write_file(runner_path, python ? kPythonTraceRunner : kJavaScriptTraceRunner)) {
+      return {app::Result::failure("创建源码追踪文件失败"), std::nullopt, std::nullopt};
     }
-    ProcessPlan python_plan{
-        {executable, {L"-X", L"utf8", runner_path.wstring(), source_path.wstring(),
-                         snapshot_path.wstring()}, working_directory, "python"},
+    std::vector<std::wstring> arguments;
+    if (python) arguments = {L"-X", L"utf8"};
+    arguments.insert(arguments.end(), {runner_path.wstring(), source_path.wstring(), snapshot_path.wstring()});
+    if (!python) arguments.push_back(syntax_fallback_path.wstring());
+    ProcessPlan trace_plan{
+        {executable, std::move(arguments), working_directory, request.language},
         {}, request.timeout_ms, request.output_limit};
-    if (const auto valid = validate_process_request(python_plan.process); !valid.ok) {
+    if (const auto valid = validate_process_request(trace_plan.process); !valid.ok) {
       return {valid, std::nullopt, std::nullopt};
     }
     Trace trace(request.session_id);
     trace.append(EventKind::Started);
-    auto process = runner_.run(python_plan, cancellation, control);
-    append_python_steps(snapshot_path, trace);
+    auto process = runner_.run(trace_plan, cancellation, control);
+    if (!python && process.exit_code != 0 && !process.cancelled && !process.timed_out &&
+        !(cancellation && cancellation->load())) {
+      std::error_code fallback_error;
+      const auto status = std::filesystem::symlink_status(syntax_fallback_path, fallback_error);
+      if (!fallback_error && std::filesystem::is_regular_file(status) && !std::filesystem::is_symlink(status)) {
+        std::ifstream marker(syntax_fallback_path, std::ios::binary);
+        // The marker is written only by the parser, before any learner code runs.
+        if (marker.get() == '1') process = runner_.run(plan, cancellation, control);
+      }
+    }
+    append_source_steps(snapshot_path, trace);
     for (const auto& event : process.control_events) {
       if (event.command == ControlCommand::Pause) trace.append(EventKind::Paused);
       if (event.command == ControlCommand::Resume || event.command == ControlCommand::Step) {
