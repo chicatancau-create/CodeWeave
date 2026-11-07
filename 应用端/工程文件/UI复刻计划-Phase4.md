@@ -174,3 +174,4 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 - [通过] 隔离部署后的真实窗口输入矩阵 27/27 通过；证据为 `应用端/项目/evidence/qt-phase4-study-split-matrix-20261107.json`，包含 7 张非空页面截图。
 - [通过] `node 工程文件/工具/check-layout.mjs`、`git diff --check`。
 - [未执行] 其余页面拆分、顶栏浮层/面包屑/设置帮助弹窗，以及网页端逐区块截图对比。
+- [通过] 追加拆分 `qml/pages/AnalyticsPage.qml`，由 Loader 注入设计令牌；矩阵复验仍为 27/27。

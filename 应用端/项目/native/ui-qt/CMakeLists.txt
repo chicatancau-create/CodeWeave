@@ -74,6 +74,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/PrimaryButton.qml
     qml/components/QuietButton.qml
     qml/components/SubjectPill.qml
+    qml/pages/AnalyticsPage.qml
     qml/pages/StudyPage.qml
 )
 
