@@ -7,6 +7,7 @@ Item {
     property var hostRoot
     property QtObject ds
     id: editorPage
+    property int activeWorkspacePane: 0
 
         ColumnLayout {
             anchors.fill: parent
@@ -49,17 +50,23 @@ Item {
                 ColumnLayout {
                     spacing: 2
                     Text {
-                        text: uiShell.hasSelectedContent
-                              ? (uiShell.documentId || "未选择课程") : "未选择课程"
+                        text: hostRoot.selectedLesson
+                              ? ((hostRoot.selectedLesson.label || hostRoot.selectedLesson.id || "")
+                                 + " · " + (hostRoot.selectedLesson.title || "未命名课程"))
+                              : "未选择课程"
                         color: ds.ink
-                        font.family: ds.mono
-                        font.pixelSize: 22
+                        font.family: ds.ui
+                        font.pixelSize: 20
                         font.weight: Font.DemiBold
-                        font.letterSpacing: -0.4
                     }
                     Text {
-                        text: (uiShell.starterLanguage !== "" ? uiShell.starterLanguage : "—")
-                              + " · 教学运行器 · Ctrl + S 保存草稿"
+                        text: (hostRoot.selectedLesson && hostRoot.selectedLesson.level
+                               ? hostRoot.selectedLesson.level : "等级待定")
+                              + " · "
+                              + (hostRoot.selectedLesson && hostRoot.selectedLesson.duration
+                                 ? hostRoot.selectedLesson.duration : "时长待定")
+                              + " · "
+                              + (uiShell.starterLanguage !== "" ? uiShell.starterLanguage : "无代码练习")
                         color: ds.muted
                         font.family: ds.ui
                         font.pixelSize: 12
@@ -90,15 +97,28 @@ Item {
                 Layout.fillWidth: true
                 spacing: ds.s16
                 Repeater {
-                    model: ["01 代码", "02 变量", "03 控制台"]
-                    delegate: Text {
+                    model: ["代码", "程序状态", "控制台"]
+                    delegate: ColumnLayout {
                         required property var modelData
                         required property int index
-                        text: modelData
-                        color: index === 0 ? ds.accent : ds.muted
-                        font.family: ds.mono
-                        font.pixelSize: 12
-                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
+                        QuietButton {
+                            id: paneButton
+                            ds: editorPage.ds
+                            label: (index + 1 < 10 ? "0" : "") + (index + 1) + "  " + modelData
+                            onClicked: {
+                                editorPage.activeWorkspacePane = index;
+                                if (index === 0) codeEditor.forceActiveFocus();
+                                else if (index === 1) stagePanel.forceActiveFocus();
+                                else outputArea.forceActiveFocus();
+                            }
+                            Accessible.name: "工作台分区：" + modelData
+                        }
+                        Rectangle {
+                            width: paneButton.width
+                            height: 2
+                            color: editorPage.activeWorkspacePane === index ? ds.accent : "transparent"
+                        }
                     }
                 }
                 Item { Layout.fillWidth: true }
@@ -278,6 +298,9 @@ Item {
 
                     // div.rs-stage
                     Rectangle {
+                        id: stagePanel
+                        focus: true
+                        Accessible.name: "程序状态图区域"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: ds.radius
@@ -480,6 +503,8 @@ Item {
                                 Layout.fillHeight: true
                                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                                 TextArea {
+                                    id: outputArea
+                                    focus: true
                                     text: uiShell.executionOutput
                                     readOnly: true
                                     wrapMode: TextArea.Wrap
