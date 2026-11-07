@@ -15,7 +15,7 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 | 范围 | 网页端来源 | QML 对应 | 粗估完成度 |
 |---|---|---|---|
 | 外壳（顶栏/侧栏/浮层/弹窗） | `app.tsx`、`components/topbar/*`、`modals.tsx` | Main.qml L1-L1100 | ~55% |
-| 学习概览 + 阶段明细 | `desktop-learning-home.tsx`、`learning-path-view.tsx` | StudyPage L1107 | ~45%（明细页 0%） |
+| 学习概览 + 阶段明细 | `desktop-learning-home.tsx`、`learning-path-view.tsx` | `qml/pages/StudyPage.qml` | ~45%（明细页 0%） |
 | 学习工作台 | `learning-workspace-view.tsx` + `learning-workspace/*`、`run-stage`、`flow-chart`、`variable-panel`、`console-panel` | EditorPage L2199、RunLogPage L2641 | ~30% |
 | 实战挑战 | `challenges-view.tsx` + `challenges/*` | ChallengePage L3259 | ~30%（详情页 0%） |
 | 代码草稿 | `projects-view.tsx` | DraftsPage L3744 | ~50% |
@@ -128,6 +128,7 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 | P0.5 截图对比基线 | 部分完成 | 2026-11-07 | 应用端真实窗口矩阵已生成 7 张页面截图；网页端逐区块对比仍待做 |
 | P1 1.1–1.9、1.11–1.13 | ⏳ | - | - |
 | P1 1.10 挑战筛选/分页 | 页面运行通过，组合筛选待验收 | 2026-11-07 | 真实窗口截图已生成；搜索/阶段/轨道/难度/运行方式组合操作尚未人工验收 |
+| P1 4.1 QML 页面与共享组件拆分 | ✅ | 2026-11-07 | 学习页和 3 个共享按钮/标签组件已拆分；Qt 真实窗口矩阵 27/27 通过 |
 | P2 2.1 复习中心三组表格 | 空态运行通过，非空行操作待验收 | 2026-11-07 | 三组表格和空态截图已生成；本轮隔离数据无复习记录，行操作未覆盖 |
 | P2 2.2–2.6、2.8–2.9 | ⏳ | - | - |
 | P2 2.7 学习分析数据绑定与近 7 天口径 | ⚠️ 部分完成 | 2026-11-07 | 聚合测试 native-core 1/1；QML 静态检查通过；facade/Qt 界面未运行 |
@@ -164,3 +165,12 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 - [通过] 隔离部署后的真实窗口矩阵 27/27 通过，覆盖课程、编辑器、执行、复习中心、挑战页、草稿页和分析页；证据为 `应用端/项目/evidence/qt-phase4-matrix-20261107.json`。
 - [通过] 真实窗口截图已生成：`u3-learning.png`、`u3-course.png`、`u3-editor.png`、`u3-review.png`、`u3-challenge.png`、`u3-drafts.png`、`u3-analysis.png`。
 - [未执行] 挑战页组合筛选人工操作、含复习记录的行操作，以及网页/应用逐区块截图对比。
+
+### 2026-11-07 阶段 4.1（QML 页面与共享组件拆分）
+
+- [通过] 从 `Main.qml` 移出学习页为 `qml/pages/StudyPage.qml`，保留宿主根对象和设计令牌注入，Loader 访问语义不变。
+- [通过] 抽出 `PrimaryButton.qml`、`QuietButton.qml`、`SubjectPill.qml`，并加入 `qt_add_qml_module` 资源清单。
+- [通过] `工程文件/工具/构建当前Qt.cmd`：Qt Release 构建完成，CTest 8/8 通过。
+- [通过] 隔离部署后的真实窗口输入矩阵 27/27 通过；证据为 `应用端/项目/evidence/qt-phase4-study-split-matrix-20261107.json`，包含 7 张非空页面截图。
+- [通过] `node 工程文件/工具/check-layout.mjs`、`git diff --check`。
+- [未执行] 其余页面拆分、顶栏浮层/面包屑/设置帮助弹窗，以及网页端逐区块截图对比。

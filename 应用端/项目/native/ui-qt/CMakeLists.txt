@@ -71,6 +71,10 @@ qt_add_qml_module(codeweave-qt
   VERSION 1.0
   QML_FILES
     qml/Main.qml
+    qml/components/PrimaryButton.qml
+    qml/components/QuietButton.qml
+    qml/components/SubjectPill.qml
+    qml/pages/StudyPage.qml
 )
 
 target_include_directories(codeweave-qt PRIVATE facade)
