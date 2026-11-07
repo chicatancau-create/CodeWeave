@@ -10,12 +10,36 @@ Item {
     property int activeWorkspacePane: 0
     property bool consoleOutputCleared: false
     property string consoleCopyStatus: ""
+    property string evidenceAccountRequested: ""
+    readonly property var currentLesson: {
+        for (const lesson of uiShell.lessonMeta)
+            if (lesson.id === uiShell.documentId) return lesson;
+        return null;
+    }
+    readonly property string currentTitle: {
+        const index = uiShell.publishedIds.indexOf(uiShell.documentId);
+        return currentLesson ? (currentLesson.title || uiShell.documentId)
+               : index >= 0 ? uiShell.publishedTitles[index] : "未选择课程";
+    }
 
     Connections {
         target: uiShell
+        function onAccountChanged() { editorPage.evidenceAccountRequested = ""; }
         function onExecutionOutputChanged() {
             editorPage.consoleOutputCleared = false;
             editorPage.consoleCopyStatus = "";
+        }
+    }
+    Timer {
+        interval: 100
+        repeat: true
+        running: editorPage.visible && uiShell.hasActiveAccount && !uiShell.lessonEvidenceReady
+                 && editorPage.evidenceAccountRequested !== uiShell.activeAccountId
+        onTriggered: {
+            if (uiShell.accountBusy || uiShell.contentBusy || uiShell.operationBusy || uiShell.executionBusy
+                    || uiShell.draftSaving || uiShell.challengeHistoryBusy) return;
+            editorPage.evidenceAccountRequested = uiShell.activeAccountId;
+            uiShell.refreshReviewSummary();
         }
     }
 
@@ -58,23 +82,26 @@ Item {
                 spacing: ds.s12
                 QuietButton { ds: editorPage.ds; label: "←"; onClicked: uiShell.selectPage("学习") }
                 ColumnLayout {
+                    Layout.fillWidth: true
                     spacing: 2
                     Text {
-                        text: hostRoot.selectedLesson
-                              ? ((hostRoot.selectedLesson.label || hostRoot.selectedLesson.id || "")
-                                 + " · " + (hostRoot.selectedLesson.title || "未命名课程"))
-                              : "未选择课程"
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        textFormat: Text.PlainText
+                        objectName: "workspaceLessonTitle"
+                        text: (editorPage.currentLesson ? (editorPage.currentLesson.label || "") + " · " : "")
+                              + editorPage.currentTitle
                         color: ds.ink
                         font.family: ds.ui
                         font.pixelSize: 20
                         font.weight: Font.DemiBold
                     }
                     Text {
-                        text: (hostRoot.selectedLesson && hostRoot.selectedLesson.level
-                               ? hostRoot.selectedLesson.level : "等级待定")
+                        text: (editorPage.currentLesson && editorPage.currentLesson.level
+                               ? editorPage.currentLesson.level : "等级待定")
                               + " · "
-                              + (hostRoot.selectedLesson && hostRoot.selectedLesson.duration
-                                 ? hostRoot.selectedLesson.duration : "时长待定")
+                              + (editorPage.currentLesson && editorPage.currentLesson.duration
+                                 ? editorPage.currentLesson.duration : "时长待定")
                               + " · "
                               + (uiShell.starterLanguage !== "" ? uiShell.starterLanguage : "无代码练习")
                         color: ds.muted
@@ -82,7 +109,6 @@ Item {
                         font.pixelSize: 12
                     }
                 }
-                Item { Layout.fillWidth: true }
                 QuietButton {
                     ds: editorPage.ds
                     label: uiShell.draftDirty ? "保存草稿 *" : "保存草稿"
@@ -90,9 +116,15 @@ Item {
                     onClicked: uiShell.saveDraft()
                 }
                 QuietButton {
+                    id: lessonEvidenceButton
+                    objectName: "lessonEvidenceOpen"
                     ds: editorPage.ds
-                    label: "记录实践证据"
-                    onClicked: hostRoot.openEvidenceDialog()
+                    label: "课程证据"
+                    enabled: uiShell.hasSelectedContent
+                    onClicked: {
+                        hostRoot.dialogReturnFocusItem = lessonEvidenceButton;
+                        hostRoot.openEvidenceDialog();
+                    }
                 }
                 QuietButton {
                     ds: editorPage.ds
@@ -134,6 +166,32 @@ Item {
                 Item { Layout.fillWidth: true }
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    Layout.fillWidth: true
+                    text: uiShell.lessonAssessment.completed
+                          ? "已完成 · " + uiShell.lessonAssessment.completionSource
+                          : uiShell.lessonAssessment.buttonLabel
+                    textFormat: Text.PlainText; wrapMode: Text.WordWrap
+                    color: uiShell.lessonAssessment.completed ? ds.success : ds.muted
+                    font.family: ds.ui; font.pixelSize: 12
+                }
+                QuietButton {
+                    id: completeLessonButton
+                    objectName: "workspaceCompleteLesson"
+                    ds: editorPage.ds
+                    label: uiShell.lessonAssessment.external ? "填写完成证据" : "标记完成"
+                    enabled: uiShell.lessonAssessment.canComplete === true
+                    onClicked: {
+                        if (uiShell.lessonAssessment.external) {
+                            hostRoot.dialogReturnFocusItem = completeLessonButton;
+                            hostRoot.openEvidenceDialog();
+                        } else uiShell.completeLesson({});
+                    }
+                }
+            }
 
             Rectangle {
                 Layout.fillWidth: true
@@ -473,7 +531,8 @@ Item {
                                 }
 
                                 Repeater {
-                                    model: hostRoot.selectedLesson ? (hostRoot.selectedLesson.flow || []) : []
+                                    objectName: "workspaceFlowNodes"
+                                    model: editorPage.currentLesson ? (editorPage.currentLesson.flow || []) : []
                                     delegate: Item {
                                         required property var modelData
                                         required property int index
@@ -517,7 +576,7 @@ Item {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    visible: !hostRoot.selectedLesson || (hostRoot.selectedLesson.flow || []).length === 0
+                                    visible: !editorPage.currentLesson || (editorPage.currentLesson.flow || []).length === 0
                                     text: "选择课程后显示流程结构"
                                     color: ds.faint
                                     font.family: ds.ui
@@ -572,6 +631,7 @@ Item {
                                 }
                                 PrimaryButton {
                                     ds: editorPage.ds
+                                    objectName: "workspaceRunCode"
                                     label: uiShell.executionBusy ? "取消" : "运行"
                                     enabled: uiShell.hasActiveAccount
                                              && uiShell.starterLanguage.length > 0

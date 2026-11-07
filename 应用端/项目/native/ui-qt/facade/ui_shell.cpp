@@ -20,7 +20,22 @@
 
 UiShell::UiShell(QObject* parent)
     : QObject(parent), current_page_(QStringLiteral("学习")),
-      content_status_(QStringLiteral("尚未加载课程内容")), backend_tasks_(4) {}
+      content_status_(QStringLiteral("尚未加载课程内容")), backend_tasks_(4) {
+  connect(this, &UiShell::selectedContentChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::starterCodeChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::contentBusyChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::draftChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::draftSavingChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::executionBusyChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::executionOutputChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::reviewSummaryChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::operationBusyChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::accountChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::accountBusyChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::challengeRunBusyChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::challengeHistoryChanged, this, &UiShell::lessonAssessmentChanged);
+  connect(this, &UiShell::draftPersistenceBlockedChanged, this, &UiShell::lessonAssessmentChanged);
+}
 
 // §14.5 要求：关闭时进入 Closing、对在飞任务发取消、**同时保持事件泵**，
 // 只有 worker 真停了才回收线程与服务。
@@ -115,6 +130,10 @@ void UiShell::loadPublishedContent(const QString& root) {
       }
       m[QStringLiteral("prerequisites")] = obj.value(QStringLiteral("content")).toObject()
           .value(QStringLiteral("prerequisites")).toVariant();
+      auto acceptance = obj.value(QStringLiteral("content")).toObject().value(QStringLiteral("evidenceChecklist")).toArray();
+      const auto completion = obj.value(QStringLiteral("content")).toObject().value(QStringLiteral("completion")).toString();
+      if (!completion.isEmpty()) acceptance.append(completion);
+      m[QStringLiteral("evidenceChecklist")] = acceptance.toVariantList();
       // Flatten flow nodes to a QVariantList so QML can render the canvas skeleton.
       const auto flow_arr = obj.value(QStringLiteral("flow")).toArray();
       QVariantList flow;
@@ -482,6 +501,8 @@ void UiShell::loadStarterCode() {
   if (content_busy_ || draft_saving_ || !allowDocumentChange() || selected_content_index_ < 0 ||
       selected_content_index_ >= published_ids_.size()) return;
   content_busy_ = true;
+  lesson_contract_ready_ = false;
+  lesson_run_succeeded_ = false;
   content_status_ = QStringLiteral("正在读取起始代码…");
   emit contentBusyChanged();
   emit contentStatusChanged();
@@ -491,6 +512,7 @@ void UiShell::loadStarterCode() {
   const auto language = std::make_shared<QString>();
   const auto code = std::make_shared<QString>();
   const auto policy = std::make_shared<QString>();
+  const auto expected = std::make_shared<QStringList>();
   const auto account = active_account_id_;
   const auto generation = account_generation_;
   const auto expected_id = selected_id;
@@ -501,7 +523,7 @@ void UiShell::loadStarterCode() {
   request.account_id = account.toStdString();
   request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Read;
-  request.work = [root, content_id, language, code, policy](const codeweave::backend::CancellationToken& token) {
+  request.work = [root, content_id, language, code, policy, expected](const codeweave::backend::CancellationToken& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
     std::string native_language;
     std::string native_code;
@@ -509,6 +531,12 @@ void UiShell::loadStarterCode() {
     const auto result = codeweave::content::ContentRepository(root).read_starter(
         content_id, native_language, native_code, native_policy);
     if (result.ok) {
+      std::vector<codeweave::content::Exercise> exercises;
+      const auto loaded = codeweave::content::ContentRepository(root).list_exercises(content_id, exercises);
+      if (!loaded.ok) return loaded;
+      if (!exercises.empty())
+        for (const auto& line : codeweave::learning::output_lines(exercises.front().expected_output))
+          expected->append(QString::fromUtf8(line));
       *language = QString::fromUtf8(native_language);
       *code = QString::fromUtf8(native_code);
       *policy = QString::fromUtf8(native_policy);
@@ -516,8 +544,8 @@ void UiShell::loadStarterCode() {
     return result;
   };
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, language, code, policy, account, generation, expected_id, task_name](codeweave::backend::TaskResult result) mutable {
-        QMetaObject::invokeMethod(this, [this, language, code, policy, account, generation,
+      [this, language, code, policy, expected, account, generation, expected_id, task_name](codeweave::backend::TaskResult result) mutable {
+        QMetaObject::invokeMethod(this, [this, language, code, policy, expected, account, generation,
             expected_id, task_name, result = std::move(result)]() mutable {
           if (task_name != content_task_id_) return;
           content_task_id_.clear();
@@ -538,6 +566,8 @@ void UiShell::loadStarterCode() {
             starter_language_ = *language;
             starter_code_ = *code;
             execution_policy_ = *policy;
+            lesson_expected_output_ = *expected;
+            lesson_contract_ready_ = true;
             draft_baseline_ = *code;
             draft_code_ = *code;
             draft_saved_code_ = *code;

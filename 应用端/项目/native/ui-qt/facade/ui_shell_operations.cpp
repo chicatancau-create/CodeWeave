@@ -260,6 +260,13 @@ void UiShell::refreshReviewSummary() {
       }
       if (!states.isEmpty()) lesson_states->insert(id, states);
     }
+    for (const auto& record : evidence_records) {
+      if (record.exercise_id != codeweave::learning::kExternalEvidenceExerciseId) continue;
+      const auto id = QString::fromStdString(record.content_id);
+      auto states = lesson_states->value(id).toMap();
+      states[QStringLiteral("submittedEvidence")] = true;
+      lesson_states->insert(id, states);
+    }
     for (auto& record : evidence_records) normalize_local_day(record.at);
     for (auto& record : mastery_records) normalize_local_day(record.at);
     *analysis = codeweave::learning::summarize_analysis_window(
@@ -558,7 +565,8 @@ void UiShell::loadHints() {
 
 void UiShell::saveExternalEvidence(const QString& environment, const QString& command,
     const QString& summary, const QString& artifactRef, const QString& reproducedOn) {
-  if (closing_ || operation_busy_ || !hasActiveAccount() || selected_content_id_.isEmpty() || content_busy_ || draft_saving_) {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_ ||
+      !hasActiveAccount() || selected_content_id_.isEmpty() || content_busy_ || draft_saving_) {
     setOperationStatus(QStringLiteral("请先登录并选择课程"));
     return;
   }
@@ -600,6 +608,7 @@ void UiShell::saveExternalEvidence(const QString& environment, const QString& co
           if (account != active_account_id_ || generation != account_generation_) return;
           setOperationStatus(result.cancelled ? QStringLiteral("外部证据提交已取消")
                                               : QString::fromUtf8(result.result.message));
+          if (result.result.ok && !result.cancelled) refreshReviewSummary();
         }, Qt::QueuedConnection);
       });
   if (!submitted.ok) {
@@ -628,7 +637,8 @@ void UiShell::configureExecutionTool(const QString& language, const std::filesys
 }
 
 void UiShell::runCode() {
-  if (closing_ || operation_busy_ || !hasActiveAccount() || execution_busy_ || starter_language_.isEmpty() ||
+  if (closing_ || operation_busy_ || account_busy_ || content_busy_ || draft_saving_ ||
+      draft_persistence_blocked_ || !hasActiveAccount() || execution_busy_ || starter_language_.isEmpty() ||
       execution_policy_ != QStringLiteral("native")) {
     setOperationStatus(QStringLiteral("当前课程不可在应用内运行，或尚未登录/读取代码"));
     return;
@@ -639,6 +649,7 @@ void UiShell::runCode() {
     return;
   }
   execution_busy_ = true;
+  lesson_run_succeeded_ = false;
   execution_cancelled_.store(false, std::memory_order_release);
   emit executionBusyChanged();
   const auto request_data = codeweave::execution::Request{
@@ -649,6 +660,7 @@ void UiShell::runCode() {
   const auto root = data_root_;
   const auto account = active_account_id_;
   const auto generation = account_generation_;
+  const auto revision = draft_revision_;
   const auto document = selected_content_id_.toStdString();
   const auto content_root = std::filesystem::path(content_root_.toStdWString());
   const auto independent = independent_attempt_ && !hints_viewed_;
@@ -700,6 +712,12 @@ void UiShell::runCode() {
     if (result.process->started && result.process->exit_code == 0 &&
         result.process->error_code.empty() && !result.process->cancelled &&
         !result.process->timed_out && result.process->execution_output_valid) {
+      if (!document.starts_with("free-")) {
+        const auto practiced = recordLessonFact(root, QString::fromStdString(document), "practice",
+            QStringLiteral("学习信号：已练习 · 课程「%1」：本机真实运行完成一次，不构成完成证明，不推进掌握等级")
+                .arg(QString::fromStdString(document)), false, false, hints_viewed);
+        if (!practiced.ok) return practiced;
+      }
       return codeweave::app::Result::success(normalized_output(result.process->output).toUtf8().toStdString());
     }
     if (result.process->cancelled) return codeweave::app::Result::failure("执行已取消");
@@ -713,8 +731,8 @@ void UiShell::runCode() {
   };
   execution_task_id_ = task_name;
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation, challenge_status, task_name](codeweave::backend::TaskResult result) {
-        QMetaObject::invokeMethod(this, [this, account, generation, challenge_status,
+      [this, account, generation, revision, challenge_status, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, revision, challenge_status,
             task_name, result = std::move(result)]() mutable {
           if (task_name != execution_task_id_) return;
           execution_task_id_.clear();
@@ -723,6 +741,8 @@ void UiShell::runCode() {
           if (account != active_account_id_ || generation != account_generation_) return;
           execution_output_ = QString::fromUtf8(result.result.message);
           execution_output_error_ = !result.result.ok;
+          lesson_run_succeeded_ = result.result.ok && !result.cancelled;
+          lesson_run_revision_ = revision;
           emit executionOutputChanged();
           if (result.cancelled) {
             setOperationStatus(QStringLiteral("执行已取消"));
@@ -732,6 +752,7 @@ void UiShell::runCode() {
             setOperationStatus(result.result.ok ? QStringLiteral("执行完成")
                                                 : QStringLiteral("执行失败"));
           }
+          if (result.result.ok && !result.cancelled && !selected_content_id_.startsWith("free-")) refreshReviewSummary();
         }, Qt::QueuedConnection);
       });
   if (!submitted.ok) {

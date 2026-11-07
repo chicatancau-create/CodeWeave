@@ -10,8 +10,7 @@
 #include <QUuid>
 #include <algorithm>
 
-namespace {
-bool mentions_acceptance(const QString& summary, const QVariantMap& challenge) {
+bool UiShell::mentionsAcceptance(const QString& summary, const QVariantMap& challenge) {
   static const QRegularExpression separators(QStringLiteral(R"([\s，。、；：！？,.;:!?/|（）()【】\[\]“”"'`]+)"));
   static const QRegularExpression whitespace(QStringLiteral("\\s+"));
   static const QRegularExpression number(QStringLiteral("^[0-9.]+$"));
@@ -36,7 +35,6 @@ bool mentions_acceptance(const QString& summary, const QVariantMap& challenge) {
   }
   return !has_keywords;
 }
-}  // namespace
 
 QVariantList UiShell::challengeHistory() const {
   QVariantList history;
@@ -129,7 +127,7 @@ void UiShell::submitChallenge(const QString& evidence, const QVariantMap& extern
     const auto validation = codeweave::learning::prepare_external_evidence(
         id.toStdString(), fields, "op-challenges-0123ab", "challenge-validation", prepared);
     if (!validation.ok) { fail(QString::fromUtf8(validation.message)); return; }
-    if (!mentions_acceptance(externalEvidence.value("resultSummary").toString(), selected_challenge_)) {
+    if (!mentionsAcceptance(externalEvidence.value("resultSummary").toString(), selected_challenge_)) {
       fail(QStringLiteral("结果摘要没有提到本关的任何验收点，请写明对应的实际结果")); return;
     }
     summary = QString::fromUtf8(prepared.actual_result);

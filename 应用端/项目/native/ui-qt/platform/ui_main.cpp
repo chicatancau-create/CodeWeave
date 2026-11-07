@@ -783,7 +783,7 @@ int main(int argc, char* argv[]) {
           context->step++;
           return;
         case 6:
-          if (shell.executionBusy()) return;
+          if (shell.executionBusy() || shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("python-execution"), shell.executionOutput().contains(QStringLiteral("15")),
               shell.executionOutput());
           {
@@ -820,7 +820,7 @@ int main(int argc, char* argv[]) {
           context->step++;
           return;
         case 52:
-          if (shell.executionBusy()) return;
+          if (shell.executionBusy() || shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("java-execution"), shell.executionOutput().contains(QStringLiteral("15")),
               shell.executionOutput());
           {
@@ -842,7 +842,7 @@ int main(int argc, char* argv[]) {
           context->step++;
           return;
         case 55:
-          if (shell.executionBusy()) return;
+          if (shell.executionBusy() || shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("javascript-execution"), shell.executionOutput().contains(QStringLiteral("15")),
               shell.executionOutput());
           {
@@ -864,7 +864,7 @@ int main(int argc, char* argv[]) {
           context->step++;
           return;
         case 58:
-          if (shell.executionBusy()) return;
+          if (shell.executionBusy() || shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("cpp-execution"), shell.executionOutput().contains(QStringLiteral("0: 3")),
               shell.executionOutput());
           shell.openFreeProgram(QStringLiteral("python"));
@@ -1707,7 +1707,9 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("learning-all-subject-status-combinations-and-original-indices"), combinations);
           u3_record(*context, QStringLiteral("learning-reading-and-challenge-not-completion"),
               shell.lessonEvidenceStates().value(QStringLiteral("python-loop-sum")).toMap().value(QStringLiteral("read")).toBool() &&
-              !shell.lessonEvidenceStates().contains(QStringLiteral("javascript-loop-sum")));
+              !shell.lessonEvidenceStates().value(QStringLiteral("javascript-loop-sum")).toMap().value(QStringLiteral("selfDeclaredPassed")).toBool() &&
+              !shell.lessonEvidenceStates().value(QStringLiteral("javascript-loop-sum")).toMap().value(QStringLiteral("autoVerifiedPassed")).toBool() &&
+              !shell.lessonEvidenceStates().value(QStringLiteral("javascript-loop-sum")).toMap().value(QStringLiteral("reviewMastered")).toBool());
           QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection,
               Q_ARG(QVariant, subjects.indexOf(QStringLiteral("Python"))));
           const auto filtered = study->property("filteredLessons").toList();
@@ -1977,6 +1979,179 @@ int main(int argc, char* argv[]) {
               QStringLiteral("page=%1 document=%2 selected=%3 body=%4")
                   .arg(shell.currentPage(), shell.documentId()).arg(shell.hasSelectedContent())
                   .arg(!shell.selectedContentBody().isEmpty()));
+          shell.openPublishedContent(shell.publishedIds().indexOf(QStringLiteral("stage-d")));
+          shell.selectPage(QStringLiteral("编辑器"));
+          context->step = 300;
+          return;
+        case 300: {
+          if (shell.contentBusy()) return;
+          auto* title = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonTitle"));
+          const auto published = shell.publishedIds().indexOf(shell.documentId());
+          u3_record(*context, QStringLiteral("lesson-workspace-header-matches-evidence-document"),
+              title && published >= 0 && title->property("text").toString() == shell.publishedTitles().at(published) &&
+              view.rootObject()->property("breadcrumbText").toString().contains(shell.documentId()));
+          auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
+          u3_record(*context, QStringLiteral("lesson-workspace-missing-metadata-clears-previous-flow"),
+              flow && flow->property("count").toInt() == 0);
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          u3_record(*context, QStringLiteral("lesson-evidence-opens-from-workspace"), open && open->isVisible() &&
+              open->property("enabled").toBool() && QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 301: {
+          if (shell.operationBusy()) return;
+          auto* read = u3_find_item(view.contentItem(), QStringLiteral("lessonMarkRead"));
+          u3_record(*context, QStringLiteral("lesson-contract-unrun-blocks-completion"),
+              shell.lessonAssessment().value("cases").toList().size() == 3 &&
+              !shell.lessonAssessment().value("canComplete").toBool());
+          u3_record(*context, QStringLiteral("lesson-mark-read-action"), read && read->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(read, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 302: {
+          if (shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("stage-d")).toMap();
+          u3_record(*context, QStringLiteral("lesson-read-is-persisted-without-completing"),
+              states.value("read").toBool() && !shell.lessonAssessment().value("completed").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-read"));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          shell.updateDraftCode(QStringLiteral("console.log('待办数量: 20');\n"));
+          auto* run = u3_find_item(view.rootObject(), QStringLiteral("workspaceRunCode"));
+          u3_record(*context, QStringLiteral("lesson-run-miss-from-workspace"), run && run->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(run, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 303: {
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("stage-d")).toMap();
+          u3_record(*context, QStringLiteral("lesson-successful-process-is-practice-not-completion"),
+              states.value("practiced").toBool() && !shell.lessonAssessment().value("completed").toBool() &&
+              !shell.lessonAssessment().value("canComplete").toBool());
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          if (open) QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 304: {
+          if (shell.operationBusy()) return;
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-missed-cases"));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          shell.updateDraftCode(QStringLiteral("console.log('待办数量: 2'); console.log('写周报'); console.log('跑一次构建');\n"));
+          shell.runCode();
+          context->step++;
+          return;
+        }
+        case 305: {
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("lesson-current-code-all-cases-hit"),
+              shell.lessonAssessment().value("canComplete").toBool() &&
+              shell.lessonAssessment().value("autoVerified").toBool());
+          auto* complete = u3_find_item(view.rootObject(), QStringLiteral("workspaceCompleteLesson"));
+          u3_record(*context, QStringLiteral("lesson-explicit-completion-action"), complete && complete->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(complete, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 306: {
+          if (shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("stage-d")).toMap();
+          u3_record(*context, QStringLiteral("lesson-completion-reloads-verified-fact"),
+              states.value("autoVerifiedPassed").toBool() && !states.value("selfDeclaredPassed").toBool());
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          if (open) QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 307:
+          if (shell.operationBusy()) return;
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-verified"));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          context->step++;
+          return;
+        case 308: {
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          u3_record(*context, QStringLiteral("lesson-dialog-escape-restores-trigger-focus"),
+              open && open->property("activeFocus").toBool());
+          shell.discardDraftChanges();
+          shell.openPublishedContent(shell.publishedIds().indexOf(QStringLiteral("csharp-loop-sum")));
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 309: {
+          if (shell.contentBusy()) return;
+          QVariantMap lesson;
+          for (const auto& value : shell.lessonMeta())
+            if (value.toMap().value("id") == shell.documentId()) lesson = value.toMap();
+          auto* title = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonTitle"));
+          auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
+          const auto title_text = title ? title->property("text").toString() : QStringLiteral("<missing>");
+          const auto expected_title = lesson.value("title").toString();
+          const auto flow_count = flow ? flow->property("count").toInt() : -1;
+          const auto expected_flow_count = lesson.value("flow").toList().size();
+          u3_record(*context, QStringLiteral("lesson-workspace-external-document-updates-title-and-flow"),
+              !lesson.isEmpty() && title_text.contains(expected_title) && flow_count == expected_flow_count &&
+              view.rootObject()->property("breadcrumbText").toString().contains(expected_title) &&
+              view.rootObject()->property("selectedLesson").toMap().value("id") == shell.documentId(),
+              QStringLiteral("doc=%1 title=%2 expected=%3 flow=%4 expectedFlow=%5 breadcrumb=%6")
+                  .arg(shell.documentId(), title_text, expected_title).arg(flow_count).arg(expected_flow_count)
+                  .arg(view.rootObject()->property("breadcrumbText").toString()));
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          if (open) QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 310: {
+          if (shell.operationBusy()) return;
+          const auto set = [&](const char* name, const QString& text) {
+            auto* field = u3_find_item(view.contentItem(), QString::fromLatin1(name));
+            return field && field->setProperty("text", text);
+          };
+          const bool filled = set("lessonExternalEnvironment", QStringLiteral("Windows .NET isolated matrix")) &&
+              set("lessonExternalCommand", QStringLiteral("dotnet run")) &&
+              set("lessonExternalSummary", QStringLiteral("能不看示例写出循环累加，并解释任意一轮 total 的值。输出 15。<b>保留原文</b>")) &&
+              set("lessonExternalArtifact", QStringLiteral("isolated-fixture.log")) &&
+              set("lessonExternalDate", QDate::currentDate().toString(Qt::ISODate));
+          u3_record(*context, QStringLiteral("lesson-external-form-filled-with-required-date"), filled && shell.lessonAssessment().value("external").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-external-small"));
+          auto* submit = u3_find_item(view.contentItem(), QStringLiteral("lessonSubmitExternal"));
+          u3_record(*context, QStringLiteral("lesson-external-submit-action"), submit && submit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 311: {
+          if (shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("csharp-loop-sum")).toMap();
+          u3_record(*context, QStringLiteral("lesson-external-submitted-without-completion"), states.value("submittedEvidence").toBool() &&
+              !states.value("selfDeclaredPassed").toBool() && !states.value("autoVerifiedPassed").toBool());
+          auto* complete = u3_find_item(view.contentItem(), QStringLiteral("lessonComplete"));
+          u3_record(*context, QStringLiteral("lesson-external-self-declaration-action"), complete && complete->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(complete, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 312: {
+          if (shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("csharp-loop-sum")).toMap();
+          u3_record(*context, QStringLiteral("lesson-external-completion-is-self-declared"), states.value("selfDeclaredPassed").toBool() &&
+              !states.value("autoVerifiedPassed").toBool() && shell.lessonAssessment().value("completed").toBool());
+          auto* scroll = u3_find_item(view.contentItem(), QStringLiteral("lessonEvidenceScroll"));
+          auto* flickable = scroll ? scroll->property("contentItem").value<QObject*>() : nullptr;
+          if (flickable) flickable->setProperty("contentY", std::max(0.0,
+              scroll->property("contentHeight").toReal() - scroll->property("availableHeight").toReal()));
+          u3_record(*context, QStringLiteral("lesson-evidence-small-scroll-width"), scroll && flickable &&
+              scroll->property("contentWidth").toReal() <= scroll->property("availableWidth").toReal());
+          context->step++;
+          return;
+        }
+        case 313:
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-external-states-small"));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          view.resize(1440, 900);
           context->step = 24;
           return;
         case 24:
@@ -1986,7 +2161,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-and-challenge-history-screenshots"), context->screenshots.size() == 29,
+          u3_record(*context, QStringLiteral("page-challenge-and-lesson-evidence-screenshots"), context->screenshots.size() == 34,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

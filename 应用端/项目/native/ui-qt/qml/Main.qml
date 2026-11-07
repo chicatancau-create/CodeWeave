@@ -37,7 +37,11 @@ Rectangle {
         const item = dialogReturnFocusItem;
         if (item) Qt.callLater(function() { item.forceActiveFocus(Qt.PopupFocusReason); });
     }
-    function openEvidenceDialog() { evidenceDialog.open(); }
+    function openEvidenceDialog() {
+        evidenceDialog.open();
+        if (uiShell.hasActiveAccount && !uiShell.operationBusy && !uiShell.executionBusy)
+            uiShell.refreshReviewSummary();
+    }
     function openLesson(index) {
         if (index < 0 || index >= uiShell.lessonMeta.length || uiShell.contentBusy
                 || uiShell.operationBusy || uiShell.accountBusy || uiShell.draftSaving) return false;
@@ -117,8 +121,10 @@ Rectangle {
 
     readonly property string page: uiShell.currentPage
     readonly property string breadcrumbText: "Code Canvas / " + page
-        + (page === "编辑器" && selectedLesson ? " / "
-           + String(safeSelectedLessonIndex + 1).padStart(2, "0") + " · " + selectedLesson.title : "")
+        + (page === "编辑器" && uiShell.hasSelectedContent ? " / "
+           + (selectedLesson && selectedLesson.id === uiShell.documentId
+              ? String(safeSelectedLessonIndex + 1).padStart(2, "0") + " · " + selectedLesson.title
+              : uiShell.documentId) : "")
 
     // ── Design tokens ───────────────────────────────────────────────────────
     DesignSystem {
@@ -1114,31 +1120,24 @@ Rectangle {
         }
     }
 
-    Dialog {
+    ShellDialog {
         id: evidenceDialog
-        title: "记录实践证据"
+        objectName: "lessonEvidenceDialog"
+        ds: root.designSystem
+        title: "课程证据与完成验收"
         anchors.centerIn: parent
-        modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        width: 420
-        background: Rectangle {
-            color: ds.overlay
-            radius: ds.radius
-            border.color: ds.lineStrong
-            border.width: 1
-        }
-        contentItem: ColumnLayout {
-            spacing: ds.s10
-            Text {
-                text: "记录一次可复现的实践证据"
-                color: ds.ink
-                font.family: ds.ui
-                font.pixelSize: 13
+        width: Math.min(620, root.width - ds.s32)
+        height: Math.min(720, root.height - ds.s32)
+        onClosed: root.returnDialogFocus()
+        contentItem: ScrollView {
+            id: evidenceScroll
+            objectName: "lessonEvidenceScroll"
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            LessonEvidencePanel {
+                width: evidenceScroll.availableWidth
+                ds: root.designSystem
             }
-            ShellField { ds: root.designSystem; id: evEnv; Layout.fillWidth: true; placeholderText: "环境" }
-            ShellField { ds: root.designSystem; id: evCmd; Layout.fillWidth: true; placeholderText: "命令" }
-            ShellField { ds: root.designSystem; id: evSum; Layout.fillWidth: true; placeholderText: "结论摘要" }
         }
-        onAccepted: uiShell.saveExternalEvidence(evEnv.text, evCmd.text, evSum.text, "", "")
     }
 }

@@ -36,6 +36,9 @@ bool UiShell::allowDocumentChange() {
 }
 
 void UiShell::clearDraft() {
+  lesson_expected_output_.clear();
+  lesson_contract_ready_ = false;
+  lesson_run_succeeded_ = false;
   independent_attempt_ = false;
   hints_viewed_ = false;
   emit independentAttemptChanged();

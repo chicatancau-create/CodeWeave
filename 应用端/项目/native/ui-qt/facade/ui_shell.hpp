@@ -68,6 +68,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(QVariantMap analysisSnapshot READ analysisSnapshot NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantMap lessonEvidenceStates READ lessonEvidenceStates NOTIFY reviewSummaryChanged)
   Q_PROPERTY(bool lessonEvidenceReady READ lessonEvidenceReady NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QVariantMap lessonAssessment READ lessonAssessment NOTIFY lessonAssessmentChanged)
   Q_PROPERTY(int executionTimeout READ executionTimeout WRITE setExecutionTimeout NOTIFY executionOptionsChanged)
   Q_PROPERTY(bool independentAttempt READ independentAttempt WRITE setIndependentAttempt NOTIFY independentAttemptChanged)
 
@@ -123,6 +124,9 @@ class UiShell final : public QObject {
   [[nodiscard]] QVariantMap analysisSnapshot() const { return analysis_snapshot_; }
   [[nodiscard]] QVariantMap lessonEvidenceStates() const { return lesson_evidence_states_; }
   [[nodiscard]] bool lessonEvidenceReady() const { return lesson_evidence_ready_; }
+  [[nodiscard]] QVariantMap lessonAssessment() const;
+  Q_INVOKABLE void markLessonRead();
+  Q_INVOKABLE void completeLesson(const QVariantMap& externalEvidence);
   [[nodiscard]] int executionTimeout() const { return execution_timeout_; }
   void setExecutionTimeout(int milliseconds);
   [[nodiscard]] bool independentAttempt() const { return independent_attempt_; }
@@ -215,6 +219,7 @@ class UiShell final : public QObject {
   void executionStateChanged();
   void executionOutputChanged();
   void reviewSummaryChanged();
+  void lessonAssessmentChanged();
   void reviewItemsChanged();
   void independentAttemptChanged();
 
@@ -225,6 +230,11 @@ class UiShell final : public QObject {
   void performChallengeHistoryTask(bool write,
       std::function<codeweave::app::Result(const ChallengeSubmissionStore&, QVariantList&)> work);
   void loadAccountDraft();
+  void saveLessonFact(const QString& signal, const QString& note, bool verified);
+  static codeweave::app::Result recordLessonFact(const std::filesystem::path& root,
+      const QString& document, const QString& signal, const QString& note,
+      bool verified, bool independent, bool hintsViewed);
+  static bool mentionsAcceptance(const QString& summary, const QVariantMap& acceptance);
   bool allowDocumentChange();
   void setStatus(const QString& status);
   // 进入 Closing、对在飞任务发取消、泵事件直到 worker 停止，然后才回收。
@@ -292,6 +302,10 @@ class UiShell final : public QObject {
   bool account_busy_{};
   QVariantMap lesson_evidence_states_;
   bool lesson_evidence_ready_{};
+  QStringList lesson_expected_output_;
+  bool lesson_contract_ready_{};
+  bool lesson_run_succeeded_{};
+  std::uint64_t lesson_run_revision_{};
   int selected_content_index_{-1};
   QString content_status_;
   QString content_root_;
