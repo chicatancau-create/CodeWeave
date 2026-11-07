@@ -22,6 +22,8 @@ class UiShell final : public QObject {
   Q_PROPERTY(QStringList publishedIds READ publishedIds NOTIFY publishedIdsChanged)
   Q_PROPERTY(QVariantList lessonMeta READ lessonMeta NOTIFY publishedTitlesChanged)
   Q_PROPERTY(QVariantList challengeMeta READ challengeMeta NOTIFY publishedTitlesChanged)
+  Q_PROPERTY(QVariantMap selectedChallenge READ selectedChallenge NOTIFY challengeSelectionChanged)
+  Q_PROPERTY(bool challengeDetailOpen READ challengeDetailOpen NOTIFY challengeSelectionChanged)
   Q_PROPERTY(QString selectedContentBody READ selectedContentBody NOTIFY selectedContentBodyChanged)
   Q_PROPERTY(QString starterLanguage READ starterLanguage NOTIFY starterCodeChanged)
   Q_PROPERTY(QString starterCode READ starterCode NOTIFY starterCodeChanged)
@@ -68,6 +70,8 @@ class UiShell final : public QObject {
   [[nodiscard]] QStringList publishedIds() const { return published_ids_; }
   [[nodiscard]] QVariantList lessonMeta() const { return lesson_meta_; }
   [[nodiscard]] QVariantList challengeMeta() const { return challenge_meta_; }
+  [[nodiscard]] QVariantMap selectedChallenge() const { return selected_challenge_; }
+  [[nodiscard]] bool challengeDetailOpen() const { return !selected_challenge_.isEmpty(); }
   [[nodiscard]] QString selectedContentBody() const;
   [[nodiscard]] QString starterLanguage() const;
   [[nodiscard]] QString starterCode() const;
@@ -107,6 +111,8 @@ class UiShell final : public QObject {
   void setIndependentAttempt(bool value);
 
   Q_INVOKABLE void reloadPublishedContent();
+  Q_INVOKABLE void openChallenge(const QString& challengeId);
+  Q_INVOKABLE void closeChallenge();
   Q_INVOKABLE void openPublishedContent(int index);
   Q_INVOKABLE void loadStarterCode();
   Q_INVOKABLE void updateDraftCode(const QString& code);
@@ -160,6 +166,7 @@ class UiShell final : public QObject {
   void currentPageChanged();
   void publishedTitlesChanged();
    void publishedIdsChanged();
+  void challengeSelectionChanged();
   void selectedContentBodyChanged();
   void selectedContentChanged();
   void starterCodeChanged();
@@ -200,6 +207,7 @@ class UiShell final : public QObject {
   QStringList published_ids_;
   QVariantList lesson_meta_;
   QVariantList challenge_meta_;
+  QVariantMap selected_challenge_;
   QString selected_content_body_;
   QString starter_language_;
   QString starter_code_;

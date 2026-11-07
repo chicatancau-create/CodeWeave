@@ -91,6 +91,9 @@ struct U3MatrixContext {
   QString screenshot_dir;
   QString blocked_draft_path;
   QVariantMap review_before;
+  QSize detail_restore_size;
+  bool detail_large = false;
+  bool detail_small = false;
   int step = 0;
   int ticks = 0;
 };
@@ -1091,13 +1094,81 @@ int main(int argc, char* argv[]) {
                   challenge_page->property("filteredChallenges").toList() == challenges &&
                   !previous->property("enabled").toBool() && next->property("enabled").toBool() == (expected_pages > 1);
               u3_record(*context, QStringLiteral("challenge-filter-reset"), reset);
+
+              context->step = 205;
+              return;
             }
           }
           u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
           shell.discardDraftChanges();
           shell.selectPage(QStringLiteral("账户"));
-          context->step++;
+          context->step = 9;
           return;
+        case 205: {
+          const auto sample = shell.challengeMeta().first().toMap();
+          auto* card = u3_find_item(view.rootObject(),
+              QStringLiteral("challengeCard-") + sample.value(QStringLiteral("id")).toString());
+          if (!card) return;
+          card->forceActiveFocus();
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          u3_record(*context, QStringLiteral("challenge-card-keyboard-opens-detail"),
+              shell.challengeDetailOpen() && shell.selectedChallenge() == sample);
+          context->step = 209;
+          return;
+        }
+        case 209: {
+          const auto sample = shell.challengeMeta().first().toMap();
+          auto* detail_title = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeDetailTitle"));
+          auto* overview = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeOverviewSection"));
+          auto* lab = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeLabSection"));
+          auto* starter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeStarterCode"));
+          auto* unavailable = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeRunUnavailable"));
+          auto* back = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeDetailBack"));
+          const bool detail_loaded = shell.challengeDetailOpen() && detail_title && overview && lab && starter && unavailable &&
+              detail_title->property("text").toString() == sample.value(QStringLiteral("title")).toString() &&
+              overview->isVisible() && lab->isVisible() && !unavailable->property("enabled").toBool() &&
+              starter->property("text").toString() == sample.value(QStringLiteral("starterCode")).toString();
+          u3_record(*context, QStringLiteral("challenge-detail-metadata-and-honest-run-state"), detail_loaded);
+          u3_record(*context, QStringLiteral("challenge-detail-focuses-back-button"), back && back->hasActiveFocus());
+          context->detail_restore_size = view.size();
+          view.resize(1440, 900);
+          context->step = 206;
+          return;
+        }
+        case 206:
+          if (view.size() != QSize(1440, 900)) return;
+          context->detail_large = u3_screenshot(*context, view,
+              QStringLiteral("u3-challenge-detail"), QSize(1440, 900));
+          view.resize(1100, 720);
+          context->step = 207;
+          return;
+        case 207:
+          if (view.size() != QSize(1100, 720)) return;
+          context->detail_small = u3_screenshot(*context, view,
+              QStringLiteral("u3-challenge-detail-small"), QSize(1100, 720));
+          view.resize(context->detail_restore_size);
+          context->step = 208;
+          return;
+        case 208:
+          if (view.size() != context->detail_restore_size) return;
+          u3_record(*context, QStringLiteral("challenge-detail-window-matrix"),
+              context->detail_large && context->detail_small && context->detail_restore_size.isValid());
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          context->step = 210;
+          return;
+        case 210: {
+          const auto sample = shell.challengeMeta().first().toMap();
+          auto* card = u3_find_item(view.rootObject(),
+              QStringLiteral("challengeCard-") + sample.value(QStringLiteral("id")).toString());
+          auto* list = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeListRoot"));
+          u3_record(*context, QStringLiteral("challenge-detail-escape-restores-list-and-focus"),
+              !shell.challengeDetailOpen() && list && list->isVisible() && card && card->hasActiveFocus());
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
+          shell.discardDraftChanges();
+          shell.selectPage(QStringLiteral("账户"));
+          context->step = 9;
+          return;
+        }
         case 9: {
           if (shell.operationBusy()) return;
           auto* profile_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profilePageRoot"));
@@ -1701,7 +1772,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("twenty-page-screenshots"), context->screenshots.size() == 20,
+          u3_record(*context, QStringLiteral("twenty-two-page-screenshots"), context->screenshots.size() == 22,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

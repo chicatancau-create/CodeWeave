@@ -11,6 +11,7 @@
 #include <QMetaObject>
 #include <QTimer>
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <vector>
@@ -82,6 +83,8 @@ bool UiShell::contentBusy() const { return content_busy_; }
 
 void UiShell::loadPublishedContent(const QString& root) {
   content_root_ = root;
+  closeChallenge();
+  challenge_meta_.clear();
   // Load lesson metadata from curriculum.v1.json adjacent to the content dir.
   // This is the full curriculum object including description, level, languageLabel,
   // and flow nodes — needed for the rich homepage cards and the execution canvas.
@@ -145,11 +148,36 @@ void UiShell::loadPublishedContent(const QString& root) {
       for (const auto& s : obj.value(QStringLiteral("stack")).toArray())
         stack.append(s.toString());
       c[QStringLiteral("stack")] = stack;
+      c[QStringLiteral("prerequisites")] = obj.value(QStringLiteral("prerequisites")).toArray().toVariantList();
+      c[QStringLiteral("starterCode")] = obj.value(QStringLiteral("starterCode")).toString();
+      c[QStringLiteral("targetOutput")] = obj.value(QStringLiteral("targetOutput")).toArray().toVariantList();
+      c[QStringLiteral("evidence")] = obj.value(QStringLiteral("evidence")).toArray().toVariantList();
+      c[QStringLiteral("hint")] = obj.value(QStringLiteral("hint")).toString();
+      c[QStringLiteral("explanation")] = obj.value(QStringLiteral("explanation")).toString();
       challenge_meta.append(c);
     }
     challenge_meta_ = challenge_meta;
   }
   reloadPublishedContent();
+}
+
+void UiShell::openChallenge(const QString& challengeId) {
+  const auto match = std::find_if(challenge_meta_.cbegin(), challenge_meta_.cend(),
+      [&challengeId](const QVariant& value) {
+        return value.toMap().value(QStringLiteral("id")).toString() == challengeId;
+      });
+  if (match == challenge_meta_.cend()) return;
+  const auto selected = match->toMap();
+  selectPage(QStringLiteral("挑战"));
+  if (selected_challenge_ == selected) return;
+  selected_challenge_ = selected;
+  emit challengeSelectionChanged();
+}
+
+void UiShell::closeChallenge() {
+  if (selected_challenge_.isEmpty()) return;
+  selected_challenge_.clear();
+  emit challengeSelectionChanged();
 }
 
 void UiShell::reloadPublishedContent() {

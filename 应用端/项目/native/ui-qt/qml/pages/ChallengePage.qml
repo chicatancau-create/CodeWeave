@@ -15,6 +15,27 @@ Item {
         property string sortFilter: "A—M 顺序"
         property bool moreFiltersOpen: false
         property int currentPage: 1
+        property var detailTrigger: null
+        function openDetail(challengeId, trigger) {
+            detailTrigger = trigger;
+            uiShell.openChallenge(challengeId);
+        }
+        Connections {
+            target: uiShell
+            function onChallengeSelectionChanged() {
+                if (!challengePage.visible) return;
+                if (uiShell.challengeDetailOpen) {
+                    Qt.callLater(function() {
+                        detailBack.forceActiveFocus();
+                    });
+                } else {
+                    Qt.callLater(function() {
+                        if (challengePage.detailTrigger) challengePage.detailTrigger.forceActiveFocus();
+                        else challengeSearch.forceActiveFocus();
+                    });
+                }
+            }
+        }
         readonly property int pageSize: 12
         readonly property var filteredChallenges: filterChallenges()
         function chStatus(item) {
@@ -79,8 +100,10 @@ Item {
         }
 
         ColumnLayout {
+            objectName: "challengeListRoot"
             anchors.fill: parent
             spacing: 0
+            visible: !uiShell.challengeDetailOpen
 
             // .module-heading.challenge-overview
             RowLayout {
@@ -366,10 +389,18 @@ Item {
                         clip: true
 
                         delegate: Item {
+                            id: challengeCard
+                            objectName: "challengeCard-" + modelData.id
                             required property var modelData
                             required property int index
                             width: challengeGrid.cellWidth
                             height: challengeGrid.cellHeight
+                            activeFocusOnTab: true
+                            Accessible.name: "打开挑战详情：" + modelData.title
+                            Accessible.role: Accessible.Button
+                            Keys.onReturnPressed: challengePage.openDetail(modelData.id, challengeCard)
+                            Keys.onEnterPressed: challengePage.openDetail(modelData.id, challengeCard)
+                            Keys.onSpacePressed: challengePage.openDetail(modelData.id, challengeCard)
 
                         // .stage-card — mono text, hairline ledger
                         Rectangle {
@@ -383,6 +414,8 @@ Item {
                             }
                             radius: ds.radius
                             color: chHover.hovered ? "#161c24" : "transparent"
+                            border.width: challengeCard.activeFocus ? 1 : 0
+                            border.color: ds.accent
 
                             // status left bar — 悬停时宽度从 1px 过渡到 3px（220ms）
                             Rectangle {
@@ -586,9 +619,11 @@ Item {
                             }
 
                             HoverHandler { id: chHover; cursorShape: Qt.PointingHandCursor }
-                            // No native challenge runner exists yet, so the card
-                            // stays informational rather than navigating somewhere
-                            // that would pretend to run it.
+                            TapHandler {
+                                onTapped: {
+                                    challengePage.openDetail(modelData.id, challengeCard);
+                                }
+                            }
                         }
                         }
                     }
@@ -663,6 +698,265 @@ Item {
                     enabled: challengePage.currentPage < challengePage.pageCount
                     onClicked: challengePage.currentPage = Math.min(challengePage.pageCount,
                                                                      challengePage.currentPage + 1)
+                }
+            }
+        }
+
+        ColumnLayout {
+            id: challengeDetailRoot
+            anchors.fill: parent
+            spacing: ds.s16
+            visible: uiShell.challengeDetailOpen
+            focus: visible
+            Keys.onEscapePressed: uiShell.closeChallenge()
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: ds.s12
+                QuietButton {
+                    id: detailBack
+                    objectName: "challengeDetailBack"
+                    ds: challengePage.ds
+                    implicitHeight: 44
+                    label: "‹ 返回挑战列表"
+                    onClicked: uiShell.closeChallenge()
+                }
+                Item { Layout.fillWidth: true }
+                Text {
+                    text: challengePage.challengeSequence(uiShell.selectedChallenge)
+                          + " / " + uiShell.challengeMeta.length
+                    color: ds.muted
+                    font.family: ds.mono
+                    font.pixelSize: 13
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: ds.s8
+                RowLayout {
+                    spacing: ds.s10
+                    Text {
+                        text: "阶段 " + (uiShell.selectedChallenge.stageId || "—")
+                        color: ds.accent
+                        font.family: ds.mono
+                        font.pixelSize: 13
+                    }
+                    Text {
+                        text: uiShell.selectedChallenge.track || "未分类"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                    }
+                    Text {
+                        text: uiShell.selectedChallenge.runner === "external" ? "外部环境实验" : "教学运行器"
+                        color: uiShell.selectedChallenge.runner === "external" ? ds.warning : ds.success
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                    }
+                }
+                Text {
+                    objectName: "challengeDetailTitle"
+                    Layout.fillWidth: true
+                    text: uiShell.selectedChallenge.title || "挑战详情"
+                    color: ds.ink
+                    font.family: ds.ui
+                    font.pixelSize: 24
+                    font.weight: Font.DemiBold
+                    wrapMode: Text.WordWrap
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: uiShell.selectedChallenge.description || "暂无关卡说明。"
+                    color: ds.muted
+                    font.family: ds.ui
+                    font.pixelSize: 14
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: ds.s16
+                ScrollView {
+                    id: overviewScroll
+                    objectName: "challengeOverviewSection"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 1
+                    clip: true
+                    contentWidth: availableWidth
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ColumnLayout {
+                        width: overviewScroll.availableWidth
+                        spacing: ds.s12
+                        Text {
+                            Layout.fillWidth: true
+                            text: "目标输出"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: {
+                                const values = uiShell.selectedChallenge.targetOutput || [];
+                                return values.length ? values.map(function(value) { return "› " + value; }).join("\n")
+                                                     : "暂无目标输出。";
+                            }
+                            color: ds.ink
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "证据清单"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: {
+                                const values = uiShell.selectedChallenge.evidence || [];
+                                return values.length ? values.map(function(value) { return "□  " + value; }).join("\n")
+                                                     : "暂无证据清单。";
+                            }
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            lineHeight: 1.5
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "技术栈与说明"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "技术栈：" + ((uiShell.selectedChallenge.stack || []).join(" / ") || "暂无")
+                                  + "\n\n" + (uiShell.selectedChallenge.explanation || "暂无补充说明。")
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            lineHeight: 1.5
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "前置关卡"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: {
+                                const values = uiShell.selectedChallenge.prerequisites || [];
+                                return values.length ? values.join("、") : "无前置关卡";
+                            }
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillHeight: true; width: 1; color: ds.line }
+
+                ScrollView {
+                    id: labScroll
+                    objectName: "challengeLabSection"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 1
+                    clip: true
+                    contentWidth: availableWidth
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ColumnLayout {
+                        width: labScroll.availableWidth
+                        spacing: ds.s12
+                        Text {
+                            text: "编写与运行"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: uiShell.selectedChallenge.runner === "external"
+                                  ? "本关需要在本地外部环境完成。"
+                                  : "本关暂不支持在应用内运行，课程练习结果不计入本关验收。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            text: "起始代码"
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        TextArea {
+                            objectName: "challengeStarterCode"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: uiShell.selectedChallenge.starterCode || "暂无起始代码。"
+                            color: ds.codeInk
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            wrapMode: TextEdit.WrapAnywhere
+                            background: Rectangle {
+                                color: ds.inset
+                                border.color: ds.lineStrong
+                                border.width: 1
+                            }
+                        }
+                        QuietButton {
+                            objectName: "challengeRunUnavailable"
+                            ds: challengePage.ds
+                            implicitHeight: 44
+                            label: "运行检查待接入"
+                            enabled: false
+                            Layout.alignment: Qt.AlignRight
+                        }
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: ds.s12
+                Text {
+                    text: "提交记录"
+                    color: ds.accent
+                    font.family: ds.ui
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: "挑战提交历史暂不可用。"
+                    color: ds.muted
+                    font.family: ds.ui
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
                 }
             }
         }
