@@ -16,6 +16,7 @@ bool production_executable(std::string_view language, std::wstring_view filename
   if (language == "python") return lower == L"python.exe" || lower == L"python3.exe";
   if (language == "java") return lower == L"java.exe";
   if (language == "java-compile") return lower == L"javac.exe";
+  if (language == "cpp-debugger") return lower == L"gdb.exe";
   if (language == "cpp") return lower == L"g++.exe" || lower == L"clang++.exe" ||
       lower == L"cl.exe";
   return false;

@@ -42,6 +42,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <random>
 #include <string>
 #include <thread>
@@ -1753,9 +1754,10 @@ void test_execution_plan_reuses_both_request_and_process_guards() {
       {"session-01", "cpp", "int main() { return 0; }", 1000, 4096},
       std::filesystem::path("C:/CodeWeave/tools/g++.exe"),
       std::filesystem::path("C:/CodeWeave/runtime"), plan).ok);
-  assert(plan.process.arguments.size() == 8 &&
+  assert(plan.process.arguments.size() == 9 &&
       plan.process.arguments[0] == L"-std=c++23" &&
-      plan.process.arguments[7] == L"-");
+      plan.process.arguments[2] == L"-g" &&
+      plan.process.arguments[8] == L"codeweave-source-session-01.cpp");
   const std::string long_session(96, 'a');
   assert(codeweave::execution::build_process_plan(
       {long_session, "cpp", "int main() { return 0; }", 1000, 4096},
@@ -1902,6 +1904,188 @@ void test_execution_service_compiles_and_runs_cpp(const std::filesystem::path& c
   assert(std::filesystem::is_empty(root, error));
   assert(!error);
   std::filesystem::remove_all(root, error);
+#else
+  (void)compiler;
+#endif
+}
+
+void test_cpp_source_trace_preserves_failures_and_bounds(const std::filesystem::path& compiler) {
+#ifdef _WIN32
+  if (compiler.empty()) return;
+  const auto debugger = compiler.parent_path() / "gdb.exe";
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(debugger, error) || error) return;
+  const auto ascii_path = [](const std::filesystem::path& path) {
+    const auto text = path.wstring();
+    return std::all_of(text.begin(), text.end(), [](wchar_t value) { return value > 0 && value < 128; });
+  };
+  if (!ascii_path(compiler) || !ascii_path(std::filesystem::temp_directory_path())) return;
+  Fixture fixture;
+  const auto execution_root = fixture.root / L"中文 execution with spaces";
+  assert(std::filesystem::create_directory(execution_root));
+  codeweave::execution::ExecutionService service;
+  const auto run = [&](std::string source, std::uint32_t timeout_ms = 20'000) {
+    const auto result = service.run({"cpp-trace-boundary", "cpp", std::move(source), timeout_ms, 4096},
+        compiler, execution_root);
+    assert(result.validation.ok && result.process && result.process->started && result.trace);
+    assert(std::filesystem::is_empty(execution_root));
+    std::size_t count = 0;
+    std::size_t bytes = 0;
+    for (const auto& event : result.trace->events()) {
+      if (event.kind != codeweave::execution::EventKind::SourceStep) continue;
+      assert(event.payload.size() <= 8192);
+      ++count;
+      bytes += event.payload.size();
+    }
+    assert(count <= 512 && bytes <= 256 * 1024);
+    return result;
+  };
+  const auto success = run("#include <iostream>\nint main() {\n int total = 7;\n total += 2;\n"
+      " std::cout << total << '\\n';\n return 0;\n}\n");
+  assert(success.process->exit_code == 0 && success.process->error_code.empty());
+  assert(success.process->output == "9\r\n");
+  assert(std::any_of(success.trace->events().begin(), success.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":4") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  assert(std::any_of(success.trace->events().begin(), success.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":5") != std::string::npos &&
+        event.payload.find("\"total\":\"9\"") != std::string::npos;
+  }));
+  const auto failure = run("#include <iostream>\nint main() {\n std::cerr << \"cpp trace failure\\n\";\n return 7;\n}\n");
+  assert(failure.process->exit_code == 7 && failure.process->error_code == "process_exit_nonzero");
+  assert(failure.process->output.find("cpp trace failure") != std::string::npos);
+  assert(failure.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  const auto crash = run("#include <windows.h>\nint main() {\n"
+      "SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);\n"
+      "TerminateProcess(GetCurrentProcess(), 0xC0000005);\n}\n");
+  assert(crash.process->exit_code == 0xC0000005UL && !crash.process->timed_out);
+  assert(crash.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  const auto objects = run("#include <iostream>\n#include <string>\n"
+      "struct Object {};\nstd::ostream& operator<<(std::ostream& stream, const Object&) { throw 1; }\n"
+      "int main() {\nObject object;\nstd::string text = \"hello\";\nstd::string embedded(\"a\\0b\", 3);\n"
+      "int total = 7;\nstd::cout << text << '\\n';\nreturn total == 7 ? 0 : 1;\n}\n");
+  assert(objects.process->exit_code == 0 && objects.process->output == "hello\r\n");
+  assert(std::any_of(objects.trace->events().begin(), objects.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"object\":\"<object>\"") != std::string::npos &&
+        event.payload.find("hello") != std::string::npos && event.payload.find("0000b") != std::string::npos;
+  }));
+  const auto limited = run("#include <iostream>\nint main() {\n"
+      "for (int i = 0; i < 100000; ++i) std::cout << 'x';\n}\n");
+  assert(limited.process->output_truncated && limited.process->output.size() == 4096);
+  assert(limited.process->error_code == "output_limit_exceeded");
+  const auto source_location = run("#include <iostream>\nint main() { std::cout << __FILE__; }\n");
+  assert(source_location.process->exit_code == 0);
+  const auto generated_source = std::filesystem::path(source_location.process->output);
+  assert(generated_source.is_absolute() && generated_source.filename() == "codeweave-source-cpp-trace-boundary.cpp");
+  assert(!std::filesystem::exists(generated_source.parent_path()));
+  const auto relative_root = fixture.root / L"中文 relative inputs";
+  assert(std::filesystem::create_directory(relative_root));
+  std::ofstream(relative_root / "local.hpp") << "constexpr int answer = 42;\n";
+  const auto relative = service.run({"cpp-trace-relative", "cpp",
+      "#include \"local.hpp\"\n#include <fstream>\n#include <iostream>\n"
+      "int main() { std::ofstream(\"relative-output\") << answer; std::cout << answer; }\n", 20'000, 4096},
+      compiler, relative_root);
+  assert(relative.process && relative.process->exit_code == 0 && relative.process->output == "42");
+  assert(std::filesystem::exists(relative_root / "relative-output"));
+  const auto fallback_binary = service.run({"cpp-fallback-binary", "cpp",
+      "#include <filesystem>\n#include <iostream>\nint main(int argc, char** argv) {\n"
+      "if (argc > 1) { std::cout << 42; return 0; }\n"
+      "std::filesystem::copy_file(argv[0], \"codeweave-program-fallback.exe\");\n}\n", 20'000, 4096}, compiler, execution_root);
+  assert(fallback_binary.process && fallback_binary.process->exit_code == 0);
+  {
+    struct EnvironmentRestore {
+      std::map<std::wstring, std::wstring> previous;
+      ~EnvironmentRestore() {
+        for (const auto& [name, value] : previous)
+          SetEnvironmentVariableW(name.c_str(), value.empty() ? nullptr : value.c_str());
+      }
+      void set(const wchar_t* name, const std::wstring& value) {
+        const auto size = GetEnvironmentVariableW(name, nullptr, 0);
+        std::wstring original(size, L'\0');
+        if (size) {
+          GetEnvironmentVariableW(name, original.data(), size);
+          original.resize(size - 1);
+        }
+        previous.emplace(name, std::move(original));
+        assert(SetEnvironmentVariableW(name, value.c_str()));
+      }
+    } environment;
+    const auto fallback_temp = fixture.root / L"中文 TEMP";
+    assert(std::filesystem::create_directory(fallback_temp));
+    environment.set(L"TEMP", fallback_temp.wstring());
+    environment.set(L"TMP", fallback_temp.wstring());
+    environment.set(L"PATH", L"C:/Windows/System32");
+    codeweave::execution::ProcessRunner runner;
+    const std::string fallback_source = "#include <iostream>\nint main() { std::cout << 42; }\n";
+    const auto baseline = runner.run({{compiler,
+        {L"-std=c++23", L"-O0", L"-pipe", L"-x", L"c++", L"-o", L"codeweave-program-baseline.exe", L"-"},
+        execution_root, "cpp"}, fallback_source, 20'000, 4096});
+    const auto fallback = service.run({"cpp-fallback-unicode-temp", "cpp",
+        fallback_source, 20'000, 4096}, compiler, execution_root);
+    assert(baseline.started && fallback.process && fallback.process->started);
+    assert((baseline.exit_code == 0) == (fallback.process->exit_code == 0));
+    if (baseline.exit_code == 0) assert(fallback.process->output == "42");
+    else assert(!fallback.process->execution_output_valid && !fallback.process->output.empty());
+    assert(fallback.trace && std::none_of(fallback.trace->events().begin(), fallback.trace->events().end(), [](const auto& event) {
+      return event.kind == codeweave::execution::EventKind::SourceStep;
+    }));
+    assert(std::filesystem::is_empty(fallback_temp));
+    const auto runtime = runner.run({
+        {execution_root / "codeweave-program-fallback.exe", {L"--runtime"}, execution_root, "cpp-runtime"},
+        {}, 10'000, 4096, compiler.parent_path()});
+    assert(runtime.started && runtime.exit_code == 0 && runtime.error_code.empty() && runtime.output == "42");
+  }
+  std::filesystem::remove(execution_root / "codeweave-program-baseline.exe");
+  assert(std::filesystem::remove(execution_root / "codeweave-program-fallback.exe"));
+  assert(std::filesystem::is_empty(execution_root));
+  const auto bounded = run("int main() {\n long total = 0;\n for (int index = 0; index < 2000; ++index) {\n"
+      " total += index;\n }\n return total == 1999000 ? 0 : 1;\n}\n");
+  assert(bounded.process->exit_code == 0);
+  assert(std::count_if(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }) == 512);
+
+  const std::string timeout_source = "#include <chrono>\n#include <thread>\nint main() {\n"
+      " while (true) std::this_thread::sleep_for(std::chrono::milliseconds(20));\n}\n";
+  const auto timeout = service.run({"cpp-trace-timeout", "cpp", timeout_source, 10'000, 4096},
+      compiler, execution_root);
+  assert(timeout.process && timeout.process->timed_out);
+  assert(std::filesystem::is_empty(execution_root));
+
+  const auto ready_path = execution_root / "cpp-cancel-ready";
+  const std::string cancel_source = "#include <chrono>\n#include <fstream>\n#include <thread>\n"
+      "int main() {\n int ticks = 0;\n while (true) {\n"
+      " std::ofstream(\"cpp-cancel-ready\") << ++ticks;\n"
+      " std::this_thread::sleep_for(std::chrono::milliseconds(20));\n }\n}\n";
+  std::atomic_bool cancellation{false};
+  std::optional<codeweave::execution::ServiceResult> cancelled;
+  codeweave::execution::ExecutionControl debugger_control;
+  std::thread worker([&] {
+    cancelled = service.run({"cpp-trace-cancel", "cpp", cancel_source, 20'000, 4096},
+        compiler, execution_root, &cancellation, &debugger_control);
+  });
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+  while (!std::filesystem::exists(ready_path) && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const bool child_started = std::filesystem::exists(ready_path);
+  const auto pause = debugger_control.request(codeweave::execution::ControlCommand::Pause);
+  assert(!pause.ok && pause.message.find("不支持") != std::string::npos && !debugger_control.is_paused());
+  cancellation.store(true);
+  worker.join();
+  assert(child_started && cancelled && cancelled->process && cancelled->process->cancelled);
+  const auto read_ticks = [&] {
+    std::ifstream file(ready_path);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+  };
+  const auto stopped_ticks = read_ticks();
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  assert(read_ticks() == stopped_ticks);
+  assert(std::filesystem::remove(ready_path));
+  assert(std::filesystem::is_empty(execution_root));
 #else
   (void)compiler;
 #endif
@@ -2368,6 +2552,8 @@ int main(int argc, char** argv) {
   test_process_runner_control_contract(
       argc > 1 ? std::filesystem::path(argv[1]) : sibling_process_tool());
   test_execution_service_compiles_and_runs_cpp(
+      argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
+  test_cpp_source_trace_preserves_failures_and_bounds(
       argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
   test_execution_service_rejects_failed_cpp_compilation(
       argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});

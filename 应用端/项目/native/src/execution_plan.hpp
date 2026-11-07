@@ -14,6 +14,7 @@ struct ProcessPlan {
   std::string source;
   std::uint32_t timeout_ms{};
   std::size_t output_limit{};
+  std::filesystem::path environment_path_prefix{};
 };
 
 app::Result build_process_plan(const Request& request, const std::filesystem::path& executable,

@@ -526,7 +526,7 @@ int main(int argc, char** argv) {
       assert(events.size() >= 3);
       assert(events.first().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("started"));
       if (document == QStringLiteral("python-loop-sum") || document == QStringLiteral("javascript-loop-sum") ||
-          document == QStringLiteral("java-loop-sum")) {
+          document == QStringLiteral("java-loop-sum") || document == QStringLiteral("b1-array-basics")) {
         const auto source_step = std::find_if(events.begin(), events.end(), [](const auto& event) {
           const auto map = event.toMap();
           return map.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
@@ -543,6 +543,28 @@ int main(int argc, char** argv) {
       assert(shell.lessonEvidenceStates().value(document).toMap().value("practiced").toBool());
       assert(!shell.lessonAssessment().value("completed").toBool());
     }
+    shell.openFreeProgram(QStringLiteral("cpp"));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.updateDraftCode(QStringLiteral("#include <iostream>\nint main() {\n int total = 7;\n total += 8;\n"
+        " std::cout << total << '\\n';\n return 0;\n}\n"));
+    shell.setExecutionTimeout(10000);
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy() && !shell.operationBusy(); });
+    assert(shell.executionOutput() == "15\n");
+    const auto cpp_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+    const auto ascii_path = [](const std::filesystem::path& path) {
+      const auto text = path.wstring();
+      return std::all_of(text.begin(), text.end(), [](wchar_t value) { return value > 0 && value < 128; });
+    };
+    if (std::filesystem::is_regular_file(std::filesystem::path(argv[2]).parent_path() / "gdb.exe") &&
+        ascii_path(std::filesystem::path(argv[2])) && ascii_path(std::filesystem::temp_directory_path()))
+      assert(std::any_of(cpp_events.begin(), cpp_events.end(), [](const auto& value) {
+      const auto event = value.toMap();
+      return event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+          event.value(QStringLiteral("sourceLine")).toInt() == 5 &&
+          event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "15";
+      }));
+    shell.discardDraftChanges();
     const auto challenge_index = shell.publishedIds().indexOf(QStringLiteral("stage-b"));
     assert(challenge_index >= 0);
     shell.openPublishedContent(challenge_index);

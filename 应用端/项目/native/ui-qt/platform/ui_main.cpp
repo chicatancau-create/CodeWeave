@@ -1050,6 +1050,41 @@ int main(int argc, char* argv[]) {
           if (shell.executionBusy() || shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("cpp-execution"), shell.executionOutput().contains(QStringLiteral("0: 3")),
               shell.executionOutput());
+          shell.openFreeProgram(QStringLiteral("cpp"));
+          context->step = 580;
+          return;
+        case 580:
+          if (shell.contentBusy()) return;
+          shell.updateDraftCode(QStringLiteral("#include <iostream>\nint main() {\n int total = 7;\n total += 8;\n"
+              " std::cout << total << '\\n';\n return 0;\n}\n"));
+          shell.setExecutionTimeout(10000);
+          shell.runCode();
+          context->step = 581;
+          return;
+        case 581:
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            const auto source_step = std::find_if(events.begin(), events.end(), [](const auto& value) {
+              const auto event = value.toMap();
+              return event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                  event.value(QStringLiteral("sourceLine")).toInt() == 5 &&
+                  event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "15";
+            });
+            auto* list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            u3_record(*context, QStringLiteral("cpp-source-snapshot-line-and-variables"),
+                shell.documentId() == "free-cpp" && shell.executionOutput() == "15\n" &&
+                source_step != events.end() && list && line && variables &&
+                list->setProperty("currentIndex", static_cast<int>(std::distance(events.begin(), source_step))) &&
+                line->property("visible").toBool() && line->property("text").toString() == QStringLiteral("源码第 5 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 15")));
+            u3_record(*context, QStringLiteral("cpp-source-snapshot-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-cpp-source-snapshot")));
+          }
+          shell.discardDraftChanges();
           shell.openFreeProgram(QStringLiteral("python"));
           context->step = 59;
           return;
@@ -1135,6 +1170,7 @@ int main(int argc, char* argv[]) {
             u3_record(*context, QStringLiteral("console-error-row-style"),
                 shell.executionOutputError() && danger.isValid() && color == danger);
           }
+          shell.setExecutionTimeout(5000);
           shell.openFreeProgram(QStringLiteral("python"));
           context->step = 65;
           return;
@@ -2801,7 +2837,7 @@ int main(int argc, char* argv[]) {
         }
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 54,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 55,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

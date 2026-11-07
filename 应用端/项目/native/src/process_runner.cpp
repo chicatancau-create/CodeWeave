@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cwctype>
+#include <cwchar>
 #include <thread>
 
 namespace codeweave::execution {
@@ -62,6 +63,36 @@ struct HandleGuard {
   HandleGuard& operator=(const HandleGuard&) = delete;
 };
 
+std::vector<wchar_t> compiler_environment(const ProcessPlan& plan) {
+  const auto& request = plan.process;
+  const auto directory = request.language == "cpp" || request.language == "cpp-debugger"
+      ? request.executable.parent_path() : plan.environment_path_prefix;
+  if (directory.empty()) return {};
+  const auto inherited = GetEnvironmentStringsW();
+  if (!inherited) return {};
+  std::vector<wchar_t> environment;
+  bool path_found = false;
+  for (const wchar_t* entry = inherited; *entry; entry += std::wcslen(entry) + 1) {
+    const std::wstring_view value(entry);
+    if (value.size() >= 5 && _wcsnicmp(entry, L"PATH=", 5) == 0) {
+      const auto path = L"PATH=" + directory.wstring() + L";" + std::wstring(value.substr(5));
+      environment.insert(environment.end(), path.begin(), path.end());
+      path_found = true;
+    } else {
+      environment.insert(environment.end(), value.begin(), value.end());
+    }
+    environment.push_back(L'\0');
+  }
+  FreeEnvironmentStringsW(inherited);
+  if (!path_found) {
+    const auto path = L"PATH=" + directory.wstring();
+    environment.insert(environment.end(), path.begin(), path.end());
+    environment.push_back(L'\0');
+  }
+  environment.push_back(L'\0');
+  return environment;
+}
+
 }  // namespace
 #endif
 
@@ -73,6 +104,10 @@ ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool
   return result;
 #else
   if (const auto valid = validate_process_request(plan.process); !valid.ok) {
+    result.error_code = "invalid_process_plan";
+    return result;
+  }
+  if (!plan.environment_path_prefix.empty() && !plan.environment_path_prefix.is_absolute()) {
     result.error_code = "invalid_process_plan";
     return result;
   }
@@ -119,9 +154,11 @@ ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool
   startup.hStdOutput = raw_write;
   startup.hStdError = raw_write;
   PROCESS_INFORMATION process_info{};
+  auto environment = compiler_environment(plan);
   const BOOL created = CreateProcessW(
       plan.process.executable.wstring().c_str(), command_buffer.data(), nullptr, nullptr, TRUE,
-      CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr,
+      CREATE_NO_WINDOW | CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
+      environment.empty() ? nullptr : environment.data(),
       plan.process.working_directory.wstring().c_str(), &startup, &process_info);
   if (!created) {
     result.error_code = "process_create_failed";

@@ -1,10 +1,15 @@
 #include "execution_service.hpp"
+#include "cpp_trace_runner.hpp"
 #include "java_trace_runner.hpp"
 #include "javascript_trace_runner.hpp"
 
+#include <algorithm>
+#include <cwctype>
 #include <fstream>
+#include <memory>
 #include <random>
 #include <system_error>
+#include <thread>
 
 namespace codeweave::execution {
 
@@ -42,6 +47,21 @@ class TemporaryDirectory final {
   std::filesystem::path path_;
 };
 
+class DebuggerControlGuard final {
+ public:
+  explicit DebuggerControlGuard(ExecutionControl* control) : control_(control) {
+    if (control_) control_->attach([](ControlCommand) {
+      return app::Result::failure("C++ 源码追踪暂不支持暂停或单步");
+    });
+  }
+  ~DebuggerControlGuard() { if (control_) control_->detach(); }
+  DebuggerControlGuard(const DebuggerControlGuard&) = delete;
+  DebuggerControlGuard& operator=(const DebuggerControlGuard&) = delete;
+
+ private:
+  ExecutionControl* control_;
+};
+
 std::filesystem::path generated_cpp_path(const ProcessPlan& plan) {
   for (const auto& argument : plan.process.arguments) {
     if (argument.starts_with(L"codeweave-program-")) {
@@ -61,6 +81,17 @@ std::filesystem::path generated_cpp_source_path(const ProcessPlan& plan) {
     }
   }
   return {};
+}
+
+std::filesystem::path sibling_cpp_debugger(const std::filesystem::path& compiler) {
+  auto filename = compiler.filename().wstring();
+  std::transform(filename.begin(), filename.end(), filename.begin(), [](wchar_t value) {
+    return static_cast<wchar_t>(std::towlower(value));
+  });
+  if (filename != L"g++.exe" && filename != L"clang++.exe") return {};
+  const auto debugger = compiler.parent_path() / "gdb.exe";
+  std::error_code error;
+  return std::filesystem::is_regular_file(debugger, error) && !error ? debugger : std::filesystem::path{};
 }
 
 std::filesystem::path java_source_path(const std::filesystem::path& working_directory) {
@@ -83,6 +114,54 @@ bool write_file(const std::filesystem::path& path, std::string_view contents) {
   file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
   file.flush();
   return static_cast<bool>(file);
+}
+
+ProcessResult run_cpp_debugger(const ProcessRunner& runner, const ProcessPlan& plan,
+    const std::filesystem::path& output_path, const std::atomic_bool* cancellation,
+    ExecutionControl* control) {
+  std::atomic_bool stop{cancellation && cancellation->load()};
+  std::atomic_bool output_limit_hit{false};
+  std::jthread monitor([&](std::stop_token token) {
+    while (!token.stop_requested()) {
+      if (cancellation && cancellation->load()) stop.store(true);
+      std::error_code error;
+      const auto size = std::filesystem::file_size(output_path, error);
+      if (!error && size > plan.output_limit) {
+        output_limit_hit.store(true);
+        stop.store(true);
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  });
+  DebuggerControlGuard control_guard(control);
+  auto process = runner.run(plan, &stop, nullptr);
+  monitor.request_stop();
+  monitor.join();
+  process.output.clear();
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(output_path, error);
+  bool output_readable = false;
+  if (!error && std::filesystem::is_regular_file(status) && !std::filesystem::is_symlink(status)) {
+    std::ifstream output(output_path, std::ios::binary);
+    if (output) {
+      process.output.resize(plan.output_limit);
+      output.read(process.output.data(), static_cast<std::streamsize>(process.output.size()));
+      process.output.resize(static_cast<std::size_t>(output.gcount()));
+      if (output.peek() != std::char_traits<char>::eof()) output_limit_hit.store(true);
+      output_readable = !output.bad();
+    }
+  }
+  if (!output_readable) {
+    process.execution_output_valid = false;
+    if (!process.cancelled && !process.timed_out && process.error_code.empty())
+      process.error_code = "cpp_output_read_failed";
+  }
+  if (output_limit_hit.load()) {
+    process.cancelled = false;
+    process.output_truncated = true;
+    process.error_code = "output_limit_exceeded";
+  }
+  return process;
 }
 
 constexpr std::string_view kPythonTraceRunner = R"PY(
@@ -293,10 +372,43 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
   }
   Trace trace(request.session_id);
   trace.append(EventKind::Started);
-  const auto source_path = request.language == "cpp" ? generated_cpp_source_path(plan)
+  auto source_path = request.language == "cpp" ? generated_cpp_source_path(plan)
       : std::filesystem::path{};
-  const auto program_path = request.language == "cpp" ? generated_cpp_path(plan)
+  auto program_path = request.language == "cpp" ? generated_cpp_path(plan)
       : std::filesystem::path{};
+  std::filesystem::path cpp_trace_directory;
+  std::unique_ptr<TemporaryDirectory> cpp_trace_cleanup;
+  auto cpp_debugger = request.language == "cpp" ? sibling_cpp_debugger(executable) : std::filesystem::path{};
+  std::filesystem::path temporary_root;
+  if (!cpp_debugger.empty()) {
+    std::error_code error;
+    temporary_root = std::filesystem::temp_directory_path(error);
+    if (error) return {app::Result::failure("无法定位 C++ 调试临时目录"), std::nullopt, std::move(trace)};
+    const auto ascii_path = [](const std::filesystem::path& path) {
+      const auto text = path.wstring();
+      return std::all_of(text.begin(), text.end(), [](wchar_t character) { return character > 0 && character < 128; });
+    };
+    // This Windows GDB decodes Python script arguments using its host charset.
+    // Decide capability before compilation/execution, never rerun learner code.
+    if (!ascii_path(temporary_root) || !ascii_path(cpp_debugger)) cpp_debugger.clear();
+  }
+  if (!cpp_debugger.empty()) {
+    std::error_code error;
+    cpp_trace_directory = unique_source_trace_directory(temporary_root, "codeweave-cpp");
+    if (!std::filesystem::create_directory(cpp_trace_directory, error) || error) {
+      return {app::Result::failure("无法创建 C++ 源码追踪目录"), std::nullopt, std::move(trace)};
+    }
+    cpp_trace_cleanup = std::make_unique<TemporaryDirectory>(cpp_trace_directory);
+    const auto source_name = source_path.filename().wstring();
+    const auto program_name = program_path.filename().wstring();
+    source_path = cpp_trace_directory / source_name;
+    program_path = cpp_trace_directory / program_name;
+    for (auto& argument : plan.process.arguments) {
+      if (argument == source_name) argument = source_path.wstring();
+      if (argument == program_name) argument = program_path.wstring();
+    }
+    plan.process.arguments.insert(plan.process.arguments.end(), {L"-iquote", working_directory.wstring()});
+  }
   if (!source_path.empty() || !program_path.empty()) {
     std::error_code exists_error;
     if ((!source_path.empty() && std::filesystem::exists(source_path, exists_error)) ||
@@ -323,6 +435,7 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
       trace.append(EventKind::Failed, "cpp_source_write_failed");
       return {app::Result::failure("写入 C++ 源文件失败"), std::nullopt, std::move(trace)};
     }
+    plan.source.clear();
   }
   auto process = runner_.run(plan, cancellation, control);
   if (request.language == "cpp") {
@@ -331,17 +444,36 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     if (!compilation_succeeded) {
       process.execution_output_valid = false;
     } else {
-    ProcessPlan runtime_plan{
-        {program_path, {}, working_directory, "cpp-runtime"},
-        {}, plan.timeout_ms, plan.output_limit};
-    const auto runtime_valid = validate_process_request(runtime_plan.process);
-    if (!runtime_valid.ok) {
-      process.started = false;
-      process.error_code = "compiled_program_invalid";
-      process.execution_output_valid = false;
-    } else {
-      process = runner_.run(runtime_plan, cancellation, control);
-    }
+      ProcessPlan runtime_plan{
+          {program_path, {}, working_directory, "cpp-runtime"},
+          {}, plan.timeout_ms, plan.output_limit, executable.parent_path()};
+      const auto runtime_valid = validate_process_request(runtime_plan.process);
+      if (!runtime_valid.ok) {
+        process.started = false;
+        process.error_code = "compiled_program_invalid";
+        process.execution_output_valid = false;
+      } else {
+        if (cpp_debugger.empty()) {
+          process = runner_.run(runtime_plan, cancellation, control);
+        } else {
+          const auto& trace_directory = cpp_trace_directory;
+          std::error_code error;
+          const auto script_path = trace_directory / "runner.py";
+          if (!write_file(script_path, kCppTraceRunner)) {
+            return {app::Result::failure("无法准备 C++ 源码追踪器"), std::nullopt, std::move(trace)};
+          }
+          ProcessPlan debugger_plan{{cpp_debugger,
+              {L"--nx", L"--nh", L"--quiet", L"--batch", L"-iex", L"set auto-load off",
+                  L"--se=" + program_path.wstring(), L"-x", script_path.wstring()},
+              working_directory, "cpp-debugger"}, {}, plan.timeout_ms, plan.output_limit};
+          process = run_cpp_debugger(runner_, debugger_plan, trace_directory / "program-output", cancellation, control);
+          append_source_steps(trace_directory / "snapshots.jsonl", trace);
+          if (std::filesystem::exists(trace_directory / "trace-error", error) && !error) {
+            process.error_code = "cpp_trace_failed";
+            process.execution_output_valid = false;
+          }
+        }
+      }
     }
   }
   for (const auto& event : process.control_events) {

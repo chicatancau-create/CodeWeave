@@ -34,7 +34,7 @@ app::Result build_process_plan(const Request& request, const std::filesystem::pa
     if (lower == L"cl.exe") {
       arguments = {L"/nologo", L"/std:c++latest", L"/EHsc", L"/Fe:" + output, source};
     } else {
-      arguments = {L"-std=c++23", L"-O0", L"-pipe", L"-x", L"c++", L"-o", output, L"-"};
+      arguments = {L"-std=c++23", L"-O0", L"-g", L"-pipe", L"-x", L"c++", L"-o", output, source};
     }
   } else if (request.language == "java") {
     // Java source is compiled by the service into an isolated session folder.
