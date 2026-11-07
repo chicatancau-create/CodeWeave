@@ -215,6 +215,7 @@ Item {
                             return studyPage.subjectOptions;
                         }
                         delegate: SubjectPill {
+                            ds: studyPage.ds
                             required property var modelData
                             required property int index
                             symbol: modelData.slice(0, 2).toUpperCase()
