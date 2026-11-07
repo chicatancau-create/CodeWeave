@@ -29,6 +29,8 @@
 #include <QUrl>
 
 #include <filesystem>
+#include <algorithm>
+#include <iterator>
 #include <string_view>
 
 class ShellView final : public QQuickView {
@@ -774,6 +776,104 @@ int main(int argc, char* argv[]) {
           return;
         case 8:
           u3_record(*context, QStringLiteral("page-challenge"), shell.currentPage() == QStringLiteral("挑战"));
+          {
+            auto* challenge_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengePageRoot"));
+            auto* search = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeSearch"));
+            auto* previous = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengePreviousPage"));
+            auto* next = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeNextPage"));
+            const auto challenges = shell.challengeMeta();
+            const bool page_loaded = challenge_page && search && previous && next && !challenges.isEmpty();
+            if (!page_loaded) {
+              u3_record(*context, QStringLiteral("challenge-filter-controls-loaded"), false);
+            } else {
+              u3_record(*context, QStringLiteral("challenge-filter-controls-loaded"), true);
+              const auto sample = challenges.first().toMap();
+              challenge_page->setProperty("stageFilter", sample.value(QStringLiteral("stageId")));
+              challenge_page->setProperty("trackFilter", sample.value(QStringLiteral("track")));
+              challenge_page->setProperty("difficultyFilter", sample.value(QStringLiteral("difficulty")));
+              challenge_page->setProperty("runnerFilter", sample.value(QStringLiteral("runner")));
+              const auto filtered = challenge_page->property("filteredChallenges").toList();
+              QVariantList expected_filtered;
+              for (const auto& value : challenges) {
+                const auto item = value.toMap();
+                if (item.value(QStringLiteral("stageId")) == sample.value(QStringLiteral("stageId")) &&
+                    item.value(QStringLiteral("track")) == sample.value(QStringLiteral("track")) &&
+                    item.value(QStringLiteral("difficulty")) == sample.value(QStringLiteral("difficulty")) &&
+                    item.value(QStringLiteral("runner")) == sample.value(QStringLiteral("runner"))) {
+                  expected_filtered.append(value);
+                }
+              }
+              const bool combined_filter = !expected_filtered.isEmpty() && filtered == expected_filtered;
+              u3_record(*context, QStringLiteral("challenge-filter-combination"), combined_filter);
+
+              search->setProperty("text", sample.value(QStringLiteral("title")));
+              const auto searched = challenge_page->property("filteredChallenges").toList();
+              const bool search_match = !searched.isEmpty() && std::all_of(searched.cbegin(), searched.cend(),
+                  [&](const QVariant& value) {
+                    return value.toMap().value(QStringLiteral("title")) == sample.value(QStringLiteral("title"));
+                  });
+              u3_record(*context, QStringLiteral("challenge-title-search"), search_match);
+
+              QMetaObject::invokeMethod(challenge_page, "clearFilters", Qt::DirectConnection);
+              challenge_page->setProperty("sortFilter", QStringLiteral("标题"));
+              const auto sorted = challenge_page->property("filteredChallenges").toList();
+              bool title_sorted = !sorted.isEmpty();
+              for (qsizetype index = 1; index < sorted.size(); ++index) {
+                if (QString::localeAwareCompare(
+                        sorted.at(index - 1).toMap().value(QStringLiteral("title")).toString(),
+                        sorted.at(index).toMap().value(QStringLiteral("title")).toString()) > 0) {
+                  title_sorted = false;
+                  break;
+                }
+              }
+              u3_record(*context, QStringLiteral("challenge-title-sort"), title_sorted);
+
+              QMetaObject::invokeMethod(challenge_page, "clearFilters", Qt::DirectConnection);
+              const int all_count = static_cast<int>(
+                  challenge_page->property("filteredChallenges").toList().size());
+              const int page_size = challenge_page->property("pageSize").toInt();
+              const int expected_pages = std::max(1, (all_count + page_size - 1) / page_size);
+              challenge_page->setProperty("currentPage", expected_pages);
+              const auto page_rows = challenge_page->property("pageChallenges").toList();
+              const auto first_id = page_rows.isEmpty() ? QString{} :
+                  page_rows.first().toMap().value(QStringLiteral("id")).toString();
+              const auto original_index = std::find_if(challenges.cbegin(), challenges.cend(), [&](const QVariant& value) {
+                return value.toMap().value(QStringLiteral("id")).toString() == first_id;
+              });
+              const auto expected_sequence = original_index == challenges.cend() ? QString{} :
+                  (std::distance(challenges.cbegin(), original_index) + 1 < 10 ? QStringLiteral("0") : QString{}) +
+                  QString::number(std::distance(challenges.cbegin(), original_index) + 1);
+              QVariant actual_sequence;
+              const bool sequence_invoked = !page_rows.isEmpty() && QMetaObject::invokeMethod(challenge_page,
+                  "challengeSequence", Qt::DirectConnection, Q_RETURN_ARG(QVariant, actual_sequence),
+                  Q_ARG(QVariant, page_rows.first()));
+              const bool paging = challenge_page->property("pageCount").toInt() == expected_pages &&
+                  challenge_page->property("currentPage").toInt() == expected_pages &&
+                  previous->property("enabled").toBool() == (expected_pages > 1) &&
+                  !next->property("enabled").toBool() &&
+                  (expected_pages == 1 || (sequence_invoked && actual_sequence.toString() == expected_sequence));
+              u3_record(*context, QStringLiteral("challenge-pagination-boundaries-and-stable-sequence"), paging);
+
+              search->setProperty("text", QStringLiteral("no-challenge-can-match-20261107"));
+              auto* empty = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeEmptyState"));
+              const bool empty_state = challenge_page->property("filteredChallenges").toList().isEmpty() &&
+                  empty && empty->property("visible").toBool() &&
+                  challenge_page->property("currentPage").toInt() == 1 &&
+                  !previous->property("enabled").toBool() && !next->property("enabled").toBool();
+              u3_record(*context, QStringLiteral("challenge-empty-filter-state"), empty_state);
+              QMetaObject::invokeMethod(challenge_page, "clearFilters", Qt::DirectConnection);
+              const bool reset = challenge_page->property("searchText").toString().isEmpty() &&
+                  challenge_page->property("stageFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("trackFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("difficultyFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("runnerFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("sortFilter").toString() == QStringLiteral("A—M 顺序") &&
+                  challenge_page->property("currentPage").toInt() == 1 &&
+                  challenge_page->property("filteredChallenges").toList() == challenges &&
+                  !previous->property("enabled").toBool() && next->property("enabled").toBool() == (expected_pages > 1);
+              u3_record(*context, QStringLiteral("challenge-filter-reset"), reset);
+            }
+          }
           u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
           shell.discardDraftChanges();
           shell.logout();
@@ -802,6 +902,8 @@ int main(int argc, char* argv[]) {
           return;
         case 12:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
+          u3_record(*context, QStringLiteral("seven-page-screenshots"), context->screenshots.size() == 7,
+              QString::number(context->screenshots.size()));
           if (!u3_write_result(*context)) { application.exit(3); return; }
           application.exit(u3_all_passed(*context) ? 0 : 3);
           context->step = 99;

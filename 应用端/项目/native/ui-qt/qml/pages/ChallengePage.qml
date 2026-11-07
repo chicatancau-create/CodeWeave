@@ -6,6 +6,7 @@ import "../components"
 Item {
     property QtObject ds
         id: challengePage
+        objectName: "challengePageRoot"
         property string searchText: ""
         property string stageFilter: "全部"
         property string trackFilter: "全部"
@@ -19,7 +20,14 @@ Item {
         function chStatus(item) {
             return item.runner === "external" ? "external-pending" : "not-started";
         }
+        function challengeSequence(item) {
+            const index = uiShell.challengeMeta.findIndex(function(challenge) {
+                return challenge.id === item.id;
+            });
+            return index < 0 ? "" : (index + 1 < 10 ? "0" : "") + (index + 1);
+        }
         readonly property int pageCount: Math.max(1, Math.ceil(filteredChallenges.length / pageSize))
+        onPageCountChanged: currentPage = Math.min(currentPage, pageCount)
         readonly property var pageChallenges: filteredChallenges.slice((currentPage - 1) * pageSize,
                                                                        currentPage * pageSize)
         readonly property string activeFilterSummary: {
@@ -193,6 +201,7 @@ Item {
                         }
                         TextField {
                             id: challengeSearch
+                            objectName: "challengeSearch"
                             Layout.fillWidth: true
                             implicitHeight: 44
                             placeholderText: "标题 / 技术栈 / 说明"
@@ -220,6 +229,7 @@ Item {
                         spacing: ds.s4
                         Text { text: "阶段"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
                         ComboBox {
+                            objectName: "challengeStageFilter"
                             Layout.preferredWidth: 108
                             implicitHeight: 44
                             model: challengePage.uniqueValues("stageId")
@@ -232,6 +242,7 @@ Item {
                         spacing: ds.s4
                         Text { text: "轨道"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
                         ComboBox {
+                            objectName: "challengeTrackFilter"
                             Layout.preferredWidth: 140
                             implicitHeight: 44
                             model: challengePage.uniqueValues("track")
@@ -259,6 +270,7 @@ Item {
                         spacing: ds.s4
                         Text { text: "难度"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
                         ComboBox {
+                            objectName: "challengeDifficultyFilter"
                             Layout.preferredWidth: 140
                             implicitHeight: 44
                             model: challengePage.uniqueValues("difficulty")
@@ -270,6 +282,7 @@ Item {
                         spacing: ds.s4
                         Text { text: "运行方式"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
                         ComboBox {
+                            objectName: "challengeRunnerFilter"
                             Layout.preferredWidth: 170
                             implicitHeight: 44
                             textRole: "label"
@@ -291,6 +304,7 @@ Item {
                         spacing: ds.s4
                         Text { text: "排序"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
                         ComboBox {
+                            objectName: "challengeSortFilter"
                             Layout.preferredWidth: 150
                             implicitHeight: 44
                             model: ["A—M 顺序", "标题"]
@@ -300,6 +314,7 @@ Item {
                     }
                     Item { Layout.fillWidth: true }
                     QuietButton {
+                        objectName: "challengeClearMoreFilters"
                                 ds: challengePage.ds
                         implicitHeight: 44
                         label: "清除筛选"
@@ -327,6 +342,7 @@ Item {
                     elide: Text.ElideRight
                 }
                 QuietButton {
+                    objectName: "challengeClearSummaryFilters"
                                 ds: challengePage.ds
                     implicitHeight: 36
                     label: "清除筛选"
@@ -407,7 +423,8 @@ Item {
                                     anchors { left: parent.left; right: parent.right; top: parent.top }
                                     spacing: ds.s10
                                     Text {   // .stage-card-no
-                                        text: (index + 1) < 10 ? "0" + (index + 1) : "" + (index + 1)
+                                        objectName: "challengeSequenceNumber"
+                                        text: challengePage.challengeSequence(modelData)
                                         color: ds.accent
                                         font.family: ds.mono
                                         font.pixelSize: 14
@@ -577,6 +594,7 @@ Item {
                     }
                     ColumnLayout {
                         anchors.centerIn: parent
+                        objectName: "challengeEmptyState"
                         width: Math.min(parent.width - ds.s32, 420)
                         visible: challengePage.filteredChallenges.length === 0
                         spacing: ds.s10
@@ -591,6 +609,7 @@ Item {
                             wrapMode: Text.WordWrap
                         }
                         QuietButton {
+                            objectName: "challengeClearEmptyFilters"
                                 ds: challengePage.ds
                             Layout.alignment: Qt.AlignHCenter
                             implicitHeight: 44
@@ -618,6 +637,7 @@ Item {
                 Layout.topMargin: ds.s20
                 spacing: ds.s12
                 QuietButton {
+                    objectName: "challengePreviousPage"
                                 ds: challengePage.ds
                     implicitHeight: 44
                     label: "‹ 上一页"
@@ -636,6 +656,7 @@ Item {
                 }
                 Item { Layout.fillWidth: true }
                 QuietButton {
+                    objectName: "challengeNextPage"
                                 ds: challengePage.ds
                     implicitHeight: 44
                     label: "下一页 ›"
