@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import "../components"
 
 Item {
+    objectName: "reviewPageRoot"
     property var hostRoot
     property QtObject ds
         id: reviewPage
@@ -337,6 +338,7 @@ Item {
                                             spacing: ds.s4
                                             QuietButton {
                                 ds: reviewPage.ds
+                                                objectName: "reviewPass-" + modelData.itemId
                                                 implicitHeight: 36
                                                 label: "通过"
                                                 enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
@@ -344,6 +346,7 @@ Item {
                                             }
                                             QuietButton {
                                 ds: reviewPage.ds
+                                                objectName: "reviewSnooze-" + modelData.itemId
                                                 implicitHeight: 36
                                                 label: "稍后提醒"
                                                 enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
@@ -351,6 +354,7 @@ Item {
                                             }
                                             QuietButton {
                                 ds: reviewPage.ds
+                                                objectName: "reviewOpen-" + modelData.itemId
                                                 implicitHeight: 36
                                                 label: "查看课程"
                                                 enabled: uiShell.publishedIds.indexOf(modelData.contentId) >= 0

@@ -5,6 +5,7 @@
 #include <QGuiApplication>
 #include <QColor>
 #include <QDir>
+#include <QDate>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickView>
@@ -89,6 +90,7 @@ struct U3MatrixContext {
   QString output;
   QString screenshot_dir;
   QString blocked_draft_path;
+  QVariantMap review_before;
   int step = 0;
   int ticks = 0;
 };
@@ -1590,6 +1592,106 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("learning-details-enter-target"), shell.currentPage() == QStringLiteral("编辑器") &&
               shell.documentId() == QStringLiteral("java-loop-sum"));
           view.resize(1440, 900);
+          context->step = 200;
+          return;
+        case 200: {
+          if (shell.operationBusy()) return;
+          codeweave::learning::MasteryStore mastery(shell.nativeDataRoot() / "accounts" / shell.activeAccountId().toStdWString());
+          const QStringList ids{QStringLiteral("python-loop-sum"), QStringLiteral("python-condition"), QStringLiteral("java-loop-sum")};
+          bool seeded = true;
+          for (int index = 0; index < ids.size(); ++index) {
+            const auto timestamp = QDate::currentDate().addDays(index - 2).toString(Qt::ISODate) + QStringLiteral("T00:00:00Z");
+            const codeweave::learning::MasteryEvidence record{
+                "matrix-schedule-" + std::to_string(index), codeweave::learning::MasteryEvidenceKind::Lesson,
+                ids.at(index).toStdString(), "isolated review schedule fixture", timestamp.toStdString(), true,
+                codeweave::learning::CompletionVerification::SelfDeclared,
+                codeweave::learning::RanBy::Learner, true, "L1", "op-matrixschedule-0123a" + std::to_string(index)};
+            bool duplicate = false;
+            const auto appended = mastery.append_idempotent(record, duplicate);
+            seeded = appended.ok && !duplicate && seeded;
+            if (!appended.ok) u3_record(*context, QStringLiteral("review-fixture-append-error"), false,
+                QString::fromUtf8(appended.message));
+          }
+          u3_record(*context, QStringLiteral("review-three-group-fixture-created"), seeded);
+          shell.selectPage(QStringLiteral("复习与进度"));
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 201: {
+          if (shell.operationBusy()) return;
+          auto* page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("reviewPageRoot"));
+          const QStringList ids{QStringLiteral("python-loop-sum"), QStringLiteral("python-condition"), QStringLiteral("java-loop-sum")};
+          const QStringList groups{QStringLiteral("overdue"), QStringLiteral("today"), QStringLiteral("upcoming")};
+          bool grouped = page && page->isVisible();
+          for (int index = 0; index < ids.size(); ++index) {
+            QVariantMap actual;
+            for (const auto& value : shell.reviewItems())
+              if (value.toMap().value(QStringLiteral("contentId")) == ids.at(index) &&
+                  value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) actual = value.toMap();
+            QVariant rows;
+            const bool invoked = page && QMetaObject::invokeMethod(page, "itemsForGroup", Qt::DirectConnection,
+                Q_RETURN_ARG(QVariant, rows), Q_ARG(QVariant, groups.at(index)));
+            grouped = grouped && invoked && rows.toList().contains(actual) &&
+                actual.value(QStringLiteral("group")) == groups.at(index) &&
+                actual.value(QStringLiteral("dueKey")).toString() == QDate::currentDate().addDays(index - 1).toString(Qt::ISODate);
+            if (index == 0) context->review_before = actual;
+          }
+          u3_record(*context, QStringLiteral("review-three-groups-match-real-schedules"), grouped);
+          u3_record(*context, QStringLiteral("review-nonempty-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-review-nonempty")));
+          auto* pass = u3_find_item(view.rootObject(), QStringLiteral("reviewPass-python-loop-sum"));
+          u3_record(*context, QStringLiteral("review-pass-row-action"), pass && pass->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(pass, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 202: {
+          if (shell.operationBusy()) return;
+          QVariantMap updated;
+          for (const auto& value : shell.reviewItems())
+            if (value.toMap().value(QStringLiteral("contentId")) == QStringLiteral("python-loop-sum") &&
+                value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) updated = value.toMap();
+          u3_record(*context, QStringLiteral("review-pass-refreshes-level-step-and-due-date"),
+              updated.value(QStringLiteral("masteryLevel")).toInt() == context->review_before.value(QStringLiteral("masteryLevel")).toInt() + 1 &&
+              updated.value(QStringLiteral("nextNodeIndex")).toInt() == 1 &&
+              updated.value(QStringLiteral("dueKey")).toString() == QDate::currentDate().addDays(3).toString(Qt::ISODate) &&
+              updated.value(QStringLiteral("group")) == QStringLiteral("upcoming"));
+          for (const auto& value : shell.reviewItems())
+            if (value.toMap().value(QStringLiteral("contentId")) == QStringLiteral("python-condition") &&
+                value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) context->review_before = value.toMap();
+          auto* snooze = u3_find_item(view.rootObject(), QStringLiteral("reviewSnooze-python-condition"));
+          u3_record(*context, QStringLiteral("review-snooze-row-action"), snooze && snooze->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(snooze, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 203: {
+          if (shell.operationBusy()) return;
+          QVariantMap updated;
+          for (const auto& value : shell.reviewItems())
+            if (value.toMap().value(QStringLiteral("contentId")) == QStringLiteral("python-condition") &&
+                value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) updated = value.toMap();
+          u3_record(*context, QStringLiteral("review-snooze-refreshes-date-without-changing-mastery"),
+              updated.value(QStringLiteral("masteryLevel")) == context->review_before.value(QStringLiteral("masteryLevel")) &&
+              updated.value(QStringLiteral("nextNodeIndex")) == context->review_before.value(QStringLiteral("nextNodeIndex")) &&
+              updated.value(QStringLiteral("dueKey")).toString() == QDate::currentDate().addDays(1).toString(Qt::ISODate) &&
+              updated.value(QStringLiteral("group")) == QStringLiteral("upcoming"));
+          u3_record(*context, QStringLiteral("review-updated-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-review-updated")));
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("reviewOpen-java-loop-sum"));
+          u3_record(*context, QStringLiteral("review-open-course-row-action"), open && open->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 204:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("review-open-course-resolves-published-id"),
+              shell.hasSelectedContent() && shell.documentId() == QStringLiteral("java-loop-sum"),
+              QStringLiteral("page=%1 document=%2 selected=%3 body=%4")
+                  .arg(shell.currentPage(), shell.documentId()).arg(shell.hasSelectedContent())
+                  .arg(!shell.selectedContentBody().isEmpty()));
           context->step = 24;
           return;
         case 24:
@@ -1599,7 +1701,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("eighteen-page-screenshots"), context->screenshots.size() == 18,
+          u3_record(*context, QStringLiteral("twenty-page-screenshots"), context->screenshots.size() == 20,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }
