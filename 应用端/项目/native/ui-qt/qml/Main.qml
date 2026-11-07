@@ -89,6 +89,7 @@ Rectangle {
     // ── Design tokens ───────────────────────────────────────────────────────
     DesignSystem {
         id: ds
+        objectName: "designSystem"
         hostWidth: root.width
     }
 

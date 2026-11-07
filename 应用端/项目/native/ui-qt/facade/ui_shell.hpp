@@ -48,6 +48,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(bool executionBusy READ executionBusy NOTIFY executionBusyChanged)
   Q_PROPERTY(bool executionPaused READ executionPaused NOTIFY executionStateChanged)
   Q_PROPERTY(QString executionOutput READ executionOutput NOTIFY executionOutputChanged)
+  Q_PROPERTY(bool executionOutputError READ executionOutputError NOTIFY executionOutputChanged)
   Q_PROPERTY(QString progressSummary READ progressSummary NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QString reviewSummary READ reviewSummary NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY reviewItemsChanged)
@@ -91,6 +92,7 @@ class UiShell final : public QObject {
   [[nodiscard]] bool executionBusy() const { return execution_busy_; }
   [[nodiscard]] bool executionPaused() const { return execution_control_.is_paused(); }
   [[nodiscard]] QString executionOutput() const { return execution_output_; }
+  [[nodiscard]] bool executionOutputError() const { return execution_output_error_; }
   [[nodiscard]] QString progressSummary() const { return progress_summary_; }
   [[nodiscard]] QString reviewSummary() const { return review_summary_; }
   [[nodiscard]] QVariantList reviewItems() const { return review_items_; }
@@ -207,6 +209,7 @@ class UiShell final : public QObject {
   QString hints_;
   QString operation_status_;
   QString execution_output_;
+  bool execution_output_error_{};
   QString progress_summary_;
   QString review_summary_;
   QVariantList review_items_;

@@ -689,6 +689,7 @@ void UiShell::runCode() {
           emit executionBusyChanged();
           if (account != active_account_id_ || generation != account_generation_) return;
           execution_output_ = QString::fromUtf8(result.result.message);
+          execution_output_error_ = !result.result.ok;
           emit executionOutputChanged();
           if (result.cancelled) {
             setOperationStatus(QStringLiteral("执行已取消"));

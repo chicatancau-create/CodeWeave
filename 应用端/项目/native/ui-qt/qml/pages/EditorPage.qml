@@ -8,6 +8,16 @@ Item {
     property QtObject ds
     id: editorPage
     property int activeWorkspacePane: 0
+    property bool consoleOutputCleared: false
+    property string consoleCopyStatus: ""
+
+    Connections {
+        target: uiShell
+        function onExecutionOutputChanged() {
+            editorPage.consoleOutputCleared = false;
+            editorPage.consoleCopyStatus = "";
+        }
+    }
 
         ColumnLayout {
             anchors.fill: parent
@@ -605,12 +615,52 @@ Item {
                             anchors.fill: parent
                             anchors.margins: ds.s12
                             spacing: ds.s6
-                            Text {
-                                text: "输出"
-                                color: ds.muted
-                                font.family: ds.ui
-                                font.pixelSize: 12
-                                font.weight: Font.DemiBold
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: ds.s6
+                                Text {
+                                    text: "输出"
+                                    color: uiShell.executionOutputError ? ds.danger : ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    visible: uiShell.executionOutputError
+                                    text: "运行错误"
+                                    color: ds.danger
+                                    font.family: ds.ui
+                                    font.pixelSize: 11
+                                }
+                                Item { Layout.fillWidth: true }
+                                QuietButton {
+                                    id: copyOutputButton
+                                    objectName: "copyOutputButton"
+                                    ds: editorPage.ds
+                                    label: editorPage.consoleCopyStatus || "复制"
+                                    enabled: !editorPage.consoleOutputCleared
+                                             && uiShell.executionOutput.length > 0
+                                    onClicked: {
+                                        outputArea.selectAll();
+                                        outputArea.copy();
+                                        outputArea.deselect();
+                                        editorPage.consoleCopyStatus = "已复制";
+                                    }
+                                    Accessible.name: editorPage.consoleCopyStatus || "复制执行输出"
+                                }
+                                QuietButton {
+                                    id: clearOutputButton
+                                    objectName: "clearOutputButton"
+                                    ds: editorPage.ds
+                                    label: "清空"
+                                    enabled: !editorPage.consoleOutputCleared
+                                             && uiShell.executionOutput.length > 0
+                                    onClicked: {
+                                        editorPage.consoleOutputCleared = true;
+                                        editorPage.consoleCopyStatus = "";
+                                    }
+                                    Accessible.name: "清空控制台显示，不删除执行记录"
+                                }
                             }
                             ScrollView {
                                 Layout.fillWidth: true
@@ -618,11 +668,12 @@ Item {
                                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                                 TextArea {
                                     id: outputArea
+                                    objectName: "outputArea"
                                     focus: true
-                                    text: uiShell.executionOutput
+                                    text: editorPage.consoleOutputCleared ? "" : uiShell.executionOutput
                                     readOnly: true
                                     wrapMode: TextArea.Wrap
-                                    color: ds.success
+                                    color: uiShell.executionOutputError ? ds.danger : ds.success
                                     font.family: ds.mono
                                     font.pixelSize: 12
                                     background: null

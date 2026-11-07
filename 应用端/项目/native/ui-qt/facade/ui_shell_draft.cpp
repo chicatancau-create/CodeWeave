@@ -69,6 +69,9 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   if (!resolved.ok) { setStatus(QString::fromUtf8(resolved.message)); return false; }
   active_account_id_ = QString::fromUtf8(session.current()->id);
   ++account_generation_;
+  execution_output_.clear();
+  execution_output_error_ = false;
+  emit executionOutputChanged();
   // Reads belong to the previous account/document. Invalidate their callbacks
   // before resetting the visible state; the worker may finish later.
   content_task_id_.clear();
@@ -89,6 +92,9 @@ bool UiShell::clearAccountContext() {
   if (draft_saving_ || !allowDocumentChange()) return false;
   active_account_id_.clear();
   ++account_generation_;
+  execution_output_.clear();
+  execution_output_error_ = false;
+  emit executionOutputChanged();
   content_task_id_.clear();
   draft_task_id_.clear();
   content_busy_ = false;

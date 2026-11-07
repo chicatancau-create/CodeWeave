@@ -3,6 +3,7 @@
 #include "native_dialogs.hpp"
 
 #include <QGuiApplication>
+#include <QColor>
 #include <QDir>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -545,6 +546,21 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("python-execution"), shell.executionOutput().contains(QStringLiteral("15")),
               shell.executionOutput());
           {
+            auto* copy_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("copyOutputButton"));
+            auto* clear_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("clearOutputButton"));
+            auto* output_area = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("outputArea"));
+            const bool copy_invoked = copy_button && copy_button->property("enabled").toBool() &&
+                QMetaObject::invokeMethod(copy_button, "clicked", Qt::DirectConnection);
+            const bool copied = copy_invoked && QGuiApplication::clipboard()->text() == shell.executionOutput();
+            u3_record(*context, QStringLiteral("console-copy-output"), copied);
+            const bool clear_invoked = clear_button && output_area &&
+                clear_button->property("enabled").toBool() &&
+                QMetaObject::invokeMethod(clear_button, "clicked", Qt::DirectConnection);
+            u3_record(*context, QStringLiteral("console-clear-display-preserves-result"),
+                clear_invoked && output_area->property("text").toString().isEmpty() &&
+                shell.executionOutput() == QStringLiteral("15\n"));
+          }
+          {
             const auto index = shell.publishedIds().indexOf(QStringLiteral("java-loop-sum"));
             if (index < 0) { u3_record(*context, QStringLiteral("java-execution"), false,
                 QStringLiteral("缺少 java-loop-sum 内容")); context->step = 99; return; }
@@ -665,6 +681,14 @@ int main(int argc, char* argv[]) {
           if (shell.executionBusy()) return;
           u3_record(*context, QStringLiteral("execution-timeout"),
               shell.executionOutput().contains(QStringLiteral("超时")), shell.executionOutput());
+          {
+            auto* output_area = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("outputArea"));
+            auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+            const auto color = output_area ? output_area->property("color").value<QColor>() : QColor();
+            const auto danger = design_system ? design_system->property("danger").value<QColor>() : QColor();
+            u3_record(*context, QStringLiteral("console-error-row-style"),
+                shell.executionOutputError() && danger.isValid() && color == danger);
+          }
           shell.openFreeProgram(QStringLiteral("python"));
           context->step = 65;
           return;

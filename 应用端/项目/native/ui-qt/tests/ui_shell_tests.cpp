@@ -170,8 +170,17 @@ int main(int argc, char** argv) {
     shell.runCode();
     assert(!shell.executionBusy());
     assert(shell.operationStatus() == QStringLiteral("尚未配置该语言的执行工具"));
+    shell.configureExecutionTool(QStringLiteral("python"), std::filesystem::path(argv[4]));
+    shell.updateDraftCode(QStringLiteral("raise SystemExit(1)\n"));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy(); });
+    assert(shell.executionOutputError());
+    assert(shell.executionOutput() == QStringLiteral("process_exit_nonzero"));
     shell.logout();
     assert(!shell.hasActiveAccount());
+    assert(shell.executionOutput().isEmpty() && !shell.executionOutputError());
     const auto document = shell.documentId();
     saved_document = document;
     shell.discardDraftChanges();
