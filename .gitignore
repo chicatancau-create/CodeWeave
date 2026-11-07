@@ -27,6 +27,11 @@ win-unpacked/
 local.properties
 .externalNativeBuild/
 .cxx/
+.kotlin/
+captures/
+*.jks
+*.keystore
+key.properties
 
 # 编辑器与系统
 .vscode/
@@ -35,11 +40,18 @@ local.properties
 Thumbs.db
 
 # 交付产物与本机归档：不得进入公开仓库
-/CodeWeave.exe
-/*.exe
+*.exe
+*.msi
+*.msix
+*.msixbundle
+*.apk
+*.aab
 /备份区/
-/工作区/data/
-/工作区/build/
+/工作区/*
+!/工作区/工程审查待办.md
+!/工作区/config/
+/工作区/config/*
+!/工作区/config/codeweave.config.example.json
 
 # 原生模块的临时构建目录（另一个会话正在产生，名字不匹配 build/）
 **/native/build*/

@@ -2,11 +2,11 @@
 
 这是应用端的 C++23/Win32 产品实现。`native/src/main.cpp` 提供窗口与用户流程，核心库提供账户、内容、草稿、执行、轨迹、学习证据、进度、迁移和备份服务。
 
-MSVC 14.44.35207、Windows SDK 10.0.26100.0、CMake/Ninja 已验证。运行：
+在仓库根目录调用当前 Qt 构建入口（需要本机 Qt 6.8.3、VS2022 和现有 `.local` junction）：
 
 ```powershell
-cmake --build native/build-g1-msvc-1 --config Release
-ctest --test-dir native/build-g1-msvc-1 -C Release --output-on-failure
+cmd /c 工程文件\工具\构建当前Qt.cmd
+ctest --test-dir .local/qt/current --output-on-failure
 ```
 
 发布构建使用 `BUILD_TESTING=OFF`，再由 `scripts/package-native.mjs` 将 EXE、`native/content`、配置标记、许可证和 manifest 放入独立目录。程序运行不需要 Node、网页端、服务器或端口。用户选择的语言工具必须通过绝对路径白名单或“选择语言工具”设置。

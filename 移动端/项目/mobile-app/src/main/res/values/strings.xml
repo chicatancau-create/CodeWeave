@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">CodeWeave</string>
+    <string name="scaffold_ready">工程骨架已就绪</string>
+</resources>

@@ -1,4 +1,5 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
+**/gradlew text eol=lf
 # These published payloads contain SHA-256 digests; checkout must preserve bytes.
 **/native/content/** -text

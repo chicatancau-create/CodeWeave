@@ -1,3 +1,7 @@
+# 使用说明：此文件是步骤样例，未启用为 GitHub Actions 工作流。
+# 在既有 CI 的网页端/项目工作目录运行；先按 package.json 的 engines 安装 Node，
+# 启用 Corepack，并执行 corepack pnpm install --frozen-lockfile。
+# pnpm 版本以 package.json 的 packageManager 为准；完整入口为 corepack pnpm verify。
 name: Web-only verification
 
 steps:
