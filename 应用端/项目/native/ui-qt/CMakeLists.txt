@@ -78,6 +78,7 @@ qt_add_qml_module(codeweave-qt
     qml/pages/AnalyticsPage.qml
     qml/pages/ChallengePage.qml
     qml/pages/DraftsPage.qml
+    qml/pages/EditorPage.qml
     qml/pages/ReviewPage.qml
     qml/pages/StudyPage.qml
 )
