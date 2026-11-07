@@ -6,6 +6,15 @@ qt_policy(SET QTP0004 NEW)
 
 project(CodeWeaveQtShell LANGUAGES CXX)
 
+find_program(CODEWEAVE_NODE_EXECUTABLE NAMES node REQUIRED)
+set(CHALLENGE_TEACHING_RUNTIME "${CMAKE_CURRENT_BINARY_DIR}/teaching-runtime.js")
+add_custom_command(OUTPUT "${CHALLENGE_TEACHING_RUNTIME}"
+  COMMAND "${CODEWEAVE_NODE_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/../scripts/export-teaching-runtime.mjs"
+    "${CHALLENGE_TEACHING_RUNTIME}"
+  DEPENDS "${CMAKE_SOURCE_DIR}/../scripts/export-teaching-runtime.mjs"
+    "${CMAKE_SOURCE_DIR}/../../../网页端/项目/src/engine/teaching-runtime.ts"
+  VERBATIM)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -22,6 +31,8 @@ qt_add_executable(codeweave-qt
   facade/ui_shell_operations.cpp
   facade/ui_shell.hpp
 )
+qt_add_resources(codeweave-qt challenge_runtime_resource PREFIX "/challenge"
+  BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES "${CHALLENGE_TEACHING_RUNTIME}")
 
 add_library(codeweave-content-qt STATIC
   ../src/app_core.cpp
@@ -150,8 +161,10 @@ if (BUILD_TESTING)
   add_executable(codeweave-qt-facade-tests
     tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell_account.cpp
     facade/ui_shell_operations.cpp facade/ui_shell.hpp)
+  qt_add_resources(codeweave-qt-facade-tests challenge_runtime_test_resource PREFIX "/challenge"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES "${CHALLENGE_TEACHING_RUNTIME}")
   target_include_directories(codeweave-qt-facade-tests PRIVATE facade)
-  target_link_libraries(codeweave-qt-facade-tests PRIVATE Qt6::Core codeweave-content-qt)
+  target_link_libraries(codeweave-qt-facade-tests PRIVATE Qt6::Core Qt6::Qml codeweave-content-qt)
   if (MSVC)
     set_property(TARGET codeweave-qt-facade-tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
     target_compile_options(codeweave-qt-facade-tests PRIVATE /UNDEBUG /utf-8 /W4)

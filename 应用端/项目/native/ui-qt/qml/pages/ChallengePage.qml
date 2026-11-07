@@ -749,7 +749,8 @@ Item {
                         font.pixelSize: 13
                     }
                     Text {
-                        text: uiShell.selectedChallenge.runner === "external" ? "外部环境实验" : "教学运行器"
+                        text: uiShell.selectedChallenge.runner === "external" ? "外部环境实验"
+                              : uiShell.selectedChallenge.runner === "teaching" ? "教学运行器" : "Qt JS 隔离运行"
                         color: uiShell.selectedChallenge.runner === "external" ? ds.warning : ds.success
                         font.family: ds.ui
                         font.pixelSize: 13
@@ -897,14 +898,14 @@ Item {
                             Layout.fillWidth: true
                             text: uiShell.selectedChallenge.runner === "external"
                                   ? "本关需要在本地外部环境完成。"
-                                  : "本关暂不支持在应用内运行，课程练习结果不计入本关验收。"
+                                  : "运行检查尚未提交，不影响学习进度。"
                             color: ds.muted
                             font.family: ds.ui
                             font.pixelSize: 13
                             wrapMode: Text.WordWrap
                         }
                         Text {
-                            text: "起始代码"
+                            text: "代码草稿"
                             color: ds.ink
                             font.family: ds.ui
                             font.pixelSize: 13
@@ -913,10 +914,11 @@ Item {
                         TextArea {
                             objectName: "challengeStarterCode"
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            readOnly: true
+                            Layout.preferredHeight: 240
+                            readOnly: uiShell.selectedChallenge.runner === "external" || uiShell.challengeRunBusy
                             selectByMouse: true
-                            text: uiShell.selectedChallenge.starterCode || "暂无起始代码。"
+                            text: uiShell.challengeCode
+                            onTextChanged: if (!readOnly && text !== uiShell.challengeCode) uiShell.updateChallengeCode(text)
                             color: ds.codeInk
                             font.family: ds.mono
                             font.pixelSize: 13
@@ -931,9 +933,60 @@ Item {
                             objectName: "challengeRunUnavailable"
                             ds: challengePage.ds
                             implicitHeight: 44
-                            label: "运行检查待接入"
-                            enabled: false
+                            label: uiShell.challengeRunBusy ? "取消运行" : "运行检查"
+                            enabled: uiShell.selectedChallenge.runner !== "external"
+                                     && !uiShell.executionBusy && !uiShell.operationBusy
+                            onClicked: uiShell.challengeRunBusy ? uiShell.cancelChallenge() : uiShell.runChallenge()
                             Layout.alignment: Qt.AlignRight
+                        }
+                        BusyIndicator {
+                            visible: uiShell.challengeRunBusy
+                            running: visible
+                            Layout.alignment: Qt.AlignRight
+                            Layout.preferredHeight: 28
+                            Layout.preferredWidth: 28
+                        }
+                        ColumnLayout {
+                            objectName: "challengeJudgement"
+                            Layout.fillWidth: true
+                            spacing: ds.s8
+                            visible: Object.keys(uiShell.challengeRunResult).length > 0
+                            Text {
+                                objectName: "challengeJudgementStatus"
+                                Layout.fillWidth: true
+                                text: uiShell.challengeRunResult.error ||
+                                      (uiShell.challengeRunResult.passed ? "验收点全部命中" : "验收点尚未全部命中")
+                                color: uiShell.challengeRunResult.error || !uiShell.challengeRunResult.passed
+                                       ? ds.danger : ds.success
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                wrapMode: Text.WrapAnywhere
+                            }
+                            Repeater {
+                                model: uiShell.challengeRunResult.cases || []
+                                delegate: Text {
+                                    required property var modelData
+                                    required property int index
+                                    objectName: "challengeJudgementCase-" + index
+                                    Layout.fillWidth: true
+                                    text: (modelData.matched ? "命中 · " : "未命中 · ") + modelData.expected
+                                          + "\n" + (modelData.matched ? "＝ " + modelData.actual : modelData.reason)
+                                    color: modelData.matched ? ds.success : ds.danger
+                                    font.family: ds.mono
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WrapAnywhere
+                                }
+                            }
+                            Text {
+                                objectName: "challengeExtraLines"
+                                Layout.fillWidth: true
+                                visible: (uiShell.challengeRunResult.extraLines || []).length > 0
+                                text: "多印：" + (uiShell.challengeRunResult.extraLines || []).join(" / ")
+                                color: ds.warning
+                                font.family: ds.mono
+                                font.pixelSize: 12
+                                wrapMode: Text.WrapAnywhere
+                            }
                         }
                     }
                 }

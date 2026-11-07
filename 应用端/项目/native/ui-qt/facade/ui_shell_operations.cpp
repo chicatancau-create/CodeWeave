@@ -114,6 +114,7 @@ void UiShell::openFreeProgram(const QString& language) {
     setOperationStatus(QStringLiteral("不支持的自由编程语言"));
     return;
   }
+  closeChallenge();
   clearDraft();
   selected_content_index_ = -1;
   selected_content_id_ = QStringLiteral("free-") + language;
@@ -691,7 +692,7 @@ void UiShell::runCode() {
             "op-" + unique.substr(0, 20) + "-" + suffix,
             independent, hints_viewed ? "L3" : exercise.hint_level};
         const auto recorded = codeweave::learning::ChallengeService(evidence, progress)
-            .record_execution(challenge, *result.process);
+            .record_course_execution(challenge, *result.process);
         if (!recorded.validation.ok) return recorded.validation;
         *challenge_status = QString::fromUtf8(recorded.validation.message);
       }

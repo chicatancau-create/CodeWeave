@@ -912,7 +912,7 @@ void run_execution_request() {
       codeweave::learning::ChallengeRequest challenge{
           evidence_id_for(request.session_id, generation), content_id, exercise_id, stamp,
           expected_output, operation, independent, hint_level};
-      const auto challenge_result = challenge_service->record_execution(challenge, *result->process);
+      const auto challenge_result = challenge_service->record_course_execution(challenge, *result->process);
       challenge_message = challenge_result.validation.message;
     } else if (result->process.has_value() && result->process->started &&
         !result->process->execution_output_valid) {

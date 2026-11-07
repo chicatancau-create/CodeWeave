@@ -1,5 +1,6 @@
 #include "ui_shell.hpp"
 #include "evidence_store.hpp"
+#include "challenge_runtime.hpp"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -57,6 +58,7 @@ struct UiShellTestAccess {
 
 int main(int argc, char** argv) {
   QCoreApplication application(argc, argv);
+  if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") return challenge_worker_main();
   assert(argc == 6);
   QTemporaryDir temporary;
   assert(temporary.isValid());
@@ -120,9 +122,77 @@ int main(int argc, char** argv) {
     shell.login(QStringLiteral("qt@example.test"), QStringLiteral("Test-Password-123!"));
     wait_for([&] { return !shell.accountBusy(); });
     assert(shell.hasActiveAccount());
+    // Runs are challenge-scoped, never consume the selected lesson draft and
+    // do not create learning facts until a separate submission command.
+    const auto challenge_learning_root = data / "accounts" /
+        shell.activeAccountId().toStdString() / "learning";
+    const auto lesson_before_challenge = shell.documentId();
+    for (const auto& id : {QStringLiteral("stage-b"), QStringLiteral("stage-c"),
+                          QStringLiteral("stage-d"), QStringLiteral("stage-j")}) {
+      shell.openChallenge(id);
+      shell.runChallenge();
+      assert(shell.challengeRunBusy());
+      wait_for([&] { return !shell.challengeRunBusy(); });
+      const auto result = shell.challengeRunResult();
+      if (!result.value(QStringLiteral("passed")).toBool())
+        std::cerr << "Challenge run failed: " << id.toStdString() << " "
+                  << result.value(QStringLiteral("error")).toString().toStdString() << '\n';
+      assert(result.value(QStringLiteral("passed")).toBool());
+      assert(!result.value(QStringLiteral("cases")).toList().isEmpty());
+    }
+    assert(shell.documentId() == lesson_before_challenge);
+    assert(!std::filesystem::exists(challenge_learning_root / "evidence.v1.log"));
+    assert(!std::filesystem::exists(challenge_learning_root / "progress.v1.log"));
+    shell.openChallenge(QStringLiteral("stage-d"));
+    shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(!shell.challengeRunResult().value(QStringLiteral("passed")).toBool());
+    assert(shell.challengeRunResult().value(QStringLiteral("cases")).toList().size() == 3);
+    assert(shell.challengeRunResult().value(QStringLiteral("extraLines")).toList().size() == 1);
+    shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');\n"));
+    assert(shell.challengeRunResult().isEmpty());
+    shell.updateChallengeCode(QStringLiteral("console.log(typeof Qt, typeof require, typeof fetch, typeof process);"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("output")).toList().first().toString()
+        == QStringLiteral("undefined undefined undefined undefined"));
+    shell.updateChallengeCode(QStringLiteral("while (true) {}"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("超时")));
+    shell.runChallenge();
+    shell.cancelChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("取消")));
+    shell.updateChallengeCode(QStringLiteral("throw new Error('fixture failure')"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("fixture failure")));
+    assert(!shell.challengeRunResult().contains(QStringLiteral("cases")));
+    shell.openChallenge(QStringLiteral("stage-a"));
+    shell.runChallenge();
+    assert(!shell.challengeRunBusy() && shell.challengeRunResult().contains(QStringLiteral("error")));
+    shell.openChallenge(QStringLiteral("stage-d"));
+    shell.updateChallengeCode(QStringLiteral("while (true) {}"));
+    shell.runChallenge();
+    assert(shell.challengeRunBusy());
+    shell.closeChallenge();
+    shell.openChallenge(QStringLiteral("stage-d"));
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeDetailOpen() && shell.challengeRunResult().isEmpty());
+    shell.updateChallengeCode(QStringLiteral("for (let i = 0; i < 101; ++i) console.log(i);"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("输出超过上限")));
+    const auto retained_challenge_code = shell.challengeCode();
+    shell.closeChallenge();
     shell.configureAccountStorage(workspace, data);
     shell.openPublishedContent(0);
     wait_for([&] { return !shell.contentBusy(); });
+    shell.openChallenge(QStringLiteral("stage-d"));
+    assert(shell.challengeCode() == retained_challenge_code);
+    shell.closeChallenge();
     // Opening a published unit must complete the body -> starter chain without
     // requiring a second UI command. This is the regression for the broken
     // interaction path that left the editor without a language or draft.
@@ -254,8 +324,14 @@ int main(int argc, char** argv) {
     wait_for([&] { return !shell.contentBusy(); });
     assert(shell.draftCode().isEmpty() && !shell.draftDirty());
     const auto generation = shell.accountGeneration();
+    shell.openChallenge(QStringLiteral("stage-d"));
+    shell.updateChallengeCode(QStringLiteral("console.log('account-private challenge draft');"));
     wait_for([&] { return shell.setAccountContext(second, workspace, data); });
     wait_for([&] { return !shell.contentBusy(); });
+    assert(!shell.challengeDetailOpen() && shell.challengeRunResult().isEmpty());
+    shell.openChallenge(QStringLiteral("stage-d"));
+    assert(shell.challengeCode() == shell.selectedChallenge().value(QStringLiteral("starterCode")).toString());
+    shell.closeChallenge();
     assert(shell.accountGeneration() > generation && shell.draftCode() == shell.starterCode());
     assert(shell.progressSummary().isEmpty() && shell.reviewSummary().isEmpty());
     shell.refreshReviewSummary();

@@ -35,7 +35,13 @@ class ChallengeService final {
   ChallengeResult record_execution(const ChallengeRequest& request,
       const execution::ProcessResult& process_result);
 
+  // Course exercises keep the historic whole-output contract used by review.
+  ChallengeResult record_course_execution(const ChallengeRequest& request,
+      const execution::ProcessResult& process_result);
+
  private:
+  ChallengeResult record_with_judgement(const ChallengeRequest& request,
+      const execution::ProcessResult& process_result, OutputJudgement judgement);
   EvidenceStore& evidence_store_;
   ProgressStore& progress_store_;
 };

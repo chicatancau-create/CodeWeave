@@ -49,16 +49,15 @@ inline std::vector<std::string> output_lines(std::string_view output) {
 }
 
 inline OutputJudgement judge_output(const std::vector<std::string>& expected,
-    std::string_view actual) {
+    const std::vector<std::string>& actual_lines) {
   OutputJudgement result;
-  const auto actual_lines = output_lines(actual);
   std::vector<bool> used(actual_lines.size(), false);
   result.cases.reserve(expected.size());
   for (const auto& want : expected) {
     const auto target = trim_output(want);
     std::size_t match = actual_lines.size();
     for (std::size_t index = 0; index < actual_lines.size(); ++index) {
-      if (!used[index] && actual_lines[index] == target) {
+      if (!used[index] && trim_output(actual_lines[index]) == target) {
         match = index;
         break;
       }
@@ -73,7 +72,7 @@ inline OutputJudgement judge_output(const std::vector<std::string>& expected,
     for (std::size_t index = 0; index < actual_lines.size(); ++index) {
       if (used[index]) continue;
       has_unused_line = true;
-      if (actual_lines[index].find(target) != std::string::npos) {
+      if (trim_output(actual_lines[index]).find(target) != std::string_view::npos) {
         reason = "只有包含验收点的输出行";
         break;
       }
@@ -88,6 +87,11 @@ inline OutputJudgement judge_output(const std::vector<std::string>& expected,
       std::all_of(result.cases.begin(), result.cases.end(),
           [](const auto& item) { return item.matched; });
   return result;
+}
+
+inline OutputJudgement judge_output(const std::vector<std::string>& expected,
+    std::string_view actual) {
+  return judge_output(expected, output_lines(actual));
 }
 
 }  // namespace codeweave::learning

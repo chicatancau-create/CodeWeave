@@ -11,24 +11,12 @@ namespace codeweave::learning {
 ChallengeService::ChallengeService(EvidenceStore& evidence_store, ProgressStore& progress_store)
     : evidence_store_(evidence_store), progress_store_(progress_store) {}
 
-ChallengeResult ChallengeService::record_execution(const ChallengeRequest& request,
-    const execution::ProcessResult& process_result) {
+ChallengeResult ChallengeService::record_with_judgement(const ChallengeRequest& request,
+    const execution::ProcessResult& process_result, OutputJudgement judgement) {
   if (request.expected_output.size() > 4000)
     return {app::Result::failure("挑战预期输出过长"), false, false, false, {}};
   if (process_result.output.size() > 4000)
     return {app::Result::failure("挑战实际输出过长"), false, false, false, {}};
-  std::vector<std::string> expected_lines;
-  std::size_t start = 0;
-  while (start < request.expected_output.size()) {
-    const auto end = request.expected_output.find('\n', start);
-    auto line = std::string_view(request.expected_output).substr(start,
-        end == std::string::npos ? request.expected_output.size() - start : end - start);
-    if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
-    expected_lines.emplace_back(line);
-    if (end == std::string::npos) break;
-    start = end + 1;
-  }
-  const auto judgement = judge_output(expected_lines, process_result.output);
   const bool passed = process_result.started && process_result.exit_code == 0 && process_result.error_code.empty() &&
       process_result.execution_output_valid &&
       judgement.passed;
@@ -61,6 +49,32 @@ ChallengeResult ChallengeService::record_execution(const ChallengeRequest& reque
         true, evidence_duplicate, progress_duplicate, judgement};
   }
   return {app::Result::success("挑战通过，证据与正式进度已保存"), true, evidence_duplicate, progress_duplicate, judgement};
+}
+
+ChallengeResult ChallengeService::record_execution(const ChallengeRequest& request,
+    const execution::ProcessResult& process_result) {
+  if (request.expected_output.size() > 4000 || process_result.output.size() > 4000)
+    return {app::Result::failure("挑战输出过长"), false, false, false, {}};
+  std::vector<std::string> expected_lines;
+  std::size_t start = 0;
+  while (start < request.expected_output.size()) {
+    const auto end = request.expected_output.find('\n', start);
+    auto line = std::string_view(request.expected_output).substr(start,
+        end == std::string::npos ? request.expected_output.size() - start : end - start);
+    if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+    expected_lines.emplace_back(line);
+    if (end == std::string::npos) break;
+    start = end + 1;
+  }
+  auto judgement = judge_output(expected_lines, process_result.output);
+  return record_with_judgement(request, process_result, std::move(judgement));
+}
+
+ChallengeResult ChallengeService::record_course_execution(const ChallengeRequest& request,
+    const execution::ProcessResult& process_result) {
+  OutputJudgement judgement;
+  judgement.passed = output_matches(process_result.output, request.expected_output);
+  return record_with_judgement(request, process_result, std::move(judgement));
 }
 
 }  // namespace codeweave::learning

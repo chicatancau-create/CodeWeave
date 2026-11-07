@@ -28,7 +28,7 @@ void UiShell::dismissContentStatus() {
 }
 
 bool UiShell::allowDocumentChange() {
-  if (closing_ || operation_busy_ || execution_busy_ || account_busy_) return false;
+  if (closing_ || operation_busy_ || execution_busy_ || challenge_run_busy_ || account_busy_) return false;
   if (!draftDirty()) return true;
   setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
   return false;
@@ -61,6 +61,14 @@ void UiShell::clearDraft() {
   emit draftPersistenceBlockedChanged();
 }
 
+void UiShell::clearChallengeDrafts() {
+  closeChallenge();
+  challenge_drafts_.clear();
+  challenge_run_result_.clear();
+  emit challengeCodeChanged();
+  emit challengeRunResultChanged();
+}
+
 bool UiShell::setAccountContext(const codeweave::account::AccountService& session,
     const std::filesystem::path& workspace, const std::filesystem::path& nativeDataRoot) {
   if (draft_saving_ || !allowDocumentChange()) return false;
@@ -84,6 +92,7 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   data_root_ = account_root;
   // All core I/O runs on the serial worker. The previous core is idle here.
   personal_core_ = std::make_shared<codeweave::app::ApplicationCore>();
+  clearChallengeDrafts();
   clearDraft();
   emit accountChanged();
   if (hasSelectedContent()) loadStarterCode();
@@ -108,6 +117,7 @@ bool UiShell::clearAccountContext() {
   // its core lock are cleared here.
   data_root_ = native_data_root_;
   personal_core_.reset();
+  clearChallengeDrafts();
   clearDraft();
   emit accountChanged();
   return true;

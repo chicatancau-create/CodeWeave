@@ -7,6 +7,7 @@
 #include "review_service.hpp"
 
 #include <QObject>
+#include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -24,6 +25,9 @@ class UiShell final : public QObject {
   Q_PROPERTY(QVariantList challengeMeta READ challengeMeta NOTIFY publishedTitlesChanged)
   Q_PROPERTY(QVariantMap selectedChallenge READ selectedChallenge NOTIFY challengeSelectionChanged)
   Q_PROPERTY(bool challengeDetailOpen READ challengeDetailOpen NOTIFY challengeSelectionChanged)
+  Q_PROPERTY(QString challengeCode READ challengeCode NOTIFY challengeCodeChanged)
+  Q_PROPERTY(QVariantMap challengeRunResult READ challengeRunResult NOTIFY challengeRunResultChanged)
+  Q_PROPERTY(bool challengeRunBusy READ challengeRunBusy NOTIFY challengeRunBusyChanged)
   Q_PROPERTY(QString selectedContentBody READ selectedContentBody NOTIFY selectedContentBodyChanged)
   Q_PROPERTY(QString starterLanguage READ starterLanguage NOTIFY starterCodeChanged)
   Q_PROPERTY(QString starterCode READ starterCode NOTIFY starterCodeChanged)
@@ -72,6 +76,9 @@ class UiShell final : public QObject {
   [[nodiscard]] QVariantList challengeMeta() const { return challenge_meta_; }
   [[nodiscard]] QVariantMap selectedChallenge() const { return selected_challenge_; }
   [[nodiscard]] bool challengeDetailOpen() const { return !selected_challenge_.isEmpty(); }
+  [[nodiscard]] QString challengeCode() const;
+  [[nodiscard]] QVariantMap challengeRunResult() const { return challenge_run_result_; }
+  [[nodiscard]] bool challengeRunBusy() const { return challenge_run_busy_; }
   [[nodiscard]] QString selectedContentBody() const;
   [[nodiscard]] QString starterLanguage() const;
   [[nodiscard]] QString starterCode() const;
@@ -113,6 +120,9 @@ class UiShell final : public QObject {
   Q_INVOKABLE void reloadPublishedContent();
   Q_INVOKABLE void openChallenge(const QString& challengeId);
   Q_INVOKABLE void closeChallenge();
+  Q_INVOKABLE void updateChallengeCode(const QString& code);
+  Q_INVOKABLE void runChallenge();
+  Q_INVOKABLE void cancelChallenge();
   Q_INVOKABLE void openPublishedContent(int index);
   Q_INVOKABLE void loadStarterCode();
   Q_INVOKABLE void updateDraftCode(const QString& code);
@@ -167,6 +177,9 @@ class UiShell final : public QObject {
   void publishedTitlesChanged();
    void publishedIdsChanged();
   void challengeSelectionChanged();
+  void challengeCodeChanged();
+  void challengeRunResultChanged();
+  void challengeRunBusyChanged();
   void selectedContentBodyChanged();
   void selectedContentChanged();
   void starterCodeChanged();
@@ -192,6 +205,7 @@ class UiShell final : public QObject {
  private:
   friend struct UiShellTestAccess;
   void clearDraft();
+  void clearChallengeDrafts();
   void loadAccountDraft();
   bool allowDocumentChange();
   void setStatus(const QString& status);
@@ -208,6 +222,12 @@ class UiShell final : public QObject {
   QVariantList lesson_meta_;
   QVariantList challenge_meta_;
   QVariantMap selected_challenge_;
+  QHash<QString, QString> challenge_drafts_;
+  QVariantMap challenge_run_result_;
+  bool challenge_run_busy_{};
+  std::atomic_bool challenge_cancelled_{false};
+  QString challenge_task_id_;
+  std::uint64_t challenge_revision_{};
   QString selected_content_body_;
   QString starter_language_;
   QString starter_code_;

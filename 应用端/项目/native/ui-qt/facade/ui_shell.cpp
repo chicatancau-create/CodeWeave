@@ -1,6 +1,8 @@
 #include "ui_shell.hpp"
 
 #include "content_repository.hpp"
+#include "challenge_runtime.hpp"
+#include "output_comparison.hpp"
 
 #include <QEventLoop>
 #include <QDir>
@@ -27,6 +29,7 @@ UiShell::UiShell(QObject* parent)
 bool UiShell::drain_backend_tasks(int budget_ms) {
   closing_ = true;
   execution_cancelled_.store(true, std::memory_order_release);
+  challenge_cancelled_.store(true, std::memory_order_release);
   backend_tasks_.close();
   if (!backend_tasks_.stopped()) {
     QEventLoop pump;
@@ -170,14 +173,145 @@ void UiShell::openChallenge(const QString& challengeId) {
   const auto selected = match->toMap();
   selectPage(QStringLiteral("挑战"));
   if (selected_challenge_ == selected) return;
+  if (challenge_run_busy_) cancelChallenge();
+  ++challenge_revision_;
   selected_challenge_ = selected;
+  if (!challenge_drafts_.contains(challengeId))
+    challenge_drafts_.insert(challengeId, selected.value(QStringLiteral("starterCode")).toString());
+  challenge_run_result_.clear();
   emit challengeSelectionChanged();
+  emit challengeCodeChanged();
+  emit challengeRunResultChanged();
 }
 
 void UiShell::closeChallenge() {
   if (selected_challenge_.isEmpty()) return;
+  if (challenge_run_busy_) cancelChallenge();
+  ++challenge_revision_;
   selected_challenge_.clear();
+  challenge_run_result_.clear();
   emit challengeSelectionChanged();
+  emit challengeRunResultChanged();
+}
+
+QString UiShell::challengeCode() const {
+  return challenge_drafts_.value(selected_challenge_.value(QStringLiteral("id")).toString(),
+      selected_challenge_.value(QStringLiteral("starterCode")).toString());
+}
+
+void UiShell::updateChallengeCode(const QString& code) {
+  if (selected_challenge_.isEmpty() || code.toUtf8().size() > 65536) return;
+  const auto id = selected_challenge_.value(QStringLiteral("id")).toString();
+  if (challenge_drafts_.value(id) == code) return;
+  challenge_drafts_.insert(id, code);
+  ++challenge_revision_;
+  if (challenge_run_busy_) cancelChallenge();
+  challenge_run_result_.clear();
+  emit challengeCodeChanged();
+  emit challengeRunResultChanged();
+}
+
+void UiShell::runChallenge() {
+  if (closing_ || account_busy_ || selected_challenge_.isEmpty() || challenge_run_busy_ ||
+      execution_busy_ || operation_busy_) return;
+  const auto runner = selected_challenge_.value(QStringLiteral("runner")).toString();
+  if (runner != QStringLiteral("teaching") && runner != QStringLiteral("javascript-sandbox")) {
+    challenge_run_result_ = {{QStringLiteral("error"), QStringLiteral("本关需要在外部环境完成")}};
+    emit challengeRunResultChanged();
+    return;
+  }
+  const auto source = challengeCode();
+  if (source.trimmed().isEmpty() || source.toUtf8().size() > 65536) {
+    challenge_run_result_ = {{QStringLiteral("error"), QStringLiteral("代码为空或超过 64 KiB 上限")}};
+    emit challengeRunResultChanged();
+    return;
+  }
+  challenge_cancelled_.store(false, std::memory_order_release);
+  challenge_run_result_.clear();
+  emit challengeRunResultChanged();
+  challenge_run_busy_ = true;
+  emit challengeRunBusyChanged();
+  const auto selected = selected_challenge_;
+  const auto generation = account_generation_;
+  const auto revision = challenge_revision_;
+  const auto request_name = QStringLiteral("qt-challenge-%1").arg(next_task_id_++);
+  challenge_task_id_ = request_name;
+  codeweave::backend::TaskRequest request;
+  request.task_id = request_name.toStdString();
+  request.account_id = active_account_id_.toStdString();
+  request.account_generation = account_generation_;
+  request.kind = codeweave::backend::TaskKind::Execute;
+  request.work = [selected, source, this](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("执行已取消");
+    QVariantMap run_request{
+        {QStringLiteral("runner"), selected.value(QStringLiteral("runner"))},
+        {QStringLiteral("language"), selected.value(QStringLiteral("language"))},
+        {QStringLiteral("code"), source}};
+    const auto raw = run_challenge_process(run_request,
+        [&] { return token.cancelled() || challenge_cancelled_.load(std::memory_order_acquire); });
+    if (raw.contains(QStringLiteral("error")))
+      return codeweave::app::Result::failure(raw.value(QStringLiteral("error")).toString().toStdString());
+    return codeweave::app::Result::success(QJsonDocument::fromVariant(raw).toJson(QJsonDocument::Compact).toStdString());
+  };
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, request_name, selected, source, generation, revision](codeweave::backend::TaskResult task_result) mutable {
+        QMetaObject::invokeMethod(this, [this, request_name, selected, source, generation, revision,
+            task_result = std::move(task_result)]() mutable {
+          if (request_name != challenge_task_id_) return;
+          challenge_task_id_.clear();
+          challenge_run_busy_ = false;
+          emit challengeRunBusyChanged();
+          if (revision != challenge_revision_ || generation != account_generation_ || source != challengeCode() ||
+              selected.value(QStringLiteral("id")) !=
+              selected_challenge_.value(QStringLiteral("id"))) return;
+          QVariantMap result;
+          if (task_result.cancelled) {
+            result.insert(QStringLiteral("error"), QStringLiteral("执行已取消"));
+          } else if (!task_result.result.ok) {
+            result.insert(QStringLiteral("error"), QString::fromUtf8(task_result.result.message));
+          } else {
+            const auto raw = QJsonDocument::fromJson(QByteArray::fromStdString(task_result.result.message)).object();
+            const auto output = raw.value(QStringLiteral("output")).toArray();
+            std::vector<std::string> lines;
+            for (const auto& value : output) lines.push_back(value.toString().toUtf8().toStdString());
+            QStringList expected;
+            for (const auto& value : selected.value(QStringLiteral("targetOutput")).toList())
+              expected.append(value.toString());
+            std::vector<std::string> expected_utf8;
+            for (const auto& line : expected) expected_utf8.push_back(line.toUtf8().toStdString());
+            const auto judgement = codeweave::learning::judge_output(expected_utf8, lines);
+            QVariantList cases;
+            for (const auto& item : judgement.cases) {
+              cases.append(QVariantMap{
+                  {QStringLiteral("expected"), QString::fromUtf8(item.expected)},
+                  {QStringLiteral("matched"), item.matched},
+                  {QStringLiteral("actual"), QString::fromUtf8(item.actual)},
+                  {QStringLiteral("reason"), QString::fromUtf8(item.reason)}});
+            }
+            QVariantList extras;
+            for (const auto& line : judgement.extra_lines) extras.append(QString::fromUtf8(line));
+            result.insert(QStringLiteral("passed"), judgement.passed);
+            result.insert(QStringLiteral("output"), output.toVariantList());
+            result.insert(QStringLiteral("cases"), cases);
+            result.insert(QStringLiteral("extraLines"), extras);
+            result.insert(QStringLiteral("tier"), raw.value(QStringLiteral("tier")).toString());
+          }
+          challenge_run_result_ = result;
+          emit challengeRunResultChanged();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    challenge_task_id_.clear();
+    challenge_run_busy_ = false;
+    emit challengeRunBusyChanged();
+    challenge_run_result_ = {{QStringLiteral("error"), QString::fromUtf8(submitted.message)}};
+    emit challengeRunResultChanged();
+  }
+}
+
+void UiShell::cancelChallenge() {
+  if (!challenge_run_busy_) return;
+  challenge_cancelled_.store(true, std::memory_order_release);
 }
 
 void UiShell::reloadPublishedContent() {
@@ -249,6 +383,7 @@ void UiShell::reloadPublishedContent() {
                 selected_content_index_ = -1;
                 selected_content_id_.clear();
                 selected_content_body_.clear();
+                closeChallenge();
                 clearDraft();
                 emit selectedContentChanged();
                 emit selectedContentBodyChanged();
@@ -282,6 +417,7 @@ void UiShell::openPublishedContent(int index) {
   selected_content_index_ = index;
   selected_content_body_.clear();
   emit selectedContentBodyChanged();
+  closeChallenge();
   clearDraft();
   if (selection_changed) emit selectedContentChanged();
   const auto body = std::make_shared<QString>();

@@ -1,6 +1,7 @@
 #include "ui_shell.hpp"
 #include "performance_probe.hpp"
 #include "native_dialogs.hpp"
+#include "challenge_runtime.hpp"
 
 #include <QGuiApplication>
 #include <QColor>
@@ -157,6 +158,10 @@ QQuickItem* u3_find_item(QQuickItem* parent, const QString& name) {
 }
 
 int main(int argc, char* argv[]) {
+  if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") {
+    QCoreApplication application(argc, argv);
+    return challenge_worker_main();
+  }
   for (int index = 1; index < argc; ++index) {
     if (std::string_view(argv[index]) == "--visual-comparison-json" ||
         std::string_view(argv[index]) == "--u3-matrix-json")
@@ -1164,6 +1169,77 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("challenge-detail-escape-restores-list-and-focus"),
               !shell.challengeDetailOpen() && list && list->isVisible() && card && card->hasActiveFocus());
           u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
+          shell.openChallenge(QStringLiteral("stage-d"));
+          context->step = 211;
+          return;
+        }
+        case 211: {
+          auto* starter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeStarterCode"));
+          const bool opened = shell.challengeDetailOpen() &&
+              shell.selectedChallenge().value(QStringLiteral("id")).toString() == QStringLiteral("stage-d") &&
+              starter && starter->property("text").toString() == shell.challengeCode() &&
+              starter->property("readOnly").toBool() == false;
+          u3_record(*context, QStringLiteral("challenge-runner-editor-is-challenge-scoped"), opened);
+          shell.runChallenge();
+          u3_record(*context, QStringLiteral("challenge-run-starts-with-busy-state"), shell.challengeRunBusy());
+          context->step = 212;
+          return;
+        }
+        case 212: {
+          if (shell.challengeRunBusy()) return;
+          const auto result = shell.challengeRunResult();
+          auto* verdict = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeJudgementStatus"));
+          auto* first_case = u3_find_item(view.rootObject(), QStringLiteral("challengeJudgementCase-0"));
+          auto* third_case = u3_find_item(view.rootObject(), QStringLiteral("challengeJudgementCase-2"));
+          const bool passed = result.value(QStringLiteral("passed")).toBool() &&
+              result.value(QStringLiteral("cases")).toList().size() == 3 && verdict && first_case && third_case &&
+              verdict->property("text").toString() == QStringLiteral("验收点全部命中") &&
+              first_case->property("text").toString().contains(QStringLiteral("命中")) &&
+              third_case->property("text").toString().contains(QStringLiteral("跑一次构建"));
+          const QString passed_detail = QStringLiteral("result=%1 cases=%2 verdict=%3 first=%4 third=%5")
+              .arg(result.value(QStringLiteral("passed")).toBool())
+              .arg(result.value(QStringLiteral("cases")).toList().size())
+              .arg(verdict ? verdict->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(first_case ? first_case->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(third_case ? third_case->property("text").toString() : QStringLiteral("<missing>"));
+          u3_record(*context, QStringLiteral("challenge-run-and-per-checkpoint-result-visible"), passed,
+              passed ? QString() : passed_detail);
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-judgement-passed"));
+          shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');"));
+          shell.runChallenge();
+          context->step = 213;
+          return;
+        }
+        case 213: {
+          if (shell.challengeRunBusy()) return;
+          const auto result = shell.challengeRunResult();
+          auto* verdict = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeJudgementStatus"));
+          auto* first_case = u3_find_item(view.rootObject(), QStringLiteral("challengeJudgementCase-0"));
+          auto* extra = u3_find_item(view.rootObject(), QStringLiteral("challengeExtraLines"));
+          const bool failed = !result.value(QStringLiteral("passed")).toBool() &&
+              result.value(QStringLiteral("cases")).toList().size() == 3 && verdict && first_case && extra &&
+              first_case->property("text").toString().startsWith(QStringLiteral("未命中 ·")) &&
+              first_case->property("text").toString().contains(QStringLiteral("只有包含验收点")) &&
+              extra->property("visible").toBool() && extra->property("text").toString().contains(QStringLiteral("待办数量: 20"));
+          const QString failed_detail = QStringLiteral("result=%1 cases=%2 verdict=%3 first=%4 extraVisible=%5 extra=%6")
+              .arg(result.value(QStringLiteral("passed")).toBool())
+              .arg(result.value(QStringLiteral("cases")).toList().size())
+              .arg(verdict ? verdict->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(first_case ? first_case->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(extra ? extra->property("visible").toBool() : false)
+              .arg(extra ? extra->property("text").toString() : QStringLiteral("<missing>"));
+          u3_record(*context, QStringLiteral("challenge-run-reports-near-miss-and-extra-output"), failed,
+              failed ? QString() : failed_detail);
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-judgement-failed"));
+          shell.closeChallenge();
+          shell.openChallenge(QStringLiteral("stage-d"));
+          context->step = 214;
+          return;
+        }
+        case 214: {
+          u3_record(*context, QStringLiteral("challenge-code-draft-restored-after-reopen"),
+              shell.challengeCode() == QStringLiteral("console.log('待办数量: 20');"));
+          shell.closeChallenge();
           shell.discardDraftChanges();
           shell.selectPage(QStringLiteral("账户"));
           context->step = 9;
@@ -1772,7 +1848,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("twenty-two-page-screenshots"), context->screenshots.size() == 22,
+          u3_record(*context, QStringLiteral("twenty-four-page-screenshots"), context->screenshots.size() == 24,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

@@ -1083,6 +1083,14 @@ void test_challenge_service_links_execution_evidence_and_progress() {
   guided_request.independent = false;
   const auto guided = service.record_execution(guided_request, passed);
   assert(guided.validation.ok && guided.passed && !guided.progress_duplicate);
+  auto course_request = request;
+  course_request.evidence_id = "course-legacy-order";
+  course_request.operation_id = "op-courselegacy-0123ab";
+  course_request.expected_output = "1\n15";
+  auto course_output = passed;
+  course_output.output = "15\n1\n";
+  const auto course = service.record_course_execution(course_request, course_output);
+  assert(course.validation.ok && !course.passed);
   std::vector<codeweave::learning::ProgressFact> facts;
   assert(progress_store.read_all(facts).ok && facts.size() == 1);
 }
@@ -1104,6 +1112,14 @@ void test_challenge_output_judgement_matches_exact_lines_contract() {
 
   const auto extra = judge_output({"15"}, "15\ntrace\n");
   assert(extra.passed && extra.extra_lines == std::vector<std::string>{"trace"});
+
+  const auto single_log_entry = judge_output({"待办数量: 2", "写周报"},
+      std::vector<std::string>{"待办数量: 2\n写周报"});
+  assert(!single_log_entry.passed && single_log_entry.extra_lines.size() == 1 &&
+      single_log_entry.extra_lines.front() == "待办数量: 2\n写周报");
+
+  const auto raw_actual = judge_output({"15"}, std::vector<std::string>{" 15 \t"});
+  assert(raw_actual.passed && raw_actual.cases.front().actual == " 15 \t");
 
   const auto empty_expected = judge_output({}, "15\n");
   assert(!empty_expected.passed && empty_expected.cases.empty());
