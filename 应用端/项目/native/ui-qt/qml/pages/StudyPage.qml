@@ -68,28 +68,13 @@ Item {
             function onExecutionBusyChanged() { studyPage.flushEvidenceRefresh(); }
         }
 
-        Loader {
-            anchors.fill: parent
-            active: studyPage.showDetails
-            visible: active
-            sourceComponent: LearningDetailsPage {
-                ds: studyPage.ds
-                hostRoot: studyPage.hostRoot
-                lessons: studyPage.subjectLessons
-                subjects: studyPage.subjectOptions
-                subjectIndex: studyPage.subjectFilter
-                onSubjectChosen: function(index) { studyPage.selectSubject(index); }
-                onBackRequested: { studyPage.showDetails = false; detailsButton.forceActiveFocus(); }
-            }
-        }
-
         ColumnLayout {
             anchors.fill: parent
-            visible: !studyPage.showDetails
             spacing: 0
 
             // .content-source-banner — source-status strip (not dismissible)
             Rectangle {
+                objectName: "learningSourceBanner"
                 Layout.fillWidth: true
                 Layout.bottomMargin: ds.s8
                 implicitHeight: 32
@@ -131,6 +116,7 @@ Item {
 
             // .welcome-row
             RowLayout {
+                objectName: "learningWelcome"
                 Layout.fillWidth: true
                 Layout.bottomMargin: ds.s20
                 spacing: ds.s16
@@ -253,8 +239,26 @@ Item {
                 }
             }
 
+            Loader {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                active: studyPage.showDetails
+                visible: active
+                sourceComponent: LearningDetailsPage {
+                    ds: studyPage.ds
+                    hostRoot: studyPage.hostRoot
+                    lessons: studyPage.subjectLessons
+                    catalogLessons: studyPage.allLessons
+                    subjects: studyPage.subjectOptions
+                    subjectIndex: studyPage.subjectFilter
+                    onSubjectChosen: function(index) { studyPage.selectSubject(index); }
+                    onBackRequested: { studyPage.showDetails = false; detailsButton.forceActiveFocus(); }
+                }
+            }
+
             // .desktop-subjects — category pills
             ScrollView {
+                visible: !studyPage.showDetails
                 Layout.fillWidth: true
                 Layout.bottomMargin: ds.s24
                 implicitHeight: 37
@@ -286,6 +290,7 @@ Item {
 
             // .desktop-learning-columns
             RowLayout {
+                visible: !studyPage.showDetails
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: ds.s24

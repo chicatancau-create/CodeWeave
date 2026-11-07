@@ -1,0 +1,39 @@
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR) 
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR) 
+-- Configuring done (1.9s)
+-- Generating done (0.5s)
+-- Build files have been written to: G:/CodeWeave/.local/qt/current
+[1/54] Copying codeweave-qt qml sources into build dir
+[2/54] Running qmlimportscanner for codeweave-qt
+[3/54] Automatic MOC and UIC for target codeweave-qt-facade-tests
+[4/52] Automatic MOC and UIC for target codeweave-qt
+[5/51] Running AUTOMOC file extraction for target codeweave-qt
+[6/51] Running rcc for resource codeweave-qt_raw_qml_0
+[7/51] Running moc --collect-json for target codeweave-qt
+[8/11] Generating .rcc/qmlcache/codeweave-qt_qml/pages/LearningDetailsPage_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/pages/LearningDetailsPage_qml.cpp.aotstats
+[9/11] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.qt\rcc\qrc_codeweave-qt_raw_qml_0.cpp.obj
+[10/11] Building CXX object ui-qt\CMakeFiles\codeweave-qt.dir\.rcc\qmlcache\codeweave-qt_qml\pages\LearningDetailsPage_qml.cpp.obj
+[11/11] Linking CXX executable ui-qt\CodeWeaveQtShell.exe
+Test project G:/CodeWeave/.local/qt/current
+    Start 1: native-core
+1/9 Test #1: native-core ......................   Passed    3.53 sec
+    Start 2: native-content-delivery
+2/9 Test #2: native-content-delivery ..........   Passed    0.05 sec
+    Start 3: native-startup
+3/9 Test #3: native-startup ...................   Passed    0.05 sec
+    Start 4: native-gui-smoke
+4/9 Test #4: native-gui-smoke .................   Passed    0.33 sec
+    Start 5: native-gui-interaction-smoke
+5/9 Test #5: native-gui-interaction-smoke .....   Passed    0.32 sec
+    Start 6: native-cpp-compile-run
+6/9 Test #6: native-cpp-compile-run ...........   Passed    5.74 sec
+    Start 7: qt-qml-load
+7/9 Test #7: qt-qml-load ......................   Passed    5.09 sec
+    Start 8: qt-learning-catalog
+8/9 Test #8: qt-learning-catalog ..............   Passed    0.20 sec
+    Start 9: qt-facade
+9/9 Test #9: qt-facade ........................   Passed   11.59 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Total Test time (real) =  26.92 sec

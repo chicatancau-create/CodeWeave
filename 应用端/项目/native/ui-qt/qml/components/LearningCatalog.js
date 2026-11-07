@@ -4,6 +4,23 @@ function subjectLabel(lesson) {
     return lesson.languageLabel || lesson.language || "未标注科目";
 }
 
+function subjectSummary(lessons, label) {
+    const selected = lessons.filter(function(lesson) { return subjectLabel(lesson) === label; });
+    return {
+        count: selected.length,
+        hasVault: selected.some(function(lesson) { return !!lesson.contentId; }),
+        executable: selected.some(function(lesson) { return lesson.executable !== false; })
+    };
+}
+
+function heldStateLabels(states) {
+    if (!states) return [];
+    return [
+        ["read", "已阅读"], ["practiced", "已练习"], ["submittedEvidence", "已提交证据"],
+        ["selfDeclaredPassed", "自评通过"], ["autoVerifiedPassed", "自动验证通过"], ["reviewMastered", "延迟复测掌握"]
+    ].filter(function(item) { return states[item[0]] === true; }).map(function(item) { return item[1]; });
+}
+
 function holdsCompletion(states) {
     return !!states && (states.selfDeclaredPassed === true || states.autoVerifiedPassed === true
                         || states.reviewMastered === true);

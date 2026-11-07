@@ -72,9 +72,9 @@ QtObject {
     readonly property color toneGreen:  "#3fd3a4"
     readonly property color s0:         "#5b86ff"
 
-    // Typography — mono is NOT overridden by the desktop theme
-    readonly property string ui:   "Segoe UI, Microsoft YaHei, sans-serif"
-    readonly property string mono: "Consolas, Cascadia Mono, Microsoft YaHei, monospace"
+    // QFont takes one family name; CSS fallback lists are treated as an unknown family.
+    readonly property string ui:   Qt.platform.os === "windows" ? "Microsoft YaHei UI" : "sans-serif"
+    readonly property string mono: Qt.platform.os === "windows" ? "Consolas" : "monospace"
 
     // Spacing
     readonly property int s2: 2;   readonly property int s4: 4

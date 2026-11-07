@@ -14,6 +14,7 @@
 #include <QKeyEvent>
 #include <QTimer>
 #include <QImage>
+#include <QFontInfo>
 #include <QQuickStyle>
 #include <QStandardPaths>
 #include <QProcessEnvironment>
@@ -1330,6 +1331,30 @@ int main(int argc, char* argv[]) {
           }
           stages = stages && !groups.isEmpty() && groups.last().toMap().value(QStringLiteral("lessons")).toList().size() == lessons.size();
           u3_record(*context, QStringLiteral("learning-details-five-statistics-and-truthful-stage-groups"), stages);
+          auto* source_banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningSourceBanner"));
+          auto* welcome = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningWelcome"));
+          auto* statistics = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsStatistics"));
+          auto* first_statistic = u3_find_item(view.rootObject(), QStringLiteral("detailStatistic-0"));
+          auto* last_statistic = u3_find_item(view.rootObject(), QStringLiteral("detailStatistic-4"));
+          u3_record(*context, QStringLiteral("learning-details-preserves-header-and-vertical-statistics"),
+              source_banner && source_banner->isVisible() && welcome && welcome->isVisible() && details &&
+              source_banner->mapToItem(welcome, QPointF(0, source_banner->height())).y() <= 0 &&
+              welcome->mapToItem(details, QPointF(0, welcome->height())).y() <= 0 &&
+              statistics && statistics->width() <= 470 && first_statistic && last_statistic &&
+              first_statistic->mapToItem(last_statistic, QPointF(0, first_statistic->height())).y() <= 0);
+          auto* python_meta = u3_find_item(view.rootObject(), QStringLiteral("detailSubjectMeta-0"));
+          auto* evidence = u3_find_item(view.rootObject(), QStringLiteral("detailEvidence-python-condition"));
+          u3_record(*context, QStringLiteral("learning-details-actual-subject-metadata-and-evidence-labels"),
+              python_meta && python_meta->property("text").toString().contains(QStringLiteral("6 个单元")) &&
+              evidence && evidence->property("text").toString() == QStringLiteral("证据：自评通过"));
+          auto* title = u3_find_item(view.rootObject(), QStringLiteral("learningDetailsTitle"));
+          u3_record(*context, QStringLiteral("learning-details-resolves-windows-ui-font"), title &&
+              QFontInfo(title->property("font").value<QFont>()).family() == QStringLiteral("Microsoft YaHei UI"));
+          auto* rail = u3_find_item(view.rootObject(), QStringLiteral("detailStageRail-S0"));
+          auto* body = u3_find_item(view.rootObject(), QStringLiteral("detailStageBody-S0"));
+          u3_record(*context, QStringLiteral("learning-details-stage-number-rail-precedes-content"), rail && body &&
+              rail->width() >= 56 && rail->height() >= body->height() &&
+              rail->mapToItem(body, QPointF(rail->width(), 0)).x() < 0);
           u3_record(*context, QStringLiteral("learning-details-screenshot"),
               u3_screenshot(*context, view, QStringLiteral("u3-learning-details")));
           send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
@@ -1360,6 +1385,16 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("learning-details-lesson-keyboard-selection"), lesson && selected &&
               view.rootObject()->property("selectedLesson").toMap().value(QStringLiteral("id")) == QStringLiteral("java-loop-sum") &&
               selected->property("text") == lesson->property("text"));
+          auto* scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsScroll"));
+          const auto lesson_top = lesson && scroll ? lesson->mapToItem(scroll, QPointF(0, 0)).y() : -1;
+          u3_record(*context, QStringLiteral("learning-details-keyboard-focus-scrolls-to-lesson"),
+              lesson && scroll && lesson_top >= 0 && lesson_top + lesson->height() <= scroll->height() + 1);
+          auto* header = u3_find_item(view.rootObject(), QStringLiteral("detailLedgerHeader-unnumbered"));
+          auto* lesson_body = u3_find_item(view.rootObject(), QStringLiteral("detailLessonBody-java-loop-sum"));
+          const auto header_children = header ? header->childItems() : QList<QQuickItem*>{};
+          u3_record(*context, QStringLiteral("learning-details-ledger-title-column-aligns-with-header"),
+              header_children.size() >= 3 && lesson_body &&
+              std::abs(header_children.at(1)->mapToItem(lesson_body, QPointF(0, 0)).x()) <= 1);
           view.resize(1100, 720);
           context->step++;
           return;

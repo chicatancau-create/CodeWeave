@@ -50,3 +50,16 @@ test('source and gap labels follow actual metadata and distinguish missing field
     source: { path: 'lesson.md', verificationStatus: 'verified' } }).length, 0);
   assert.equal(catalog.subjectLabel({}), '未标注科目');
 });
+
+test('subject metadata uses the full catalog and combines only actual capabilities', () => {
+  const lessons = [{ languageLabel: 'Python', executable: false },
+    { languageLabel: 'Python', contentId: 'real' }, { languageLabel: 'C', executable: false }];
+  const python = catalog.subjectSummary(lessons, 'Python');
+  assert.equal(python.count, 2);
+  assert.equal(python.hasVault, true);
+  assert.equal(python.executable, true);
+  assert.equal(catalog.subjectSummary(lessons, 'C').executable, false);
+  assert.equal(catalog.subjectSummary(lessons, 'Missing').count, 0);
+  assert.equal(catalog.heldStateLabels({ read: true, selfDeclaredPassed: true }).join('|'), '已阅读|自评通过');
+  assert.equal(catalog.heldStateLabels(undefined).length, 0);
+});
