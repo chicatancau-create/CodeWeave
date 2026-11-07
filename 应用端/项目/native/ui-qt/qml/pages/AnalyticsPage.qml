@@ -5,15 +5,30 @@ import QtQuick.Layouts
 Item {
     property QtObject ds
         id: analyticsPage
-
-        // Computed once so every row agrees on the same window.
-        readonly property string todayKey: Qt.formatDate(new Date(), "yyyy-MM-dd")
-        readonly property string weekStartKey: {
-            const d = new Date();
-            d.setDate(d.getDate() - 6);
-            return Qt.formatDate(d, "yyyy-MM-dd");
+        objectName: "analyticsPageRoot"
+        property string requestedDay: ""
+        onVisibleChanged: requestedDay = ""
+        Connections {
+            target: uiShell
+            function onAccountChanged() { analyticsPage.requestedDay = ""; }
         }
-        readonly property string period: weekStartKey + " 至 " + todayKey
+        Timer {
+            interval: 100
+            repeat: true
+            running: analyticsPage.visible && uiShell.hasActiveAccount
+            onTriggered: {
+                const day = Qt.formatDate(new Date(), "yyyy-MM-dd");
+                if (analyticsPage.requestedDay === day || uiShell.accountBusy || uiShell.contentBusy
+                        || uiShell.operationBusy || uiShell.executionBusy || uiShell.challengeHistoryBusy) return;
+                analyticsPage.requestedDay = day;
+                uiShell.refreshReviewSummary();
+            }
+        }
+
+        readonly property string todayKey: metric("todayKey", "暂无数据")
+        readonly property string weekStartKey: metric("periodStartKey", "暂无数据")
+        readonly property string period: uiShell.analysisSnapshot.todayKey === undefined
+            ? "暂无统计周期" : weekStartKey + " 至 " + todayKey
 
         // Table geometry. The web uses table-layout:fixed with the header row
         // setting widths: 3.2em and 7em resolve against the 12.5px header font,
@@ -45,6 +60,7 @@ Item {
         }
 
         ScrollView {
+            objectName: "analyticsScrollView"
             anchors.fill: parent
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             clip: true
@@ -136,7 +152,7 @@ Item {
                                 { dt: "归日口径",
                                   dd: "证据时间一律按本地日期归日，不把 UTC 日期当本地日期" },
                                 { dt: "数据来源",
-                                  dd: "仅本机学习证据：课程与复测记录、挑战验收记录、打卡记录" }
+                                  dd: "本机课程执行、显式完成、复测事实与挑战提交档案；打卡尚无数据源" }
                             ]
                             delegate: ColumnLayout {
                                 required property var modelData
@@ -183,19 +199,19 @@ Item {
                         model: [
                             { idx: "01", icon: "◈", title: "近 7 天学习活动",
                               rows: [
-                                { n: "完成课程单元", v: analyticsPage.metric("completedUnits", "暂无数据"), b: "按 lessonId 去重，仅计通过证据",
+                                { n: "完成课程单元", v: analyticsPage.metric("completedUnits", "暂无数据"), b: "按课程去重，仅计显式完成事实，不以输出匹配代替完成",
                                   d: "窗口 " + analyticsPage.period + " 内的课程证据" },
                                 { n: "课程练习次数", v: analyticsPage.metric("practiceCount", "暂无数据"), b: "同一单元重复练习分别计数，与上一行是两个口径",
                                   d: "窗口 " + analyticsPage.period + " 内的课程证据" },
-                                { n: "挑战通过记录", v: analyticsPage.metric("verifiedPasses", "暂无数据"), b: "仅统计 Challenge 类型且通过的记录",
+                                { n: "挑战通过记录", v: analyticsPage.metric("verifiedPasses", "暂无数据"), b: "按关卡取当前 passed / verified 结果；旧 Challenge 事实兼容去重",
                                   d: "无分母，不折算百分比" },
                                 { n: "挑战通过（旧版迁移口径）", v: "暂无数据",
                                   b: "记录缺失 status，按迁移语义单列为旧版，不混入上一行",
                                   d: "无分母，不折算百分比" },
                                 { n: "复测通过", v: analyticsPage.metric("reviewPassed", "暂无数据"), b: "kind=review 且 passed 的证据",
-                                  d: "当前数据源未提供复测分类" },
+                                  d: "窗口 " + analyticsPage.period + " 内的复测证据" },
                                 { n: "复测未通过", v: analyticsPage.metric("reviewFailed", "暂无数据"), b: "kind=review 且未通过的证据",
-                                  d: "当前数据源未提供复测分类" }
+                                  d: "窗口 " + analyticsPage.period + " 内的复测证据" }
                               ],
                               note: "" },
                             { idx: "02", icon: "▲", title: "近 7 天复测通过率",
@@ -355,6 +371,7 @@ Item {
                                                 wrapMode: Text.WordWrap
                                             }
                                             Text {   // .an-cell-value — not dimmed for 样本不足
+                                                objectName: "analyticsValue-" + modelData.n
                                                 Layout.preferredWidth: analyticsPage.colValue
                                                 Layout.alignment: Qt.AlignTop
                                                 text: modelData.v

@@ -37,6 +37,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -1393,6 +1394,44 @@ void test_review_summary_is_read_only_and_latest_first() {
   assert(summary.passed_count == 1 && summary.independent_passed_count == 1);
 }
 
+void test_review_schedule_uses_local_day_at_midnight_boundaries() {
+  using namespace codeweave::learning;
+  Fixture fixture;
+  MasteryStore store(fixture.root);
+  MasteryService service(store);
+  const auto plan = effective_review_plan(std::nullopt, std::nullopt);
+  const auto timestamp = [](int hour, int minute) {
+    std::tm local{};
+    local.tm_year = 2026 - 1900; local.tm_mon = 10; local.tm_mday = 8;
+    local.tm_hour = hour; local.tm_min = minute; local.tm_isdst = -1;
+    const auto time = std::mktime(&local);
+    assert(time != -1);
+    std::tm utc{};
+#ifdef _WIN32
+    assert(gmtime_s(&utc, &time) == 0);
+#else
+    assert(gmtime_r(&time, &utc));
+#endif
+    char buffer[21]{};
+    assert(std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc));
+    return std::string(buffer);
+  };
+  for (int index = 0; index < 2; ++index) {
+    MasteryEvidence event{"local-midnight-" + std::to_string(index), MasteryEvidenceKind::Lesson,
+        "lesson-" + std::to_string(index), "Local calendar boundary", timestamp(index == 0 ? 0 : 23, 59),
+        true, CompletionVerification::SelfDeclared, RanBy::Learner, true, "L1",
+        "op-midnight-00000" + std::to_string(index)};
+    bool duplicate = false;
+    MasterySnapshot snapshot;
+    assert(service.record_evidence(event, plan, duplicate, snapshot).ok);
+    assert(snapshot.records.at(event.ref_id).review_due_key == "2026-11-09");
+    event.id += "-review"; event.kind = MasteryEvidenceKind::Review;
+    event.operation_id = "op-midnightreview-00000" + std::to_string(index);
+    assert(service.record_evidence(event, plan, duplicate, snapshot).ok);
+    assert(snapshot.records.at(event.ref_id).review_due_key == "2026-11-11");
+  }
+}
+
 void test_analysis_window_filters_dates_and_evidence_types() {
   using namespace codeweave::learning;
   const std::vector<EvidenceRecord> evidence{
@@ -1406,11 +1445,17 @@ void test_analysis_window_filters_dates_and_evidence_types() {
       {"challenge-fail", MasteryEvidenceKind::Challenge, "c2", "", "2026-10-08", false},
       {"review-pass", MasteryEvidenceKind::Review, "r1", "", "2026-10-08", true},
       {"review-fail", MasteryEvidenceKind::Review, "r2", "", "2026-10-08", false},
+      {"lesson-pass", MasteryEvidenceKind::Lesson, "lesson-d", "", "2026-10-02", true},
+      {"lesson-repeat", MasteryEvidenceKind::Lesson, "lesson-d", "", "2026-10-08", true},
+      {"lesson-read", MasteryEvidenceKind::Lesson, "lesson-a", "", "2026-10-08", false},
+      {"lesson-old", MasteryEvidenceKind::Lesson, "lesson-old", "", "2026-10-01", true},
+      {"lesson-future", MasteryEvidenceKind::Lesson, "lesson-future", "", "2026-10-09", true},
       {"challenge-old", MasteryEvidenceKind::Challenge, "c3", "", "2026-10-01", true}};
   const auto summary = summarize_analysis_window(evidence, mastery, "2026-10-02", "2026-10-08");
   assert(summary.practice_count == 3 && summary.completed_units == 1);
   assert(summary.challenge_passes == 1);
   assert(summary.review_passed == 1 && summary.review_failed == 1);
+  assert(summarize_analysis_window(evidence, {}, "2026-10-02", "2026-10-08").completed_units == 0);
   const auto empty = summarize_analysis_window({}, {}, "2026-10-02", "2026-10-08");
   assert(empty.practice_count == 0 && empty.completed_units == 0 && empty.challenge_passes == 0);
 }
@@ -2058,6 +2103,7 @@ int main(int argc, char** argv) {
   test_native_backup_supports_another_windows_volume();
   test_review_summary_is_read_only_and_latest_first();
   test_analysis_window_filters_dates_and_evidence_types();
+  test_review_schedule_uses_local_day_at_midnight_boundaries();
   test_content_owner_and_attachment_boundary_is_read_only();
   test_progress_projection_is_read_only_and_conservative();
   test_manifest_dry_run_is_non_mutating_and_blocks_conflicts();

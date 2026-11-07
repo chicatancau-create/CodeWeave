@@ -2,6 +2,8 @@
 #include "performance_probe.hpp"
 #include "native_dialogs.hpp"
 #include "challenge_runtime.hpp"
+#include "challenge_submission_store.hpp"
+#include "evidence_store.hpp"
 
 #include <QGuiApplication>
 #include <QColor>
@@ -1943,7 +1945,8 @@ int main(int argc, char* argv[]) {
               updated.value(QStringLiteral("masteryLevel")).toInt() == context->review_before.value(QStringLiteral("masteryLevel")).toInt() + 1 &&
               updated.value(QStringLiteral("nextNodeIndex")).toInt() == 1 &&
               updated.value(QStringLiteral("dueKey")).toString() == QDate::currentDate().addDays(3).toString(Qt::ISODate) &&
-              updated.value(QStringLiteral("group")) == QStringLiteral("upcoming"));
+              updated.value(QStringLiteral("group")) == QStringLiteral("upcoming"),
+              QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(updated)).toJson(QJsonDocument::Compact)));
           for (const auto& value : shell.reviewItems())
             if (value.toMap().value(QStringLiteral("contentId")) == QStringLiteral("python-condition") &&
                 value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) context->review_before = value.toMap();
@@ -2152,6 +2155,173 @@ int main(int argc, char* argv[]) {
           u3_screenshot(*context, view, QStringLiteral("u3-lesson-external-states-small"));
           send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
           view.resize(1440, 900);
+          shell.discardDraftChanges();
+          shell.openPublishedContent(shell.publishedIds().indexOf(QStringLiteral("python-loop-sum")));
+          context->step = 400;
+          return;
+        case 400:
+          if (shell.contentBusy() || shell.operationBusy()) return;
+          shell.selectPage(QStringLiteral("编辑器"));
+          shell.updateDraftCode(QStringLiteral("print('workspace save fixture')\n"));
+          shell.saveDraft();
+          context->step++;
+          return;
+        case 401: {
+          if (shell.draftSaving() || shell.operationBusy()) return;
+          const auto storage_id = QStringLiteral("lesson-") + QString::fromLatin1(QCryptographicHash::hash(
+              shell.documentId().toUtf8(), QCryptographicHash::Sha256).toHex());
+          context->blocked_draft_path = QDir(QString::fromStdWString(shell.nativeDataRoot().wstring()))
+              .filePath(QStringLiteral("accounts/") + shell.activeAccountId() + QStringLiteral("/drafts/") +
+                  storage_id + QStringLiteral(".txt"));
+          const auto path = std::filesystem::path(context->blocked_draft_path.toStdWString());
+          std::error_code error;
+          const bool blocked = std::filesystem::remove(path, error) && !error &&
+              std::filesystem::create_directory(path, error) && !error;
+          u3_record(*context, QStringLiteral("workspace-save-fault-fixture-created"), blocked);
+          if (!blocked) { context->step = 99; return; }
+          shell.updateDraftCode(QStringLiteral("print('workspace unsaved edit')\n"));
+          auto* save = u3_find_item(view.rootObject(), QStringLiteral("workspaceSaveDraft"));
+          const bool invoked = save && QMetaObject::invokeMethod(save, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("workspace-save-starts-and-disables"), invoked && shell.draftSaving() &&
+              !save->property("enabled").toBool());
+          context->step++;
+          return;
+        }
+        case 402: {
+          if (shell.draftSaving()) return;
+          auto* banner = u3_find_item(view.rootObject(), QStringLiteral("workspaceSaveError"));
+          auto* dismiss = u3_find_item(view.rootObject(), QStringLiteral("workspaceDismissError"));
+          u3_record(*context, QStringLiteral("workspace-save-failure-visible-and-preserves-edit"),
+              banner && banner->isVisible() && shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("print('workspace unsaved edit')\n"));
+          u3_record(*context, QStringLiteral("workspace-save-error-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-workspace-save-error")));
+          const bool dismissed = dismiss && QMetaObject::invokeMethod(dismiss, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("workspace-dismiss-preserves-edit"), dismissed && banner &&
+              !banner->isVisible() && shell.draftDirty());
+          shell.saveDraft();
+          context->step++;
+          return;
+        }
+        case 403: {
+          if (shell.draftSaving()) return;
+          std::error_code error;
+          const bool unblocked = std::filesystem::remove(
+              std::filesystem::path(context->blocked_draft_path.toStdWString()), error) && !error;
+          u3_record(*context, QStringLiteral("workspace-save-fault-fixture-removed"), unblocked);
+          auto* retry = u3_find_item(view.rootObject(), QStringLiteral("workspaceRetrySave"));
+          const bool retried = unblocked && retry && retry->isEnabled() &&
+              QMetaObject::invokeMethod(retry, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("workspace-retry-starts"), retried && shell.draftSaving());
+          context->step++;
+          return;
+        }
+        case 404: {
+          if (shell.draftSaving() || shell.operationBusy() || shell.challengeHistoryBusy()) return;
+          auto* banner = u3_find_item(view.rootObject(), QStringLiteral("workspaceSaveError"));
+          QFile saved(context->blocked_draft_path);
+          const bool persisted = saved.open(QIODevice::ReadOnly) && saved.readAll() == shell.draftCode().toUtf8();
+          u3_record(*context, QStringLiteral("workspace-retry-persists-and-hides-error"), persisted && !shell.draftDirty() &&
+              shell.savedRevision() == shell.draftRevision() && banner && !banner->isVisible());
+          shell.selectPage(QStringLiteral("复习与进度"));
+          auto* review_error = u3_find_item(view.rootObject(), QStringLiteral("reviewContentError"));
+          u3_record(*context, QStringLiteral("review-normal-content-hides-error"),
+              review_error && !review_error->isVisible(), shell.contentStatus());
+          shell.logout();
+          shell.registerAccount(QStringLiteral("Analytics Matrix"), QStringLiteral("analytics-matrix@example.test"),
+              QStringLiteral("Qt-U3-Test-Password-123!"));
+          context->step = 410;
+          return;
+        }
+        case 410:
+          if (shell.accountBusy() || shell.contentBusy() || shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("analytics-isolated-account-created"),
+              shell.hasActiveAccount() && shell.accountName() == QStringLiteral("Analytics Matrix"));
+          if (!shell.hasActiveAccount()) { context->step = 99; return; }
+          shell.selectPage(QStringLiteral("分析"));
+          context->step++;
+          return;
+        case 411: {
+          if (shell.operationBusy() || shell.analysisSnapshot().isEmpty()) return;
+          auto* rate = u3_find_item(view.rootObject(), QStringLiteral("analyticsValue-近 7 天复测通过率"));
+          u3_record(*context, QStringLiteral("analytics-empty-ledgers-show-zero-and-insufficient-sample"),
+              shell.analysisSnapshot().value("verifiedPasses").toInt() == 0 && rate &&
+              rate->property("text").toString() == QStringLiteral("样本不足"));
+          u3_screenshot(*context, view, QStringLiteral("u3-analysis-empty"));
+          const auto root = shell.nativeDataRoot() / "accounts" / shell.activeAccountId().toStdWString();
+          codeweave::learning::MasteryStore mastery(root);
+          using namespace codeweave::learning;
+          const auto today = QDate::currentDate();
+          bool seeded = true;
+          const MasteryEvidenceKind kinds[]{MasteryEvidenceKind::Lesson, MasteryEvidenceKind::Lesson,
+              MasteryEvidenceKind::Lesson, MasteryEvidenceKind::Lesson, MasteryEvidenceKind::Lesson,
+              MasteryEvidenceKind::Review, MasteryEvidenceKind::Review, MasteryEvidenceKind::Review,
+              MasteryEvidenceKind::Challenge, MasteryEvidenceKind::Challenge, MasteryEvidenceKind::Bugfix};
+          const char* refs[]{"unit-a", "unit-a", "unit-b", "old-unit", "future-unit",
+              "review-a", "review-b", "review-c", "challenge-a", "old-challenge", "unrelated"};
+          const int days[]{-6, 0, 0, -7, 1, -6, 0, 0, 0, -7, 0};
+          for (int index = 0; index < 11; ++index) {
+            const auto suffix = QString::number(index, 16).rightJustified(6, '0').toStdString();
+            const MasteryEvidence record{"matrix-analysis-" + suffix, kinds[index], refs[index],
+                "isolated analytics fixture", QDateTime(today.addDays(days[index]), QTime(0, 0)).toUTC()
+                    .toString(Qt::ISODateWithMs).toStdString(), index != 6 && index != 7,
+                CompletionVerification::SelfDeclared, RanBy::Learner, false, "L1", "op-matrixanalysis-" + suffix};
+            bool duplicate = false;
+            seeded = mastery.append_idempotent(record, duplicate).ok && !duplicate && seeded;
+          }
+          EvidenceStore evidence(root);
+          for (int index = 0; index < 2; ++index) {
+            EvidenceRecord record{"matrix-practice-" + std::to_string(index), "not-completed", "exercise",
+                today.toString(Qt::ISODate).toStdString(), "ok", "ok", RanBy::Learner, false, "L1", {}, {},
+                EvidenceState::Pending, "op-matrixpractice-00000" + std::to_string(index)};
+            bool duplicate = false;
+            seeded = evidence.append_idempotent(record, duplicate).ok && !duplicate && seeded;
+          }
+          QVariantList records;
+          const QVariantMap submission{{"id", "submission-0123456789abcdef0123456789abcdef"},
+              {"challengeId", "challenge-b"}, {"submittedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+              {"status", "passed"}, {"tier", "teaching"}, {"judgeMode", "exact-lines"},
+              {"evidence", "Isolated matrix pass"}, {"code", "print(15)"},
+              {"expected", QVariantList{QStringLiteral("15")}}, {"output", QVariantList{QStringLiteral("15")}},
+              {"observation", ""}, {"reviewedAt", ""}};
+          seeded = ChallengeSubmissionStore(QString::fromStdWString(root.wstring())).append(submission, records).ok && seeded;
+          u3_record(*context, QStringLiteral("analytics-window-fixture-created"), seeded);
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 412: {
+          if (shell.operationBusy()) return;
+          const auto snapshot = shell.analysisSnapshot();
+          bool values_match = true;
+          for (const auto& pair : {std::pair{QStringLiteral("完成课程单元"), QStringLiteral("2")},
+              std::pair{QStringLiteral("课程练习次数"), QStringLiteral("2")},
+              std::pair{QStringLiteral("挑战通过记录"), QStringLiteral("2")},
+              std::pair{QStringLiteral("复测通过"), QStringLiteral("1")},
+              std::pair{QStringLiteral("复测未通过"), QStringLiteral("2")},
+              std::pair{QStringLiteral("近 7 天复测通过率"), QStringLiteral("33%")}}) {
+            auto* value = u3_find_item(view.rootObject(), QStringLiteral("analyticsValue-") + pair.first);
+            const auto actual = value ? value->property("text").toString() : QStringLiteral("<missing>");
+            u3_record(*context, QStringLiteral("analytics-visible-") + pair.first, actual == pair.second,
+                QStringLiteral("actual=%1 expected=%2").arg(actual, pair.second));
+            values_match = values_match && actual == pair.second;
+          }
+          auto* page = u3_find_item(view.rootObject(), QStringLiteral("analyticsPageRoot"));
+          u3_record(*context, QStringLiteral("analytics-window-dates-from-facade"), page &&
+              page->property("todayKey") == snapshot.value("todayKey") &&
+              page->property("weekStartKey") == snapshot.value("periodStartKey") &&
+              snapshot.value("periodStartKey") == QDate::currentDate().addDays(-6).toString(Qt::ISODate));
+          u3_record(*context, QStringLiteral("analytics-values-screenshot"), values_match &&
+              u3_screenshot(*context, view, QStringLiteral("u3-analysis-values")));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("analyticsScrollView"));
+          auto* flickable = scroll ? scroll->property("contentItem").value<QObject*>() : nullptr;
+          if (flickable) flickable->setProperty("contentY", std::max(0.0,
+              scroll->property("contentHeight").toReal() - scroll->property("availableHeight").toReal()));
+          context->step++;
+          return;
+        }
+        case 413:
+          u3_screenshot(*context, view, QStringLiteral("u3-analysis-review-rate"));
           context->step = 24;
           return;
         case 24:
@@ -2161,7 +2331,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-and-lesson-evidence-screenshots"), context->screenshots.size() == 34,
+          u3_record(*context, QStringLiteral("page-challenge-and-lesson-evidence-screenshots"), context->screenshots.size() == 38,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

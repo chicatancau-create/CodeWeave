@@ -41,14 +41,11 @@ AnalysisWindowSummary summarize_analysis_window(
   for (const auto& record : evidence) {
     if (!in_window(record.at) || record.exercise_id == kExternalEvidenceExerciseId) continue;
     ++summary.practice_count;
-    if (record.unfinished_items.empty() &&
-        output_matches(record.actual_result, record.expected_result)) {
-      completed.insert(record.content_id);
-    }
   }
-  summary.completed_units = completed.size();
   for (const auto& evidence_item : mastery_evidence) {
     if (!in_window(evidence_item.at)) continue;
+    if (evidence_item.kind == MasteryEvidenceKind::Lesson && evidence_item.passed)
+      completed.insert(evidence_item.ref_id);
     if (evidence_item.kind == MasteryEvidenceKind::Challenge && evidence_item.passed)
       ++summary.challenge_passes;
     if (evidence_item.kind == MasteryEvidenceKind::Review) {
@@ -56,6 +53,7 @@ AnalysisWindowSummary summarize_analysis_window(
       else ++summary.review_failed;
     }
   }
+  summary.completed_units = completed.size();
   return summary;
 }
 

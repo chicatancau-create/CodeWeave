@@ -1,11 +1,32 @@
 #include "mastery_service.hpp"
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
 namespace codeweave::learning {
 
 namespace {
 
 std::string date_key_from_timestamp(std::string_view timestamp) {
-  return timestamp.size() >= 10 ? std::string(timestamp.substr(0, 10)) : std::string{};
+  // The ledger stores UTC instants; review schedules use the learner's local day.
+  std::tm utc{};
+  std::istringstream input{std::string(timestamp)};
+  if (!(input >> std::get_time(&utc, "%Y-%m-%dT%H:%M:%S"))) return {};
+  using namespace std::chrono;
+  const auto instant = sys_days{year_month_day{std::chrono::year{utc.tm_year + 1900},
+      std::chrono::month{static_cast<unsigned>(utc.tm_mon + 1)}, std::chrono::day{static_cast<unsigned>(utc.tm_mday)}}}
+      + hours{utc.tm_hour} + minutes{utc.tm_min} + seconds{utc.tm_sec};
+  const auto time = system_clock::to_time_t(instant);
+  std::tm local{};
+#ifdef _WIN32
+  if (localtime_s(&local, &time) != 0) return {};
+#else
+  if (!localtime_r(&time, &local)) return {};
+#endif
+  char key[11]{};
+  return std::strftime(key, sizeof(key), "%Y-%m-%d", &local) ? std::string(key) : std::string{};
 }
 
 }  // namespace

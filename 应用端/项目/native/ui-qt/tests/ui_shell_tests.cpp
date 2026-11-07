@@ -866,5 +866,104 @@ int main(int argc, char** argv) {
     shell.completeLesson(fields);
     assert(!shell.operationBusy() && read_file(damaged) == "invalid isolated lesson fixture\n");
   }
-  std::cout << "Qt facade: account isolation, revisions, persistence, lesson evidence, failures and shutdown passed\n";
+  {
+    using namespace codeweave::learning;
+    codeweave::account::AccountService learner(store);
+    assert(learner.register_account("Analytics learner", "analytics@example.test", "Test-Password-123!").ok);
+    std::filesystem::path root;
+    assert(learner.learning_data_root(data, root).ok);
+    UiShell shell;
+    assert(shell.setAccountContext(learner, workspace, data));
+    wait_for([&] { return !shell.contentBusy(); });
+    const auto today = QDate::currentDate();
+    const auto timestamp = [&](int offset, QTime time = QTime(12, 0)) {
+      return QDateTime(today.addDays(offset), time).toUTC().toString(Qt::ISODateWithMs).toStdString();
+    };
+    const auto refresh = [&] {
+      shell.refreshReviewSummary();
+      wait_for([&] { return !shell.operationBusy(); });
+    };
+    refresh();
+    assert(shell.analysisSnapshot().value("completedUnits").toInt() == 0);
+    assert(shell.analysisSnapshot().value("periodStartKey") == today.addDays(-6).toString(Qt::ISODate));
+    assert(shell.analysisSnapshot().value("todayKey") == today.toString(Qt::ISODate));
+    MasteryStore mastery(root);
+    int sequence = 0;
+    const auto fact = [&](MasteryEvidenceKind kind, const char* ref, int offset, bool passed,
+        QTime time = QTime(12, 0)) {
+      const auto suffix = QString::number(++sequence, 16).rightJustified(6, '0').toStdString();
+      const MasteryEvidence record{"analytics-" + suffix, kind, ref, "isolated analytics fixture",
+          timestamp(offset, time), passed, CompletionVerification::SelfDeclared,
+          RanBy::Learner, false, "L1", "op-analytics-" + suffix};
+      bool duplicate = false;
+      assert(mastery.append_idempotent(record, duplicate).ok && !duplicate);
+    };
+    fact(MasteryEvidenceKind::Lesson, "lesson-first", -6, true, QTime(0, 0));
+    fact(MasteryEvidenceKind::Lesson, "lesson-first", 0, true);
+    fact(MasteryEvidenceKind::Lesson, "lesson-last", 0, true, QTime(23, 59, 59));
+    fact(MasteryEvidenceKind::Lesson, "lesson-old", -7, true, QTime(23, 59, 59));
+    fact(MasteryEvidenceKind::Lesson, "lesson-future", 1, true, QTime(0, 0));
+    fact(MasteryEvidenceKind::Lesson, "lesson-read", 0, false);
+    fact(MasteryEvidenceKind::Bugfix, "unrelated-pass", 0, true);
+    fact(MasteryEvidenceKind::Review, "review-a", -6, true, QTime(0, 0));
+    fact(MasteryEvidenceKind::Review, "review-b", 0, false, QTime(23, 59, 59));
+    fact(MasteryEvidenceKind::Review, "review-old", -7, true);
+    fact(MasteryEvidenceKind::Challenge, "legacy-only", -6, true);
+    fact(MasteryEvidenceKind::Challenge, "legacy-only", 0, true);
+    fact(MasteryEvidenceKind::Challenge, "shared", 0, true);
+    fact(MasteryEvidenceKind::Challenge, "legacy-rejected", -1, true);
+    fact(MasteryEvidenceKind::Challenge, "legacy-rejected", 0, false);
+    EvidenceStore evidence(root);
+    for (int index = 0; index < 4; ++index) {
+      const auto suffix = QString::number(index, 16).rightJustified(6, '0').toStdString();
+      EvidenceRecord record{"practice-" + suffix, "not-explicitly-completed", "exercise-a",
+          today.addDays(index == 2 ? -7 : 0).toString(Qt::ISODate).toStdString(), "15", "15",
+          RanBy::Learner, false, "L1", {}, {}, EvidenceState::Pending, "op-practice-" + suffix};
+      if (index == 3) record.exercise_id = "external-evidence";
+      bool duplicate = false;
+      assert(evidence.append_idempotent(record, duplicate).ok);
+    }
+    const ChallengeSubmissionStore submissions(QString::fromStdWString(root.wstring()));
+    QVariantList records;
+    const auto submission = [&](const char* id, const char* status, int offset, bool external = false) {
+      const auto suffix = QString::number(++sequence, 16).rightJustified(32, '0');
+      const bool reviewed = std::string_view(status) == "verified" || std::string_view(status) == "rejected";
+      const QVariantMap record{{"id", "submission-" + suffix}, {"challengeId", id},
+          {"submittedAt", QString::fromStdString(timestamp(offset))}, {"status", reviewed ? "submitted" : status},
+          {"tier", external ? "external" : "teaching"}, {"judgeMode", external ? "" : "exact-lines"},
+          {"evidence", "Isolated analytics submission"}, {"code", external ? "" : "print(15)"},
+          {"expected", QVariantList{QStringLiteral("15")}},
+          {"output", external ? QVariantList{} : QVariantList{QStringLiteral("15")}},
+          {"observation", ""}, {"reviewedAt", ""}};
+      assert(submissions.append(record, records).ok);
+      if (reviewed) assert(submissions.review(record.value("id").toString(),
+          std::string_view(status) == "verified", {}, records).ok);
+    };
+    submission("shared", "passed", 0);
+    submission("shared", "passed", 0);
+    submission("shared", "submitted", 0, true);
+    submission("rejected", "passed", 0);
+    submission("rejected", "rejected", 0, true);
+    submission("pending", "submitted", 0, true);
+    submission("verified", "verified", -7, true);
+    submission("old", "passed", -7);
+    submission("future", "passed", 1);
+    refresh();
+    const auto snapshot = shell.analysisSnapshot();
+    assert(snapshot.value("completedUnits").toInt() == 2);
+    assert(snapshot.value("practiceCount").toInt() == 2);
+    assert(snapshot.value("verifiedPasses").toInt() == 3);
+    assert(snapshot.value("reviewPassed").toInt() == 1 && snapshot.value("reviewFailed").toInt() == 1);
+    assert(shell.clearAccountContext() && shell.analysisSnapshot().isEmpty());
+    assert(shell.setAccountContext(learner, workspace, data));
+    wait_for([&] { return !shell.contentBusy(); });
+    refresh();
+    assert(shell.analysisSnapshot() == snapshot);
+    const auto archive = root / "learning/challenge-submissions.v1.json";
+    std::ofstream(archive, std::ios::trunc | std::ios::binary) << "invalid isolated analytics fixture\n";
+    refresh();
+    assert(shell.analysisSnapshot().isEmpty() && !shell.lessonEvidenceReady());
+    assert(read_file(archive) == "invalid isolated analytics fixture\n");
+  }
+  std::cout << "Qt facade: account isolation, analytics windows, revisions, persistence, lesson evidence, failures and shutdown passed\n";
 }

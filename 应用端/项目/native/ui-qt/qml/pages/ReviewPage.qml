@@ -108,6 +108,7 @@ Item {
 
                     // .rv-async.rv-empty.rv-async--failed — hairline strip
                     Rectangle {
+                        objectName: "reviewContentError"
                         visible: hostRoot.isErrorStatus(uiShell.contentStatus)
                         Layout.fillWidth: true
                         Layout.topMargin: ds.s24

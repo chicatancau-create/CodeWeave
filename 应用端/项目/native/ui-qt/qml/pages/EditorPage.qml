@@ -48,6 +48,7 @@ Item {
             spacing: ds.s12
 
             Rectangle {
+                objectName: "workspaceSaveError"
                 Layout.fillWidth: true
                 visible: hostRoot.isErrorStatus(uiShell.contentStatus)
                 implicitHeight: statusRow.implicitHeight + ds.s16
@@ -67,12 +68,13 @@ Item {
                         wrapMode: Text.WordWrap
                     }
                     QuietButton {
+                        objectName: "workspaceRetrySave"
                         ds: editorPage.ds
                         label: "重试保存"
                         enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
                         onClicked: uiShell.saveDraft()
                     }
-                    QuietButton { ds: editorPage.ds; label: "知道了"; onClicked: uiShell.dismissContentStatus() }
+                    QuietButton { objectName: "workspaceDismissError"; ds: editorPage.ds; label: "知道了"; onClicked: uiShell.dismissContentStatus() }
                 }
             }
 
@@ -110,9 +112,10 @@ Item {
                     }
                 }
                 QuietButton {
+                    objectName: "workspaceSaveDraft"
                     ds: editorPage.ds
                     label: uiShell.draftDirty ? "保存草稿 *" : "保存草稿"
-                    enabled: uiShell.hasSelectedContent && !uiShell.draftPersistenceBlocked
+                    enabled: uiShell.hasSelectedContent && !uiShell.draftPersistenceBlocked && !uiShell.draftSaving
                     onClicked: uiShell.saveDraft()
                 }
                 QuietButton {

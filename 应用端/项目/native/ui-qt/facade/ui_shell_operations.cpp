@@ -8,13 +8,16 @@
 #include "trace_store.hpp"
 #include "challenge_service.hpp"
 #include "legacy_import.hpp"
+#include "challenge_submission_store.hpp"
 
 #include <QMetaObject>
 #include <QDate>
 #include <QDateTime>
 #include <QUuid>
+#include <QMap>
 
 #include <fstream>
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -69,6 +72,35 @@ void normalize_local_day(std::string& timestamp) {
   if (!parsed.isValid()) parsed = QDateTime::fromString(QString::fromStdString(timestamp), Qt::ISODate);
   if (parsed.isValid())
     timestamp = parsed.toLocalTime().date().toString(Qt::ISODate).toStdString();
+}
+
+void merge_challenge_submissions(std::vector<codeweave::learning::MasteryEvidence>& mastery,
+    const QVariantList& submissions) {
+  using namespace codeweave::learning;
+  QMap<QString, MasteryEvidence> latest;
+  for (const auto& fact : mastery) {
+    if (fact.kind != MasteryEvidenceKind::Challenge) continue;
+    const auto id = QString::fromStdString(fact.ref_id);
+    if (!latest.contains(id) || QDateTime::fromString(QString::fromStdString(fact.at), Qt::ISODate) >=
+        QDateTime::fromString(QString::fromStdString(latest[id].at), Qt::ISODate)) latest[id] = fact;
+  }
+  // The versioned submission archive owns the current state of its challenges.
+  // A pending resubmission retains a prior pass; a reviewed rejection supersedes it.
+  for (const auto& value : submissions) {
+    const auto record = value.toMap();
+    const auto id = record.value("challengeId").toString();
+    const auto status = record.value("status").toString();
+    if (status == "submitted" && latest.contains(id) && latest[id].passed) continue;
+    MasteryEvidence fact;
+    fact.kind = MasteryEvidenceKind::Challenge;
+    fact.ref_id = id.toStdString();
+    fact.passed = status == "passed" || status == "verified";
+    fact.at = record.value(status == "verified" || status == "rejected" ? "reviewedAt" : "submittedAt")
+        .toString().toStdString();
+    latest[id] = std::move(fact);
+  }
+  std::erase_if(mastery, [](const auto& fact) { return fact.kind == MasteryEvidenceKind::Challenge; });
+  for (const auto& fact : latest) mastery.push_back(fact);
 }
 
 std::string operation_id_for(const char* prefix) {
@@ -232,6 +264,9 @@ void UiShell::refreshReviewSummary() {
     if (!evidence_read.ok) return evidence_read;
     const auto mastery_read = mastery.read_all(mastery_records);
     if (!mastery_read.ok) return mastery_read;
+    QVariantList submissions;
+    const auto submission_read = ChallengeSubmissionStore(QString::fromStdWString(root.wstring())).read(submissions);
+    if (!submission_read.ok) return submission_read;
     // All-time lesson facts use the same six-state contract as the web client.
     // Reading/practice signals and challenge results alone are not lesson completion.
     for (const auto& record : mastery_records) {
@@ -267,6 +302,7 @@ void UiShell::refreshReviewSummary() {
       states[QStringLiteral("submittedEvidence")] = true;
       lesson_states->insert(id, states);
     }
+    merge_challenge_submissions(mastery_records, submissions);
     for (auto& record : evidence_records) normalize_local_day(record.at);
     for (auto& record : mastery_records) normalize_local_day(record.at);
     *analysis = codeweave::learning::summarize_analysis_window(
@@ -280,10 +316,10 @@ void UiShell::refreshReviewSummary() {
   };
   operation_task_id_ = task_name;
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation, summary, projection, projection_found, analysis, lesson_states, task_name](
+      [this, account, generation, summary, projection, projection_found, analysis, lesson_states, task_name, today, first_day](
           codeweave::backend::TaskResult result) {
         QMetaObject::invokeMethod(this, [this, account, generation, summary,
-            projection, projection_found, analysis, lesson_states, task_name, result = std::move(result)] {
+            projection, projection_found, analysis, lesson_states, task_name, today, first_day, result = std::move(result)] {
           if (task_name != operation_task_id_) return;
           operation_task_id_.clear();
           operation_busy_ = false;
@@ -333,6 +369,8 @@ void UiShell::refreshReviewSummary() {
                       QString::fromUtf8(item.latest_at), item.passed ? QStringLiteral("输出通过") : QStringLiteral("待复习"),
                       QString::fromUtf8(item.latest_result));
             }
+            analysis_snapshot_.insert(QStringLiteral("periodStartKey"), QString::fromStdString(first_day));
+            analysis_snapshot_.insert(QStringLiteral("todayKey"), QString::fromStdString(today));
             analysis_snapshot_.insert(QStringLiteral("completedUnits"),
                 static_cast<qulonglong>(analysis->completed_units));
             analysis_snapshot_.insert(QStringLiteral("practiceCount"),
