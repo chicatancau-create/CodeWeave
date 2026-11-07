@@ -125,6 +125,93 @@ Item {
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
 
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 176
+                radius: ds.radius
+                color: ds.panel
+                border.color: ds.line
+                border.width: 1
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: ds.s12
+                    spacing: ds.s8
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "主题原文"
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Item { Layout.fillWidth: true }
+                        BusyIndicator {
+                            implicitWidth: 20
+                            implicitHeight: 20
+                            running: uiShell.hasSelectedContent && uiShell.contentBusy
+                                     && uiShell.selectedContentBody.length === 0
+                            visible: running
+                        }
+                        Text {
+                            visible: uiShell.hasSelectedContent && uiShell.contentBusy
+                                     && uiShell.selectedContentBody.length === 0
+                            text: "正在读取课程正文…"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 12
+                        }
+                    }
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        visible: uiShell.selectedContentBody.length > 0
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        Text {
+                            width: parent.width
+                            text: uiShell.selectedContentBody
+                            textFormat: Text.MarkdownText
+                            color: ds.ink
+                            linkColor: ds.accent
+                            wrapMode: Text.Wrap
+                            font.family: ds.ui
+                            font.pixelSize: 12
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: uiShell.hasSelectedContent && !uiShell.contentBusy
+                                 && uiShell.selectedContentBody.length === 0
+                        Text {
+                            Layout.fillWidth: true
+                            text: hostRoot.isErrorStatus(uiShell.contentStatus)
+                                  ? "课程正文读取失败：" + uiShell.contentStatus
+                                  : "暂无主题原文"
+                            color: hostRoot.isErrorStatus(uiShell.contentStatus) ? ds.warning : ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
+                        QuietButton {
+                            ds: editorPage.ds
+                            visible: hostRoot.isErrorStatus(uiShell.contentStatus)
+                            label: "重试读取"
+                            enabled: hostRoot.safeSelectedLessonIndex >= 0 && !uiShell.draftDirty
+                                     && !uiShell.draftSaving
+                            onClicked: uiShell.openPublishedContent(hostRoot.safeSelectedLessonIndex)
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: !uiShell.hasSelectedContent && !uiShell.contentBusy
+                        text: "选择课程后显示主题原文"
+                        color: ds.faint
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                    }
+                }
+            }
+
             // Editor + run stage
             RowLayout {
                 Layout.fillWidth: true
