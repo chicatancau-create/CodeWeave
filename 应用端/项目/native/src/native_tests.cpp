@@ -1061,6 +1061,8 @@ void test_challenge_service_links_execution_evidence_and_progress() {
   codeweave::execution::ProcessResult passed{true, false, false, false, 0, "42\r\n", ""};
   const auto first = service.record_execution(request, passed);
   assert(first.validation.ok && first.passed && !first.evidence_duplicate && !first.progress_duplicate);
+  assert(first.judgement.passed && first.judgement.cases.size() == 1 &&
+      first.judgement.cases.front().matched);
   const auto repeated = service.record_execution(request, passed);
   assert(repeated.validation.ok && repeated.passed && repeated.evidence_duplicate && repeated.progress_duplicate);
   auto failed_output = passed; failed_output.output = "41\r\n";
@@ -1074,6 +1076,7 @@ void test_challenge_service_links_execution_evidence_and_progress() {
   compile_request.operation_id = "op-compile-0123ab";
   const auto compile_result = service.record_execution(compile_request, compile_only);
   assert(compile_result.validation.ok && !compile_result.passed);
+  assert(compile_result.judgement.passed);
   auto guided_request = request;
   guided_request.evidence_id = "challenge-guided";
   guided_request.operation_id = "op-guided-0123ab";
@@ -1082,6 +1085,30 @@ void test_challenge_service_links_execution_evidence_and_progress() {
   assert(guided.validation.ok && guided.passed && !guided.progress_duplicate);
   std::vector<codeweave::learning::ProgressFact> facts;
   assert(progress_store.read_all(facts).ok && facts.size() == 1);
+}
+
+void test_challenge_output_judgement_matches_exact_lines_contract() {
+  using codeweave::learning::judge_output;
+  const auto exact = judge_output({"1", "15"}, "15\r\n1\n");
+  assert(exact.passed && exact.cases.size() == 2 && exact.extra_lines.empty());
+
+  const auto partial = judge_output({"1", "15"}, "10\n15\n");
+  assert(!partial.passed && partial.cases.size() == 2);
+  assert(!partial.cases.front().matched &&
+      partial.cases.front().reason == "只有包含验收点的输出行");
+  assert(partial.cases.back().matched);
+
+  const auto repeated = judge_output({"15", "15"}, "15\n");
+  assert(!repeated.passed && repeated.cases[0].matched && !repeated.cases[1].matched);
+  assert(repeated.cases[1].reason == "没有多余的输出行可以匹配（每行只能用一次）");
+
+  const auto extra = judge_output({"15"}, "15\ntrace\n");
+  assert(extra.passed && extra.extra_lines == std::vector<std::string>{"trace"});
+
+  const auto empty_expected = judge_output({}, "15\n");
+  assert(!empty_expected.passed && empty_expected.cases.empty());
+  const auto empty_output = judge_output({"15"}, "");
+  assert(!empty_output.passed && !empty_output.cases.front().matched);
 }
 
 void test_challenge_service_compensates_evidence_when_progress_commit_fails() {
@@ -2004,6 +2031,7 @@ int main(int argc, char** argv) {
   test_learning_ledgers_reject_symlink_files();
   test_learning_and_trace_ledgers_reject_oversized_records();
   test_challenge_service_links_execution_evidence_and_progress();
+  test_challenge_output_judgement_matches_exact_lines_contract();
   test_challenge_service_compensates_evidence_when_progress_commit_fails();
   test_external_evidence_stays_pending_and_rejects_sensitive_fields();
   test_migration_staging_requires_fixture_and_rolls_back();

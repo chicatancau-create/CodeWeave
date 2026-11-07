@@ -2,6 +2,7 @@
 
 #include "evidence_store.hpp"
 #include "execution_service.hpp"
+#include "output_comparison.hpp"
 #include "progress_store.hpp"
 
 #include <string>
@@ -24,6 +25,7 @@ struct ChallengeResult {
   bool passed{};
   bool evidence_duplicate{};
   bool progress_duplicate{};
+  OutputJudgement judgement;
 };
 
 class ChallengeService final {
