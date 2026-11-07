@@ -51,6 +51,7 @@ bool decode(std::string_view value, std::string& out) {
 std::string kind(EventKind kind) {
   switch (kind) {
     case EventKind::Started: return "started";
+    case EventKind::SourceStep: return "source_step";
     case EventKind::Output: return "output";
     case EventKind::Paused: return "paused";
     case EventKind::Resumed: return "resumed";
@@ -63,6 +64,7 @@ std::string kind(EventKind kind) {
 
 bool parse_kind(std::string_view value, EventKind& out) {
   if (value == "started") out = EventKind::Started;
+  else if (value == "source_step") out = EventKind::SourceStep;
   else if (value == "output") out = EventKind::Output;
   else if (value == "paused") out = EventKind::Paused;
   else if (value == "resumed") out = EventKind::Resumed;
@@ -171,6 +173,7 @@ app::Result TraceStore::append(const Trace& trace) {
   }
   input.close();
   for (const auto& event : events) {
+    if (event.kind == EventKind::SourceStep) continue;
     const auto duplicate = std::find_if(existing.begin(), existing.end(),
         [&event](const auto& item) {
           return item.session_id == event.session_id && item.sequence == event.sequence;

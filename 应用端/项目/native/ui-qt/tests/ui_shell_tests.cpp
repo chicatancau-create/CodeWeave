@@ -525,6 +525,16 @@ int main(int argc, char** argv) {
       assert(trace.value(QStringLiteral("documentId")).toString() == document);
       assert(events.size() >= 3);
       assert(events.first().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("started"));
+      if (document == QStringLiteral("python-loop-sum")) {
+        const auto source_step = std::find_if(events.begin(), events.end(), [](const auto& event) {
+          const auto map = event.toMap();
+          return map.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+              map.value(QStringLiteral("variables")).toMap().size() > 0;
+        });
+        assert(source_step != events.end());
+        assert(source_step->toMap().value(QStringLiteral("sourceLine")).toInt() > 0);
+        assert(source_step->toMap().value(QStringLiteral("variables")).toMap().size() > 0);
+      }
       assert(events.at(events.size() - 2).toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("output"));
       assert(events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("completed"));
       shell.refreshReviewSummary();

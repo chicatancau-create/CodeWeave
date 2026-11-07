@@ -46,6 +46,37 @@ Rectangle {
             wrapMode: Text.WordWrap
         }
 
+        Text {
+            objectName: "executionTraceSourceLine"
+            Layout.fillWidth: true
+            visible: panel.currentEvent !== null && panel.currentEvent.kind === "source_step"
+            text: visible ? "源码第 " + panel.currentEvent.sourceLine + " 行" : ""
+            color: panel.ds.accent
+            font.family: panel.ds.mono
+            font.pixelSize: 12
+        }
+
+        Text {
+            objectName: "executionTraceVariables"
+            Layout.fillWidth: true
+            visible: panel.currentEvent !== null && panel.currentEvent.kind === "source_step"
+            text: {
+                if (!visible) return "";
+                const variables = panel.currentEvent.variables || {};
+                const names = Object.keys(variables);
+                if (names.length === 0) return "变量：无局部变量";
+                return "变量：" + names.map(function(name) {
+                    return name + " = " + variables[name];
+                }).join("  ·  ");
+            }
+            color: panel.ds.ink
+            font.family: panel.ds.mono
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+            maximumLineCount: 4
+            elide: Text.ElideRight
+        }
+
         ListView {
             id: eventList
             objectName: "executionEventList"

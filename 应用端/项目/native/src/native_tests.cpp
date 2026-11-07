@@ -36,6 +36,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <algorithm>
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
@@ -1987,6 +1988,16 @@ void test_execution_service_runs_external_language(const std::string& language,
               << result.process->output << "\n";
   }
   assert(result.process->output == expected_output);
+  if (language == "python") {
+    assert(result.trace.has_value());
+    const auto& events = result.trace->events();
+    const auto step = std::find_if(events.begin(), events.end(), [](const auto& event) {
+      return event.kind == codeweave::execution::EventKind::SourceStep;
+    });
+    assert(step != events.end());
+    assert(step->payload.find("\"line\":") != std::string::npos);
+    assert(step->payload.find("\"variables\":") != std::string::npos);
+  }
   assert(std::filesystem::is_empty(root, error) && !error);
   std::filesystem::remove_all(root, error);
 #else
@@ -2005,6 +2016,8 @@ void test_trace_contract_is_ordered_and_bounded() {
   assert(trace.events()[1].payload == "line 1");
   assert(!trace.append(codeweave::execution::EventKind::Output,
       std::string(codeweave::execution::Limits::kMaxOutputBytes + 1, 'x')).ok);
+  assert(!trace.append_source_step(std::string(8193, 'x')).ok);
+  assert(trace.append_source_step("{\"line\":1,\"variables\":{}}").ok);
 }
 
 void test_trace_store_paginates_and_summarizes() {
@@ -2014,6 +2027,7 @@ void test_trace_store_paginates_and_summarizes() {
   assert(trace.append(codeweave::execution::EventKind::Paused).ok);
   assert(trace.append(codeweave::execution::EventKind::Resumed).ok);
   assert(trace.append(codeweave::execution::EventKind::Output, "abcdef").ok);
+  assert(trace.append_source_step("{\"line\":1,\"variables\":{}}").ok);
   assert(trace.append(codeweave::execution::EventKind::Completed).ok);
   codeweave::execution::TraceStore store(fixture.root);
   const auto first_save = store.append(trace);

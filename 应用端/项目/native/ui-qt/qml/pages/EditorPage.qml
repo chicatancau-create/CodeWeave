@@ -663,7 +663,7 @@ Item {
                                     }
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "暂无变量快照"
+                                        text: "Python 显示所选源码步骤快照；其他语言暂不支持"
                                         color: ds.faint
                                         font.family: ds.ui
                                         font.pixelSize: 11

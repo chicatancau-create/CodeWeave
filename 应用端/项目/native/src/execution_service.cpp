@@ -76,6 +76,95 @@ std::filesystem::path unique_java_directory(const std::filesystem::path& root,
       std::to_string(random()) + "-" + std::to_string(random()));
 }
 
+std::filesystem::path unique_python_directory(const std::filesystem::path& root,
+    std::string_view) {
+  std::random_device random;
+  return root / ("python-" + std::to_string(random()) + "-" + std::to_string(random()));
+}
+
+bool write_file(const std::filesystem::path& path, std::string_view contents) {
+  std::ofstream file(path, std::ios::binary | std::ios::trunc);
+  if (!file) return false;
+  file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+  file.flush();
+  return static_cast<bool>(file);
+}
+
+constexpr std::string_view kPythonTraceRunner = R"PY(
+import json
+import itertools
+import pathlib
+import sys
+
+source_path = pathlib.Path(sys.argv[1])
+snapshot_path = pathlib.Path(sys.argv[2])
+sys.argv = ["-"]
+sys.path[0] = str(pathlib.Path.cwd())
+source = source_path.read_text(encoding="utf-8")
+step_count = 0
+step_bytes = 0
+
+def trace(frame, event, arg):
+    global step_count, step_bytes
+    if event not in ("line", "return", "exception") or frame.f_code.co_filename != "<codeweave>":
+        return trace
+    if step_count >= 512 or step_bytes >= 262144:
+        return None
+    values = {}
+    for name, value in itertools.islice(frame.f_locals.items(), 16):
+        if type(name) is not str or name.startswith("__"):
+            continue
+        if type(value) is str:
+            rendered = repr(value[:160]) + ("..." if len(value) > 160 else "")
+        elif type(value) is int:
+            rendered = repr(value) if value.bit_length() <= 512 else "<large int>"
+        elif value is None or type(value) in (bool, float):
+            rendered = repr(value)
+        else:
+            rendered = "<object>"
+        values[name[:128]] = rendered
+    record = json.dumps({"line": frame.f_lineno, "phase": event, "variables": values}, ensure_ascii=True,
+                        separators=(",", ":")) + "\n"
+    encoded_size = len(record.encode("utf-8"))
+    if encoded_size <= 8192 and step_bytes + encoded_size <= 262144:
+        with snapshot_path.open("a", encoding="utf-8", newline="\n") as snapshots:
+            snapshots.write(record)
+        step_count += 1
+        step_bytes += encoded_size
+    return trace
+
+sys.settrace(trace)
+try:
+    exec(compile(source, "<codeweave>", "exec"), {"__name__": "__main__"})
+finally:
+    sys.settrace(None)
+)PY";
+
+bool append_python_steps(const std::filesystem::path& snapshot_path, Trace& trace) {
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(snapshot_path, error);
+  if (error || !std::filesystem::is_regular_file(status) || std::filesystem::is_symlink(status)) return false;
+  std::ifstream input(snapshot_path, std::ios::binary);
+  if (!input) return false;
+  std::string line;
+  std::size_t total_bytes = 0;
+  std::size_t steps = 0;
+  char character = 0;
+  while (input.get(character)) {
+    if (++total_bytes > 256 * 1024 || line.size() >= 8192 || steps >= 512) break;
+    if (character != '\n') {
+      line.push_back(character);
+      continue;
+    }
+    if (line.empty()) continue;
+    const auto result = trace.append_source_step(line);
+    if (!result.ok) break;
+    line.clear();
+    ++steps;
+  }
+  return !input.bad();
+}
+
 }  // namespace
 
 ServiceResult ExecutionService::validate(const Request& request, const std::filesystem::path& executable,
@@ -91,6 +180,46 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
   ProcessPlan plan{};
   const auto validation = build_process_plan(request, executable, working_directory, plan);
   if (!validation.ok) return {validation, std::nullopt, std::nullopt};
+  if (request.language == "python") {
+    std::error_code directory_error;
+    const auto python_directory = unique_python_directory(working_directory, request.session_id);
+    const bool created = std::filesystem::create_directory(python_directory, directory_error);
+    if (!created || directory_error) {
+      return {app::Result::failure(created ? "Python 隔离工作目录创建后不可用"
+                                           : "Python 隔离工作目录已被占用或无法创建"),
+          std::nullopt, std::nullopt};
+    }
+    TemporaryDirectory python_cleanup(python_directory);
+    const auto source_path = python_directory / "program.py";
+    const auto runner_path = python_directory / "runner.py";
+    const auto snapshot_path = python_directory / "snapshots.jsonl";
+    if (!write_file(source_path, request.source) || !write_file(runner_path, kPythonTraceRunner)) {
+      return {app::Result::failure("创建 Python 源码追踪文件失败"), std::nullopt, std::nullopt};
+    }
+    ProcessPlan python_plan{
+        {executable, {L"-X", L"utf8", runner_path.wstring(), source_path.wstring(),
+                         snapshot_path.wstring()}, working_directory, "python"},
+        {}, request.timeout_ms, request.output_limit};
+    if (const auto valid = validate_process_request(python_plan.process); !valid.ok) {
+      return {valid, std::nullopt, std::nullopt};
+    }
+    Trace trace(request.session_id);
+    trace.append(EventKind::Started);
+    auto process = runner_.run(python_plan, cancellation, control);
+    append_python_steps(snapshot_path, trace);
+    for (const auto& event : process.control_events) {
+      if (event.command == ControlCommand::Pause) trace.append(EventKind::Paused);
+      if (event.command == ControlCommand::Resume || event.command == ControlCommand::Step) {
+        trace.append(EventKind::Resumed);
+      }
+    }
+    if (!process.output.empty()) trace.append(EventKind::Output, process.output);
+    if (process.timed_out || process.error_code == "execution_timeout") trace.append(EventKind::Failed, process.error_code);
+    else if (process.cancelled) trace.append(EventKind::Cancelled);
+    else if (process.exit_code == 0 && process.error_code.empty()) trace.append(EventKind::Completed);
+    else trace.append(EventKind::Failed, process.error_code.empty() ? "process_exit_nonzero" : process.error_code);
+    return {validation, std::move(process), std::move(trace)};
+  }
   if (request.language == "java") {
     std::error_code directory_error;
     const auto java_directory = unique_java_directory(working_directory, request.session_id);

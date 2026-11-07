@@ -15,6 +15,8 @@
 #include <QDateTime>
 #include <QUuid>
 #include <QMap>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <fstream>
 #include <algorithm>
@@ -35,6 +37,7 @@ QVariantList trace_events(const codeweave::execution::Trace& trace) {
     QString label;
     switch (event.kind) {
       case EventKind::Started: kind = "started"; label = QStringLiteral("开始执行"); break;
+      case EventKind::SourceStep: kind = "source_step"; label = QStringLiteral("源码步骤"); break;
       case EventKind::Output: kind = "output"; label = QStringLiteral("输出"); break;
       case EventKind::Paused: kind = "paused"; label = QStringLiteral("已暂停"); break;
       case EventKind::Resumed: kind = "resumed"; label = QStringLiteral("已继续"); break;
@@ -42,8 +45,18 @@ QVariantList trace_events(const codeweave::execution::Trace& trace) {
       case EventKind::Failed: kind = "failed"; label = QStringLiteral("执行失败"); break;
       case EventKind::Cancelled: kind = "cancelled"; label = QStringLiteral("已取消"); break;
     }
-    events.push_back(QVariantMap{{"sequence", QVariant::fromValue<qulonglong>(event.sequence)},
-        {"kind", kind}, {"label", label}, {"payload", normalized_output(event.payload)}});
+    QVariantMap item{{"sequence", QVariant::fromValue<qulonglong>(event.sequence)},
+        {"kind", kind}, {"label", label}, {"payload", normalized_output(event.payload)}};
+    if (event.kind == EventKind::SourceStep) {
+      const auto snapshot = QJsonDocument::fromJson(QByteArray::fromStdString(event.payload)).object();
+      item.insert("sourceLine", snapshot.value("line").toInt());
+      item.insert("phase", snapshot.value("phase").toString());
+      item.insert("variables", snapshot.value("variables").toObject().toVariantMap());
+      item.insert("label", QStringLiteral("第 %1 行 · %2").arg(snapshot.value("line").toInt())
+          .arg(snapshot.value("phase").toString() == "line" ? QStringLiteral("执行前") :
+               snapshot.value("phase").toString() == "return" ? QStringLiteral("返回") : QStringLiteral("异常")));
+    }
+    events.push_back(item);
   }
   return events;
 }

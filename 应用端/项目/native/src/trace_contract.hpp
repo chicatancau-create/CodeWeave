@@ -9,7 +9,7 @@
 
 namespace codeweave::execution {
 
-enum class EventKind { Started, Output, Paused, Resumed, Completed, Failed, Cancelled };
+enum class EventKind { Started, SourceStep, Output, Paused, Resumed, Completed, Failed, Cancelled };
 
 struct TraceEvent {
   std::uint64_t sequence{};
@@ -23,6 +23,7 @@ class Trace final {
   explicit Trace(std::string session_id);
 
   app::Result append(EventKind kind, std::string_view payload = {});
+  app::Result append_source_step(std::string_view payload);
   [[nodiscard]] const std::vector<TraceEvent>& events() const noexcept { return events_; }
   [[nodiscard]] std::uint64_t next_sequence() const noexcept { return next_sequence_; }
 
