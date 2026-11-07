@@ -176,3 +176,4 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 - [未执行] 其余页面拆分、顶栏浮层/面包屑/设置帮助弹窗，以及网页端逐区块截图对比。
 - [通过] 追加拆分 `qml/pages/AnalyticsPage.qml`，由 Loader 注入设计令牌；矩阵复验仍为 27/27。
 - [通过] 追加拆分 `qml/pages/ReviewPage.qml`，由 Loader 注入宿主对象和设计令牌；矩阵复验仍为 27/27。
+- [通过] 追加拆分 `qml/pages/DraftsPage.qml`，由 Loader 注入宿主对象和设计令牌；矩阵复验仍为 27/27。
