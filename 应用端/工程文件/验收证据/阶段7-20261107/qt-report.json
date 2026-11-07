@@ -1,0 +1,38 @@
+{
+    "checks": [
+        {
+            "name": "qt-learning",
+            "passed": true
+        },
+        {
+            "name": "qt-review",
+            "passed": true
+        },
+        {
+            "name": "qt-challenge",
+            "passed": true
+        },
+        {
+            "name": "qt-workbench",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "devicePixelRatio": 1,
+    "height": 900,
+    "isolatedData": true,
+    "mode": "qt-isolated-visual-comparison",
+    "passed": true,
+    "qmlWarnings": [
+    ],
+    "screenshots": [
+        "G:/CodeWeave/应用端/工程文件/验收证据/阶段7-20261107/qt-learning.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/阶段7-20261107/qt-review.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/阶段7-20261107/qt-challenge.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/阶段7-20261107/qt-workbench.png"
+    ],
+    "width": 1440
+}
