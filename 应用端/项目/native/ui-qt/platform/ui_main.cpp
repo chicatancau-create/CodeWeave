@@ -795,6 +795,36 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("python-execution"), shell.executionOutput().contains(QStringLiteral("15")),
               shell.executionOutput());
           {
+            auto* panel = u3_find_item(view.rootObject(), QStringLiteral("executionTracePanel"));
+            auto* events = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* previous = u3_find_item(view.rootObject(), QStringLiteral("executionTracePrevious"));
+            auto* next = u3_find_item(view.rootObject(), QStringLiteral("executionTraceNext"));
+            auto* trace_output = u3_find_item(view.rootObject(), QStringLiteral("executionTraceOutput"));
+            const bool initial = panel && events && events->property("count").toInt() == 3 &&
+                events->property("currentIndex").toInt() == 2 && trace_output &&
+                trace_output->property("text").toString() == QStringLiteral("15\n");
+            u3_record(*context, QStringLiteral("execution-trace-events-and-current-output"), initial);
+            const bool previous_invoked = initial && previous && QMetaObject::invokeMethod(
+                previous, "clicked", Qt::DirectConnection) && QMetaObject::invokeMethod(
+                previous, "clicked", Qt::DirectConnection);
+            u3_record(*context, QStringLiteral("execution-trace-previous-shows-before-output"),
+                previous_invoked && events->property("currentIndex").toInt() == 0 &&
+                trace_output->property("text").toString().isEmpty());
+            const bool next_invoked = previous_invoked && next && QMetaObject::invokeMethod(
+                next, "clicked", Qt::DirectConnection) && QMetaObject::invokeMethod(
+                next, "clicked", Qt::DirectConnection);
+            u3_record(*context, QStringLiteral("execution-trace-next-restores-output"), next_invoked &&
+                events->property("currentIndex").toInt() == 2 &&
+                trace_output->property("text").toString() == QStringLiteral("15\n"));
+            if (events) events->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+            const bool home = events && events->property("currentIndex").toInt() == 0;
+            send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+            u3_record(*context, QStringLiteral("execution-trace-keyboard-home-end"), home &&
+                events->property("currentIndex").toInt() == 2);
+            u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-completed"));
+          }
+          {
             auto* copy_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("copyOutputButton"));
             auto* clear_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("clearOutputButton"));
             auto* output_area = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("outputArea"));
@@ -809,6 +839,35 @@ int main(int argc, char* argv[]) {
                 clear_invoked && output_area->property("text").toString().isEmpty() &&
                 shell.executionOutput() == QStringLiteral("15\n"));
           }
+          view.resize(1100, 720);
+          context->step = 600;
+          return;
+        case 600: {
+          auto* editor = u3_find_item(view.rootObject(), QStringLiteral("editorPageRoot"));
+          if (editor) QMetaObject::invokeMethod(editor, "revealExecutionTrace", Qt::DirectConnection);
+          context->step = 602;
+          return;
+        }
+        case 602: {
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("executionTracePanel"));
+          auto* output = u3_find_item(view.rootObject(), QStringLiteral("executionTraceOutput"));
+          const auto point = output ? output->mapToScene(QPointF()) : QPointF(-1, -1);
+          u3_record(*context, QStringLiteral("execution-trace-narrow-framed"), panel && panel->height() >= 150 &&
+              output && point.x() >= 0 && point.y() >= 0 && point.x() + output->width() <= view.width() &&
+              point.y() + output->height() <= view.height() &&
+              u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-narrow"), QSize(1100, 720)));
+          shell.updateDraftCode(QStringLiteral("print(16)\n"));
+          context->step = 601;
+          return;
+        }
+        case 601: {
+          auto* version = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVersion"));
+          u3_record(*context, QStringLiteral("execution-trace-edit-marks-old-revision"), version &&
+              version->property("text").toString().contains(QStringLiteral("代码已修改")) &&
+              shell.executionTrace().value(QStringLiteral("sourceRevision")).toULongLong() != shell.draftRevision());
+          u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-stale"), QSize(1100, 720));
+          shell.discardDraftChanges();
+          view.resize(1440, 900);
           {
             const auto index = shell.publishedIds().indexOf(QStringLiteral("java-loop-sum"));
             if (index < 0) { u3_record(*context, QStringLiteral("java-execution"), false,
@@ -817,6 +876,7 @@ int main(int argc, char* argv[]) {
           }
           context->step = 50;
           return;
+        }
         case 50:
           if (shell.contentBusy()) return;
           shell.loadStarterCode();
@@ -880,6 +940,9 @@ int main(int argc, char* argv[]) {
           return;
         case 59:
           if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("execution-trace-free-program-clears-lesson"),
+              shell.documentId() == QStringLiteral("free-python") && shell.selectedContentBody().isEmpty() &&
+              shell.executionTrace().isEmpty());
           shell.updateDraftCode(QStringLiteral("import time\nfor i in range(100):\n    print(i)\n    time.sleep(0.02)\n"));
           shell.setExecutionTimeout(5000);
           shell.runCode();
@@ -921,6 +984,19 @@ int main(int argc, char* argv[]) {
           if (shell.executionBusy()) return;
           u3_record(*context, QStringLiteral("execution-cancel"),
               shell.executionOutput().contains(QStringLiteral("取消")), shell.executionOutput());
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            u3_record(*context, QStringLiteral("execution-trace-cancelled-event"), !events.isEmpty() &&
+                events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("cancelled"));
+            bool paused = false;
+            bool resumed = false;
+            for (const auto& event : events) {
+              paused = paused || event.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("paused");
+              resumed = resumed || event.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("resumed");
+            }
+            u3_record(*context, QStringLiteral("execution-trace-pause-resume-events"), paused && resumed);
+            u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-cancelled"));
+          }
           shell.setExecutionTimeout(100);
           shell.updateDraftCode(QStringLiteral("import time\ntime.sleep(2)\n"));
           shell.runCode();
@@ -930,6 +1006,12 @@ int main(int argc, char* argv[]) {
           if (shell.executionBusy()) return;
           u3_record(*context, QStringLiteral("execution-timeout"),
               shell.executionOutput().contains(QStringLiteral("超时")), shell.executionOutput());
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            u3_record(*context, QStringLiteral("execution-trace-failed-event"), !events.isEmpty() &&
+                events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("failed"));
+            u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-failed"));
+          }
           {
             auto* output_area = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("outputArea"));
             auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
@@ -2485,7 +2567,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-and-lesson-evidence-screenshots"), context->screenshots.size() == 42,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-and-execution-trace-screenshots"), context->screenshots.size() == 47,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

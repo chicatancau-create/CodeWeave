@@ -7,10 +7,12 @@ Item {
     property var hostRoot
     property QtObject ds
     id: editorPage
+    objectName: "editorPageRoot"
     property int activeWorkspacePane: 0
     property bool consoleOutputCleared: false
     property string consoleCopyStatus: ""
     property string evidenceAccountRequested: ""
+    property bool showExecutionTrace: true
     readonly property var currentLesson: {
         for (const lesson of uiShell.lessonMeta)
             if (lesson.id === uiShell.documentId) return lesson;
@@ -21,10 +23,17 @@ Item {
         return currentLesson ? (currentLesson.title || uiShell.documentId)
                : index >= 0 ? uiShell.publishedTitles[index] : "未选择课程";
     }
+    function revealItem(item) {
+        const top = item.mapToItem(workspaceContent, 0, 0).y;
+        workspaceScroll.contentItem.contentY = Math.max(0, Math.min(top,
+            workspaceScroll.contentItem.contentHeight - workspaceScroll.availableHeight));
+    }
+    function revealExecutionTrace() { revealItem(stagePanel); }
 
     Connections {
         target: uiShell
         function onAccountChanged() { editorPage.evidenceAccountRequested = ""; }
+        function onExecutionTraceChanged() { editorPage.showExecutionTrace = true; }
         function onExecutionOutputChanged() {
             editorPage.consoleOutputCleared = false;
             editorPage.consoleCopyStatus = "";
@@ -43,8 +52,15 @@ Item {
         }
     }
 
-        ColumnLayout {
+        ScrollView {
+            id: workspaceScroll
             anchors.fill: parent
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        ColumnLayout {
+            id: workspaceContent
+            width: workspaceScroll.availableWidth
+            height: Math.max(workspaceScroll.availableHeight, implicitHeight)
             spacing: ds.s12
 
             Rectangle {
@@ -156,6 +172,7 @@ Item {
                                 if (index === 0) codeEditor.forceActiveFocus();
                                 else if (index === 1) stagePanel.forceActiveFocus();
                                 else outputArea.forceActiveFocus();
+                                editorPage.revealItem(index === 0 ? codeEditor : index === 1 ? stagePanel : outputArea);
                             }
                             Accessible.name: "工作台分区：" + modelData
                         }
@@ -461,12 +478,15 @@ Item {
                         Accessible.name: "程序状态图区域"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        implicitHeight: stageContent.implicitHeight + ds.s14 * 2
+                        Layout.minimumHeight: implicitHeight
                         radius: ds.radius
                         color: ds.page
                         border.color: ds.line
                         border.width: 1
 
                         ColumnLayout {
+                            id: stageContent
                             anchors.fill: parent
                             anchors.margins: ds.s14
                             spacing: ds.s10
@@ -474,13 +494,34 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: ds.s8
-                                Text {
-                                    text: "课程流程结构"
-                                    color: ds.ink
-                                    font.family: ds.mono
-                                    font.pixelSize: 13
-                                    font.weight: Font.DemiBold
-                                    Layout.alignment: Qt.AlignVCenter
+                                TabBar {
+                                    id: traceTabs
+                                    background: null
+                                    currentIndex: editorPage.showExecutionTrace ? 1 : 0
+                                    onCurrentIndexChanged: editorPage.showExecutionTrace = currentIndex === 1
+                                    Repeater {
+                                        model: ["课程结构", "执行事件"]
+                                        TabButton {
+                                            id: traceTab
+                                            required property string modelData
+                                            text: modelData
+                                            implicitHeight: 32
+                                            implicitWidth: 76
+                                            background: Rectangle {
+                                                radius: ds.radiusSm
+                                                color: traceTab.checked ? ds.accentSoft : traceTab.hovered ? ds.hoverWash : ds.page
+                                                border.color: traceTab.checked || traceTab.activeFocus ? ds.accent : ds.line
+                                            }
+                                            contentItem: Text {
+                                                text: traceTab.text
+                                                color: traceTab.checked ? ds.accent : ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 12
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                        }
+                                    }
                                 }
                                 Item { Layout.fillWidth: true }
                                 Rectangle {
@@ -493,7 +534,9 @@ Item {
                                     Text {
                                         id: counterText
                                         anchors.centerIn: parent
-                                        text: "暂无执行事件"
+                                        text: (uiShell.executionTrace.events || []).length > 0
+                                              ? (uiShell.executionTrace.events || []).length + " 个事件"
+                                              : "暂无执行事件"
                                         color: ds.accent
                                         font.family: ds.mono
                                         font.pixelSize: 11
@@ -503,6 +546,7 @@ Item {
 
                             // div.rs-canvas-wrap — grid paper
                             Rectangle {
+                                visible: !editorPage.showExecutionTrace
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 radius: ds.radiusSm
@@ -587,6 +631,18 @@ Item {
                                 }
                             }
 
+                            ExecutionTracePanel {
+                                objectName: "executionTracePanel"
+                                visible: editorPage.showExecutionTrace
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: implicitHeight
+                                ds: editorPage.ds
+                                trace: uiShell.executionTrace
+                                busy: uiShell.executionBusy
+                                draftRevision: uiShell.draftRevision
+                            }
+
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 72
@@ -607,7 +663,7 @@ Item {
                                     }
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "暂无变量快照；运行事件数据接入后显示每一步的变量变化。"
+                                        text: "暂无变量快照"
                                         color: ds.faint
                                         font.family: ds.ui
                                         font.pixelSize: 11
@@ -622,7 +678,7 @@ Item {
                                 color: ds.line
                             }
 
-                            RowLayout {
+                            Flow {
                                 Layout.fillWidth: true
                                 spacing: ds.s8
                                 CheckBox {
@@ -661,7 +717,6 @@ Item {
                                     enabled: uiShell.executionBusy && uiShell.executionPaused
                                     onClicked: uiShell.stepExecution()
                                 }
-                                Item { Layout.fillWidth: true }
                             }
                         }
                     }
@@ -749,5 +804,6 @@ Item {
                     }
                 }
             }
+        }
         }
     }

@@ -520,6 +520,13 @@ int main(int argc, char** argv) {
       shell.runCode();
       wait_for([&] { return !shell.executionBusy() && !shell.operationBusy(); });
       assert(shell.executionOutput() == expected);
+      const auto trace = shell.executionTrace();
+      const auto events = trace.value(QStringLiteral("events")).toList();
+      assert(trace.value(QStringLiteral("documentId")).toString() == document);
+      assert(events.size() >= 3);
+      assert(events.first().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("started"));
+      assert(events.at(events.size() - 2).toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("output"));
+      assert(events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("completed"));
       shell.refreshReviewSummary();
       wait_for([&] { return !shell.operationBusy(); });
       assert(shell.lessonEvidenceStates().value(document).toMap().value("practiced").toBool());
@@ -573,9 +580,30 @@ int main(int argc, char** argv) {
     wait_for([&] { return !shell.executionBusy(); });
     assert(shell.executionOutputError());
     assert(shell.executionOutput() == QStringLiteral("process_exit_nonzero"));
+    assert(shell.executionTrace().value(QStringLiteral("events")).toList().last().toMap()
+        .value(QStringLiteral("kind")).toString() == QStringLiteral("failed"));
+    shell.openFreeProgram(QStringLiteral("python"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.documentId() == QStringLiteral("free-python"));
+    assert(shell.selectedContentBody().isEmpty() && shell.executionTrace().isEmpty());
+    shell.updateDraftCode(QStringLiteral("import time\ntime.sleep(2)\n"));
+    shell.setExecutionTimeout(5000);
+    shell.runCode();
+    assert(shell.executionBusy());
+    shell.cancelExecution();
+    wait_for([&] { return !shell.executionBusy(); });
+    assert(shell.executionOutput().contains(QStringLiteral("取消")));
+    assert(shell.executionTrace().value(QStringLiteral("events")).toList().last().toMap()
+        .value(QStringLiteral("kind")).toString() == QStringLiteral("cancelled"));
+    shell.discardDraftChanges();
+    shell.openPublishedContent(python_index);
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.documentId() == QStringLiteral("python-loop-sum"));
+    assert(shell.executionTrace().isEmpty());
     shell.logout();
     assert(!shell.hasActiveAccount());
     assert(shell.executionOutput().isEmpty() && !shell.executionOutputError());
+    assert(shell.executionTrace().isEmpty());
     const auto document = shell.documentId();
     saved_document = document;
     shell.discardDraftChanges();

@@ -27,6 +27,27 @@ QString normalized_output(const std::string& value) {
       .replace(QChar('\r'), QChar('\n'));
 }
 
+QVariantList trace_events(const codeweave::execution::Trace& trace) {
+  using codeweave::execution::EventKind;
+  QVariantList events;
+  for (const auto& event : trace.events()) {
+    QString kind;
+    QString label;
+    switch (event.kind) {
+      case EventKind::Started: kind = "started"; label = QStringLiteral("开始执行"); break;
+      case EventKind::Output: kind = "output"; label = QStringLiteral("输出"); break;
+      case EventKind::Paused: kind = "paused"; label = QStringLiteral("已暂停"); break;
+      case EventKind::Resumed: kind = "resumed"; label = QStringLiteral("已继续"); break;
+      case EventKind::Completed: kind = "completed"; label = QStringLiteral("执行完成"); break;
+      case EventKind::Failed: kind = "failed"; label = QStringLiteral("执行失败"); break;
+      case EventKind::Cancelled: kind = "cancelled"; label = QStringLiteral("已取消"); break;
+    }
+    events.push_back(QVariantMap{{"sequence", QVariant::fromValue<qulonglong>(event.sequence)},
+        {"kind", kind}, {"label", label}, {"payload", normalized_output(event.payload)}});
+  }
+  return events;
+}
+
 struct ProgressSource {
   bool found{};
   std::string markdown;
@@ -150,6 +171,8 @@ void UiShell::openFreeProgram(const QString& language) {
   clearDraft();
   selected_content_index_ = -1;
   selected_content_id_ = QStringLiteral("free-") + language;
+  selected_content_body_.clear();
+  emit selectedContentBodyChanged();
   starter_language_ = language;
   execution_policy_ = QStringLiteral("native");
   starter_code_ = language == "cpp" ? QStringLiteral("#include <iostream>\nint main() { std::cout << \"Hello\\n\"; }\n") :
@@ -687,6 +710,11 @@ void UiShell::runCode() {
     return;
   }
   execution_busy_ = true;
+  execution_trace_.clear();
+  execution_output_.clear();
+  execution_output_error_ = false;
+  emit executionTraceChanged();
+  emit executionOutputChanged();
   lesson_run_succeeded_ = false;
   execution_cancelled_.store(false, std::memory_order_release);
   emit executionBusyChanged();
@@ -704,6 +732,7 @@ void UiShell::runCode() {
   const auto independent = independent_attempt_ && !hints_viewed_;
   const auto hints_viewed = hints_viewed_;
   const auto challenge_status = std::make_shared<QString>();
+  const auto trace = std::make_shared<std::optional<codeweave::execution::Trace>>();
   codeweave::backend::TaskRequest request;
   const auto task_name = QStringLiteral("qt-execute-%1").arg(next_task_id_++);
   request.task_id = task_name.toStdString();
@@ -711,13 +740,14 @@ void UiShell::runCode() {
   request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Execute;
   request.work = [request_data, tool, root, document, content_root, independent,
-      hints_viewed, challenge_status, this](const auto& token) {
+      hints_viewed, challenge_status, trace, this](const auto& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("执行已取消");
     std::error_code directory_error;
     std::filesystem::create_directories(root / "execution", directory_error);
     if (directory_error) return codeweave::app::Result::failure("无法准备执行工作目录");
     const auto result = codeweave::execution::ExecutionService{}.run(
         request_data, tool, root / "execution", &execution_cancelled_, &execution_control_);
+    *trace = result.trace;
     if (result.trace) {
       const auto saved = codeweave::execution::TraceStore(root).append(*result.trace);
       if (!saved.ok) return saved;
@@ -769,14 +799,21 @@ void UiShell::runCode() {
   };
   execution_task_id_ = task_name;
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation, revision, challenge_status, task_name](codeweave::backend::TaskResult result) {
-        QMetaObject::invokeMethod(this, [this, account, generation, revision, challenge_status,
+      [this, account, generation, revision, document, request_data, trace, challenge_status, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, revision, document, request_data, trace, challenge_status,
             task_name, result = std::move(result)]() mutable {
           if (task_name != execution_task_id_) return;
           execution_task_id_.clear();
           execution_busy_ = false;
           emit executionBusyChanged();
           if (account != active_account_id_ || generation != account_generation_) return;
+          if (*trace) {
+            execution_trace_ = {{"sessionId", QString::fromStdString(request_data.session_id)},
+                {"documentId", QString::fromStdString(document)},
+                {"sourceRevision", QVariant::fromValue<qulonglong>(revision)},
+                {"events", trace_events(**trace)}};
+            emit executionTraceChanged();
+          }
           execution_output_ = QString::fromUtf8(result.result.message);
           execution_output_error_ = !result.result.ok;
           lesson_run_succeeded_ = result.result.ok && !result.cancelled;

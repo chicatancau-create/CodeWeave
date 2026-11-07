@@ -63,6 +63,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(bool executionPaused READ executionPaused NOTIFY executionStateChanged)
   Q_PROPERTY(QString executionOutput READ executionOutput NOTIFY executionOutputChanged)
   Q_PROPERTY(bool executionOutputError READ executionOutputError NOTIFY executionOutputChanged)
+  Q_PROPERTY(QVariantMap executionTrace READ executionTrace NOTIFY executionTraceChanged)
   Q_PROPERTY(QString progressSummary READ progressSummary NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QString reviewSummary READ reviewSummary NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY reviewItemsChanged)
@@ -178,6 +179,7 @@ class UiShell final : public QObject {
   Q_INVOKABLE void saveExternalEvidence(const QString& environment, const QString& command,
       const QString& summary, const QString& artifactRef, const QString& reproducedOn);
   Q_INVOKABLE void runCode();
+  [[nodiscard]] QVariantMap executionTrace() const { return execution_trace_; }
   Q_INVOKABLE void cancelExecution();
   Q_INVOKABLE void pauseExecution();
   Q_INVOKABLE void resumeExecution();
@@ -224,6 +226,7 @@ class UiShell final : public QObject {
   void executionBusyChanged();
   void executionStateChanged();
   void executionOutputChanged();
+  void executionTraceChanged();
   void reviewSummaryChanged();
   void checkinChanged();
   void lessonAssessmentChanged();
@@ -283,6 +286,7 @@ class UiShell final : public QObject {
   QString hints_;
   QString operation_status_;
   QString execution_output_;
+  QVariantMap execution_trace_;
   bool execution_output_error_{};
   QString progress_summary_;
   QString review_summary_;

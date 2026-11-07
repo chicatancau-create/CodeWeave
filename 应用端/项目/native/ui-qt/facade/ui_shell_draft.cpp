@@ -45,6 +45,9 @@ void UiShell::clearDraft(bool accountChange) {
   emit independentAttemptChanged();
   hints_.clear();
   execution_output_.clear();
+  execution_output_error_ = false;
+  execution_trace_.clear();
+  emit executionTraceChanged();
   // Account aggregates survive document changes, but never cross accounts.
   if (accountChange) {
     progress_summary_.clear();
