@@ -1093,7 +1093,7 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("execution-trace-free-program-clears-lesson"),
               shell.documentId() == QStringLiteral("free-python") && shell.selectedContentBody().isEmpty() &&
               shell.executionTrace().isEmpty());
-          shell.updateDraftCode(QStringLiteral("import time\nfor i in range(100):\n    print(i)\n    time.sleep(0.02)\n"));
+          shell.updateDraftCode(QStringLiteral("import time\nfor i in range(100):\n    print(i, flush=True)\n    time.sleep(0.02)\n"));
           shell.setExecutionTimeout(5000);
           shell.runCode();
           context->step++;
@@ -1107,6 +1107,14 @@ int main(int argc, char* argv[]) {
             context->step = 99;
             return;
           }
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            const bool source_seen = std::any_of(events.begin(), events.end(), [](const auto& value) {
+              return value.toMap().value(QStringLiteral("kind")).toString() == "source_step";
+            });
+            if (!source_seen || !shell.executionOutput().contains(QStringLiteral("0\n"))) return;
+            u3_record(*context, QStringLiteral("execution-live-output-and-source-before-exit"), shell.executionBusy());
+          }
           shell.pauseExecution();
           if (!shell.executionPaused()) return;
           u3_record(*context, QStringLiteral("execution-pause"), true);
@@ -1119,6 +1127,18 @@ int main(int argc, char* argv[]) {
             context->step = 99;
             return;
           }
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            if (std::none_of(events.begin(), events.end(), [](const auto& value) {
+                  return value.toMap().value(QStringLiteral("kind")).toString() == "paused";
+                })) return;
+            u3_record(*context, QStringLiteral("execution-live-paused-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-live")));
+            if (auto* list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"))) {
+              list->forceActiveFocus();
+              send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+            }
+          }
           shell.stepExecution();
           u3_record(*context, QStringLiteral("execution-step"), shell.executionPaused());
           shell.resumeExecution();
@@ -1126,6 +1146,19 @@ int main(int argc, char* argv[]) {
           return;
         case 62:
           if (shell.executionPaused()) return;
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            if (std::none_of(events.begin(), events.end(), [](const auto& value) {
+                  return value.toMap().value(QStringLiteral("kind")).toString() == "resumed";
+                })) return;
+            auto* list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            u3_record(*context, QStringLiteral("execution-live-preserves-browsed-event"),
+                list && list->property("currentIndex").toInt() == 0);
+            if (list) list->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+            u3_record(*context, QStringLiteral("execution-live-end-follows-latest"),
+                list && list->property("currentIndex").toInt() == events.size() - 1);
+          }
           u3_record(*context, QStringLiteral("execution-resume"), shell.executionBusy());
           shell.cancelExecution();
           context->step++;
@@ -2837,7 +2870,7 @@ int main(int argc, char* argv[]) {
         }
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 55,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 56,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

@@ -6,6 +6,7 @@
 #include <atomic>
 #include <functional>
 #include <mutex>
+#include <span>
 #include <vector>
 
 namespace codeweave::execution {
@@ -49,8 +50,10 @@ struct ProcessResult {
 
 class ProcessRunner final {
  public:
+  // Polled on the calling thread, including idle ticks and a final I/O drain.
+  using Observer = std::function<void(std::string_view, std::span<const ControlEvent>)>;
   ProcessResult run(const ProcessPlan& plan, const std::atomic_bool* cancellation = nullptr,
-      ExecutionControl* control = nullptr) const;
+      ExecutionControl* control = nullptr, const Observer& observer = {}) const;
 };
 
 }  // namespace codeweave::execution

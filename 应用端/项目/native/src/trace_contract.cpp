@@ -2,7 +2,8 @@
 
 namespace codeweave::execution {
 
-Trace::Trace(std::string session_id) : session_id_(std::move(session_id)) {}
+Trace::Trace(std::string session_id, Observer observer)
+    : session_id_(std::move(session_id)), observer_(std::move(observer)) {}
 
 app::Result Trace::append(EventKind kind, std::string_view payload) {
   if (session_id_.empty()) return app::Result::failure("轨迹缺少会话 ID");
@@ -13,6 +14,7 @@ app::Result Trace::append(EventKind kind, std::string_view payload) {
   }
   if (kind == EventKind::SourceStep) return app::Result::failure("源码步骤必须通过受限快照接口追加");
   events_.push_back({next_sequence_++, kind, session_id_, std::string(payload)});
+  if (observer_) observer_(events_.back());
   return app::Result::success("轨迹事件已追加");
 }
 
@@ -34,6 +36,7 @@ app::Result Trace::append_source_step(std::string_view payload) {
     return app::Result::failure("源码快照达到运行上限");
   }
   events_.push_back({next_sequence_++, EventKind::SourceStep, session_id_, std::string(payload)});
+  if (observer_) observer_(events_.back());
   return app::Result::success("源码快照已追加");
 }
 

@@ -619,6 +619,31 @@ int main(int argc, char** argv) {
     wait_for([&] { return !shell.contentBusy(); });
     assert(shell.documentId() == QStringLiteral("free-python"));
     assert(shell.selectedContentBody().isEmpty() && shell.executionTrace().isEmpty());
+    shell.updateDraftCode(QStringLiteral("import time\nvalue = 15\nprint('live-output', flush=True)\n"
+        "time.sleep(0.5)\nvalue += 1\ntime.sleep(10)\n"));
+    shell.setExecutionTimeout(15000);
+    int output_notifications = 0;
+    const auto output_connection = QObject::connect(&shell, &UiShell::executionOutputChanged,
+        [&] { ++output_notifications; });
+    shell.runCode();
+    wait_for([&] { return shell.executionOutput().contains(QStringLiteral("live-output")) || !shell.executionBusy(); });
+    assert(shell.executionBusy() && shell.executionOutput().contains(QStringLiteral("live-output")));
+    const auto live_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+    assert(std::any_of(live_events.begin(), live_events.end(), [](const auto& value) {
+      return value.toMap().value(QStringLiteral("kind")).toString() == "source_step";
+    }));
+    assert(live_events.last().toMap().value(QStringLiteral("kind")).toString() != "completed");
+    const auto before_source_update = output_notifications;
+    wait_for([&] {
+      const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+      return std::any_of(events.begin(), events.end(), [](const auto& value) {
+        return value.toMap().value("variables").toMap().value("value").toString() == "16";
+      });
+    });
+    assert(shell.executionBusy() && output_notifications == before_source_update);
+    QObject::disconnect(output_connection);
+    shell.cancelExecution();
+    wait_for([&] { return !shell.executionBusy(); });
     shell.updateDraftCode(QStringLiteral("import time\ntime.sleep(2)\n"));
     shell.setExecutionTimeout(5000);
     shell.runCode();

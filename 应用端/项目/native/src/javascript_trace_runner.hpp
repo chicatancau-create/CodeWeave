@@ -114,7 +114,10 @@ try {
   compiled = new vm.Script(source, { filename: sourcePath });
 } catch (error) {
   // Node stdin can accept module syntax that vm.Script cannot trace.
-  if (error.name === 'SyntaxError') fs.writeFileSync(syntaxFallbackPath, '1');
+  if (error.name === 'SyntaxError') {
+    fs.writeFileSync(syntaxFallbackPath, '1');
+    process.exit(1);
+  }
   throw error;
 }
 // Execute outside Inspector callbacks so learner exceptions retain their exit status.

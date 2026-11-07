@@ -1944,6 +1944,13 @@ void test_cpp_source_trace_preserves_failures_and_bounds(const std::filesystem::
       " std::cout << total << '\\n';\n return 0;\n}\n");
   assert(success.process->exit_code == 0 && success.process->error_code.empty());
   assert(success.process->output == "9\r\n");
+  const auto warning = run("#warning compiler-warning-not-learner-output\n#include <iostream>\n"
+      "int main() { std::cout << \"learner-only\"; }\n");
+  assert(warning.process->exit_code == 0 && warning.process->output == "learner-only");
+  std::string warning_output;
+  for (const auto& event : warning.trace->events())
+    if (event.kind == codeweave::execution::EventKind::Output) warning_output += event.payload;
+  assert(warning_output == "learner-only");
   assert(std::any_of(success.trace->events().begin(), success.trace->events().end(), [](const auto& event) {
     return event.kind == codeweave::execution::EventKind::SourceStep &&
         event.payload.find("\"line\":4") != std::string::npos &&
@@ -2038,6 +2045,15 @@ void test_cpp_source_trace_preserves_failures_and_bounds(const std::filesystem::
         {execution_root / "codeweave-program-fallback.exe", {L"--runtime"}, execution_root, "cpp-runtime"},
         {}, 10'000, 4096, compiler.parent_path()});
     assert(runtime.started && runtime.exit_code == 0 && runtime.error_code.empty() && runtime.output == "42");
+    environment.set(L"TEMP", (fixture.root / "missing-temp").wstring());
+    environment.set(L"TMP", (fixture.root / "missing-temp").wstring());
+    std::vector<codeweave::execution::EventKind> unavailable_events;
+    const auto unavailable = service.run({"cpp-missing-temp", "cpp", fallback_source, 10'000, 4096},
+        compiler, execution_root, nullptr, nullptr,
+        [&](const auto& event) { unavailable_events.push_back(event.kind); });
+    assert(!unavailable.validation.ok && unavailable.trace && !unavailable.process);
+    assert(unavailable_events.size() == 2 && unavailable_events.front() == codeweave::execution::EventKind::Started &&
+        unavailable_events.back() == codeweave::execution::EventKind::Failed);
   }
   std::filesystem::remove(execution_root / "codeweave-program-baseline.exe");
   assert(std::filesystem::remove(execution_root / "codeweave-program-fallback.exe"));
@@ -2419,6 +2435,68 @@ void test_javascript_source_trace_preserves_failures_and_bounds(const std::files
 #endif
 }
 
+void test_execution_stream_arrives_before_exit(const std::filesystem::path& tool,
+    std::string language, std::string source, bool expect_source = true) {
+#ifdef _WIN32
+  if (tool.empty()) return;
+  Fixture fixture;
+  const auto execution_root = fixture.root / "stream-execution";
+  assert(std::filesystem::create_directory(execution_root));
+  std::atomic_bool cancellation{false};
+  std::vector<codeweave::execution::TraceEvent> observed;
+  std::string output;
+  bool source_seen = false;
+  const auto result = codeweave::execution::ExecutionService{}.run(
+      {"live-" + language, language, std::move(source), 20'000, 4096}, tool, execution_root,
+      &cancellation, nullptr, [&](const auto& event) {
+        observed.push_back(event);
+        if (event.kind == codeweave::execution::EventKind::SourceStep) source_seen = true;
+        if (event.kind == codeweave::execution::EventKind::Output) output += event.payload;
+        if (output.find("stream-ready") != std::string::npos && (!expect_source || source_seen)) cancellation.store(true);
+      });
+  assert(result.validation.ok && result.process && result.process->cancelled && result.trace);
+  assert(output == result.process->output && output.find("stream-ready") != std::string::npos);
+  assert(!expect_source || source_seen);
+  assert(observed.size() == result.trace->events().size());
+  for (std::size_t index = 0; index < observed.size(); ++index) {
+    assert(observed[index].sequence == index + 1 && observed[index].session_id == "live-" + language);
+    assert(observed[index].payload == result.trace->events()[index].payload);
+    assert(observed[index].kind == result.trace->events()[index].kind);
+  }
+  assert(observed.back().kind == codeweave::execution::EventKind::Cancelled);
+  assert(std::count_if(observed.begin(), observed.end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::Cancelled;
+  }) == 1);
+  assert(std::filesystem::is_empty(execution_root));
+#else
+  (void)tool; (void)language; (void)source; (void)expect_source;
+#endif
+}
+
+void test_streaming_output_keeps_utf8_and_crlf_together(const std::filesystem::path& python) {
+#ifdef _WIN32
+  if (python.empty()) return;
+  Fixture fixture;
+  std::vector<std::string> chunks;
+  const auto result = codeweave::execution::ExecutionService{}.run(
+      {"stream-utf8", "python", "import sys, time\n"
+       "for part in [bytes([0xe4]), bytes([0xb8]), bytes([0xad]), b'\\r', b'\\n']:\n"
+       " sys.stdout.buffer.write(part)\n sys.stdout.buffer.flush()\n time.sleep(0.12)\n", 5000, 4096},
+      python, fixture.root, nullptr, nullptr, [&](const auto& event) {
+        if (event.kind == codeweave::execution::EventKind::Output) chunks.push_back(event.payload);
+      });
+  assert(result.process && result.process->exit_code == 0 && result.process->output == "\xe4\xb8\xad\r\n");
+  std::string combined;
+  for (const auto& chunk : chunks) {
+    assert(chunk == "\xe4\xb8\xad" || chunk == "\r\n" || chunk == "\xe4\xb8\xad\r\n");
+    combined += chunk;
+  }
+  assert(combined == result.process->output);
+#else
+  (void)python;
+#endif
+}
+
 void test_trace_contract_is_ordered_and_bounded() {
   codeweave::execution::Trace trace("session-trace-01");
   assert(trace.append(codeweave::execution::EventKind::Started).ok);
@@ -2570,6 +2648,28 @@ int main(int argc, char** argv) {
   test_javascript_source_trace_preserves_failures_and_bounds(
       argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{});
   test_trace_contract_is_ordered_and_bounded();
+  const auto cpp_tool = argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{};
+  const auto java_tool = argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{};
+  const auto python_tool = argc > 4 ? std::filesystem::path(argv[4]) : std::filesystem::path{};
+  const auto javascript_tool = argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{};
+  test_execution_stream_arrives_before_exit(python_tool, "python",
+      "import time\nvalue = 15\nprint('stream-ready', flush=True)\ntime.sleep(10)\n");
+  test_execution_stream_arrives_before_exit(javascript_tool, "javascript",
+      "let value = 15;\nconsole.log('stream-ready');\nsetTimeout(() => {}, 10000);\n");
+  test_execution_stream_arrives_before_exit(java_tool, "java",
+      "public class Main { public static void main(String[] args) throws Exception {\n"
+      "int value = 15;\nSystem.out.println(\"stream-ready\");\nThread.sleep(10000);\n} }\n");
+  const auto ascii_path = [](const std::filesystem::path& path) {
+    const auto text = path.wstring();
+    return std::all_of(text.begin(), text.end(), [](wchar_t value) { return value > 0 && value < 128; });
+  };
+  test_execution_stream_arrives_before_exit(cpp_tool, "cpp",
+      "#include <chrono>\n#include <iostream>\n#include <thread>\nint main() {\n"
+      "int value = 15;\nstd::cout << \"stream-ready\" << std::flush;\n"
+      "std::this_thread::sleep_for(std::chrono::seconds(10));\n}\n",
+      !cpp_tool.empty() && std::filesystem::is_regular_file(cpp_tool.parent_path() / "gdb.exe") &&
+          ascii_path(cpp_tool) && ascii_path(std::filesystem::temp_directory_path()));
+  test_streaming_output_keeps_utf8_and_crlf_together(python_tool);
   test_trace_store_paginates_and_summarizes();
   std::cout << "native core tests passed\n";
   return 0;

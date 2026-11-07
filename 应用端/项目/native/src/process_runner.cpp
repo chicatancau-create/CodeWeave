@@ -97,7 +97,7 @@ std::vector<wchar_t> compiler_environment(const ProcessPlan& plan) {
 #endif
 
 ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool* cancellation,
-    ExecutionControl* control) const {
+    ExecutionControl* control, const Observer& observer) const {
   ProcessResult result;
 #ifndef _WIN32
   result.error_code = "windows_only_runner";
@@ -247,12 +247,14 @@ ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool
   result.started = true;
   std::atomic<bool> output_limit_hit{false};
   std::string captured_output;
+  std::mutex output_mutex;
   bool captured_output_truncated = false;
-  std::thread reader([&captured_output, &captured_output_truncated, &output_limit_hit,
+  std::thread reader([&captured_output, &output_mutex, &captured_output_truncated, &output_limit_hit,
       raw_read, limit = plan.output_limit] {
     char buffer[8192];
     DWORD read = 0;
     while (ReadFile(raw_read, buffer, sizeof(buffer), &read, nullptr) && read > 0) {
+      std::lock_guard lock(output_mutex);
       const auto remaining = limit > captured_output.size() ? limit - captured_output.size() : 0;
       const auto accepted = std::min<std::size_t>(remaining, read);
       captured_output.append(buffer, accepted);
@@ -264,10 +266,30 @@ ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool
     }
   });
 
+  std::size_t output_offset = 0;
+  std::size_t control_offset = 0;
+  const auto publish = [&] {
+    if (!observer) return;
+    std::string output;
+    std::vector<ControlEvent> controls;
+    {
+      std::lock_guard lock(output_mutex);
+      output = captured_output.substr(output_offset);
+      output_offset = captured_output.size();
+    }
+    {
+      std::lock_guard lock(control_events_mutex);
+      controls.assign(control_events.begin() + control_offset, control_events.end());
+      control_offset = control_events.size();
+    }
+    observer(output, controls);
+  };
+
   const auto deadline = GetTickCount64() + plan.timeout_ms;
   DWORD wait = WAIT_TIMEOUT;
   while (true) {
     wait = WaitForSingleObject(process_info.hProcess, 50);
+    publish();
     if (wait != WAIT_TIMEOUT || output_limit_hit.load() ||
         (cancellation && cancellation->load())) break;
     if (GetTickCount64() >= deadline) break;
@@ -306,13 +328,14 @@ ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool
     input_writer.join();
   }
   if (reader.joinable()) reader.join();
-  result.output = std::move(captured_output);
-  result.output_truncated = captured_output_truncated;
   if (control) {
     control->detach();
     std::lock_guard lock(control_events_mutex);
-    result.control_events = std::move(control_events);
+    result.control_events = control_events;
   }
+  publish();
+  result.output = std::move(captured_output);
+  result.output_truncated = captured_output_truncated;
   CloseHandle(raw_read);
   read_guard.value = nullptr;
   if (result.output_truncated && result.error_code.empty()) result.error_code = "output_limit_exceeded";

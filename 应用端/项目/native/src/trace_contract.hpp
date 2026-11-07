@@ -3,6 +3,7 @@
 #include "execution_contract.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,7 +21,9 @@ struct TraceEvent {
 
 class Trace final {
  public:
-  explicit Trace(std::string session_id);
+  // Called synchronously on the execution worker; observers must not throw.
+  using Observer = std::function<void(const TraceEvent&)>;
+  explicit Trace(std::string session_id, Observer observer = {});
 
   app::Result append(EventKind kind, std::string_view payload = {});
   app::Result append_source_step(std::string_view payload);
@@ -31,6 +34,7 @@ class Trace final {
   std::string session_id_;
   std::uint64_t next_sequence_{1};
   std::vector<TraceEvent> events_;
+  Observer observer_;
 };
 
 }  // namespace codeweave::execution

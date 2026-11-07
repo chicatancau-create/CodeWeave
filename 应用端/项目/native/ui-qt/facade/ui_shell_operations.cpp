@@ -17,10 +17,12 @@
 #include <QMap>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTimer>
 
 #include <fstream>
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace {
@@ -29,10 +31,10 @@ QString normalized_output(const std::string& value) {
       .replace(QChar('\r'), QChar('\n'));
 }
 
-QVariantList trace_events(const codeweave::execution::Trace& trace) {
+QVariantList trace_events(std::span<const codeweave::execution::TraceEvent> source) {
   using codeweave::execution::EventKind;
   QVariantList events;
-  for (const auto& event : trace.events()) {
+  for (const auto& event : source) {
     QString kind;
     QString label;
     switch (event.kind) {
@@ -748,18 +750,52 @@ void UiShell::runCode() {
   const auto trace = std::make_shared<std::optional<codeweave::execution::Trace>>();
   codeweave::backend::TaskRequest request;
   const auto task_name = QStringLiteral("qt-execute-%1").arg(next_task_id_++);
+  struct LiveEvents {
+    std::mutex mutex;
+    std::vector<codeweave::execution::TraceEvent> pending;
+  };
+  const auto live_events = std::make_shared<LiveEvents>();
+  auto* live_timer = new QTimer(this);
+  connect(live_timer, &QTimer::timeout, this, [this, live_events, task_name, account, generation, document] {
+    if (closing_ || execution_task_id_ != task_name || !execution_busy_ || account != active_account_id_ ||
+        generation != account_generation_ || document != selected_content_id_.toStdString()) return;
+    std::vector<codeweave::execution::TraceEvent> pending;
+    {
+      std::lock_guard lock(live_events->mutex);
+      pending.swap(live_events->pending);
+    }
+    if (pending.empty()) return;
+    auto events = execution_trace_.value("events").toList();
+    const auto additions = trace_events(pending);
+    bool output_changed = false;
+    for (const auto& value : additions) {
+      const auto item = value.toMap();
+      events.push_back(value);
+      if (item.value("kind").toString() == "output") {
+        execution_output_ += item.value("payload").toString();
+        output_changed = true;
+      }
+    }
+    execution_trace_["events"] = events;
+    emit executionTraceChanged();
+    if (output_changed) emit executionOutputChanged();
+  });
   request.task_id = task_name.toStdString();
   request.account_id = account.toStdString();
   request.account_generation = generation;
   request.kind = codeweave::backend::TaskKind::Execute;
   request.work = [request_data, tool, root, document, content_root, independent,
-      hints_viewed, challenge_status, trace, this](const auto& token) {
+      hints_viewed, challenge_status, trace, live_events, this](const auto& token) {
     if (token.cancelled()) return codeweave::app::Result::failure("执行已取消");
     std::error_code directory_error;
     std::filesystem::create_directories(root / "execution", directory_error);
     if (directory_error) return codeweave::app::Result::failure("无法准备执行工作目录");
     const auto result = codeweave::execution::ExecutionService{}.run(
-        request_data, tool, root / "execution", &execution_cancelled_, &execution_control_);
+        request_data, tool, root / "execution", &execution_cancelled_, &execution_control_,
+        [live_events](const auto& event) {
+          std::lock_guard lock(live_events->mutex);
+          live_events->pending.push_back(event);
+        });
     *trace = result.trace;
     if (result.trace) {
       const auto saved = codeweave::execution::TraceStore(root).append(*result.trace);
@@ -811,10 +847,16 @@ void UiShell::runCode() {
         "执行失败，退出码 " + std::to_string(result.process->exit_code));
   };
   execution_task_id_ = task_name;
+  execution_trace_ = {{"sessionId", QString::fromStdString(request_data.session_id)},
+      {"documentId", QString::fromStdString(document)},
+      {"sourceRevision", QVariant::fromValue<qulonglong>(revision)}, {"events", QVariantList{}}};
+  live_timer->start(50);
   const auto submitted = backend_tasks_.submit(std::move(request),
-      [this, account, generation, revision, document, request_data, trace, challenge_status, task_name](codeweave::backend::TaskResult result) {
+      [this, account, generation, revision, document, request_data, trace, challenge_status, task_name, live_timer](codeweave::backend::TaskResult result) {
         QMetaObject::invokeMethod(this, [this, account, generation, revision, document, request_data, trace, challenge_status,
-            task_name, result = std::move(result)]() mutable {
+            task_name, live_timer, result = std::move(result)]() mutable {
+          live_timer->stop();
+          live_timer->deleteLater();
           if (task_name != execution_task_id_) return;
           execution_task_id_.clear();
           execution_busy_ = false;
@@ -824,7 +866,7 @@ void UiShell::runCode() {
             execution_trace_ = {{"sessionId", QString::fromStdString(request_data.session_id)},
                 {"documentId", QString::fromStdString(document)},
                 {"sourceRevision", QVariant::fromValue<qulonglong>(revision)},
-                {"events", trace_events(**trace)}};
+                {"events", trace_events((**trace).events())}};
             emit executionTraceChanged();
           }
           execution_output_ = QString::fromUtf8(result.result.message);
@@ -844,8 +886,12 @@ void UiShell::runCode() {
         }, Qt::QueuedConnection);
       });
   if (!submitted.ok) {
+    live_timer->stop();
+    live_timer->deleteLater();
     execution_task_id_.clear();
     execution_busy_ = false;
+    execution_trace_.clear();
+    emit executionTraceChanged();
     emit executionBusyChanged();
     setOperationStatus(QString::fromUtf8(submitted.message));
   }

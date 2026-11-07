@@ -118,7 +118,7 @@ bool write_file(const std::filesystem::path& path, std::string_view contents) {
 
 ProcessResult run_cpp_debugger(const ProcessRunner& runner, const ProcessPlan& plan,
     const std::filesystem::path& output_path, const std::atomic_bool* cancellation,
-    ExecutionControl* control) {
+    ExecutionControl* control, const ProcessRunner::Observer& observer) {
   std::atomic_bool stop{cancellation && cancellation->load()};
   std::atomic_bool output_limit_hit{false};
   std::jthread monitor([&](std::stop_token token) {
@@ -134,7 +134,7 @@ ProcessResult run_cpp_debugger(const ProcessRunner& runner, const ProcessPlan& p
     }
   });
   DebuggerControlGuard control_guard(control);
-  auto process = runner.run(plan, &stop, nullptr);
+  auto process = runner.run(plan, &stop, nullptr, observer);
   monitor.request_stop();
   monitor.join();
   process.output.clear();
@@ -214,29 +214,98 @@ finally:
     sys.settrace(None)
 )PY";
 
-bool append_source_steps(const std::filesystem::path& snapshot_path, Trace& trace) {
+template<class Consumer>
+void read_increment(const std::filesystem::path& path, std::size_t& offset,
+    std::size_t limit, Consumer consume) {
+  if (path.empty() || offset >= limit) return;
   std::error_code error;
-  const auto status = std::filesystem::symlink_status(snapshot_path, error);
-  if (error || !std::filesystem::is_regular_file(status) || std::filesystem::is_symlink(status)) return false;
-  std::ifstream input(snapshot_path, std::ios::binary);
-  if (!input) return false;
-  std::string line;
-  std::size_t total_bytes = 0;
-  std::size_t steps = 0;
-  char character = 0;
-  while (input.get(character)) {
-    if (++total_bytes > 256 * 1024 || line.size() >= 8192 || steps >= 512) break;
-    if (character != '\n') {
-      line.push_back(character);
-      continue;
-    }
-    if (line.empty()) continue;
-    const auto result = trace.append_source_step(line);
-    if (!result.ok) break;
-    line.clear();
-    ++steps;
+  const auto status = std::filesystem::symlink_status(path, error);
+  if (error || !std::filesystem::is_regular_file(status) || std::filesystem::is_symlink(status)) return;
+  const auto size = std::filesystem::file_size(path, error);
+  if (error) return;
+  if (size < offset) { offset = limit; return; }
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return;
+  input.seekg(static_cast<std::streamoff>(offset));
+  char buffer[8192];
+  while (offset < limit && input) {
+    input.read(buffer, static_cast<std::streamsize>(std::min<std::size_t>(sizeof(buffer), limit - offset)));
+    const auto count = static_cast<std::size_t>(input.gcount());
+    offset += count;
+    if (count) consume(std::string_view(buffer, count));
   }
-  return !input.bad();
+}
+
+class TraceProgress final {
+ public:
+  TraceProgress(Trace& trace, std::filesystem::path snapshots,
+      std::filesystem::path output, std::size_t output_limit)
+      : trace_(trace), snapshots_(std::move(snapshots)), output_(std::move(output)),
+        output_limit_(output_limit) {}
+
+  void poll(std::string_view bytes, std::span<const ControlEvent> controls) {
+    read_increment(snapshots_, snapshot_offset_, 256 * 1024, [&](std::string_view chunk) {
+      for (const auto character : chunk) {
+        if (source_stopped_) break;
+        if (character == '\n') {
+          if (!source_pending_.empty() && !trace_.append_source_step(source_pending_).ok) source_stopped_ = true;
+          source_pending_.clear();
+        } else if (source_pending_.size() < 8192) source_pending_.push_back(character);
+        else source_stopped_ = true;
+      }
+    });
+    if (output_.empty()) output_pending_.append(bytes);
+    else read_increment(output_, output_offset_, output_limit_, [&](std::string_view chunk) { output_pending_.append(chunk); });
+    flush_output(false);
+    for (const auto& event : controls) {
+      trace_.append(event.command == ControlCommand::Pause ? EventKind::Paused : EventKind::Resumed);
+    }
+  }
+
+  void finish() { flush_output(true); }
+
+ private:
+  void flush_output(bool final) {
+    auto size = output_pending_.size();
+    if (!final && size) {
+      // Keep CRLF and a trailing partial UTF-8 code point in the same event.
+      if (output_pending_[size - 1] == '\r') --size;
+      auto start = size;
+      while (start && (static_cast<unsigned char>(output_pending_[start - 1]) & 0xc0) == 0x80) --start;
+      if (start) {
+        const auto lead = static_cast<unsigned char>(output_pending_[start - 1]);
+        const std::size_t expected = lead >= 0xc2 && lead <= 0xdf ? 2 :
+            lead >= 0xe0 && lead <= 0xef ? 3 : lead >= 0xf0 && lead <= 0xf4 ? 4 : 1;
+        if (size - (start - 1) < expected) size = start - 1;
+      }
+    }
+    if (!size) return;
+    trace_.append(EventKind::Output, std::string_view(output_pending_).substr(0, size));
+    output_pending_.erase(0, size);
+  }
+
+  Trace& trace_;
+  std::filesystem::path snapshots_;
+  std::filesystem::path output_;
+  std::size_t output_limit_;
+  std::size_t snapshot_offset_{};
+  std::size_t output_offset_{};
+  bool source_stopped_{};
+  std::string source_pending_;
+  std::string output_pending_;
+};
+
+ProcessResult run_observed(const ProcessRunner& runner, const ProcessPlan& plan,
+    const std::atomic_bool* cancellation, ExecutionControl* control, Trace& trace,
+    const std::filesystem::path& snapshots = {}, const std::filesystem::path& output = {}) {
+  TraceProgress progress(trace, snapshots, output, plan.output_limit);
+  const auto observer = [&](std::string_view bytes, std::span<const ControlEvent> controls) {
+    progress.poll(bytes, controls);
+  };
+  auto process = output.empty() ? runner.run(plan, cancellation, control, observer) :
+      run_cpp_debugger(runner, plan, output, cancellation, control, observer);
+  progress.finish();
+  return process;
 }
 
 }  // namespace
@@ -250,7 +319,7 @@ ServiceResult ExecutionService::validate(const Request& request, const std::file
 
 ServiceResult ExecutionService::run(const Request& request, const std::filesystem::path& executable,
     const std::filesystem::path& working_directory, const std::atomic_bool* cancellation,
-    ExecutionControl* control) const {
+    ExecutionControl* control, Trace::Observer observer) const {
   ProcessPlan plan{};
   const auto validation = build_process_plan(request, executable, working_directory, plan);
   if (!validation.ok) return {validation, std::nullopt, std::nullopt};
@@ -283,9 +352,9 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     if (const auto valid = validate_process_request(trace_plan.process); !valid.ok) {
       return {valid, std::nullopt, std::nullopt};
     }
-    Trace trace(request.session_id);
+    Trace trace(request.session_id, std::move(observer));
     trace.append(EventKind::Started);
-    auto process = runner_.run(trace_plan, cancellation, control);
+    auto process = run_observed(runner_, trace_plan, cancellation, control, trace, snapshot_path);
     if (!python && process.exit_code != 0 && !process.cancelled && !process.timed_out &&
         !(cancellation && cancellation->load())) {
       std::error_code fallback_error;
@@ -293,17 +362,9 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
       if (!fallback_error && std::filesystem::is_regular_file(status) && !std::filesystem::is_symlink(status)) {
         std::ifstream marker(syntax_fallback_path, std::ios::binary);
         // The marker is written only by the parser, before any learner code runs.
-        if (marker.get() == '1') process = runner_.run(plan, cancellation, control);
+        if (marker.get() == '1') process = run_observed(runner_, plan, cancellation, control, trace);
       }
     }
-    append_source_steps(snapshot_path, trace);
-    for (const auto& event : process.control_events) {
-      if (event.command == ControlCommand::Pause) trace.append(EventKind::Paused);
-      if (event.command == ControlCommand::Resume || event.command == ControlCommand::Step) {
-        trace.append(EventKind::Resumed);
-      }
-    }
-    if (!process.output.empty()) trace.append(EventKind::Output, process.output);
     if (process.timed_out || process.error_code == "execution_timeout") trace.append(EventKind::Failed, process.error_code);
     else if (process.cancelled) trace.append(EventKind::Cancelled);
     else if (process.exit_code == 0 && process.error_code.empty()) trace.append(EventKind::Completed);
@@ -341,7 +402,7 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     if (const auto compile_valid = validate_process_request(compile_request); !compile_valid.ok) {
       return {app::Result::failure("Java 编译器未配置或不在同一 JDK 中"), std::nullopt, std::nullopt};
     }
-    Trace trace(request.session_id);
+    Trace trace(request.session_id, std::move(observer));
     trace.append(EventKind::Started);
     auto compilation = runner_.run({compile_request, {}, request.timeout_ms, request.output_limit}, cancellation, control);
     if (!compilation.started || compilation.exit_code != 0 || !compilation.error_code.empty() ||
@@ -357,20 +418,14 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
         {executable, {L"--add-modules", L"jdk.jdi", L"-cp", java_directory.wstring(),
                          L"codeweave.trace.CodeWeaveTraceRunner", snapshot_path.wstring()}, java_directory, "java"},
         {}, request.timeout_ms, request.output_limit};
-    auto process = runner_.run(runtime_plan, cancellation, control);
-    append_source_steps(snapshot_path, trace);
-    for (const auto& event : process.control_events) {
-      if (event.command == ControlCommand::Pause) trace.append(EventKind::Paused);
-      if (event.command == ControlCommand::Resume || event.command == ControlCommand::Step) trace.append(EventKind::Resumed);
-    }
-    if (!process.output.empty()) trace.append(EventKind::Output, process.output);
+    auto process = run_observed(runner_, runtime_plan, cancellation, control, trace, snapshot_path);
     if (process.timed_out || process.error_code == "execution_timeout") trace.append(EventKind::Failed, process.error_code);
     else if (process.cancelled) trace.append(EventKind::Cancelled);
     else if (process.exit_code == 0 && process.error_code.empty()) trace.append(EventKind::Completed);
     else trace.append(EventKind::Failed, process.error_code.empty() ? "process_exit_nonzero" : process.error_code);
     return {validation, std::move(process), std::move(trace)};
   }
-  Trace trace(request.session_id);
+  Trace trace(request.session_id, std::move(observer));
   trace.append(EventKind::Started);
   auto source_path = request.language == "cpp" ? generated_cpp_source_path(plan)
       : std::filesystem::path{};
@@ -383,7 +438,10 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
   if (!cpp_debugger.empty()) {
     std::error_code error;
     temporary_root = std::filesystem::temp_directory_path(error);
-    if (error) return {app::Result::failure("无法定位 C++ 调试临时目录"), std::nullopt, std::move(trace)};
+    if (error) {
+      trace.append(EventKind::Failed, "cpp_trace_temp_unavailable");
+      return {app::Result::failure("无法定位 C++ 调试临时目录"), std::nullopt, std::move(trace)};
+    }
     const auto ascii_path = [](const std::filesystem::path& path) {
       const auto text = path.wstring();
       return std::all_of(text.begin(), text.end(), [](wchar_t character) { return character > 0 && character < 128; });
@@ -396,6 +454,7 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     std::error_code error;
     cpp_trace_directory = unique_source_trace_directory(temporary_root, "codeweave-cpp");
     if (!std::filesystem::create_directory(cpp_trace_directory, error) || error) {
+      trace.append(EventKind::Failed, "cpp_trace_directory_failed");
       return {app::Result::failure("无法创建 C++ 源码追踪目录"), std::nullopt, std::move(trace)};
     }
     cpp_trace_cleanup = std::make_unique<TemporaryDirectory>(cpp_trace_directory);
@@ -443,6 +502,7 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
         process.exit_code == 0 && !(cancellation && cancellation->load());
     if (!compilation_succeeded) {
       process.execution_output_valid = false;
+      if (!process.output.empty()) trace.append(EventKind::Output, process.output);
     } else {
       ProcessPlan runtime_plan{
           {program_path, {}, working_directory, "cpp-runtime"},
@@ -454,20 +514,21 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
         process.execution_output_valid = false;
       } else {
         if (cpp_debugger.empty()) {
-          process = runner_.run(runtime_plan, cancellation, control);
+          process = run_observed(runner_, runtime_plan, cancellation, control, trace);
         } else {
           const auto& trace_directory = cpp_trace_directory;
           std::error_code error;
           const auto script_path = trace_directory / "runner.py";
           if (!write_file(script_path, kCppTraceRunner)) {
+            trace.append(EventKind::Failed, "cpp_trace_runner_write_failed");
             return {app::Result::failure("无法准备 C++ 源码追踪器"), std::nullopt, std::move(trace)};
           }
           ProcessPlan debugger_plan{{cpp_debugger,
               {L"--nx", L"--nh", L"--quiet", L"--batch", L"-iex", L"set auto-load off",
                   L"--se=" + program_path.wstring(), L"-x", script_path.wstring()},
               working_directory, "cpp-debugger"}, {}, plan.timeout_ms, plan.output_limit};
-          process = run_cpp_debugger(runner_, debugger_plan, trace_directory / "program-output", cancellation, control);
-          append_source_steps(trace_directory / "snapshots.jsonl", trace);
+          process = run_observed(runner_, debugger_plan, cancellation, control, trace,
+              trace_directory / "snapshots.jsonl", trace_directory / "program-output");
           if (std::filesystem::exists(trace_directory / "trace-error", error) && !error) {
             process.error_code = "cpp_trace_failed";
             process.execution_output_valid = false;
@@ -476,13 +537,6 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
       }
     }
   }
-  for (const auto& event : process.control_events) {
-    if (event.command == ControlCommand::Pause) trace.append(EventKind::Paused);
-    if (event.command == ControlCommand::Resume || event.command == ControlCommand::Step) {
-      trace.append(EventKind::Resumed);
-    }
-  }
-  if (!process.output.empty()) trace.append(EventKind::Output, process.output);
   if (process.timed_out || process.error_code == "execution_timeout") {
     trace.append(EventKind::Failed, process.error_code);
   } else if (process.cancelled) {

@@ -22,7 +22,7 @@ class ExecutionService final {
   ServiceResult run(const Request& request, const std::filesystem::path& executable,
       const std::filesystem::path& working_directory,
       const std::atomic_bool* cancellation = nullptr,
-      ExecutionControl* control = nullptr) const;
+      ExecutionControl* control = nullptr, Trace::Observer observer = {}) const;
 
  private:
   ProcessRunner runner_;

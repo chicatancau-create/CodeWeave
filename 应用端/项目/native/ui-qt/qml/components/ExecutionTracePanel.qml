@@ -12,13 +12,38 @@ Rectangle {
     readonly property int currentIndex: eventList.currentIndex
     readonly property var currentEvent: currentIndex >= 0 && currentIndex < events.length
                                          ? events[currentIndex] : null
+    property string viewedSession: ""
+    property bool followLatest: true
+    property int viewedSequence: 0
+    function selectEvent(index) {
+        if (index < 0 || index >= events.length) return;
+        followLatest = index === events.length - 1;
+        viewedSequence = events[index].sequence;
+        eventList.currentIndex = index;
+    }
     readonly property string outputText: {
         let result = "";
         for (let i = 0; i <= currentIndex && i < events.length; ++i)
             if (events[i].kind === "output") result += events[i].payload;
         return result;
     }
-    onEventsChanged: Qt.callLater(function() { eventList.currentIndex = panel.events.length - 1; })
+    onEventsChanged: Qt.callLater(function() {
+        const session = panel.trace.sessionId || "";
+        if (panel.viewedSession !== session) {
+            panel.viewedSession = session;
+            panel.followLatest = true;
+        }
+        let target = panel.events.length - 1;
+        if (!panel.followLatest) {
+            for (let i = 0; i < panel.events.length; ++i) {
+                if (panel.events[i].sequence === panel.viewedSequence) {
+                    target = i;
+                    break;
+                }
+            }
+        }
+        eventList.currentIndex = target;
+    })
     color: ds.stageBg
     radius: ds.radiusSm
     border.color: ds.line
@@ -93,8 +118,11 @@ Rectangle {
             Accessible.name: "执行事件回看"
             onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
             Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Home || event.key === Qt.Key_End) {
-                    currentIndex = event.key === Qt.Key_Home && count > 0 ? 0 : count - 1;
+                if (event.key === Qt.Key_Home || event.key === Qt.Key_End ||
+                        event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                    const target = event.key === Qt.Key_Home ? 0 : event.key === Qt.Key_End ? count - 1 :
+                                   currentIndex + (event.key === Qt.Key_Up ? -1 : 1);
+                    panel.selectEvent(target);
                     event.accepted = true;
                 }
             }
@@ -129,7 +157,7 @@ Rectangle {
                     hoverEnabled: true
                     text: node.modelData.sequence + " · " + node.modelData.label
                     onClicked: {
-                        eventList.currentIndex = node.index;
+                        panel.selectEvent(node.index);
                         eventList.forceActiveFocus();
                     }
                     background: Rectangle {
@@ -168,7 +196,7 @@ Rectangle {
                 ds: panel.ds
                 label: "←"
                 enabled: eventList.currentIndex > 0
-                onClicked: --eventList.currentIndex
+                onClicked: panel.selectEvent(eventList.currentIndex - 1)
                 Accessible.name: "上一个执行事件"
                 ToolTip.visible: previousHover.hovered
                 ToolTip.text: "上一个执行事件"
@@ -186,7 +214,7 @@ Rectangle {
                 ds: panel.ds
                 label: "→"
                 enabled: eventList.currentIndex >= 0 && eventList.currentIndex < panel.events.length - 1
-                onClicked: ++eventList.currentIndex
+                onClicked: panel.selectEvent(eventList.currentIndex + 1)
                 Accessible.name: "下一个执行事件"
                 ToolTip.visible: nextHover.hovered
                 ToolTip.text: "下一个执行事件"
