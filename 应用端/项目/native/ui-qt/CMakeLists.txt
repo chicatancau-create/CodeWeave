@@ -73,6 +73,7 @@ qt_add_qml_module(codeweave-qt
     qml/Main.qml
     qml/components/PrimaryButton.qml
     qml/components/QuietButton.qml
+    qml/components/ShellPopup.qml
     qml/components/SubjectPill.qml
     qml/pages/AccountPage.qml
     qml/pages/AnalyticsPage.qml

@@ -180,3 +180,4 @@ Phase 2/3 实际做的是「已有区块的视觉打磨」（悬停、左条、�
 - [通过] 追加拆分 `qml/pages/ChallengePage.qml`，由 Loader 注入设计令牌；标准 Qt Release 构建与 CTest 8/8 通过。窗口矩阵沿用已保存的挑战页历史证据，本轮未重新生成截图。
 - [通过] 追加拆分 `qml/pages/AccountPage.qml`，由 Loader 注入宿主对象和设计令牌；账户安全 Dialog 仍由宿主统一打开，标准 Qt Release 构建与 CTest 8/8 通过。
 - [通过] 追加拆分 `qml/pages/EditorPage.qml`，由 Loader 注入宿主对象和设计令牌；运行控制、代码编辑器、状态图和证据 Dialog 入口保持可用，标准 Qt Release 构建与 CTest 8/8 通过。
+- [通过] 实现顶栏搜索结果、快捷动作、通知空态、账户菜单、设置/帮助 Dialog；统一 `ShellPopup.qml` 支持 Esc、点击外部关闭和触发控件焦点回归。搜索与动作仅使用现有真实数据/接口，标准 Qt Release 构建与 CTest 8/8 通过。

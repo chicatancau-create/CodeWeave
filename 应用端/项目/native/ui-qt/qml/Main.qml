@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Shapes
 import QtQuick.Effects
+import "components"
 
 // ── CodeCanvas desktop shell ────────────────────────────────────────────────
 // Visual replica of the web frontend (网页端). The language stays Qt Quick/QML
@@ -25,8 +26,40 @@ Rectangle {
     property int selectedLessonIndex: 0
     property int lessonStatusFilter: 0
     property alias designSystem: ds
+    property bool quickActionsOpen: false
+    property bool notificationsOpen: false
+    property bool accountMenuOpen: false
+    property bool settingsOpen: false
+    property bool helpOpen: false
     function openPasswordDialog() { passwordDialog.open(); }
     function openEvidenceDialog() { evidenceDialog.open(); }
+
+    function searchResults(query) {
+        const needle = query.trim().toLocaleLowerCase();
+        if (!needle) return [];
+        const rows = [];
+        uiShell.lessonMeta.forEach(function(item, index) {
+            const haystack = [item.title, item.description, item.language].join(" ").toLocaleLowerCase();
+            if (haystack.indexOf(needle) >= 0)
+                rows.push({ kind: "lesson", label: item.title, detail: item.language || "课程", index: index });
+        });
+        uiShell.challengeMeta.forEach(function(item) {
+            const haystack = [item.title, item.description, item.track, (item.stack || []).join(" ")]
+                    .join(" ").toLocaleLowerCase();
+            if (haystack.indexOf(needle) >= 0)
+                rows.push({ kind: "challenge", label: item.title, detail: item.track || "挑战", index: 0 });
+        });
+        return rows.slice(0, 8);
+    }
+
+    function closeTopbarPopups() {
+        quickActionsOpen = false;
+        notificationsOpen = false;
+        accountMenuOpen = false;
+        if (quickPopup.opened) quickPopup.close();
+        if (notificationPopup.opened) notificationPopup.close();
+        if (accountPopup.opened) accountPopup.close();
+    }
     readonly property int safeSelectedLessonIndex: uiShell.lessonMeta.length > 0
         ? Math.max(0, Math.min(selectedLessonIndex, uiShell.lessonMeta.length - 1)) : -1
     readonly property var selectedLesson: safeSelectedLessonIndex >= 0
@@ -725,6 +758,7 @@ Rectangle {
 
             // .global-search
             Rectangle {
+                id: searchBox
                 Layout.alignment: Qt.AlignVCenter
                 Layout.preferredWidth: Math.min(root.width * 0.25, 330)
                 implicitHeight: 36
@@ -751,6 +785,8 @@ Rectangle {
                         font.family: ds.ui
                         font.pixelSize: 14
                         background: null
+                        onTextChanged: searchPopup.visible = text.trim() !== ""
+                        onActiveFocusChanged: if (!activeFocus && text.trim() === "") searchPopup.close()
                         Accessible.name: "全局搜索课程、挑战与项目"
                     }
                 }
@@ -771,8 +807,28 @@ Rectangle {
                     Accessible.name: "正在处理"
                 }
 
-                IconButton { glyph: "⚡"; tip: "快捷动作（待接入）"; enabled: false }
-                IconButton { glyph: "🔔"; tip: "通知中心（待接入）"; enabled: false }
+                IconButton {
+                    id: quickButton
+                    glyph: "⚡"
+                    tip: "快捷动作"
+                    active: root.quickActionsOpen
+                    onClicked: {
+                        root.closeTopbarPopups();
+                        root.quickActionsOpen = !root.quickActionsOpen;
+                        if (root.quickActionsOpen) quickPopup.open(); else quickPopup.close();
+                    }
+                }
+                IconButton {
+                    id: notificationButton
+                    glyph: "🔔"
+                    tip: "通知中心（无未读）"
+                    active: root.notificationsOpen
+                    onClicked: {
+                        root.closeTopbarPopups();
+                        root.notificationsOpen = !root.notificationsOpen;
+                        if (root.notificationsOpen) notificationPopup.open(); else notificationPopup.close();
+                    }
+                }
 
                 // .desktop-local — 本机工作空间
                 Rectangle {
@@ -806,11 +862,12 @@ Rectangle {
                 IconButton {
                     glyph: "⚙"
                     tip: "账户与设置"
-                    onClicked: uiShell.selectPage("账户")
+                    onClicked: settingsDialog.open()
                 }
 
                 // .topbar-avatar
                 Rectangle {
+                    id: topbarAvatar
                     implicitWidth: 34
                     implicitHeight: 34
                     radius: ds.radius
@@ -827,13 +884,162 @@ Rectangle {
                         font.pixelSize: 13
                         font.weight: Font.Bold
                     }
-                    TapHandler { onTapped: uiShell.selectPage("账户") }
+                    TapHandler {
+                        onTapped: {
+                            root.closeTopbarPopups();
+                            root.accountMenuOpen = !root.accountMenuOpen;
+                            if (root.accountMenuOpen) accountPopup.open(); else accountPopup.close();
+                        }
+                    }
                     Accessible.role: Accessible.Button
                     Accessible.name: "账户菜单"
                 }
             }
         }
     }
+
+        ShellPopup {
+            id: searchPopup
+            x: searchBox.x
+            y: topbar.height + 4
+            width: searchBox.width
+            height: Math.min(360, searchResultsView.contentHeight + ds.s24)
+            ds: root.designSystem
+            returnFocusItem: searchField
+            visible: searchField.activeFocus && searchField.text.trim() !== ""
+
+            ListView {
+                id: searchResultsView
+                anchors.fill: parent
+                clip: true
+                focus: true
+                model: root.searchResults(searchField.text)
+                delegate: Rectangle {
+                    required property var modelData
+                    width: searchResultsView.width
+                    height: 46
+                    radius: ds.radiusSm
+                    color: searchRowHover.hovered ? ds.accentSoft : "transparent"
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: ds.s8
+                        anchors.rightMargin: ds.s8
+                        spacing: ds.s8
+                        Text { text: modelData.kind === "lesson" ? "课程" : "挑战"; color: ds.accent; font.family: ds.mono; font.pixelSize: 11 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            Text { Layout.fillWidth: true; text: modelData.label; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; elide: Text.ElideRight }
+                            Text { Layout.fillWidth: true; text: modelData.detail; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
+                        }
+                    }
+                    HoverHandler { id: searchRowHover }
+                    TapHandler {
+                        onTapped: {
+                            if (modelData.kind === "lesson") {
+                                root.selectedLessonIndex = modelData.index;
+                                uiShell.openPublishedContent(modelData.index);
+                            } else {
+                                uiShell.selectPage("挑战");
+                            }
+                            searchField.text = "";
+                            searchPopup.close();
+                        }
+                    }
+                }
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Down) { currentIndex = Math.min(count - 1, currentIndex + 1); event.accepted = true; }
+                    else if (event.key === Qt.Key_Up) { currentIndex = Math.max(0, currentIndex - 1); event.accepted = true; }
+                    else if (event.key === Qt.Key_Home) { currentIndex = 0; event.accepted = true; }
+                    else if (event.key === Qt.Key_End) { currentIndex = count - 1; event.accepted = true; }
+                    else if (event.key === Qt.Key_Escape) { searchPopup.close(); event.accepted = true; }
+                }
+            }
+            Text {
+                anchors.centerIn: parent
+                visible: searchResultsView.count === 0
+                text: "没有匹配的结果"
+                color: ds.muted
+                font.family: ds.ui
+                font.pixelSize: 13
+            }
+        }
+
+        ShellPopup {
+            id: quickPopup
+            x: quickButton.x - 220
+            y: topbar.height + 4
+            width: 260
+            height: quickActionsColumn.implicitHeight + ds.s24
+            ds: root.designSystem
+            returnFocusItem: quickButton
+            onClosed: root.quickActionsOpen = false
+            ColumnLayout {
+                id: quickActionsColumn
+                anchors.fill: parent
+                spacing: ds.s8
+                Text { text: "快捷动作"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
+                QuietButton {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    label: "继续学习"
+                    enabled: root.selectedLesson !== null
+                    onClicked: { quickPopup.close(); uiShell.openPublishedContent(root.selectedLessonIndex); }
+                }
+                QuietButton {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    label: "打开复习中心"
+                    onClicked: { quickPopup.close(); uiShell.selectPage("复习与进度"); }
+                }
+                QuietButton {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    label: "查看帮助"
+                    onClicked: { quickPopup.close(); helpDialog.open(); }
+                }
+                Text { Layout.fillWidth: true; text: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
+            }
+        }
+
+        ShellPopup {
+            id: notificationPopup
+            x: notificationButton.x - 220
+            y: topbar.height + 4
+            width: 260
+            height: 128
+            ds: root.designSystem
+            returnFocusItem: notificationButton
+            onClosed: root.notificationsOpen = false
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: ds.s8
+                Text { text: "通知"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
+                Text { Layout.fillWidth: true; text: "暂无新通知。复测到期、挑战通过和打卡里程碑会出现在这里。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            }
+        }
+
+        ShellPopup {
+            id: accountPopup
+            x: topbar.width - width - ds.s24
+            y: topbar.height + 4
+            width: 260
+            height: accountActionsColumn.implicitHeight + ds.s24
+            ds: root.designSystem
+            returnFocusItem: topbarAvatar
+            onClosed: root.accountMenuOpen = false
+            ColumnLayout {
+                id: accountActionsColumn
+                anchors.fill: parent
+                spacing: ds.s8
+                Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
+                Text { Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
+                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
+                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); passwordDialog.open(); } }
+                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; visible: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
+            }
+        }
 
     // ── Sidebar ─────────────────────────────────────────────────────────────
     Rectangle {
@@ -1204,6 +1410,50 @@ Rectangle {
 
 
     // ── Dialogs ─────────────────────────────────────────────────────────────
+    Dialog {
+        id: settingsDialog
+        title: "设置"
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Close
+        width: 420
+        background: Rectangle {
+            color: ds.overlay
+            radius: ds.radius
+            border.color: ds.lineStrong
+            border.width: 1
+        }
+        contentItem: ColumnLayout {
+            spacing: ds.s12
+            Text { text: "工作台偏好"; color: ds.ink; font.family: ds.ui; font.pixelSize: 15; font.weight: Font.DemiBold }
+            Text { Layout.fillWidth: true; text: "设置项会逐步与网页端保持一致；尚未接入本地持久化的选项保持禁用。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            CheckBox { text: "减少动效（待接入）"; enabled: false; Accessible.name: "减少动效（待接入）" }
+            CheckBox { text: "紧凑工作区（待接入）"; enabled: false; Accessible.name: "紧凑工作区（待接入）" }
+        }
+    }
+
+    Dialog {
+        id: helpDialog
+        title: "如何学习"
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok
+        width: 460
+        background: Rectangle {
+            color: ds.overlay
+            radius: ds.radius
+            border.color: ds.lineStrong
+            border.width: 1
+        }
+        contentItem: ColumnLayout {
+            spacing: ds.s10
+            Text { text: "可视化执行"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+            Text { Layout.fillWidth: true; text: "点击运行按钮，观察程序的每一步执行过程；流程图和输出区会显示当前运行状态。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            Text { text: "十步学习法"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+            Text { Layout.fillWidth: true; text: "每个单元包含讲解、跟做、独立题和变式题；外部环境实验需要在真实环境完成后提交证据。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+        }
+    }
+
     Dialog {
         id: passwordDialog
         title: "账户安全"
