@@ -104,7 +104,7 @@ Item {
                     Text {
                         Layout.fillWidth: true
                         text: Qt.formatDate(new Date(), "M月d日") + " · 学习计划共 "
-                              + uiShell.lessonMeta.length + " 个阶段"
+                              + hostRoot.stageCount + " 个阶段"
                               + (uiShell.hasActiveAccount ? "" : "（访客模式：登录后可保存草稿）")
                         color: ds.muted
                         font.family: ds.ui
@@ -1080,23 +1080,10 @@ Item {
                                     font.pixelSize: 13
                                 }
                                 Text {
-                                    text: "0/" + uiShell.lessonMeta.length
+                                    text: "暂无分科统计"
                                     color: ds.ink
                                     font.family: ds.mono
                                     font.pixelSize: 13
-                                }
-                            }
-                            Rectangle {
-                                Layout.fillWidth: true
-                                Layout.topMargin: ds.s6
-                                Layout.preferredHeight: 4
-                                radius: 4
-                                color: ds.trackBg
-                                Rectangle {
-                                    width: 0
-                                    height: parent.height
-                                    radius: 4
-                                    color: ds.accent
                                 }
                             }
                         }

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import QtQuick.Effects
 import "components"
+import "pages"
 
 // ── CodeCanvas desktop shell ────────────────────────────────────────────────
 // Visual replica of the web frontend (网页端). The language stays Qt Quick/QML
@@ -64,6 +65,8 @@ Rectangle {
         ? Math.max(0, Math.min(selectedLessonIndex, uiShell.lessonMeta.length - 1)) : -1
     readonly property var selectedLesson: safeSelectedLessonIndex >= 0
         ? uiShell.lessonMeta[safeSelectedLessonIndex] : null
+    readonly property int stageCount: uiShell.challengeMeta.map(function(item) { return item.stageId; })
+        .filter(function(id, index, all) { return id && all.indexOf(id) === index; }).length
 
     function isErrorStatus(status) {
         if (status === "" || status === "尚未加载课程内容" || status.indexOf("正在") === 0
@@ -79,531 +82,15 @@ Rectangle {
     }
 
     readonly property string page: uiShell.currentPage
+    readonly property string breadcrumbText: "Code Canvas / " + page
+        + (page === "编辑器" && selectedLesson ? " / "
+           + String(safeSelectedLessonIndex + 1).padStart(2, "0") + " · " + selectedLesson.title : "")
 
     // ── Design tokens ───────────────────────────────────────────────────────
-    QtObject {
+    DesignSystem {
         id: ds
-
-        // Surfaces
-        readonly property color page:       "#0f131b"   // --page
-        readonly property color chrome:     "#0b1018"   // --chrome (topbar)
-        readonly property color sidebarBg:  "#0c1118"
-        readonly property color panel:      "#181d25"   // --panel
-        readonly property color railPanel:  "#151b24"
-        readonly property color inset:      "#0a0e15"   // --inset
-        readonly property color overlay:    "#141b25"   // --overlay
-        readonly property color raised:     "#131a24"
-        readonly property color snippetBg:  "#0b111a"
-        readonly property color editorBg:   "#0e0e0f"
-        readonly property color stageBg:    "#0b1220"
-        readonly property color markBg:     "#182632"
-        readonly property color subjectBg:  "#141a23"
-        readonly property color subjectOn:  "#153044"
-        readonly property color tabActive:  "#161a21"   // #ffffff08 over panel
-        readonly property color cardHover:  "#1b2531"
-        readonly property color hoverWash:  "#1b2531"
-        readonly property bool useLayerEffects: true
-
-        // Lines — web values are translucent; these are the resolved composites
-        readonly property color line:       "#20242b"   // #ffffff12
-        readonly property color lineRaised: "#2b313a"   // #ffffff20
-        readonly property color lineStrong: "#576578"
-        readonly property color accentSoft: "#0f1e29"   // #38bdf814 (web: rgba(34,211,238,0.12))
-        readonly property color accentRing: "#19455c"   // #38bdf84d
-        readonly property color accentFill: "#10212d"   // #38bdf818
-        readonly property color heroEdge:   "#1f3d4d"   // #38bdf838
-        readonly property color heroBadge:  "#12222c"   // #38bdf810
-        readonly property color heroBadgeEd:"#1a3542"   // #38bdf82b
-        readonly property color unitBadge:  "#12222c"   // #38bdf810
-        readonly property color unitBadgeEd:"#19313e"   // #38bdf822
-        readonly property color scrim:      "#161c24"   // rgba(120,165,220,0.045) — web --scrim
-        readonly property color scrimRaised:"#1d242f"   // rgba(120,175,235,0.085) — web --scrim-raised
-        readonly property color pressWash:  "#1b222c"
-        readonly property color bannerBg:   "#111923"
-        readonly property color trackBg:    "#263140"
-        readonly property color lineAccent: Qt.rgba(34/255, 211/255, 238/255, 0.38)  // web --line-accent
-
-        // Text
-        readonly property color ink:        "#e2e7ef"
-        readonly property color inkStrong:  "#e2e7ef"   // web --ink-strong (same as ink in this theme)
-        readonly property color muted:      "#a3afbe"
-        readonly property color faint:      "#8d9bac"
-        readonly property color inkOnAccent:   "#052536"
-        readonly property color codeInk:    "#a6d9fc"
-
-        // Accent family
-        readonly property color accent:     "#8ed5ff"
-        readonly property color accentHi:   "#b1e4ff"
-        readonly property color accentEdge: "#a1ddff"
-        readonly property color cyan:       "#00e2e9"
-        readonly property color cyanText:   "#b9e8ee"
-        readonly property color cyanEdge:   "#1a3a40"
-
-        // Status
-        readonly property color success:    "#3fd3a4"
-        readonly property color warning:    "#ffc457"
-        readonly property color danger:     "#ff8371"
-        readonly property color info:       "#5b86ff"
-
-        // Node tones
-        readonly property color tonePurple: "#a78bfa"
-        readonly property color toneBlue:   "#5b86ff"
-        readonly property color toneYellow: "#ffc457"
-        readonly property color toneCoral:  "#ff8371"
-        readonly property color toneGreen:  "#3fd3a4"
-        readonly property color s0:         "#5b86ff"
-
-        // Typography — mono is NOT overridden by the desktop theme
-        readonly property string ui:   "Segoe UI, Microsoft YaHei, sans-serif"
-        readonly property string mono: "Consolas, Cascadia Mono, Microsoft YaHei, monospace"
-
-        // Spacing
-        readonly property int s2: 2;   readonly property int s4: 4
-        readonly property int s6: 6;   readonly property int s8: 8
-        readonly property int s10: 10; readonly property int s12: 12
-        readonly property int s14: 14; readonly property int s16: 16
-        readonly property int s20: 20; readonly property int s22: 22
-        readonly property int s24: 24; readonly property int s28: 28
-        readonly property int s32: 32
-
-        // Shell metrics
-        readonly property int topbarH: 68
-        readonly property int sidebarW: 240
-        readonly property int railW: 286
-        readonly property int radius: 8
-        readonly property int radiusSm: 5
-
-        // Responsive sizes (from web tokens.css L152-168)
-        readonly property int sizeDisplay: Math.max(42, Math.min(root.width * 0.06, 96))  // clamp(2.6rem, 6vw, 6rem)
-        readonly property int sizeTitle: Math.max(27, Math.min(root.width * 0.036, 54))   // clamp(1.7rem, 3.6vw, 3.4rem)
-        readonly property int sizeBody: 16
-        readonly property int sizeControl: 13
-
-        // Animation system (from web tokens.css L238-256)
-        readonly property int durQuick: 150
-        readonly property int durBase: 220
-        readonly property int durSlow: 300
-        readonly property int durHover: 400
-        readonly property int durState: 500
-        // Easing curve: cubic-bezier(0.22, 1, 0.36, 1)
-        // Qt equivalent: Easing.OutCubic or custom Easing.Bezier
-        readonly property int easingType: Easing.OutCubic
-
-        // Glow effects (from web tokens.css L111-114)
-        // Note: Qt doesn't support CSS box-shadow syntax directly
-        // These will be implemented using DropShadow or layer effects in components
-        readonly property string glowNear: "0 0 0 1px rgba(34,211,238,0.28), 0 0 12px rgba(34,211,238,0.14)"
-        readonly property string glowPanel: "0 0 0 1px rgba(120,175,235,0.14), 0 8px 32px rgba(0,0,0,0.55)"
-        readonly property color glowNearColor: Qt.rgba(34/255, 211/255, 238/255, 0.14)
-        readonly property color glowPanelColor: Qt.rgba(0, 0, 0, 0.55)
+        hostWidth: root.width
     }
-
-    // ── Shared components ───────────────────────────────────────────────────
-
-    // web .nav-item (styles.css:457-504) — min-height 44px, radius 6, font-weight 600
-    component NavItem: Item {
-        id: nav
-        property string glyph: ""
-        property string label: ""
-        property string index: ""
-        property string badge: ""
-        property bool active: false
-        signal activated
-
-        implicitHeight: 44
-        Rectangle {
-            id: navRect
-            anchors.fill: parent
-            radius: 6
-
-            // 静止态: 透明，文字 muted
-            // 悬停态: --scrim 底色，文字 ink-strong
-            // 选中态: linear-gradient(90deg, accent-soft, transparent 85%) + 1px line-accent 内描边
-            color: {
-                if (nav.active) return "transparent"  // 选中态用渐变，不用纯色
-                if (navHover.hovered) return ds.scrim
-                return "transparent"
-            }
-            border.color: nav.active ? ds.lineAccent : "transparent"
-            border.width: nav.active ? 1 : 0
-
-            // 选中态：横向渐变底色
-            Rectangle {
-                visible: nav.active
-                anchors.fill: parent
-                radius: parent.radius
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: ds.accentSoft }
-                    GradientStop { position: 0.85; color: "transparent" }
-                }
-                z: -1
-            }
-
-            // 选中态：2px 青色左条，上下各内缩 10px，自带 10px 泛光
-            Rectangle {
-                visible: nav.active
-                anchors { left: parent.left; top: parent.top; topMargin: 10; bottom: parent.bottom; bottomMargin: 10 }
-                width: 2
-                color: ds.accent
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowBlur: 1.0
-                    shadowColor: ds.accent
-                    shadowOpacity: 0.8
-                }
-            }
-
-            // 平滑过渡
-            Behavior on color {
-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-            }
-            Behavior on border.color {
-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: ds.s12
-                anchors.rightMargin: ds.s12
-                spacing: ds.s12
-
-                Text {
-                    id: iconText
-                    text: nav.glyph
-                    // 选中态图标: accent 色 + drop-shadow
-                    color: nav.active ? ds.accent : (navHover.hovered ? ds.inkStrong : ds.muted)
-                    font.family: ds.ui
-                    font.pixelSize: 20
-                    Layout.alignment: Qt.AlignVCenter
-
-                    layer.enabled: nav.active
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowBlur: 0.6
-                        shadowColor: Qt.rgba(34/255, 211/255, 238/255, 0.55)
-                        shadowOpacity: 1.0
-                    }
-
-                    Behavior on color {
-                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-                    }
-                }
-
-                Text {
-                    text: nav.label
-                    color: nav.active ? ds.inkStrong : (navHover.hovered ? ds.inkStrong : ds.muted)
-                    font.family: ds.ui
-                    font.pixelSize: 16
-                    font.weight: 600  // web: font-weight 600
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Behavior on color {
-                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-                    }
-                }
-
-                Rectangle {
-                    visible: nav.badge !== ""
-                    Layout.alignment: Qt.AlignVCenter
-                    implicitWidth: badgeLabel.implicitWidth + ds.s12
-                    implicitHeight: 22
-                    radius: 11  // pill
-                    color: ds.accentSoft
-                    border.color: ds.accentRing
-                    border.width: 1
-                    Text {
-                        id: badgeLabel
-                        anchors.centerIn: parent
-                        text: nav.badge
-                        color: ds.accent
-                        font.family: ds.mono
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                    }
-                }
-
-                Text {
-                    text: nav.index
-                    // 静止态: accent，选中态: accent-hover (冰蓝)
-                    color: nav.active ? ds.accentHi : ds.accent
-                    font.family: ds.mono
-                    font.pixelSize: 13
-                    font.letterSpacing: 2  // 0.2em at 13px ≈ 2.6px
-                    font.weight: Font.Normal
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Behavior on color {
-                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-                    }
-                }
-            }
-        }
-        HoverHandler { id: navHover; cursorShape: Qt.PointingHandCursor }
-        TapHandler { onTapped: nav.activated() }
-        Accessible.role: Accessible.PageTab
-        Accessible.name: nav.label
-        Accessible.selected: nav.active
-    }
-
-    // web .icon-button — 36x36, radius 8
-    component IconButton: Rectangle {
-        id: ibtn
-        property string glyph: ""
-        property string tip: ""
-        property bool active: false
-        property bool enabled: true
-        signal clicked
-        implicitWidth: 36
-        implicitHeight: 36
-        radius: 8
-        color: !ibtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
-                             : (ibtn.active || ibHover.hovered ? ds.accentSoft : "transparent")
-        opacity: ibtn.enabled ? 1.0 : 0.5
-
-        // Smooth transition
-        Behavior on color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-        Behavior on opacity {
-            NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
-        }
-
-        Text {
-            anchors.centerIn: parent
-            text: ibtn.glyph
-            color: !ibtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
-                                 : (ibtn.active || ibHover.hovered ? ds.accentHi : ds.muted)
-            font.family: ds.ui
-            font.pixelSize: 15
-
-            Behavior on color {
-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-            }
-        }
-        HoverHandler {
-            id: ibHover
-            enabled: ibtn.enabled
-            cursorShape: ibtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
-        }
-        TapHandler { enabled: ibtn.enabled; onTapped: ibtn.clicked() }
-        Accessible.role: Accessible.Button
-        Accessible.name: ibtn.tip !== "" ? ibtn.tip : ibtn.glyph
-    }
-
-    // web .app-shell .primary-action — 36px, radius 5, accent fill, dark ink
-    component PrimaryButton: Rectangle {
-        id: pbtn
-        property string label: ""
-        property bool enabled: true
-        signal clicked
-        implicitWidth: pLabel.implicitWidth + ds.s32
-        implicitHeight: 36
-        radius: ds.radiusSm
-        // 禁用态: 遮光层一档 opacity 0.5，启用态正常
-        color: !pbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
-                             : (pbtnHover.hovered ? ds.accentHi : ds.accent)
-        border.color: pbtn.enabled ? ds.accentEdge : Qt.rgba(32/255, 36/255, 43/255, 0.5)
-        border.width: 1
-        opacity: pbtn.enabled ? 1.0 : 0.5
-
-        // Smooth transitions
-        Behavior on color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-        Behavior on border.color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-        Behavior on opacity {
-            NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
-        }
-
-        Text {
-            id: pLabel
-            anchors.centerIn: parent
-            text: pbtn.label
-            // 禁用态: faint 色 opacity 0.4
-            color: pbtn.enabled ? ds.inkOnAccent : Qt.rgba(141/255, 155/255, 172/255, 0.4)
-            font.family: ds.ui
-            font.pixelSize: 13
-            font.weight: Font.DemiBold
-            font.letterSpacing: 0.26
-
-            Behavior on color {
-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-            }
-        }
-        HoverHandler {
-            id: pbtnHover
-            enabled: pbtn.enabled
-            cursorShape: pbtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
-        }
-        TapHandler { enabled: pbtn.enabled; onTapped: pbtn.clicked() }
-        Accessible.role: Accessible.Button
-        Accessible.name: pbtn.label
-    }
-
-    // web .subtle-button — quiet bordered action
-    component QuietButton: Rectangle {
-        id: qbtn
-        property string label: ""
-        property bool enabled: true
-        signal clicked
-        implicitWidth: qLabel.implicitWidth + ds.s24
-        implicitHeight: 36
-        radius: ds.radiusSm
-        // 禁用态: 遮光层一档 opacity 0.5
-        color: !qbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
-                             : (qbtnHover.hovered ? ds.accentSoft : "transparent")
-        border.color: !qbtn.enabled ? Qt.rgba(32/255, 36/255, 43/255, 0.5)
-                                    : (qbtnHover.hovered ? ds.accent : ds.lineStrong)
-        border.width: 1
-        opacity: qbtn.enabled ? 1.0 : 0.5
-
-        // Smooth transitions
-        Behavior on color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-        Behavior on border.color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-        Behavior on opacity {
-            NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
-        }
-
-        Text {
-            id: qLabel
-            anchors.centerIn: parent
-            text: qbtn.label
-            // 禁用态: faint 色 opacity 0.4
-            color: !qbtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
-                                 : (qbtnHover.hovered ? ds.accentHi : ds.ink)
-            font.family: ds.ui
-            font.pixelSize: 13
-
-            Behavior on color {
-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-            }
-        }
-        HoverHandler {
-            id: qbtnHover
-            enabled: qbtn.enabled
-            cursorShape: qbtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
-        }
-        TapHandler { enabled: qbtn.enabled; onTapped: qbtn.clicked() }
-        Accessible.role: Accessible.Button
-        Accessible.name: qbtn.label
-    }
-
-    // web .global-search__input
-    component ShellField: TextField {
-        id: sf
-        implicitHeight: 36
-        color: ds.ink
-        placeholderTextColor: ds.muted
-        font.family: ds.ui
-        font.pixelSize: 14
-        leftPadding: ds.s12
-        rightPadding: ds.s12
-        background: Rectangle {
-            radius: ds.radius
-            color: ds.inset
-            border.color: sf.activeFocus ? ds.accent
-                          : (sfHover.hovered ? Qt.rgba(200/255, 224/255, 248/255, 0.5) : ds.lineStrong)
-            border.width: 1
-
-            // Inner highlight layer
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: 1
-                color: "#ffffff"
-                opacity: sf.activeFocus ? 0.15 : (sfHover.hovered ? 0.08 : 0.05)
-                Behavior on opacity {
-                    NumberAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-                }
-            }
-
-            // Smooth focus transition
-            Behavior on border.color {
-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-            }
-        }
-        HoverHandler {
-            id: sfHover
-            enabled: sf.enabled
-        }
-        Accessible.role: Accessible.EditableText
-    }
-
-    // web .desktop-subjects button — symbol box + label + count
-    component SubjectPill: Rectangle {
-        id: pill
-        property string symbol: ""
-        property string label: ""
-        property string count: ""
-        property bool active: false
-        signal clicked
-        implicitWidth: pillRow.implicitWidth + ds.s24
-        implicitHeight: 37
-        radius: 6
-        color: pill.active ? ds.subjectOn : (pillHover.hovered ? ds.hoverWash : ds.subjectBg)
-        border.color: pill.active ? ds.accentRing : ds.line
-        border.width: 1
-
-        // Smooth transitions
-        Behavior on color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-        Behavior on border.color {
-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-        }
-
-        HoverHandler { id: pillHover }
-        RowLayout {
-            id: pillRow
-            anchors.centerIn: parent
-            spacing: ds.s8
-            Rectangle {
-                implicitWidth: 21
-                implicitHeight: 21
-                radius: 4
-                color: "#141b23"
-                Layout.alignment: Qt.AlignVCenter
-                Text {
-                    anchors.centerIn: parent
-                    text: pill.symbol
-                    color: ds.accent
-                    font.family: ds.mono
-                    font.pixelSize: 11
-                }
-            }
-                Text {
-                    text: pill.label
-                    color: pill.active ? ds.accent : (pillHover.hovered ? ds.ink : ds.muted)
-                    font.family: ds.ui
-                    font.pixelSize: 12
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Behavior on color {
-                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
-                    }
-                }
-            Text {
-                text: pill.count
-                color: ds.faint
-                font.family: ds.mono
-                font.pixelSize: 10
-                Layout.alignment: Qt.AlignVCenter
-            }
-        }
-        TapHandler { onTapped: pill.clicked() }
-        Accessible.role: Accessible.Button
-        Accessible.name: pill.label
-    }
-
 
     // root grid backdrop (web .shell-decor)
     Canvas {
@@ -754,7 +241,17 @@ Rectangle {
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            Text {
+                objectName: "breadcrumbs"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                text: root.breadcrumbText
+                elide: Text.ElideRight
+                color: ds.muted
+                font.family: ds.ui
+                font.pixelSize: 12
+                Accessible.name: "当前位置：" + text
+            }
 
             // .global-search
             Rectangle {
@@ -785,8 +282,17 @@ Rectangle {
                         font.family: ds.ui
                         font.pixelSize: 14
                         background: null
-                        onTextChanged: searchPopup.visible = text.trim() !== ""
+                        onTextChanged: {
+                            if (text.trim()) searchPopup.open();
+                            else searchPopup.close();
+                        }
                         onActiveFocusChanged: if (!activeFocus && text.trim() === "") searchPopup.close()
+                        Keys.onDownPressed: {
+                            if (searchResultsView.count) {
+                                searchResultsView.currentIndex = 0;
+                                searchResultsView.forceActiveFocus();
+                            }
+                        }
                         Accessible.name: "全局搜索课程、挑战与项目"
                     }
                 }
@@ -808,24 +314,29 @@ Rectangle {
                 }
 
                 IconButton {
+                    ds: root.designSystem
                     id: quickButton
+                    objectName: "quickButton"
                     glyph: "⚡"
                     tip: "快捷动作"
                     active: root.quickActionsOpen
                     onClicked: {
+                        const shouldOpen = !quickPopup.opened;
                         root.closeTopbarPopups();
-                        root.quickActionsOpen = !root.quickActionsOpen;
+                        root.quickActionsOpen = shouldOpen;
                         if (root.quickActionsOpen) quickPopup.open(); else quickPopup.close();
                     }
                 }
                 IconButton {
+                    ds: root.designSystem
                     id: notificationButton
                     glyph: "🔔"
                     tip: "通知中心（无未读）"
                     active: root.notificationsOpen
                     onClicked: {
+                        const shouldOpen = !notificationPopup.opened;
                         root.closeTopbarPopups();
-                        root.notificationsOpen = !root.notificationsOpen;
+                        root.notificationsOpen = shouldOpen;
                         if (root.notificationsOpen) notificationPopup.open(); else notificationPopup.close();
                     }
                 }
@@ -860,6 +371,7 @@ Rectangle {
                 }
 
                 IconButton {
+                    ds: root.designSystem
                     glyph: "⚙"
                     tip: "账户与设置"
                     onClicked: settingsDialog.open()
@@ -868,6 +380,16 @@ Rectangle {
                 // .topbar-avatar
                 Rectangle {
                     id: topbarAvatar
+                    objectName: "topbarAvatar"
+                    activeFocusOnTab: true
+                    function toggleMenu() {
+                        const shouldOpen = !accountPopup.opened;
+                        root.closeTopbarPopups();
+                        root.accountMenuOpen = shouldOpen;
+                        if (shouldOpen) accountPopup.open();
+                    }
+                    Keys.onReturnPressed: toggleMenu()
+                    Keys.onSpacePressed: toggleMenu()
                     implicitWidth: 34
                     implicitHeight: 34
                     radius: ds.radius
@@ -886,9 +408,7 @@ Rectangle {
                     }
                     TapHandler {
                         onTapped: {
-                            root.closeTopbarPopups();
-                            root.accountMenuOpen = !root.accountMenuOpen;
-                            if (root.accountMenuOpen) accountPopup.open(); else accountPopup.close();
+                            topbarAvatar.toggleMenu();
                         }
                     }
                     Accessible.role: Accessible.Button
@@ -900,13 +420,13 @@ Rectangle {
 
         ShellPopup {
             id: searchPopup
-            x: searchBox.x
+            x: searchBox.mapToItem(root, 0, 0).x
             y: topbar.height + 4
             width: searchBox.width
             height: Math.min(360, searchResultsView.contentHeight + ds.s24)
             ds: root.designSystem
             returnFocusItem: searchField
-            visible: searchField.activeFocus && searchField.text.trim() !== ""
+            onOpened: searchField.forceActiveFocus()
 
             ListView {
                 id: searchResultsView
@@ -914,12 +434,23 @@ Rectangle {
                 clip: true
                 focus: true
                 model: root.searchResults(searchField.text)
+                function activateCurrent() {
+                    if (currentIndex < 0 || currentIndex >= count) return;
+                    const result = model[currentIndex];
+                    if (result.kind === "lesson") {
+                        root.selectedLessonIndex = result.index;
+                        uiShell.openPublishedContent(result.index);
+                    } else uiShell.selectPage("挑战");
+                    searchField.text = "";
+                    searchPopup.close();
+                }
                 delegate: Rectangle {
                     required property var modelData
                     width: searchResultsView.width
                     height: 46
                     radius: ds.radiusSm
-                    color: searchRowHover.hovered ? ds.accentSoft : "transparent"
+                    color: searchRowHover.hovered || ListView.isCurrentItem && searchResultsView.activeFocus
+                        ? ds.accentSoft : "transparent"
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: ds.s8
@@ -952,6 +483,7 @@ Rectangle {
                     else if (event.key === Qt.Key_Up) { currentIndex = Math.max(0, currentIndex - 1); event.accepted = true; }
                     else if (event.key === Qt.Key_Home) { currentIndex = 0; event.accepted = true; }
                     else if (event.key === Qt.Key_End) { currentIndex = count - 1; event.accepted = true; }
+                    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { activateCurrent(); event.accepted = true; }
                     else if (event.key === Qt.Key_Escape) { searchPopup.close(); event.accepted = true; }
                 }
             }
@@ -967,7 +499,9 @@ Rectangle {
 
         ShellPopup {
             id: quickPopup
-            x: quickButton.x - 220
+            objectName: "quickPopup"
+            menuItems: [continueAction, reviewAction, helpAction]
+            x: Math.max(ds.s12, quickButton.mapToItem(root, 0, 0).x + quickButton.width - width)
             y: topbar.height + 4
             width: 260
             height: quickActionsColumn.implicitHeight + ds.s24
@@ -980,6 +514,8 @@ Rectangle {
                 spacing: ds.s8
                 Text { text: "快捷动作"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
                 QuietButton {
+                    id: continueAction
+                    objectName: "continueAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
                     label: "继续学习"
@@ -987,12 +523,16 @@ Rectangle {
                     onClicked: { quickPopup.close(); uiShell.openPublishedContent(root.selectedLessonIndex); }
                 }
                 QuietButton {
+                    id: reviewAction
+                    objectName: "reviewAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
                     label: "打开复习中心"
                     onClicked: { quickPopup.close(); uiShell.selectPage("复习与进度"); }
                 }
                 QuietButton {
+                    id: helpAction
+                    objectName: "helpAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
                     label: "查看帮助"
@@ -1004,7 +544,7 @@ Rectangle {
 
         ShellPopup {
             id: notificationPopup
-            x: notificationButton.x - 220
+            x: Math.max(ds.s12, notificationButton.mapToItem(root, 0, 0).x + notificationButton.width - width)
             y: topbar.height + 4
             width: 260
             height: 128
@@ -1021,6 +561,8 @@ Rectangle {
 
         ShellPopup {
             id: accountPopup
+            objectName: "accountPopup"
+            menuItems: [profileAction, securityAction, exportAction, logoutAction]
             x: topbar.width - width - ds.s24
             y: topbar.height + 4
             width: 260
@@ -1034,10 +576,10 @@ Rectangle {
                 spacing: ds.s8
                 Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
                 Text { Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
-                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
-                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); passwordDialog.open(); } }
-                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
-                QuietButton { ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; visible: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
+                QuietButton { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
+                QuietButton { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); passwordDialog.open(); } }
+                QuietButton { id: exportAction; ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                QuietButton { id: logoutAction; ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; visible: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
             }
         }
 
@@ -1100,7 +642,7 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "全栈冲刺 · " + uiShell.lessonMeta.length + " 阶段"
+                        text: "全栈冲刺 · " + root.stageCount + " 阶段"
                         color: "#a3d6df"
                         font.family: ds.ui
                         font.pixelSize: 11
@@ -1127,12 +669,14 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: ds.s6
                 NavItem {
+                    ds: root.designSystem
                     Layout.fillWidth: true
                     glyph: "▤"; label: "学习路径"; index: "01"
                     active: root.page === "学习"
                     onActivated: uiShell.selectPage("学习")
                 }
                 NavItem {
+                    ds: root.designSystem
                     Layout.fillWidth: true
                     glyph: "◈"; label: "实战挑战"; index: "02"
                     badge: uiShell.challengeMeta.length > 0
@@ -1141,18 +685,21 @@ Rectangle {
                     onActivated: uiShell.selectPage("挑战")
                 }
                 NavItem {
+                    ds: root.designSystem
                     Layout.fillWidth: true
                     glyph: "▥"; label: "代码草稿"; index: "03"
                     active: root.page === "草稿"
                     onActivated: uiShell.selectPage("草稿")
                 }
                 NavItem {
+                    ds: root.designSystem
                     Layout.fillWidth: true
                     glyph: "◷"; label: "复习中心"; index: "04"
                     active: root.page === "复习与进度"
                     onActivated: uiShell.selectPage("复习与进度")
                 }
                 NavItem {
+                    ds: root.designSystem
                     Layout.fillWidth: true
                     glyph: "◉"; label: "学习分析"; index: "05"
                     active: root.page === "分析"
@@ -1167,7 +714,7 @@ Rectangle {
                 Layout.leftMargin: ds.s12
                 Layout.topMargin: ds.s8
                 Layout.bottomMargin: ds.s10
-                text: "课程进度 · " + uiShell.lessonMeta.length + " 阶段"
+                text: "课程进度 · " + root.stageCount + " 阶段"
                 color: ds.muted
                 font.family: ds.ui
                 font.pixelSize: 11
@@ -1220,7 +767,8 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 1
                             Text {
-                                text: uiShell.analysisSnapshot.streakDays === "暂无数据"
+                                text: uiShell.analysisSnapshot.streakDays === undefined
+                                      || uiShell.analysisSnapshot.streakDays === "暂无数据"
                                       ? "连续打卡数据暂无"
                                       : "连续打卡 " + uiShell.analysisSnapshot.streakDays + " 天"
                                 color: ds.ink
@@ -1313,86 +861,81 @@ Rectangle {
             }
 
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "学习" || visited
                 onLoaded: {
                     visited = true;
-                    item.hostRoot = root;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/StudyPage.qml"
+                sourceComponent: StudyPage { hostRoot: root; ds: root.designSystem }
             }
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "挑战" || visited
                 onLoaded: {
                     visited = true;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/ChallengePage.qml"
+                sourceComponent: ChallengePage { ds: root.designSystem }
             }
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "草稿" || visited
                 onLoaded: {
                     visited = true;
-                    item.hostRoot = root;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/DraftsPage.qml"
+                sourceComponent: DraftsPage { hostRoot: root; ds: root.designSystem }
             }
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "复习与进度" || visited
                 onLoaded: {
                     visited = true;
-                    item.hostRoot = root;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/ReviewPage.qml"
+                sourceComponent: ReviewPage { hostRoot: root; ds: root.designSystem }
             }
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "分析" || visited
                 onLoaded: {
                     visited = true;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/AnalyticsPage.qml"
+                sourceComponent: AnalyticsPage { ds: root.designSystem }
             }
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "账户" || visited
                 onLoaded: {
                     visited = true;
-                    item.hostRoot = root;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/AccountPage.qml"
+                sourceComponent: AccountPage { hostRoot: root; ds: root.designSystem }
             }
             Loader {
+                objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
                 active: root.page === "编辑器" || visited
                 onLoaded: {
                     visited = true;
-                    item.hostRoot = root;
-                    item.ds = root.designSystem;
                 }
-                source: "pages/EditorPage.qml"
+                sourceComponent: EditorPage { hostRoot: root; ds: root.designSystem }
             }
         }
     }
@@ -1476,12 +1019,14 @@ Rectangle {
                 font.pixelSize: 13
             }
             ShellField {
+                ds: root.designSystem
                 id: dlgCurrent
                 Layout.fillWidth: true
                 placeholderText: "当前密码"
                 echoMode: TextInput.Password
             }
             ShellField {
+                ds: root.designSystem
                 id: dlgNext
                 Layout.fillWidth: true
                 placeholderText: "新密码（至少 8 个字符）"
@@ -1512,9 +1057,9 @@ Rectangle {
                 font.family: ds.ui
                 font.pixelSize: 13
             }
-            ShellField { id: evEnv; Layout.fillWidth: true; placeholderText: "环境" }
-            ShellField { id: evCmd; Layout.fillWidth: true; placeholderText: "命令" }
-            ShellField { id: evSum; Layout.fillWidth: true; placeholderText: "结论摘要" }
+            ShellField { ds: root.designSystem; id: evEnv; Layout.fillWidth: true; placeholderText: "环境" }
+            ShellField { ds: root.designSystem; id: evCmd; Layout.fillWidth: true; placeholderText: "命令" }
+            ShellField { ds: root.designSystem; id: evSum; Layout.fillWidth: true; placeholderText: "结论摘要" }
         }
         onAccepted: uiShell.saveExternalEvidence(evEnv.text, evCmd.text, evSum.text, "", "")
     }

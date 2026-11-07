@@ -135,18 +135,21 @@ Item {
                     }
                     ShellField {
                         id: identField
+                        ds: accountPage.ds
                         Layout.fillWidth: true
                         visible: !uiShell.hasActiveAccount
                         placeholderText: "邮箱或手机号"
                     }
                     ShellField {
                         id: nameField
+                        ds: accountPage.ds
                         Layout.fillWidth: true
                         visible: !uiShell.hasActiveAccount
                         placeholderText: "你的昵称（注册时填写）"
                     }
                     ShellField {
                         id: pwField
+                        ds: accountPage.ds
                         Layout.fillWidth: true
                         placeholderText: uiShell.hasActiveAccount
                                          ? "当前密码" : "至少 8 个字符"
@@ -154,6 +157,7 @@ Item {
                     }
                     ShellField {
                         id: newPwField
+                        ds: accountPage.ds
                         Layout.fillWidth: true
                         visible: uiShell.hasActiveAccount
                         placeholderText: "新密码"

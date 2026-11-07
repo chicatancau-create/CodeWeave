@@ -5,6 +5,7 @@
 #include <QGuiApplication>
 #include <QDir>
 #include <QQmlContext>
+#include <QQmlEngine>
 #include <QQuickView>
 #include <QCloseEvent>
 #include <QClipboard>
@@ -94,10 +95,12 @@ void u3_record(U3MatrixContext& context, const QString& name, bool passed,
   context.checks.append(item);
 }
 
-bool u3_screenshot(U3MatrixContext& context, QQuickView& view, const QString& name) {
+bool u3_screenshot(U3MatrixContext& context, QQuickView& view, const QString& name,
+    const QSize& expected_size = {}) {
   const auto path = QDir(context.screenshot_dir).filePath(name + QStringLiteral(".png"));
   const auto image = view.grabWindow();
-  const bool saved = view.isExposed() && !image.isNull() && image.save(path);
+  const bool saved = view.isExposed() && !image.isNull() &&
+      (expected_size.isEmpty() || image.size() == expected_size) && image.save(path);
   if (saved) context.screenshots.append(path);
   return saved;
 }
@@ -134,19 +137,30 @@ void send_editor_shortcut(QQuickView& view, int key, Qt::KeyboardModifiers modif
 }
 
 int main(int argc, char* argv[]) {
+  for (int index = 1; index < argc; ++index) {
+    if (std::string_view(argv[index]) == "--visual-comparison-json")
+      QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Floor);
+  }
   const double entered = probe_clock();
   MeasuredApplication application(argc, argv);
   const auto arguments = application.arguments();
+  const bool qml_smoke = arguments.contains(QStringLiteral("--qml-load-smoke"));
+  const auto qml_smoke_arg = arguments.indexOf(QStringLiteral("--qml-load-smoke"));
   const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
   if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
   const auto matrix = arguments.indexOf(QStringLiteral("--u3-matrix-json"));
   if (matrix >= 0 && matrix + 1 >= arguments.size()) return 2;
+  const auto comparison = arguments.indexOf(QStringLiteral("--visual-comparison-json"));
+  if (comparison >= 0 && (comparison + 1 >= arguments.size() || matrix >= 0 || benchmark >= 0)) return 2;
+  if (qml_smoke && (matrix >= 0 || comparison >= 0 || benchmark >= 0)) return 2;
+  if (qml_smoke && (qml_smoke_arg + 1 >= arguments.size())) return 2;
+  const bool isolated_window = matrix >= 0 || comparison >= 0;
   std::unique_ptr<QTemporaryDir> benchmark_data;
-  if (benchmark >= 0) benchmark_data = std::make_unique<QTemporaryDir>();
+  if (benchmark >= 0 || qml_smoke) benchmark_data = std::make_unique<QTemporaryDir>();
   std::unique_ptr<U3MatrixContext> matrix_context;
-  if (matrix >= 0) {
+  if (isolated_window) {
     matrix_context = std::make_unique<U3MatrixContext>();
-    matrix_context->output = arguments.at(matrix + 1);
+    matrix_context->output = arguments.at((comparison >= 0 ? comparison : matrix) + 1);
     matrix_context->screenshot_dir = QFileInfo(matrix_context->output).absolutePath();
     if (!matrix_context->data.isValid() || matrix_context->screenshot_dir.isEmpty()) return 2;
     QDir().mkpath(matrix_context->screenshot_dir);
@@ -162,11 +176,12 @@ int main(int argc, char* argv[]) {
       QStringLiteral("CODEWEAVE_NATIVE_WORKSPACE"), QCoreApplication::applicationDirPath());
   const auto localAppData = QProcessEnvironment::systemEnvironment().value(
       QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-  if (benchmark >= 0 && !benchmark_data->isValid()) return 2;
-  const auto nativeData = benchmark >= 0 ? benchmark_data->path() :
-      (matrix >= 0 ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
+  if ((benchmark >= 0 || qml_smoke) && !benchmark_data->isValid()) return 2;
+  const auto nativeData = benchmark >= 0 || qml_smoke ? benchmark_data->path() :
+      (isolated_window ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
       QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
-  const auto effectiveWorkspace = matrix >= 0 ? matrix_context->data.path() : workspace;
+  const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() :
+      (qml_smoke ? benchmark_data->path() : workspace);
   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
   const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
   for (const auto language : {std::string_view("cpp"), std::string_view("java"),
@@ -211,12 +226,220 @@ int main(int argc, char* argv[]) {
     view.resize(qMin(1440, static_cast<int>(available.width() * 0.92)),
         qMin(900, static_cast<int>(available.height() * 0.92)));
   }
+  if (comparison >= 0) {
+    view.setFlags(Qt::Window | Qt::FramelessWindowHint);
+    view.setMinimumSize(QSize(1440, 900));
+    view.setMaximumSize(QSize(1440, 900));
+    view.resize(1440, 900);
+  }
   view.setTitle(shell.appTitle());
   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
   view.setResizeMode(QQuickView::SizeRootObjectToView);
+  QStringList qml_warnings;
+  if (qml_smoke || comparison >= 0) {
+    QObject::connect(view.engine(), &QQmlEngine::warnings, &application,
+        [&](const QList<QQmlError>& warnings) {
+          for (const auto& warning : warnings) qml_warnings.append(warning.toString());
+        });
+  }
   view.loadFromModule(QStringLiteral("CodeWeave.Ui"), QStringLiteral("Main"));
   if (view.status() == QQuickView::Error) return 1;
   view.show();
+  QTimer qml_smoke_timer;
+  int qml_smoke_page = 0;
+  if (qml_smoke) {
+    const auto report_path = arguments.at(qml_smoke_arg + 1);
+    QString diagnostic = QStringLiteral("running");
+    const auto write_smoke_report = [&] {
+      QJsonObject report;
+      report.insert(QStringLiteral("diagnostic"), diagnostic);
+      report.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
+      QFile report_file(report_path);
+      return report_file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
+          report_file.write(QJsonDocument(report).toJson(QJsonDocument::Indented)) >= 0 && report_file.flush();
+    };
+    QObject::connect(&qml_smoke_timer, &QTimer::timeout, &application, [&] {
+      if (!qml_warnings.isEmpty()) {
+        diagnostic = QStringLiteral("QML warning: ") + qml_warnings.join(QLatin1Char('\n'));
+        write_smoke_report();
+        qWarning("QML smoke: %s", qPrintable(qml_warnings.join(QLatin1Char('\n'))));
+        application.exit(1);
+        return;
+      }
+      const auto loaders = view.rootObject()->findChildren<QObject*>(QStringLiteral("pageLoader"));
+      if (loaders.size() != 7) {
+        diagnostic = QStringLiteral("Expected 7 page Loaders, found %1").arg(loaders.size());
+        write_smoke_report();
+        qWarning("QML smoke: expected 7 page Loaders, found %d", static_cast<int>(loaders.size()));
+        application.exit(1);
+        return;
+      }
+      for (auto* loader : loaders) {
+        if (loader->property("status").toInt() == 3) {
+          diagnostic = QStringLiteral("Page Loader reported an error");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+      }
+      const QStringList pages{QStringLiteral("挑战"), QStringLiteral("草稿"), QStringLiteral("复习与进度"),
+          QStringLiteral("分析"), QStringLiteral("账户"), QStringLiteral("编辑器")};
+      if (qml_smoke_page < pages.size()) {
+        shell.selectPage(pages.at(qml_smoke_page++));
+        return;
+      }
+      for (auto* loader : loaders) {
+        if (loader->property("status").toInt() != 1) {
+          diagnostic = QStringLiteral("Visited page Loader is not ready (status %1)").arg(loader->property("status").toInt());
+          write_smoke_report();
+          qWarning("QML smoke: visited page Loader is not ready (status %d)", loader->property("status").toInt());
+          application.exit(1);
+          return;
+        }
+      }
+      auto* quick = view.rootObject()->findChild<QObject*>(QStringLiteral("quickPopup"));
+      auto* account = view.rootObject()->findChild<QObject*>(QStringLiteral("accountPopup"));
+      auto* trigger = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("quickButton"));
+      auto* first = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("continueAction"));
+      auto* review = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("reviewAction"));
+      auto* help = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("helpAction"));
+      auto* profile = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileAction"));
+      auto* security = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityAction"));
+      if (!quick || !account || !trigger || !first || !review || !help || !profile || !security) {
+        diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 logout=%9")
+            .arg(quick != nullptr).arg(account != nullptr).arg(trigger != nullptr).arg(first != nullptr)
+            .arg(review != nullptr).arg(help != nullptr).arg(profile != nullptr).arg(security != nullptr);
+        write_smoke_report();
+        qWarning("QML smoke: menu objects missing");
+        application.exit(1);
+        return;
+      }
+      first = review;
+      const auto require_focus = [&](QQuickItem* item) {
+        if (item->hasActiveFocus()) return true;
+        const auto* active = view.activeFocusItem();
+        diagnostic = QStringLiteral("Menu focus assertion failed at step %1: popup=%2 target=%3 active=%4")
+            .arg(qml_smoke_page).arg(quick->property("opened").toBool())
+            .arg(QString::fromUtf8(item->objectName().toUtf8()))
+            .arg(active ? QString::fromUtf8(active->objectName().toUtf8()) : QStringLiteral("<none>"));
+        write_smoke_report();
+        qWarning("QML smoke: incorrect menu focus");
+        application.exit(1);
+        return false;
+      };
+      switch (qml_smoke_page++ - pages.size()) {
+        case 0:
+          view.requestActivate();
+          QMetaObject::invokeMethod(quick, "open");
+          break;
+        case 1:
+          if (!require_focus(first)) return;
+          send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+          break;
+        case 2:
+          if (!require_focus(help)) return;
+          send_editor_shortcut(view, Qt::Key_Down, Qt::NoModifier);
+          break;
+        case 3:
+          if (!require_focus(first)) return;
+          send_editor_shortcut(view, Qt::Key_Up, Qt::NoModifier);
+          break;
+        case 4:
+          if (!require_focus(help)) return;
+          send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+          break;
+        case 5:
+          if (!require_focus(first)) return;
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 6:
+          if (quick->property("opened").toBool() || !require_focus(trigger)) {
+            diagnostic = QStringLiteral("Quick popup did not close or trigger did not regain focus");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          QMetaObject::invokeMethod(account, "open");
+          break;
+        case 7:
+          if (!require_focus(profile)) return;
+          send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+          break;
+        case 8:
+          if (!require_focus(security)) return;
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        default:
+          if (account->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Account popup did not close on Escape");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          diagnostic = QStringLiteral("passed");
+          write_smoke_report();
+          application.exit(0);
+      }
+    });
+    qml_smoke_timer.start(200);
+  }
+  QTimer comparison_timer;
+  if (comparison >= 0) {
+    QObject::connect(&comparison_timer, &QTimer::timeout, &application, [&, context = matrix_context.get()] {
+      if (++context->ticks > 100) { application.exit(3); return; }
+      if (shell.contentBusy() || !view.isExposed()) return;
+      if (view.windowState() != Qt::WindowNoState || view.size() != QSize(1440, 900)) {
+        view.setWindowState(Qt::WindowNoState);
+        view.resize(1440, 900);
+        return;
+      }
+      const QStringList pages{QStringLiteral("学习"), QStringLiteral("复习与进度"),
+          QStringLiteral("挑战"), QStringLiteral("编辑器")};
+      const QStringList names{QStringLiteral("qt-learning"), QStringLiteral("qt-review"),
+          QStringLiteral("qt-challenge"), QStringLiteral("qt-workbench")};
+      const int page_index = context->step / 3;
+      if (page_index >= pages.size()) {
+        u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty());
+        QJsonObject result;
+        result.insert(QStringLiteral("mode"), QStringLiteral("qt-isolated-visual-comparison"));
+        result.insert(QStringLiteral("isolatedData"), true);
+        result.insert(QStringLiteral("width"), view.width());
+        result.insert(QStringLiteral("height"), view.height());
+        result.insert(QStringLiteral("devicePixelRatio"), view.devicePixelRatio());
+        result.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
+        result.insert(QStringLiteral("checks"), context->checks);
+        result.insert(QStringLiteral("screenshots"), context->screenshots);
+        result.insert(QStringLiteral("passed"), u3_all_passed(*context));
+        QFile file(context->output);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
+            file.write(QJsonDocument(result).toJson(QJsonDocument::Indented)) < 0 || !file.flush()) {
+          application.exit(3);
+          return;
+        }
+        application.exit(u3_all_passed(*context) ? 0 : 3);
+        return;
+      }
+      if (context->step % 3 == 0) {
+        if (shell.publishedIds().isEmpty()) return;
+        if (page_index == 3) {
+          const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+          if (index < 0) { application.exit(3); return; }
+          shell.openPublishedContent(index);
+          shell.loadStarterCode();
+        }
+        shell.selectPage(pages.at(page_index));
+      } else if (context->step % 3 == 1 && page_index == 3) {
+        shell.loadStarterCode();
+      } else if (context->step % 3 == 2) {
+        // Allow a complete render tick after changing the Loader's page.
+        const bool saved = u3_screenshot(*context, view, names.at(page_index), QSize(1440, 900));
+        u3_record(*context, names.at(page_index), saved && shell.currentPage() == pages.at(page_index) &&
+            view.width() == 1440 && view.height() == 900);
+      }
+      ++context->step;
+    });
+    comparison_timer.start(200);
+  }
   // Read-only, real-window smoke. Never creates an account or a data root.
   const auto smoke = arguments.indexOf(QStringLiteral("--smoke-screenshot"));
   std::unique_ptr<WindowProbe> probe;

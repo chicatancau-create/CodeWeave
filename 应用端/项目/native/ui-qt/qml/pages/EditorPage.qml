@@ -1,3 +1,8 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "../components"
+
 Item {
     property var hostRoot
     property QtObject ds
@@ -32,8 +37,7 @@ Item {
                         enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
                         onClicked: uiShell.saveDraft()
                     }
-                    QuietButton { label: "知道了"; onClicked: uiShell.dismissContentStatus() }
-                        ds: editorPage.ds
+                    QuietButton { ds: editorPage.ds; label: "知道了"; onClicked: uiShell.dismissContentStatus() }
                 }
             }
 
@@ -41,8 +45,7 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: ds.s12
-                QuietButton { label: "←"; onClicked: uiShell.selectPage("学习") }
-                    ds: editorPage.ds
+                QuietButton { ds: editorPage.ds; label: "←"; onClicked: uiShell.selectPage("学习") }
                 ColumnLayout {
                     spacing: 2
                     Text {
@@ -203,6 +206,7 @@ Item {
                                     Layout.fillHeight: true
                                     ScrollBar.horizontal.policy: ScrollBar.AsNeeded
                                     TextArea {
+                                        id: codeEditor
                                         objectName: "codeEditor"
                                         text: uiShell.draftCode
                                         readOnly: uiShell.starterLanguage.length === 0

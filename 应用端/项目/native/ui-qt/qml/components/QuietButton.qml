@@ -7,6 +7,10 @@ Rectangle {
         id: qbtn
         property string label: ""
         property bool enabled: true
+        activeFocusOnTab: enabled
+        Keys.onReturnPressed: if (enabled) clicked()
+        Keys.onEnterPressed: if (enabled) clicked()
+        Keys.onSpacePressed: if (enabled) clicked()
         signal clicked
         implicitWidth: qLabel.implicitWidth + ds.s24
         implicitHeight: 36
@@ -15,7 +19,7 @@ Rectangle {
         color: !qbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
                              : (qbtnHover.hovered ? ds.accentSoft : "transparent")
         border.color: !qbtn.enabled ? Qt.rgba(32/255, 36/255, 43/255, 0.5)
-                                    : (qbtnHover.hovered ? ds.accent : ds.lineStrong)
+                                    : (qbtnHover.hovered || qbtn.activeFocus ? ds.accent : ds.lineStrong)
         border.width: 1
         opacity: qbtn.enabled ? 1.0 : 0.5
 

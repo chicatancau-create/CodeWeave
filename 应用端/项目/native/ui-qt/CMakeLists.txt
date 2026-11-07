@@ -71,6 +71,10 @@ qt_add_qml_module(codeweave-qt
   VERSION 1.0
   QML_FILES
     qml/Main.qml
+    qml/DesignSystem.qml
+    qml/components/NavItem.qml
+    qml/components/IconButton.qml
+    qml/components/ShellField.qml
     qml/components/PrimaryButton.qml
     qml/components/QuietButton.qml
     qml/components/ShellPopup.qml
@@ -122,6 +126,13 @@ add_custom_target(codeweave-qt-deploy
 )
 
 if (BUILD_TESTING)
+  add_test(NAME qt-qml-load COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=${CODEWEAVE_QT_BIN}"
+    "QT_QPA_PLATFORM=offscreen"
+    "QT_PLUGIN_PATH=${CODEWEAVE_QT_PREFIX}/plugins"
+    "QML_IMPORT_PATH=${CODEWEAVE_QT_PREFIX}/qml"
+    $<TARGET_FILE:codeweave-qt> --qml-load-smoke "${CMAKE_BINARY_DIR}/qt-qml-smoke-report.json")
+  set_tests_properties(qt-qml-load PROPERTIES TIMEOUT 15)
   find_program(CODEWEAVE_QT_TEST_CPP_TOOL NAMES g++.exe clang++.exe cl.exe)
   find_program(CODEWEAVE_QT_TEST_JAVA_TOOL NAMES java.exe)
   find_program(CODEWEAVE_QT_TEST_PYTHON_TOOL NAMES python.exe python3.exe)

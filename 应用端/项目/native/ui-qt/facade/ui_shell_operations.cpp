@@ -581,9 +581,7 @@ void UiShell::configureExecutionTool(const QString& language, const std::filesys
   const auto key = language.toStdString();
   if (key != "cpp" && key != "java" && key != "python" && key != "javascript") return;
   if (tool.empty()) {
-    fprintf(stderr, "empty-before\n");
     execution_tools_.erase(key);
-    fprintf(stderr, "empty-after\n");
     return;
   }
   const auto validation = codeweave::execution::validate_process_request(
