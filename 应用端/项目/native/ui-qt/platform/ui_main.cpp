@@ -224,6 +224,11 @@ int main(int argc, char* argv[]) {
   const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() :
       (qml_smoke ? benchmark_data->path() : workspace);
   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
+  if (!isolated_window && !qml_smoke && benchmark < 0) {
+    QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
+    const auto vault = settings.value(QStringLiteral("vault/root")).toString();
+    if (!vault.isEmpty()) shell.configureVaultRoot(vault.toStdWString());
+  }
   const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
   for (const auto language : {std::string_view("cpp"), std::string_view("java"),
                               std::string_view("python"), std::string_view("javascript")}) {
@@ -233,6 +238,17 @@ int main(int argc, char* argv[]) {
   const auto contentRoot = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("content"));
   shell.loadPublishedContent(contentRoot);
   ShellView view(shell);
+  QObject::connect(&shell, &UiShell::vaultSelectionRequested, &view, [&] {
+    const auto path = choose_native_path(reinterpret_cast<HWND>(view.winId()),
+        L"选择资料库根目录（仅连接，确认提交前不修改资料库）", true);
+    if (!path.empty()) {
+      shell.configureVaultRoot(path);
+      if (!isolated_window && !qml_smoke && benchmark < 0) {
+        QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("vault/root"), QString::fromStdWString(path.wstring()));
+      }
+    }
+  });
   QObject::connect(&shell, &UiShell::toolSelectionRequested, &view, [&](const QString& language) {
     const auto path = choose_native_path(reinterpret_cast<HWND>(view.winId()),
         L"选择编译器或解释器", false, L"*.exe");
@@ -2561,13 +2577,132 @@ int main(int argc, char* argv[]) {
           return;
         }
         case 24:
+          shell.selectPage(QStringLiteral("账户"));
+          shell.refreshVaultWriteback();
+          context->step = 700;
+          return;
+        case 700: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto vault = QDir(context->data.path()).filePath(QStringLiteral("isolated-vault"));
+          const auto write = [&](const QString& relative, const QByteArray& bytes) {
+            const auto path = QDir(vault).filePath(relative);
+            if (!QDir().mkpath(QFileInfo(path).absolutePath())) return false;
+            QFile file(path); return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+          };
+          const bool created = write(QStringLiteral("全栈工程师学习计划/进度追踪.md"),
+              QStringLiteral("# 进度追踪\n\n最近学习证据：2026-10-01\n\n| 字段 | 内容 |\n|---|---|\n| 最近正式日志 | 暂无 |\n| 当前主题 | 待开始 |\n").toUtf8()) &&
+              write(QStringLiteral("全栈工程师学习计划/全栈竞赛长期冲刺总计划.md"),
+              QStringLiteral("# 总计划\n\n## 0. 学习日志索引\n\n> 每日记录统一存放在学习日志\n").toUtf8());
+          u3_record(*context, QStringLiteral("vault-fixture-created-outside-workspace"), created);
+          shell.configureVaultRoot(vault.toStdWString());
+          context->step++;
+          return;
+        }
+        case 701: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (panel && flick) flick->setProperty("contentY", std::max(0.0,
+              panel->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - 8));
+          auto* consent = u3_find_item(view.rootObject(), QStringLiteral("vaultBindConsent"));
+          auto* bind = u3_find_item(view.rootObject(), QStringLiteral("vaultBindOwner"));
+          u3_record(*context, QStringLiteral("vault-binding-requires-confirmation"), consent && bind && !bind->property("enabled").toBool() &&
+              !shell.vaultWriteback().value("isOwner").toBool());
+          if (consent) consent->setProperty("checked", true);
+          u3_record(*context, QStringLiteral("vault-bind-confirmed-action"), bind && bind->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(bind, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 702: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto state = shell.vaultWriteback();
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          auto* name = u3_find_item(view.rootObject(), QStringLiteral("vaultConnectedName"));
+          u3_record(*context, QStringLiteral("vault-connected-name-visible-after-binding"),
+              name && name->isVisible() && name->property("text").toString() == QStringLiteral("isolated-vault"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (panel && flick) flick->setProperty("contentY", std::max(0.0, panel->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - 8));
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-connected-name"));
+          u3_record(*context, QStringLiteral("vault-owner-progress-and-pending-evidence"), state.value("isOwner").toBool() &&
+              state.value("progressReady").toBool() && state.value("pending").toList().size() == 2 && panel);
+          if (panel) panel->setProperty("selectedIds", QVariantList{QStringLiteral("matrix-practice-0")});
+          auto* preview = u3_find_item(view.rootObject(), QStringLiteral("vaultPreview"));
+          u3_record(*context, QStringLiteral("vault-preview-selected-evidence-action"), preview && preview->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(preview, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 703: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          auto* commit = u3_find_item(view.rootObject(), QStringLiteral("vaultCommit"));
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          const auto preview = shell.vaultWriteback().value("preview").toMap();
+          u3_record(*context, QStringLiteral("vault-preview-readonly-and-confirmation-disabled"),
+              !preview.value("operationId").toString().isEmpty() && commit && !commit->property("enabled").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-evidence-preview"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (commit && flick) flick->setProperty("contentY", std::max(0.0, commit->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - flick->height() + 60));
+          if (panel) panel->setProperty("rollbackId", preview.value("operationId"));
+          context->step++;
+          return;
+        }
+        case 704: {
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-confirmation"));
+          auto* consent = u3_find_item(view.rootObject(), QStringLiteral("vaultCommitConsent"));
+          auto* commit = u3_find_item(view.rootObject(), QStringLiteral("vaultCommit"));
+          if (consent) consent->setProperty("checked", true);
+          u3_record(*context, QStringLiteral("vault-commit-explicit-confirmed-action"), commit && commit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(commit, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 705: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto state = shell.vaultWriteback();
+          u3_record(*context, QStringLiteral("vault-committed-refresh-and-reload"), state.value("synced").toList().size() == 1 &&
+              state.value("pending").toList().size() == 1 && !state.contains("preview") &&
+              state.value("transactions").toList().size() == 1 && state.value("transactions").toList().first().toMap().value("state") == "synced");
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          if (panel) panel->setProperty("viewIndex", 2);
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 706: {
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (panel && flick) flick->setProperty("contentY", std::max(0.0, panel->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - 8));
+          context->step++;
+          return;
+        }
+        case 707: {
+          u3_record(*context, QStringLiteral("vault-narrow-ledger-screenshot"), u3_screenshot(*context, view,
+              QStringLiteral("u3-vault-ledger-narrow"), QSize(1100, 720)));
+          const auto ledger = shell.vaultWriteback().value("transactions").toList();
+          if (!ledger.isEmpty()) shell.rollbackVaultWriteback(ledger.first().toMap().value("operationId").toString());
+          context->step++;
+          return;
+        }
+        case 708: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto state = shell.vaultWriteback();
+          u3_record(*context, QStringLiteral("vault-rollback-restores-pending-state"), state.value("synced").toList().isEmpty() &&
+              state.value("pending").toList().size() == 2 && state.value("transactions").toList().first().toMap().value("state") == "rolled_back");
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-rolled-back"), QSize(1100, 720));
+          view.resize(1440, 900);
           shell.selectPage(QStringLiteral("分析"));
           u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
           context->step = 23;
           return;
+        }
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-and-execution-trace-screenshots"), context->screenshots.size() == 47,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 52,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

@@ -18,6 +18,7 @@
 #include <functional>
 
 class ChallengeSubmissionStore;
+class VaultWritebackStore;
 
 class UiShell final : public QObject {
   Q_OBJECT
@@ -69,6 +70,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY reviewItemsChanged)
   Q_PROPERTY(QVariantMap analysisSnapshot READ analysisSnapshot NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantMap checkinSummary READ checkinSummary NOTIFY checkinChanged)
+  Q_PROPERTY(QVariantMap vaultWriteback READ vaultWriteback NOTIFY vaultWritebackChanged)
   Q_PROPERTY(QVariantMap lessonEvidenceStates READ lessonEvidenceStates NOTIFY reviewSummaryChanged)
   Q_PROPERTY(bool lessonEvidenceReady READ lessonEvidenceReady NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantMap lessonAssessment READ lessonAssessment NOTIFY lessonAssessmentChanged)
@@ -126,6 +128,14 @@ class UiShell final : public QObject {
   [[nodiscard]] QVariantList reviewItems() const { return review_items_; }
   [[nodiscard]] QVariantMap analysisSnapshot() const;
   [[nodiscard]] QVariantMap checkinSummary() const;
+  [[nodiscard]] QVariantMap vaultWriteback() const;
+  Q_INVOKABLE void requestVaultSelection();
+  void configureVaultRoot(const std::filesystem::path& root);
+  Q_INVOKABLE void refreshVaultWriteback();
+  Q_INVOKABLE void bindVaultOwner();
+  Q_INVOKABLE void previewVaultWriteback(const QStringList& evidenceIds);
+  Q_INVOKABLE void commitVaultWriteback(const QString& operationId, const QVariantMap& expectedHashes);
+  Q_INVOKABLE void rollbackVaultWriteback(const QString& operationId);
   Q_INVOKABLE void refreshCheckin();
   Q_INVOKABLE void checkIn();
   Q_INVOKABLE void refreshLocalDay();
@@ -199,6 +209,8 @@ class UiShell final : public QObject {
  signals:
   void dataActionRequested(const QString& action);
   void toolSelectionRequested(const QString& language);
+  void vaultSelectionRequested();
+  void vaultWritebackChanged();
   void executionOptionsChanged();
   void currentPageChanged();
   void publishedTitlesChanged();
@@ -235,6 +247,9 @@ class UiShell final : public QObject {
 
  private:
   friend struct UiShellTestAccess;
+  void clearVaultWriteback();
+  void performVaultTask(const QString& action,
+      std::function<codeweave::app::Result(VaultWritebackStore&, QVariantMap&)> operation);
   void performCheckinTask(bool write);
   void clearCheckin();
   void clearDraft(bool accountChange = false);
@@ -292,6 +307,12 @@ class UiShell final : public QObject {
   QString review_summary_;
   QVariantList review_items_;
   QVariantMap analysis_snapshot_;
+  std::filesystem::path vault_root_;
+  QVariantMap vault_writeback_;
+  QString vault_status_;
+  QString vault_task_id_;
+  bool vault_busy_{};
+  bool vault_write_{};
   QStringList checkin_dates_;
   QString checkin_status_;
   QString checkin_task_id_;

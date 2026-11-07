@@ -32,6 +32,8 @@ qt_add_executable(codeweave-qt
   facade/ui_shell_challenges.cpp
   facade/ui_shell_lessons.cpp
   facade/ui_shell_checkin.cpp
+  facade/ui_shell_writeback.cpp
+  facade/vault_writeback_store.cpp
   facade/checkin_store.cpp
   facade/challenge_submission_store.cpp
   facade/ui_shell.hpp
@@ -101,6 +103,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/LessonEvidencePanel.qml
     qml/components/CheckinCalendar.qml
     qml/components/ExecutionTracePanel.qml
+    qml/components/VaultWritebackPanel.qml
     qml/components/LearningCatalog.js
     qml/pages/AccountPage.qml
     qml/pages/AnalyticsPage.qml
@@ -152,6 +155,15 @@ add_custom_target(codeweave-qt-deploy
 )
 
 if (BUILD_TESTING)
+  add_executable(codeweave-vault-writeback-tests tests/vault_writeback_tests.cpp facade/vault_writeback_store.cpp)
+  target_include_directories(codeweave-vault-writeback-tests PRIVATE facade)
+  target_link_libraries(codeweave-vault-writeback-tests PRIVATE Qt6::Core codeweave-content-qt)
+  if (MSVC)
+    set_property(TARGET codeweave-vault-writeback-tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    target_compile_options(codeweave-vault-writeback-tests PRIVATE /UNDEBUG /utf-8 /W4)
+  endif()
+  add_test(NAME qt-vault-writeback COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-vault-writeback-tests>)
   add_test(NAME qt-qml-load COMMAND ${CMAKE_COMMAND} -E env
     "PATH=${CODEWEAVE_QT_BIN}"
     "QT_QPA_PLATFORM=offscreen"
@@ -170,6 +182,7 @@ if (BUILD_TESTING)
   add_executable(codeweave-qt-facade-tests
     tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell_account.cpp
     facade/ui_shell_operations.cpp facade/ui_shell_challenges.cpp facade/ui_shell_lessons.cpp facade/ui_shell_checkin.cpp
+    facade/ui_shell_writeback.cpp facade/vault_writeback_store.cpp
     facade/checkin_store.cpp facade/challenge_submission_store.cpp facade/ui_shell.hpp)
   qt_add_resources(codeweave-qt-facade-tests challenge_runtime_test_resource PREFIX "/challenge"
     BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES "${CHALLENGE_TEACHING_RUNTIME}")

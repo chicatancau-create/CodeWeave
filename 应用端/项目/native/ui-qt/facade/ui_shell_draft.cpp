@@ -31,6 +31,7 @@ bool UiShell::allowDocumentChange() {
   if (closing_ || operation_busy_ || execution_busy_ || challenge_run_busy_ ||
       (challenge_history_busy_ && challenge_history_write_) ||
       (checkin_busy_ && checkin_write_) || account_busy_) return false;
+  if (vault_busy_ && vault_write_) return false;
   if (!draftDirty()) return true;
   setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
   return false;
@@ -94,6 +95,7 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   const auto resolved = session.learning_data_root(nativeDataRoot, account_root);
   if (!resolved.ok) { setStatus(QString::fromUtf8(resolved.message)); return false; }
   active_account_id_ = QString::fromUtf8(session.current()->id);
+  native_data_root_ = nativeDataRoot;
   lesson_evidence_states_.clear();
   lesson_evidence_ready_ = false;
   ++account_generation_;
@@ -111,6 +113,7 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   // All core I/O runs on the serial worker. The previous core is idle here.
   personal_core_ = std::make_shared<codeweave::app::ApplicationCore>();
   clearCheckin();
+  clearVaultWriteback();
   clearChallengeDrafts();
   clearDraft(true);
   emit accountChanged();
@@ -139,6 +142,7 @@ bool UiShell::clearAccountContext() {
   data_root_ = native_data_root_;
   personal_core_.reset();
   clearCheckin();
+  clearVaultWriteback();
   clearChallengeDrafts();
   clearDraft(true);
   emit accountChanged();
@@ -151,6 +155,10 @@ void UiShell::discardDraftChanges() {
 }
 
 bool UiShell::requestClose() {
+  if (vault_busy_ && vault_write_) {
+    setStatus(QStringLiteral("资料库操作正在提交，请稍候再关闭"));
+    return false;
+  }
   if (checkin_busy_ && checkin_write_) {
     setStatus(QStringLiteral("打卡正在保存，请稍候再关闭"));
     return false;

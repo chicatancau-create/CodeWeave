@@ -23,6 +23,7 @@ Item {
     }
 
     ScrollView {
+        objectName: "accountScrollView"
         anchors.fill: parent
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
@@ -271,6 +272,10 @@ Item {
                     }
                 }
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
+                VaultWritebackPanel {
+                    Layout.fillWidth: true
+                    ds: accountPage.ds
+                }
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: ds.s10
