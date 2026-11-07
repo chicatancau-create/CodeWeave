@@ -404,7 +404,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: ds.s8
                                 Text {
-                                    text: uiShell.executionBusy ? "运行中" : "程序状态图"
+                                    text: "课程流程结构"
                                     color: ds.ink
                                     font.family: ds.mono
                                     font.pixelSize: 13
@@ -422,7 +422,7 @@ Item {
                                     Text {
                                         id: counterText
                                         anchors.centerIn: parent
-                                        text: "执行轨迹待接入"
+                                        text: "暂无执行事件"
                                         color: ds.accent
                                         font.family: ds.mono
                                         font.pixelSize: 11
@@ -445,7 +445,7 @@ Item {
                                     onPaint: {
                                         const ctx = getContext("2d");
                                         ctx.clearRect(0, 0, width, height);
-                                        ctx.strokeStyle = "#182438";
+                                        ctx.strokeStyle = ds.line;
                                         ctx.lineWidth = 1;
                                         for (let x = 0; x <= width; x += 20) {
                                             ctx.beginPath();
@@ -476,10 +476,8 @@ Item {
                                             anchors.fill: parent
                                             radius: modelData.kind === "decision" ? 6 : 6
                                             rotation: modelData.kind === "decision" ? 45 : 0
-                                            color: uiShell.executionBusy && index === 0
-                                                   ? ds.accentFill : "#121e30"
-                                            border.color: uiShell.executionBusy && index === 0
-                                                          ? ds.accent : "#44566f"
+                                            color: ds.panel
+                                            border.color: ds.lineStrong
                                             border.width: 2
                                         }
                                         Column {
@@ -510,10 +508,39 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     visible: !hostRoot.selectedLesson || (hostRoot.selectedLesson.flow || []).length === 0
-                                    text: "选择课程后显示程序状态图"
+                                    text: "选择课程后显示流程结构"
                                     color: ds.faint
                                     font.family: ds.ui
                                     font.pixelSize: 12
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 72
+                                radius: ds.radiusSm
+                                color: ds.panel
+                                border.color: ds.line
+                                border.width: 1
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: ds.s10
+                                    spacing: ds.s4
+                                    Text {
+                                        text: "变量追踪"
+                                        color: ds.ink
+                                        font.family: ds.ui
+                                        font.pixelSize: 12
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "暂无变量快照；运行事件数据接入后显示每一步的变量变化。"
+                                        color: ds.faint
+                                        font.family: ds.ui
+                                        font.pixelSize: 11
+                                        wrapMode: Text.WordWrap
+                                    }
                                 }
                             }
 

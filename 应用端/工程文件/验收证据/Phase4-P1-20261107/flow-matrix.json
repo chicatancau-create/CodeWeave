@@ -1,0 +1,131 @@
+{
+    "checks": [
+        {
+            "name": "window-content-loaded",
+            "passed": true
+        },
+        {
+            "name": "page-learning",
+            "passed": true
+        },
+        {
+            "name": "course-selection",
+            "passed": true
+        },
+        {
+            "name": "starter-code",
+            "passed": true
+        },
+        {
+            "name": "account-registration",
+            "passed": true
+        },
+        {
+            "name": "draft-save",
+            "passed": true
+        },
+        {
+            "detail": "15\n",
+            "name": "python-execution",
+            "passed": true
+        },
+        {
+            "detail": "15\n",
+            "name": "java-execution",
+            "passed": true
+        },
+        {
+            "detail": "15\n",
+            "name": "javascript-execution",
+            "passed": true
+        },
+        {
+            "detail": "0: 3\n1: 1\n2: 4\n3: 1\n4: 5\n",
+            "name": "cpp-execution",
+            "passed": true
+        },
+        {
+            "name": "execution-pause",
+            "passed": true
+        },
+        {
+            "name": "execution-step",
+            "passed": true
+        },
+        {
+            "name": "execution-resume",
+            "passed": true
+        },
+        {
+            "detail": "执行已取消",
+            "name": "execution-cancel",
+            "passed": true
+        },
+        {
+            "detail": "执行超时",
+            "name": "execution-timeout",
+            "passed": true
+        },
+        {
+            "name": "editor-long-unicode-input",
+            "passed": true
+        },
+        {
+            "name": "editor-undo-reset",
+            "passed": true
+        },
+        {
+            "name": "editor-clipboard-paste",
+            "passed": true
+        },
+        {
+            "name": "editor-undo",
+            "passed": true
+        },
+        {
+            "name": "editor-redo",
+            "passed": true
+        },
+        {
+            "name": "course-scroll",
+            "passed": true
+        },
+        {
+            "name": "review-progress",
+            "passed": true
+        },
+        {
+            "name": "page-challenge",
+            "passed": true
+        },
+        {
+            "name": "account-logout",
+            "passed": true
+        },
+        {
+            "name": "account-login",
+            "passed": true
+        },
+        {
+            "name": "page-drafts",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/codeweave-p1-1-6-20261107-r2/u3-analysis.png"
+    ]
+}
