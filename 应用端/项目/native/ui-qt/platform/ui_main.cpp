@@ -270,10 +270,10 @@ int main(int argc, char* argv[]) {
         return;
       }
       const auto loaders = view.rootObject()->findChildren<QObject*>(QStringLiteral("pageLoader"));
-      if (loaders.size() != 7) {
-        diagnostic = QStringLiteral("Expected 7 page Loaders, found %1").arg(loaders.size());
+      if (loaders.size() != 9) {
+        diagnostic = QStringLiteral("Expected 9 page Loaders, found %1").arg(loaders.size());
         write_smoke_report();
-        qWarning("QML smoke: expected 7 page Loaders, found %d", static_cast<int>(loaders.size()));
+        qWarning("QML smoke: expected 9 page Loaders, found %d", static_cast<int>(loaders.size()));
         application.exit(1);
         return;
       }
@@ -286,7 +286,8 @@ int main(int argc, char* argv[]) {
         }
       }
       const QStringList pages{QStringLiteral("挑战"), QStringLiteral("草稿"), QStringLiteral("复习与进度"),
-          QStringLiteral("分析"), QStringLiteral("账户"), QStringLiteral("编辑器")};
+          QStringLiteral("分析"), QStringLiteral("账户"), QStringLiteral("账户安全"),
+          QStringLiteral("数据与隐私"), QStringLiteral("编辑器")};
       if (qml_smoke_page < pages.size()) {
         shell.selectPage(pages.at(qml_smoke_page++));
         return;
@@ -308,10 +309,12 @@ int main(int argc, char* argv[]) {
       auto* help = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("helpAction"));
       auto* profile = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileAction"));
       auto* security = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityAction"));
-      if (!quick || !account || !trigger || !first || !review || !help || !profile || !security) {
-        diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 logout=%9")
+      auto* privacy = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyAction"));
+      if (!quick || !account || !trigger || !first || !review || !help || !profile || !security || !privacy) {
+        diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 privacy=%9 logout=%10")
             .arg(quick != nullptr).arg(account != nullptr).arg(trigger != nullptr).arg(first != nullptr)
-            .arg(review != nullptr).arg(help != nullptr).arg(profile != nullptr).arg(security != nullptr);
+            .arg(review != nullptr).arg(help != nullptr).arg(profile != nullptr).arg(security != nullptr)
+            .arg(privacy != nullptr);
         write_smoke_report();
         qWarning("QML smoke: menu objects missing");
         application.exit(1);
@@ -369,12 +372,48 @@ int main(int argc, char* argv[]) {
           send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
           break;
         case 8:
+          if (!require_focus(privacy)) return;
+          send_editor_shortcut(view, Qt::Key_Up, Qt::NoModifier);
+          break;
+        case 9:
           if (!require_focus(security)) return;
+          send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+          break;
+        case 10:
+          if (!require_focus(profile)) return;
           send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
           break;
-        default:
+        case 11:
           if (account->property("opened").toBool()) {
             diagnostic = QStringLiteral("Account popup did not close on Escape");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!QMetaObject::invokeMethod(security, "clicked", Qt::DirectConnection)) {
+            diagnostic = QStringLiteral("Account security menu action could not be invoked");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          break;
+        case 12:
+          if (shell.currentPage() != QStringLiteral("账户安全")) {
+            diagnostic = QStringLiteral("Account menu did not navigate to security page");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!QMetaObject::invokeMethod(privacy, "clicked", Qt::DirectConnection)) {
+            diagnostic = QStringLiteral("Account privacy menu action could not be invoked");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          break;
+        default:
+          if (shell.currentPage() != QStringLiteral("数据与隐私")) {
+            diagnostic = QStringLiteral("Account menu did not navigate to privacy page");
             write_smoke_report();
             application.exit(1);
             return;
@@ -876,33 +915,99 @@ int main(int argc, char* argv[]) {
           }
           u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
           shell.discardDraftChanges();
-          shell.logout();
+          shell.selectPage(QStringLiteral("账户"));
           context->step++;
           return;
         case 9: {
+          if (shell.operationBusy()) return;
+          auto* profile_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profilePageRoot"));
+          auto* security_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileSecurityLink"));
+          auto* privacy_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profilePrivacyLink"));
+          const bool profile_loaded = shell.currentPage() == QStringLiteral("账户") && profile_page &&
+              security_link && privacy_link && shell.hasActiveAccount();
+          u3_record(*context, QStringLiteral("account-profile-page-and-sibling-links"), profile_loaded);
+          u3_screenshot(*context, view, QStringLiteral("u3-profile"));
+          const bool navigated = security_link &&
+              QMetaObject::invokeMethod(security_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("账户安全");
+          u3_record(*context, QStringLiteral("profile-to-security-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 10: {
+          if (shell.operationBusy()) return;
+          auto* security_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityPageRoot"));
+          auto* password_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityPasswordButton"));
+          auto* delete_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityDeleteButton"));
+          auto* privacy_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityPrivacyLink"));
+          auto* current_password = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityCurrentPassword"));
+          auto* new_password = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityNewPassword"));
+          auto* confirm_password = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityConfirmPassword"));
+          const bool security_loaded = shell.currentPage() == QStringLiteral("账户安全") && security_page &&
+              password_button && delete_button && privacy_link && current_password && new_password && confirm_password &&
+              !password_button->property("enabled").toBool() && !delete_button->property("enabled").toBool();
+          u3_record(*context, QStringLiteral("account-security-page-and-disabled-boundaries"), security_loaded);
+          u3_screenshot(*context, view, QStringLiteral("u3-security"));
+          const bool navigated = privacy_link &&
+              QMetaObject::invokeMethod(privacy_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("数据与隐私");
+          u3_record(*context, QStringLiteral("security-to-privacy-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 11: {
+          if (shell.operationBusy()) return;
+          auto* privacy_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyPageRoot"));
+          auto* export_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyExportButton"));
+          auto* import_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyImportButton"));
+          auto* security_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacySecurityLink"));
+          const bool privacy_loaded = shell.currentPage() == QStringLiteral("数据与隐私") && privacy_page &&
+              export_button && import_button && security_link && export_button->property("enabled").toBool() &&
+              import_button->property("enabled").toBool();
+          u3_record(*context, QStringLiteral("account-privacy-page-and-data-actions"), privacy_loaded);
+          u3_screenshot(*context, view, QStringLiteral("u3-privacy"));
+          const bool navigated = security_link &&
+              QMetaObject::invokeMethod(security_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("账户安全");
+          u3_record(*context, QStringLiteral("privacy-to-security-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 12: {
+          auto* profile_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityProfileLink"));
+          const bool navigated = profile_link &&
+              QMetaObject::invokeMethod(profile_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("账户");
+          u3_record(*context, QStringLiteral("security-to-profile-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 13: {
           if (shell.accountBusy()) return;
+          shell.selectPage(QStringLiteral("学习"));
+          shell.logout();
           const bool logged_out = !shell.hasActiveAccount();
           shell.login(QStringLiteral("qt-u3@example.test"), QStringLiteral("Qt-U3-Test-Password-123!"));
           u3_record(*context, QStringLiteral("account-logout"), logged_out);
           context->step++;
           return;
         }
-        case 10:
+        case 14:
           if (shell.accountBusy()) return;
           u3_record(*context, QStringLiteral("account-login"), shell.hasActiveAccount());
           shell.selectPage(QStringLiteral("草稿"));
           u3_screenshot(*context, view, QStringLiteral("u3-drafts"));
           context->step++;
           return;
-        case 11:
+        case 15:
           u3_record(*context, QStringLiteral("page-drafts"), shell.currentPage() == QStringLiteral("草稿"));
           shell.selectPage(QStringLiteral("分析"));
           u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
           context->step++;
           return;
-        case 12:
+        case 16:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("seven-page-screenshots"), context->screenshots.size() == 7,
+          u3_record(*context, QStringLiteral("ten-page-screenshots"), context->screenshots.size() == 10,
               QString::number(context->screenshots.size()));
           if (!u3_write_result(*context)) { application.exit(3); return; }
           application.exit(u3_all_passed(*context) ? 0 : 3);

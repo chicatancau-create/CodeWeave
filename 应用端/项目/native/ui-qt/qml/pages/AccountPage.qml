@@ -7,6 +7,20 @@ Item {
     property var hostRoot
     property QtObject ds
     id: accountPage
+    objectName: "profilePageRoot"
+
+    Component.onCompleted: {
+        if (uiShell.hasActiveAccount) uiShell.refreshReviewSummary();
+    }
+
+    Connections {
+        target: uiShell
+        function onAccountChanged() {
+            pwField.text = "";
+            identField.text = "";
+            nameField.text = "";
+        }
+    }
 
     ScrollView {
         anchors.fill: parent
@@ -45,7 +59,6 @@ Item {
                         font.family: ds.ui
                         font.pixelSize: 20
                         font.weight: Font.Bold
-                        font.letterSpacing: -0.5
                     }
                 }
                 Item { Layout.fillWidth: true }
@@ -115,6 +128,7 @@ Item {
 
             // Auth form
             Rectangle {
+                visible: !uiShell.hasActiveAccount
                 Layout.fillWidth: true
                 implicitHeight: authCol.implicitHeight + ds.s32
                 radius: ds.radius
@@ -127,7 +141,7 @@ Item {
                     anchors.margins: ds.s16
                     spacing: ds.s10
                     Text {
-                        text: uiShell.hasActiveAccount ? "修改密码" : "登录你的工作区"
+                        text: "登录你的工作区"
                         color: ds.ink
                         font.family: ds.ui
                         font.pixelSize: 15
@@ -151,16 +165,7 @@ Item {
                         id: pwField
                         ds: accountPage.ds
                         Layout.fillWidth: true
-                        placeholderText: uiShell.hasActiveAccount
-                                         ? "当前密码" : "至少 8 个字符"
-                        echoMode: TextInput.Password
-                    }
-                    ShellField {
-                        id: newPwField
-                        ds: accountPage.ds
-                        Layout.fillWidth: true
-                        visible: uiShell.hasActiveAccount
-                        placeholderText: "新密码"
+                        placeholderText: "至少 8 个字符"
                         echoMode: TextInput.Password
                     }
                     RowLayout {
@@ -182,74 +187,98 @@ Item {
                                                                identField.text,
                                                                pwField.text)
                         }
-                        PrimaryButton {
-                            ds: accountPage.ds
-                            label: "修改密码"
-                            visible: uiShell.hasActiveAccount
-                            enabled: !uiShell.accountBusy
-                            onClicked: uiShell.changePassword(pwField.text, newPwField.text)
-                        }
-                        QuietButton {
-                            ds: accountPage.ds
-                            label: "退出登录"
-                            visible: uiShell.hasActiveAccount
-                            enabled: !uiShell.accountBusy
-                            onClicked: uiShell.logout()
-                        }
                     }
                 }
             }
 
-            // Data actions
-            Rectangle {
+            ColumnLayout {
+                visible: uiShell.hasActiveAccount
                 Layout.fillWidth: true
-                implicitHeight: dataCol.implicitHeight + ds.s32
-                radius: ds.radius
-                color: ds.page
-                border.color: ds.line
-                border.width: 1
+                spacing: ds.s16
+                Text {
+                    text: "学习概览"
+                    color: ds.ink
+                    font.family: ds.ui
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: ds.s24
+                    Repeater {
+                        model: [
+                            { label: "已完成单元", key: "completedUnits" },
+                            { label: "挑战通过", key: "verifiedPasses" },
+                            { label: "待复测", key: "reviewDueCount" }
+                        ]
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: ds.s6
+                            Text {
+                                text: uiShell.analysisSnapshot[modelData.key] === undefined
+                                      ? "暂无数据" : String(uiShell.analysisSnapshot[modelData.key])
+                                color: ds.ink
+                                font.family: ds.mono
+                                font.pixelSize: 20
+                            }
+                            Text { text: modelData.label; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                        }
+                    }
+                    QuietButton {
+                        ds: accountPage.ds
+                        label: "去复习中心"
+                        onClicked: { uiShell.selectPage("复习与进度"); uiShell.refreshReviewSummary(); }
+                    }
+                }
+                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
                 ColumnLayout {
-                    id: dataCol
-                    anchors.fill: parent
-                    anchors.margins: ds.s16
+                    Layout.fillWidth: true
                     spacing: ds.s10
                     Text {
-                        text: "数据与隐私"
+                        text: "个人资料"
                         color: ds.ink
                         font.family: ds.ui
                         font.pixelSize: 15
                         font.weight: Font.DemiBold
                     }
+                    ShellField {
+                        ds: accountPage.ds
+                        Layout.fillWidth: true
+                        text: uiShell.accountName
+                        readOnly: true
+                        Accessible.name: "当前昵称"
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "当前版本暂不支持修改昵称与个人简介。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }
+                    QuietButton { ds: accountPage.ds; label: "保存资料（待接入）"; enabled: false }
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: ds.s8
                         QuietButton {
                             ds: accountPage.ds
-                            label: "导出学习数据"
-                            enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
-                            onClicked: uiShell.requestDataAction("backup")
-                        }
-                        QuietButton {
-                            ds: accountPage.ds
-                            label: "导入备份"
-                            enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
-                            onClicked: uiShell.requestDataAction("restore")
-                        }
-                        QuietButton {
-                            ds: accountPage.ds
+                            objectName: "profileSecurityLink"
                             label: "账户安全"
-                            enabled: !uiShell.operationBusy
-                            onClicked: hostRoot.openPasswordDialog()
+                            onClicked: uiShell.selectPage("账户安全")
                         }
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        visible: uiShell.operationStatus !== ""
-                        text: uiShell.operationStatus
-                        color: ds.faint
-                        font.family: ds.ui
-                        font.pixelSize: 12
-                        wrapMode: Text.WordWrap
+                        QuietButton {
+                            ds: accountPage.ds
+                            objectName: "profilePrivacyLink"
+                            label: "数据与隐私"
+                            onClicked: uiShell.selectPage("数据与隐私")
+                        }
+                        QuietButton {
+                            ds: accountPage.ds
+                            label: "退出登录"
+                            enabled: !uiShell.accountBusy
+                            onClicked: uiShell.logout()
+                        }
                     }
                 }
             }

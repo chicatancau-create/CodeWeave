@@ -32,7 +32,6 @@ Rectangle {
     property bool accountMenuOpen: false
     property bool settingsOpen: false
     property bool helpOpen: false
-    function openPasswordDialog() { passwordDialog.open(); }
     function openEvidenceDialog() { evidenceDialog.open(); }
 
     function searchResults(query) {
@@ -563,7 +562,7 @@ Rectangle {
         ShellPopup {
             id: accountPopup
             objectName: "accountPopup"
-            menuItems: [profileAction, securityAction, exportAction, logoutAction]
+            menuItems: [profileAction, securityAction, privacyAction, exportAction, logoutAction]
             x: topbar.width - width - ds.s24
             y: topbar.height + 4
             width: 260
@@ -578,8 +577,9 @@ Rectangle {
                 Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
                 Text { Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
                 QuietButton { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
-                QuietButton { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); passwordDialog.open(); } }
-                QuietButton { id: exportAction; ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                QuietButton { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
+                QuietButton { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
+                QuietButton { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
                 QuietButton { id: logoutAction; ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; visible: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
             }
         }
@@ -856,7 +856,9 @@ Rectangle {
                 case "复习与进度": return 3;
                 case "分析": return 4;
                 case "账户": return 5;
-                case "编辑器": return 6;
+                case "账户安全": return 6;
+                case "数据与隐私": return 7;
+                case "编辑器": return 8;
                 default: return 0;
                 }
             }
@@ -932,6 +934,24 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 property bool visited: false
+                active: root.page === "账户安全" || visited
+                onLoaded: { visited = true }
+                sourceComponent: SecurityPage { ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "数据与隐私" || visited
+                onLoaded: { visited = true }
+                sourceComponent: PrivacyPage { ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
                 active: root.page === "编辑器" || visited
                 onLoaded: {
                     visited = true;
@@ -996,45 +1016,6 @@ Rectangle {
             Text { text: "十步学习法"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
             Text { Layout.fillWidth: true; text: "每个单元包含讲解、跟做、独立题和变式题；外部环境实验需要在真实环境完成后提交证据。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
         }
-    }
-
-    Dialog {
-        id: passwordDialog
-        title: "账户安全"
-        anchors.centerIn: parent
-        modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        width: 380
-        background: Rectangle {
-            color: ds.overlay
-            radius: ds.radius
-            border.color: ds.lineStrong
-            border.width: 1
-        }
-        contentItem: ColumnLayout {
-            spacing: ds.s10
-            Text {
-                text: "修改本机账户密码"
-                color: ds.ink
-                font.family: ds.ui
-                font.pixelSize: 13
-            }
-            ShellField {
-                ds: root.designSystem
-                id: dlgCurrent
-                Layout.fillWidth: true
-                placeholderText: "当前密码"
-                echoMode: TextInput.Password
-            }
-            ShellField {
-                ds: root.designSystem
-                id: dlgNext
-                Layout.fillWidth: true
-                placeholderText: "新密码（至少 8 个字符）"
-                echoMode: TextInput.Password
-            }
-        }
-        onAccepted: uiShell.changePassword(dlgCurrent.text, dlgNext.text)
     }
 
     Dialog {

@@ -85,6 +85,8 @@ qt_add_qml_module(codeweave-qt
     qml/pages/DraftsPage.qml
     qml/pages/EditorPage.qml
     qml/pages/ReviewPage.qml
+    qml/pages/SecurityPage.qml
+    qml/pages/PrivacyPage.qml
     qml/pages/StudyPage.qml
 )
 
