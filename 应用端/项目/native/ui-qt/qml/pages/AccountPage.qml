@@ -26,7 +26,8 @@ Item {
         anchors.fill: parent
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
-            width: parent.width - ds.s16
+            // Use the page width because ScrollView reparents this column.
+            width: accountPage.width - ds.s16
             spacing: ds.s16
 
             RowLayout {
@@ -122,6 +123,44 @@ Item {
                             font.pixelSize: 12
                             wrapMode: Text.WordWrap
                         }
+                    }
+                }
+            }
+
+            Rectangle {
+                objectName: "accountLoginIntro"
+                visible: !uiShell.hasActiveAccount
+                Layout.fillWidth: true
+                implicitHeight: introCol.implicitHeight + ds.s32
+                radius: ds.radius
+                color: ds.panel
+                border.color: ds.accentRing
+                border.width: 1
+                ColumnLayout {
+                    id: introCol
+                    anchors.fill: parent
+                    anchors.margins: ds.s16
+                    spacing: ds.s8
+                    Text { text: "开始你的学习空间"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "登录或注册后，你可以在本机保存代码草稿、记录执行证据，并继续复习已学课程。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s12
+                        Text { text: "01"; color: ds.accent; font.family: ds.mono; font.pixelSize: 12 }
+                        Text { Layout.fillWidth: true; text: "从课程原文与起始代码开始练习。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s12
+                        Text { text: "02"; color: ds.accent; font.family: ds.mono; font.pixelSize: 12 }
+                        Text { Layout.fillWidth: true; text: "保存每次尝试，回到复习中心继续巩固。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
                     }
                 }
             }

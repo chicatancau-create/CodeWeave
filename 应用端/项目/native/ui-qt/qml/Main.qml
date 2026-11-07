@@ -71,6 +71,9 @@ Rectangle {
         if (status === "" || status === "尚未加载课程内容" || status.indexOf("正在") === 0
                 || status.indexOf("已读取") === 0 || status.indexOf("课程正文已读取") === 0
                 || status.indexOf("起始代码已读取") === 0 || status.indexOf("草稿已保存") === 0
+                || status.indexOf("草稿已读取") === 0
+                || status === "没有已保存草稿，使用起始代码"
+                || status.indexOf("草稿读取已取消") === 0
                 || status.indexOf("已保存提交时的草稿") === 0
                 || status.indexOf("草稿保存已取消") === 0
                 || status.indexOf("课程读取已取消") === 0

@@ -7,12 +7,38 @@ Item {
     property var hostRoot
     property QtObject ds
         id: draftsPage
+        objectName: "draftsPageRoot"
+        readonly property var selectedDraftMeta: {
+            for (let index = 0; index < uiShell.lessonMeta.length; index++) {
+                if (uiShell.lessonMeta[index].id === uiShell.documentId) return uiShell.lessonMeta[index];
+            }
+            return null;
+        }
+        readonly property int draftLineCount: uiShell.draftCode.length === 0
+            ? 0 : uiShell.draftCode.split("\n").length
+        readonly property string draftName: selectedDraftMeta && selectedDraftMeta.title
+            ? selectedDraftMeta.title : (uiShell.documentId || "")
+        readonly property string draftDescription: selectedDraftMeta && selectedDraftMeta.description
+            ? selectedDraftMeta.description : ""
+        readonly property string draftFileName: {
+            if (!uiShell.hasSelectedContent) return "暂无文件";
+            const extensions = { python: "py", javascript: "js", typescript: "ts", cpp: "cpp", java: "java" };
+            return "main." + (extensions[uiShell.starterLanguage] || "txt");
+        }
+
+        ScrollView {
+            id: draftScroll
+            objectName: "draftScrollView"
+            anchors.fill: parent
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
         ColumnLayout {
-            anchors.fill: parent
+            width: draftsPage.width - ds.s16
+            height: Math.max(draftScroll.availableHeight, implicitHeight)
             spacing: ds.s28   // root gap clamp(20px, 2.4vw, 28px)
 
             Rectangle {
+                objectName: "draftSaveError"
                 Layout.fillWidth: true
                 visible: hostRoot.isErrorStatus(uiShell.contentStatus)
                 implicitHeight: draftStatusRow.implicitHeight + ds.s16
@@ -32,13 +58,18 @@ Item {
                         wrapMode: Text.WordWrap
                     }
                     QuietButton {
-                                ds: draftsPage.ds
+                        objectName: "draftRetrySave"
+                        ds: draftsPage.ds
                         label: "重试保存"
-                        enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
+                        enabled: uiShell.hasSelectedContent && !uiShell.draftSaving && !uiShell.contentBusy
+                                 && !uiShell.draftPersistenceBlocked
+                                 && uiShell.hasActiveAccount && !uiShell.operationBusy
+                                 && !uiShell.executionBusy && !uiShell.accountBusy
                         onClicked: uiShell.saveDraft()
                     }
                     QuietButton {
                         ds: draftsPage.ds
+                        objectName: "draftDismissError"
                         label: "知道了"
                         onClicked: uiShell.dismissContentStatus()
                     }
@@ -97,76 +128,12 @@ Item {
                     }
                 }
 
-                // .project-create
-                RowLayout {
-                    spacing: ds.s10
+                QuietButton {
+                    ds: draftsPage.ds
+                    objectName: "draftChooseCourse"
                     Layout.alignment: Qt.AlignBottom
-                    ColumnLayout {
-                        spacing: ds.s6
-                        Text {
-                            text: "新项目语言"
-                            color: ds.muted
-                            font.family: ds.ui
-                            font.pixelSize: 13
-                            font.letterSpacing: 0.8
-                        }
-                        Rectangle {   // .setting-select
-                            implicitWidth: 148
-                            implicitHeight: 44
-                            radius: ds.radiusSm
-                            color: ds.inset
-                            border.color: ds.lineStrong
-                            border.width: 1
-                            RowLayout {
-                                anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
-                                spacing: ds.s6
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: uiShell.starterLanguage !== ""
-                                          ? uiShell.starterLanguage : "python"
-                                    color: ds.ink
-                                    font.family: ds.mono
-                                    font.pixelSize: 14
-                                    elide: Text.ElideRight
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
-                                Text {
-                                    text: "▾"
-                                    color: ds.faint
-                                    font.family: ds.ui
-                                    font.pixelSize: 11
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
-                            }
-                            Accessible.role: Accessible.ComboBox
-                            Accessible.name: "新项目语言"
-                        }
-                    }
-                    // .project-create .primary-action — outlined pill (0,3,0 wins)
-                    Rectangle {
-                        id: newProjectBtn
-                        implicitWidth: npLabel.implicitWidth + 40
-                        implicitHeight: 44
-                        radius: 100
-                        color: npHover.hovered ? ds.accentFill : "transparent"
-                        border.color: ds.accent
-                        border.width: 1
-                        Layout.alignment: Qt.AlignBottom
-                        Text {
-                            id: npLabel
-                            anchors.centerIn: parent
-                            text: "新建项目"
-                            color: ds.ink
-                            font.family: ds.mono
-                            font.pixelSize: 14
-                            font.weight: Font.DemiBold
-                            font.letterSpacing: 0.26
-                        }
-                        HoverHandler { id: npHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: uiShell.selectPage("编辑器") }
-                        Accessible.role: Accessible.Button
-                        Accessible.name: "新建项目"
-                    }
+                    label: "选择课程"
+                    onClicked: uiShell.selectPage("学习")
                 }
             }
 
@@ -208,7 +175,7 @@ Item {
                         }
                         Text {
                             text: uiShell.hasSelectedContent ? "01 个" : "00 个"
-                            color: "#7a828f"
+                            color: ds.faint
                             font.family: ds.ui
                             font.pixelSize: 13
                         }
@@ -225,7 +192,7 @@ Item {
                         // 静止态: 透明背景
                         // 悬停态: 遮光层底色 rgba(220, 233, 251, 0.028)
                         // 选中态: 遮光层二档 rgba(220, 233, 251, 0.055)
-                        color: draftHover.hovered ? Qt.rgba(220/255, 233/255, 251/255, 0.055)
+                        color: draftHover.hovered ? ds.scrimRaised
                                                   : "transparent"
                         border.color: ds.line
                         border.width: 1
@@ -275,7 +242,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: "<>"
-                                    color: "#7a828f"
+                                    color: ds.faint
                                     font.family: ds.mono
                                     font.pixelSize: 10
                                 }
@@ -285,7 +252,7 @@ Item {
                                 spacing: ds.s4
                                 Text {
                                     Layout.fillWidth: true
-                                    text: uiShell.documentId || "未命名草稿"
+                                    text: draftsPage.draftName || "未命名草稿"
                                     color: ds.ink
                                     font.family: ds.ui
                                     font.pixelSize: 14
@@ -296,7 +263,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     text: (uiShell.starterLanguage || "—") + " · "
-                                          + (uiShell.draftDirty ? "有未保存改动" : "已保存")
+                                          + (uiShell.draftDirty ? "有未保存改动" : "无未保存改动")
                                     color: ds.muted
                                     font.family: ds.ui
                                     font.pixelSize: 13
@@ -306,7 +273,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     text: "revision " + uiShell.draftRevision
-                                    color: "#7a828f"
+                                    color: ds.faint
                                     font.family: ds.ui
                                     font.pixelSize: 13
                                     elide: Text.ElideRight
@@ -332,14 +299,14 @@ Item {
                             spacing: ds.s8
                             Text {
                                 text: "<>"
-                                color: "#7a828f"
+                                color: ds.faint
                                 font.family: ds.mono
                                 font.pixelSize: 22
                                 Layout.alignment: Qt.AlignLeft
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: "还没有保存的项目"
+                                text: "未选择课程草稿"
                                 color: ds.ink
                                 font.family: ds.ui
                                 font.pixelSize: 14
@@ -347,7 +314,7 @@ Item {
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: "创建第一个项目开始练习"
+                                text: "选择课程后可查看并保存练习代码"
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 14
@@ -364,12 +331,14 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumHeight: detailContent.implicitHeight + 2 * ds.s20
                     radius: ds.radius
                     color: "transparent"
                     border.color: ds.line
                     border.width: 1
 
                     ColumnLayout {
+                        id: detailContent
                         anchors.fill: parent
                         anchors.margins: ds.s20
                         spacing: ds.s16
@@ -379,9 +348,7 @@ Item {
                             spacing: ds.s12
                             Text {
                                 Layout.fillWidth: true
-                                text: uiShell.hasSelectedContent
-                                      ? (uiShell.documentId || "未命名草稿")
-                                      : "未选择草稿"
+                                text: uiShell.hasSelectedContent ? "课程草稿" : "未选择草稿"
                                 color: ds.ink
                                 font.family: ds.ui
                                 font.pixelSize: 16
@@ -399,6 +366,59 @@ Item {
                                 implicitHeight: 32
                                 label: "删除"
                                 enabled: false
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: uiShell.hasSelectedContent
+                            spacing: ds.s6
+                            Text { text: "名称"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            ShellField {
+                                ds: draftsPage.ds
+                                objectName: "draftNameField"
+                                Layout.fillWidth: true
+                                text: draftsPage.draftName
+                                readOnly: true
+                                Accessible.name: "草稿名称（课程名称，只读）"
+                            }
+                            Text { text: "说明（来自课程，只读）"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            TextArea {
+                                objectName: "draftDescription"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 58
+                                text: draftsPage.draftDescription
+                                placeholderText: "暂无草稿说明"
+                                placeholderTextColor: ds.faint
+                                readOnly: true
+                                wrapMode: TextArea.Wrap
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 12
+                                padding: ds.s8
+                                background: Rectangle { color: ds.inset; border.color: ds.line; radius: ds.radiusSm }
+                                Accessible.name: "草稿说明（课程说明，只读）"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: fileCol.implicitHeight + ds.s24
+                            objectName: "draftFileList"
+                            color: ds.page
+                            border.color: ds.line
+                            border.width: 1
+                            ColumnLayout {
+                                id: fileCol
+                                anchors.fill: parent
+                                anchors.margins: ds.s12
+                                spacing: ds.s6
+                                Text { text: "文件"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { objectName: "draftFileName"; Layout.fillWidth: true; text: draftsPage.draftFileName; color: ds.muted; font.family: ds.mono; font.pixelSize: 12 }
+                                    Text { objectName: "draftLineCount"; text: draftsPage.draftLineCount + " 行"; color: ds.faint; font.family: ds.mono; font.pixelSize: 12 }
+                                }
                             }
                         }
 
@@ -427,7 +447,7 @@ Item {
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: "改动即时写入本机 · 未快照前回不到旧版本"
+                                text: "编辑后请保存草稿 · 当前只保留最近保存内容"
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 13
@@ -439,6 +459,7 @@ Item {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            Layout.minimumHeight: 60
                             color: ds.editorBg
                             border.color: ds.line
                             border.width: 1
@@ -466,8 +487,8 @@ Item {
                             spacing: ds.s10
                             Text {
                                 Layout.fillWidth: true
-                                text: "保存状态：" + (uiShell.draftSaving ? "保存中…"
-                                      : (uiShell.draftDirty ? "未保存" : "已保存"))
+                                text: "保存状态：" + (!uiShell.hasSelectedContent ? "未选择草稿" : (uiShell.draftSaving ? "保存中…"
+                                      : (uiShell.draftDirty ? "未保存" : "无未保存改动")))
                                       + " · revision " + uiShell.draftRevision
                                       + " / saved " + uiShell.savedRevision
                                 color: uiShell.draftDirty ? ds.warning : ds.muted
@@ -478,9 +499,13 @@ Item {
                             QuietButton {
                                 ds: draftsPage.ds
                                 implicitHeight: 32
-                                label: "保存检查点"
+                                objectName: "draftSaveButton"
+                                label: uiShell.draftSaving ? "保存中…" : "保存草稿"
                                 enabled: uiShell.hasSelectedContent
+                                         && uiShell.hasActiveAccount && !uiShell.operationBusy
+                                         && !uiShell.executionBusy && !uiShell.accountBusy
                                          && !uiShell.draftPersistenceBlocked
+                                         && !uiShell.draftSaving && !uiShell.contentBusy && uiShell.draftDirty
                                 onClicked: uiShell.saveDraft()
                             }
                             QuietButton {
@@ -491,8 +516,40 @@ Item {
                                 onClicked: uiShell.selectPage("编辑器")
                             }
                         }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: snapshotCol.implicitHeight + ds.s24
+                            objectName: "draftSnapshotPanel"
+                            color: ds.page
+                            border.color: ds.line
+                            border.width: 1
+                            ColumnLayout {
+                                id: snapshotCol
+                                anchors.fill: parent
+                                anchors.margins: ds.s12
+                                spacing: ds.s6
+                                Text { text: "检查点快照"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                Text {
+                                    objectName: "draftSnapshotStatus"
+                                    Layout.fillWidth: true
+                                    text: "暂无历史快照。当前版本仅支持保存最近一份草稿，尚未接入检查点保存与恢复。"
+                                    color: ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                }
+                                QuietButton {
+                                    ds: draftsPage.ds
+                                    objectName: "draftCheckpointButton"
+                                    label: "保存检查点（待接入）"
+                                    enabled: false
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
         }
     }

@@ -10,6 +10,7 @@
 #include <QQuickView>
 #include <QCloseEvent>
 #include <QClipboard>
+#include <QCryptographicHash>
 #include <QKeyEvent>
 #include <QTimer>
 #include <QImage>
@@ -85,6 +86,7 @@ struct U3MatrixContext {
   QJsonArray screenshots;
   QString output;
   QString screenshot_dir;
+  QString blocked_draft_path;
   int step = 0;
   int ticks = 0;
 };
@@ -239,7 +241,7 @@ int main(int argc, char* argv[]) {
   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
   view.setResizeMode(QQuickView::SizeRootObjectToView);
   QStringList qml_warnings;
-  if (qml_smoke || comparison >= 0) {
+  if (qml_smoke || isolated_window) {
     QObject::connect(view.engine(), &QQmlEngine::warnings, &application,
         [&](const QList<QQmlError>& warnings) {
           for (const auto& warning : warnings) qml_warnings.append(warning.toString());
@@ -569,7 +571,7 @@ int main(int argc, char* argv[]) {
           context->step++;
           return;
         case 4:
-          if (shell.accountBusy()) return;
+          if (shell.accountBusy() || shell.contentBusy()) return;
           u3_record(*context, QStringLiteral("account-registration"), shell.hasActiveAccount());
           if (!shell.hasActiveAccount()) { context->step = 99; return; }
           shell.updateDraftCode(QStringLiteral("print(15)\n"));
@@ -578,7 +580,9 @@ int main(int argc, char* argv[]) {
           return;
         case 5:
           if (shell.draftSaving()) return;
-          u3_record(*context, QStringLiteral("draft-save"), !shell.draftDirty());
+          u3_record(*context, QStringLiteral("draft-save"), !shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("print(15)\n") && shell.contentStatus() == QStringLiteral("草稿已保存"),
+              shell.contentStatus());
           shell.runCode();
           context->step++;
           return;
@@ -987,28 +991,165 @@ int main(int argc, char* argv[]) {
           shell.selectPage(QStringLiteral("学习"));
           shell.logout();
           const bool logged_out = !shell.hasActiveAccount();
-          shell.login(QStringLiteral("qt-u3@example.test"), QStringLiteral("Qt-U3-Test-Password-123!"));
           u3_record(*context, QStringLiteral("account-logout"), logged_out);
+          shell.selectPage(QStringLiteral("账户"));
           context->step++;
           return;
         }
-        case 14:
-          if (shell.accountBusy()) return;
-          u3_record(*context, QStringLiteral("account-login"), shell.hasActiveAccount());
-          shell.selectPage(QStringLiteral("草稿"));
-          u3_screenshot(*context, view, QStringLiteral("u3-drafts"));
+        case 14: {
+          auto* intro = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("accountLoginIntro"));
+          const bool intro_visible = !shell.hasActiveAccount() && shell.currentPage() == QStringLiteral("账户") &&
+              intro && intro->property("visible").toBool() &&
+              intro->width() > view.width() / 2;
+          u3_record(*context, QStringLiteral("account-login-intro-visible-for-guest"), intro_visible);
+          u3_screenshot(*context, view, QStringLiteral("u3-login-intro"));
+          shell.login(QStringLiteral("qt-u3@example.test"), QStringLiteral("Qt-U3-Test-Password-123!"));
           context->step++;
           return;
+        }
         case 15:
+          if (shell.accountBusy() || shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("account-login"), shell.hasActiveAccount());
+          if (!shell.hasActiveAccount()) { context->step = 99; return; }
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+            if (index < 0) { u3_record(*context, QStringLiteral("draft-course-selection"), false); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step++;
+          return;
+        case 16:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("draft-course-selection"), shell.hasSelectedContent());
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 17: {
+          if (shell.contentBusy() || shell.starterLanguage().isEmpty()) return;
+          shell.selectPage(QStringLiteral("草稿"));
+          auto* drafts = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftsPageRoot"));
+          auto* name_field = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftNameField"));
+          auto* description = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftDescription"));
+          auto* file_list = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftFileList"));
+          auto* file_name = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftFileName"));
+          auto* line_count = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftLineCount"));
+          auto* snapshot = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSnapshotPanel"));
+          auto* snapshot_status = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSnapshotStatus"));
+          auto* save_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveButton"));
+          auto* checkpoint_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftCheckpointButton"));
+          auto* error_banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          const auto lessons = shell.lessonMeta();
+          const auto lesson = std::find_if(lessons.cbegin(), lessons.cend(), [&](const QVariant& value) {
+            return value.toMap().value(QStringLiteral("id")).toString() == shell.documentId();
+          });
+          const bool draft_structure = drafts && drafts->property("visible").toBool() && name_field && description &&
+              lesson != lessons.cend() && name_field->property("readOnly").toBool() &&
+              name_field->property("text").toString() == lesson->toMap().value(QStringLiteral("title")).toString() &&
+              description->property("readOnly").toBool() &&
+              description->property("text").toString() == lesson->toMap().value(QStringLiteral("description")).toString() &&
+              file_list && file_name && file_name->property("text").toString() == QStringLiteral("main.py") &&
+              line_count && line_count->property("text").toString() ==
+                  QStringLiteral("%1 行").arg(shell.draftCode().isEmpty() ? 0 : shell.draftCode().count('\n') + 1) && snapshot &&
+              snapshot_status && snapshot_status->property("text").toString().contains(QStringLiteral("暂无历史快照")) &&
+              save_button && !save_button->property("enabled").toBool() && checkpoint_button &&
+              !checkpoint_button->property("enabled").toBool();
+          u3_record(*context, QStringLiteral("draft-structure-and-actual-capabilities"), draft_structure);
+          u3_record(*context, QStringLiteral("draft-loaded-success-hides-error-banner"),
+              error_banner && !error_banner->property("visible").toBool(), shell.contentStatus());
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts"));
+          shell.updateDraftCode({});
+          u3_record(*context, QStringLiteral("draft-empty-code-has-zero-lines"),
+              drafts && drafts->property("draftLineCount").toInt() == 0 &&
+              line_count && line_count->property("text").toString() == QStringLiteral("0 行"));
+          shell.updateDraftCode(QStringLiteral("print('draft page save')\n# 第二行"));
+          u3_record(*context, QStringLiteral("draft-line-count-updates-after-edit"),
+              drafts && drafts->property("draftLineCount").toInt() == 2 &&
+              save_button && save_button->property("enabled").toBool());
+          // Replace only the isolated fixture's saved file with a directory to force a real write failure.
+          const auto storage_id = QStringLiteral("lesson-") + QString::fromLatin1(QCryptographicHash::hash(
+              shell.documentId().toUtf8(), QCryptographicHash::Sha256).toHex());
+          context->blocked_draft_path = QDir(QString::fromStdWString(shell.nativeDataRoot().wstring()))
+              .filePath(QStringLiteral("accounts/") + shell.activeAccountId() + QStringLiteral("/drafts/") +
+                  storage_id + QStringLiteral(".txt"));
+          const auto blocked_path = std::filesystem::path(context->blocked_draft_path.toStdWString());
+          std::error_code error;
+          const bool removed = std::filesystem::remove(blocked_path, error);
+          const bool blocked = removed && !error && std::filesystem::create_directory(blocked_path, error);
+          u3_record(*context, QStringLiteral("draft-save-fault-fixture-created"), blocked && !error);
+          if (!blocked || error) { context->step = 99; return; }
+          const bool invoked = save_button && QMetaObject::invokeMethod(save_button, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("draft-save-action-starts-and-disables"),
+              invoked && shell.draftSaving() && !save_button->property("enabled").toBool());
+          context->step++;
+          return;
+        }
+        case 18: {
+          if (shell.draftSaving()) return;
+          auto* banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          auto* dismiss = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftDismissError"));
+          u3_record(*context, QStringLiteral("draft-save-failure-visible-and-preserves-edit"),
+              banner && banner->property("visible").toBool() && shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("print('draft page save')\n# 第二行"));
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts-save-error"));
+          const bool dismissed = dismiss && QMetaObject::invokeMethod(dismiss, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("draft-save-error-dismiss-preserves-edit"),
+              dismissed && banner && !banner->property("visible").toBool() && shell.draftDirty());
+          shell.saveDraft();
+          context->step++;
+          return;
+        }
+        case 19: {
+          if (shell.draftSaving()) return;
+          auto* banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          auto* retry = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftRetrySave"));
+          std::error_code error;
+          const bool unblocked = std::filesystem::remove(
+              std::filesystem::path(context->blocked_draft_path.toStdWString()), error);
+          u3_record(*context, QStringLiteral("draft-save-fault-fixture-removed"), unblocked && !error);
+          const bool retried = unblocked && !error && banner && banner->property("visible").toBool() &&
+              retry && retry->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(retry, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("draft-save-retry-starts"), retried && shell.draftSaving());
+          context->step++;
+          return;
+        }
+        case 20: {
+          if (shell.draftSaving()) return;
+          auto* banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          QFile saved(context->blocked_draft_path);
+          const bool persisted = saved.open(QIODevice::ReadOnly) &&
+              saved.readAll() == shell.draftCode().toUtf8();
+          u3_record(*context, QStringLiteral("draft-save-retry-persists-and-hides-error"),
+              persisted && !shell.draftDirty() && shell.savedRevision() == shell.draftRevision() &&
+              banner && !banner->property("visible").toBool());
           u3_record(*context, QStringLiteral("page-drafts"), shell.currentPage() == QStringLiteral("草稿"));
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 21: {
+          auto* scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftScrollView"));
+          auto* save = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveButton"));
+          auto* checkpoint = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSnapshotPanel"));
+          const bool scrollable = scroll && scroll->property("contentHeight").toReal() >= scroll->height() &&
+              scroll->property("contentWidth").toReal() <= scroll->width() && save && checkpoint &&
+              save->mapToItem(checkpoint, QPointF(0, save->height())).y() <= 0;
+          u3_record(*context, QStringLiteral("draft-small-window-scrolls-without-overlap"), scrollable);
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts-small"));
+          view.resize(1440, 900);
+          context->step++;
+          return;
+        }
+        case 22:
           shell.selectPage(QStringLiteral("分析"));
           u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
           context->step++;
           return;
-        case 16:
+        case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("ten-page-screenshots"), context->screenshots.size() == 10,
+          u3_record(*context, QStringLiteral("thirteen-page-screenshots"), context->screenshots.size() == 13,
               QString::number(context->screenshots.size()));
+          u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }
           application.exit(u3_all_passed(*context) ? 0 : 3);
           context->step = 99;
