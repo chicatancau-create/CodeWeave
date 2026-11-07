@@ -12,6 +12,7 @@
 #include <QClipboard>
 #include <QCryptographicHash>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QTimer>
 #include <QImage>
 #include <QFontInfo>
@@ -262,17 +263,26 @@ int main(int argc, char* argv[]) {
   view.show();
   QTimer qml_smoke_timer;
   int qml_smoke_page = 0;
-  if (qml_smoke) {
-    const auto report_path = arguments.at(qml_smoke_arg + 1);
-    QString diagnostic = QStringLiteral("running");
-    const auto write_smoke_report = [&] {
+  const auto report_path = qml_smoke ? arguments.at(qml_smoke_arg + 1) : QString{};
+  QString diagnostic = QStringLiteral("running");
+  QStringList smoke_screenshots;
+  const auto write_smoke_report = [&] {
       QJsonObject report;
       report.insert(QStringLiteral("diagnostic"), diagnostic);
       report.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
+      report.insert(QStringLiteral("screenshots"), QJsonArray::fromStringList(smoke_screenshots));
       QFile report_file(report_path);
       return report_file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
           report_file.write(QJsonDocument(report).toJson(QJsonDocument::Indented)) >= 0 && report_file.flush();
-    };
+  };
+  const auto capture_topbar = [&](const QString& name) {
+    if (QGuiApplication::platformName() == QStringLiteral("offscreen")) return true;
+    const auto path = QFileInfo(report_path).dir().filePath(name + QStringLiteral(".png"));
+    if (!view.grabWindow().save(path)) return false;
+    smoke_screenshots.append(path);
+    return true;
+  };
+  if (qml_smoke) {
     QObject::connect(&qml_smoke_timer, &QTimer::timeout, &application, [&] {
       if (!qml_warnings.isEmpty()) {
         diagnostic = QStringLiteral("QML warning: ") + qml_warnings.join(QLatin1Char('\n'));
@@ -322,6 +332,22 @@ int main(int argc, char* argv[]) {
       auto* profile = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileAction"));
       auto* security = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityAction"));
       auto* privacy = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyAction"));
+      auto* notifications = view.rootObject()->findChild<QObject*>(QStringLiteral("notificationPopup"));
+      auto* notification_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("notificationButton"));
+      auto* settings = view.rootObject()->findChild<QObject*>(QStringLiteral("settingsDialog"));
+      auto* settings_scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("settingsScroll"));
+      auto* settings_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("settingsButton"));
+      auto* help_dialog = view.rootObject()->findChild<QObject*>(QStringLiteral("helpDialog"));
+      auto* search = view.rootObject()->findChild<QObject*>(QStringLiteral("searchPopup"));
+      auto* search_field = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("globalSearchField"));
+      auto* search_results = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("searchResultsView"));
+      if (!notifications || !notification_button || !settings || !settings_scroll || !settings_button || !help_dialog ||
+          !search || !search_field || !search_results) {
+        diagnostic = QStringLiteral("Topbar smoke objects are missing");
+        write_smoke_report();
+        application.exit(1);
+        return;
+      }
       if (!quick || !account || !trigger || !first || !review || !help || !profile || !security || !privacy) {
         diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 privacy=%9 logout=%10")
             .arg(quick != nullptr).arg(account != nullptr).arg(trigger != nullptr).arg(first != nullptr)
@@ -332,7 +358,8 @@ int main(int argc, char* argv[]) {
         application.exit(1);
         return;
       }
-      first = review;
+      // Packaged content can enable Continue; the minimal CTest host has no selected lesson.
+      first = first->property("enabled").toBool() ? first : review;
       const auto require_focus = [&](QQuickItem* item) {
         if (item->hasActiveFocus()) return true;
         const auto* active = view.activeFocusItem();
@@ -423,9 +450,114 @@ int main(int argc, char* argv[]) {
             return;
           }
           break;
-        default:
+        case 13:
           if (shell.currentPage() != QStringLiteral("数据与隐私")) {
             diagnostic = QStringLiteral("Account menu did not navigate to privacy page");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          {
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            if (!breadcrumb || breadcrumb->property("text").toString() !=
+                    QStringLiteral("Code Canvas / 数据与隐私")) {
+              diagnostic = QStringLiteral("Breadcrumb did not follow the current page");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          QMetaObject::invokeMethod(quick, "open");
+          break;
+        case 14:
+          if (!require_focus(first)) return;
+          if (!capture_topbar(QStringLiteral("topbar-quick"))) { application.exit(1); return; }
+          QMetaObject::invokeMethod(notification_button, "clicked");
+          break;
+        case 15:
+          if (quick->property("opened").toBool() || !notifications->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Notifications did not replace quick actions");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!capture_topbar(QStringLiteral("topbar-notifications"))) { application.exit(1); return; }
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 16:
+          if (!require_focus(notification_button)) return;
+          QMetaObject::invokeMethod(settings_button, "clicked");
+          break;
+        case 17:
+          if (!settings->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Settings did not open");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!capture_topbar(QStringLiteral("topbar-settings"))) { application.exit(1); return; }
+          view.resize(1100, 720);
+          break;
+        case 18:
+          if (!settings_scroll || settings_scroll->height() <= 0 || settings_scroll->width() <= 0 ||
+              settings_scroll->property("contentHeight").toReal() <= 0) {
+            diagnostic = QStringLiteral("Settings content is clipped at 1100x720: viewport=%1x%2 content=%3")
+                .arg(settings_scroll ? settings_scroll->width() : -1)
+                .arg(settings_scroll ? settings_scroll->height() : -1)
+                .arg(settings_scroll ? settings_scroll->property("contentHeight").toReal() : -1);
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!capture_topbar(QStringLiteral("topbar-settings-small"))) { application.exit(1); return; }
+          {
+            const QPointF point(12, 12);
+            QMouseEvent press(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton,
+                Qt::LeftButton, Qt::NoModifier);
+            QMouseEvent release(QEvent::MouseButtonRelease, point, point, point, Qt::LeftButton,
+                Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&view, &press);
+            QCoreApplication::sendEvent(&view, &release);
+          }
+          break;
+        case 19:
+          if (settings->property("opened").toBool() || !require_focus(settings_button)) return;
+          view.resize(1440, 900);
+          QMetaObject::invokeMethod(quick, "open");
+          break;
+        case 20:
+          if (!require_focus(first)) return;
+          QMetaObject::invokeMethod(help, "clicked");
+          break;
+        case 21:
+          if (!help_dialog->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Help did not open");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!capture_topbar(QStringLiteral("topbar-help"))) { application.exit(1); return; }
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 22:
+          if (!require_focus(trigger)) return;
+          search_field->forceActiveFocus();
+          search_field->setProperty("text", QStringLiteral("no-match-qt-smoke"));
+          break;
+        case 23:
+          if (!search->property("opened").toBool() || search->property("height").toReal() < 112 ||
+              search_results->property("count").toInt() != 0) {
+            diagnostic = QStringLiteral("Search empty state is missing or clipped");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 24:
+          if (!require_focus(search_field)) return;
+          if (search->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Search did not close on Escape");
             write_smoke_report();
             application.exit(1);
             return;
@@ -433,6 +565,11 @@ int main(int argc, char* argv[]) {
           diagnostic = QStringLiteral("passed");
           write_smoke_report();
           application.exit(0);
+          break;
+        default:
+          diagnostic = QStringLiteral("Unexpected topbar smoke step");
+          write_smoke_report();
+          application.exit(1);
       }
     });
     qml_smoke_timer.start(200);

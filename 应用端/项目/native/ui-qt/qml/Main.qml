@@ -32,6 +32,11 @@ Rectangle {
     property bool accountMenuOpen: false
     property bool settingsOpen: false
     property bool helpOpen: false
+    property Item dialogReturnFocusItem
+    function returnDialogFocus() {
+        const item = dialogReturnFocusItem;
+        if (item) Qt.callLater(function() { item.forceActiveFocus(Qt.PopupFocusReason); });
+    }
     function openEvidenceDialog() { evidenceDialog.open(); }
     function openLesson(index) {
         if (index < 0 || index >= uiShell.lessonMeta.length || uiShell.contentBusy
@@ -78,13 +83,14 @@ Rectangle {
         return rows.slice(0, 8);
     }
 
-    function closeTopbarPopups() {
+    function closeTopbarPopups(includeSearch = true) {
         quickActionsOpen = false;
         notificationsOpen = false;
         accountMenuOpen = false;
-        if (quickPopup.opened) quickPopup.close();
-        if (notificationPopup.opened) notificationPopup.close();
-        if (accountPopup.opened) accountPopup.close();
+        if (quickPopup.opened) quickPopup.closeForTransfer();
+        if (notificationPopup.opened) notificationPopup.closeForTransfer();
+        if (accountPopup.opened) accountPopup.closeForTransfer();
+        if (includeSearch && searchPopup.opened) searchPopup.closeForTransfer();
     }
     readonly property int safeSelectedLessonIndex: uiShell.lessonMeta.length > 0
         ? (selectedLessonIndex >= 0 && selectedLessonIndex < uiShell.lessonMeta.length ? selectedLessonIndex : 0) : -1
@@ -304,6 +310,7 @@ Rectangle {
                     }
                     TextField {
                         id: searchField
+                        objectName: "globalSearchField"
                         Layout.fillWidth: true
                         placeholderText: "搜索课程 / 挑战 / 项目"
                         placeholderTextColor: ds.muted
@@ -312,12 +319,21 @@ Rectangle {
                         font.pixelSize: 14
                         background: null
                         onTextChanged: {
-                            if (text.trim()) searchPopup.open();
+                            if (text.trim()) {
+                                root.closeTopbarPopups(false);
+                                searchResultsView.currentIndex = 0;
+                                searchPopup.open();
+                            }
                             else searchPopup.close();
                         }
-                        onActiveFocusChanged: if (!activeFocus && text.trim() === "") searchPopup.close()
+                        onActiveFocusChanged: if (!activeFocus) Qt.callLater(function() {
+                            if (!searchField.activeFocus && !searchResultsView.activeFocus && !clearSearchButton.activeFocus)
+                                searchPopup.closeForTransfer();
+                        })
+                        Keys.onEscapePressed: searchPopup.close()
                         Keys.onDownPressed: {
                             if (searchResultsView.count) {
+                                searchPopup.open();
                                 searchResultsView.currentIndex = 0;
                                 searchResultsView.forceActiveFocus();
                             }
@@ -359,6 +375,7 @@ Rectangle {
                 IconButton {
                     ds: root.designSystem
                     id: notificationButton
+                    objectName: "notificationButton"
                     glyph: "🔔"
                     tip: "通知中心（无未读）"
                     active: root.notificationsOpen
@@ -401,9 +418,15 @@ Rectangle {
 
                 IconButton {
                     ds: root.designSystem
+                    id: settingsButton
+                    objectName: "settingsButton"
                     glyph: "⚙"
                     tip: "账户与设置"
-                    onClicked: settingsDialog.open()
+                    onClicked: {
+                        root.dialogReturnFocusItem = settingsButton;
+                        root.closeTopbarPopups();
+                        settingsDialog.open();
+                    }
                 }
 
                 // .topbar-avatar
@@ -449,16 +472,18 @@ Rectangle {
 
         ShellPopup {
             id: searchPopup
+            objectName: "searchPopup"
             x: searchBox.mapToItem(root, 0, 0).x
             y: topbar.height + 4
             width: searchBox.width
-            height: Math.min(360, searchResultsView.contentHeight + ds.s24)
+            height: Math.min(360, Math.max(112, searchResultsView.contentHeight + ds.s24))
             ds: root.designSystem
             returnFocusItem: searchField
             onOpened: searchField.forceActiveFocus()
 
             ListView {
                 id: searchResultsView
+                objectName: "searchResultsView"
                 anchors.fill: parent
                 clip: true
                 focus: true
@@ -514,13 +539,21 @@ Rectangle {
                     else if (event.key === Qt.Key_Escape) { searchPopup.close(); event.accepted = true; }
                 }
             }
-            Text {
+            ColumnLayout {
                 anchors.centerIn: parent
                 visible: searchResultsView.count === 0
-                text: "没有匹配的结果"
-                color: ds.muted
-                font.family: ds.ui
-                font.pixelSize: 13
+                Text {
+                    text: searchField.text.trim() === "" ? "输入关键词搜索课程和挑战" : "没有匹配的结果"
+                    color: ds.muted; font.family: ds.ui; font.pixelSize: 13
+                }
+                QuietButton {
+                    id: clearSearchButton
+                    objectName: "clearSearchButton"
+                    ds: root.designSystem
+                    label: "清除搜索"
+                    visible: searchField.text.trim() !== ""
+                    onClicked: searchField.clear()
+                }
             }
         }
 
@@ -563,7 +596,11 @@ Rectangle {
                     ds: root.designSystem
                     Layout.fillWidth: true
                     label: "查看帮助"
-                    onClicked: { quickPopup.close(); helpDialog.open(); }
+                    onClicked: {
+                        root.dialogReturnFocusItem = quickButton;
+                        quickPopup.closeForTransfer();
+                        helpDialog.open();
+                    }
                 }
                 Text { Layout.fillWidth: true; text: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
             }
@@ -571,6 +608,7 @@ Rectangle {
 
         ShellPopup {
             id: notificationPopup
+            objectName: "notificationPopup"
             x: Math.max(ds.s12, notificationButton.mapToItem(root, 0, 0).x + notificationButton.width - width)
             y: topbar.height + 4
             width: 260
@@ -582,7 +620,7 @@ Rectangle {
                 anchors.fill: parent
                 spacing: ds.s8
                 Text { text: "通知"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
-                Text { Layout.fillWidth: true; text: "暂无新通知。复测到期、挑战通过和打卡里程碑会出现在这里。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                Text { Layout.fillWidth: true; text: "暂无通知，通知来源尚未接入。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
             }
         }
 
@@ -1001,47 +1039,78 @@ Rectangle {
 
 
     // ── Dialogs ─────────────────────────────────────────────────────────────
-    Dialog {
+    ShellDialog {
         id: settingsDialog
+        objectName: "settingsDialog"
+        ds: root.designSystem
         title: "设置"
         anchors.centerIn: parent
-        modal: true
-        standardButtons: Dialog.Close
-        width: 420
-        background: Rectangle {
-            color: ds.overlay
-            radius: ds.radius
-            border.color: ds.lineStrong
-            border.width: 1
-        }
-        contentItem: ColumnLayout {
+        width: Math.min(560, root.width - ds.s32)
+        onOpened: root.settingsOpen = true
+        onClosed: { root.settingsOpen = false; root.returnDialogFocus(); }
+        contentItem: ScrollView {
+            objectName: "settingsScroll"
+            implicitHeight: Math.min(settingsContent.implicitHeight, root.height - 200)
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ColumnLayout {
+            id: settingsContent
+            width: parent.availableWidth
             spacing: ds.s12
             Text { text: "工作台偏好"; color: ds.ink; font.family: ds.ui; font.pixelSize: 15; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "设置项会逐步与网页端保持一致；尚未接入本地持久化的选项保持禁用。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
-            CheckBox { text: "减少动效（待接入）"; enabled: false; Accessible.name: "减少动效（待接入）" }
-            CheckBox { text: "紧凑工作区（待接入）"; enabled: false; Accessible.name: "紧凑工作区（待接入）" }
+            Text { Layout.fillWidth: true; text: "本地偏好持久化尚未接入的选项暂不可用。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            PreferenceToggle { ds: root.designSystem; text: "学习提醒（待接入）"; enabled: false; Accessible.name: text }
+            PreferenceToggle { ds: root.designSystem; text: "编辑器自动保存（待接入）"; enabled: false; Accessible.name: text }
+            PreferenceToggle { ds: root.designSystem; text: "紧凑工作区（待接入）"; enabled: false; Accessible.name: text }
+            PreferenceToggle { ds: root.designSystem; objectName: "settingsReduceMotion"; text: "减弱动画（待接入）"; enabled: false; Accessible.name: text }
+            RowLayout {
+                Text { Layout.fillWidth: true; text: "编辑器字号（待接入）"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                ComboBox {
+                    model: [12, 13, 14, 15, 16, 18]; currentIndex: 1; enabled: false
+                    Accessible.name: "编辑器字号（待接入）"
+                    palette.base: ds.inset; palette.button: ds.inset; palette.text: ds.muted
+                    palette.buttonText: ds.muted; palette.mid: ds.lineStrong
+                }
+            }
+            RowLayout {
+                Text { Layout.fillWidth: true; text: "Tab 缩进宽度（待接入）"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                ComboBox {
+                    model: [2, 4]; currentIndex: 0; enabled: false
+                    Accessible.name: "Tab 缩进宽度（待接入）"
+                    palette.base: ds.inset; palette.button: ds.inset; palette.text: ds.muted
+                    palette.buttonText: ds.muted; palette.mid: ds.lineStrong
+                }
+            }
+            PreferenceToggle { ds: root.designSystem; text: "代码自动换行（待接入）"; enabled: false; Accessible.name: text }
+            PreferenceToggle { ds: root.designSystem; text: "显示行号（待接入）"; enabled: false; Accessible.name: text }
+            Text { text: "数据管理"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+            QuietButton {
+                ds: root.designSystem
+                label: "数据与隐私"
+                onClicked: { settingsDialog.close(); uiShell.selectPage("数据与隐私"); }
+            }
+            }
         }
     }
 
-    Dialog {
+    ShellDialog {
         id: helpDialog
+        objectName: "helpDialog"
+        ds: root.designSystem
+        closeLabel: "知道了"
         title: "如何学习"
         anchors.centerIn: parent
-        modal: true
-        standardButtons: Dialog.Ok
-        width: 460
-        background: Rectangle {
-            color: ds.overlay
-            radius: ds.radius
-            border.color: ds.lineStrong
-            border.width: 1
-        }
+        width: Math.min(520, root.width - ds.s32)
+        onOpened: root.helpOpen = true
+        onClosed: { root.helpOpen = false; root.returnDialogFocus(); }
         contentItem: ColumnLayout {
             spacing: ds.s10
             Text { text: "可视化执行"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "点击运行按钮，观察程序的每一步执行过程；流程图和输出区会显示当前运行状态。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "代码执行结果显示在控制台；当前流程图展示课程的静态流程，逐步变量快照尚未接入。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
             Text { text: "十步学习法"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "每个单元包含讲解、跟做、独立题和变式题；外部环境实验需要在真实环境完成后提交证据。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "按课程已提供的讲解、例子和练习推进；标记完成以实际证据为准，阅读和运行本身不代表掌握。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            Text { text: "真实与模拟的边界"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+            Text { Layout.fillWidth: true; text: "本机执行需要对应语言工具；外部环境实验在真实环境完成后记录实践证据。尚无逐行事件时不会显示虚构执行状态。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
         }
     }
 

@@ -46,6 +46,9 @@ Rectangle {
         cursorShape: ibtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
     }
     TapHandler { enabled: ibtn.enabled; onTapped: ibtn.clicked() }
+    ToolTip.visible: ibHover.hovered && ibtn.tip !== ""
+    ToolTip.text: ibtn.tip
+    ToolTip.delay: 500
     Accessible.role: Accessible.Button
     Accessible.name: ibtn.tip !== "" ? ibtn.tip : ibtn.glyph
 }

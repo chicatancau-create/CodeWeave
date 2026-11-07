@@ -6,6 +6,12 @@ Popup {
     property QtObject ds
     property Item returnFocusItem
     property list<Item> menuItems
+    property bool restoreFocusOnClose: true
+
+    function closeForTransfer() {
+        restoreFocusOnClose = false;
+        close();
+    }
 
     function focusEntry(direction, boundary) {
         const items = menuItems.filter(function(item) { return item.visible && item.enabled; });
@@ -21,17 +27,31 @@ Popup {
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
-    contentItem: FocusScope {
-        focus: true
-        Keys.onPressed: function(event) {
-            if (!shellPopup.menuItems.length) return;
-            if (event.key === Qt.Key_Down) shellPopup.focusEntry(1, "");
-            else if (event.key === Qt.Key_Up) shellPopup.focusEntry(-1, "");
-            else if (event.key === Qt.Key_Home) shellPopup.focusEntry(0, "first");
-            else if (event.key === Qt.Key_End) shellPopup.focusEntry(0, "last");
-            else return;
-            event.accepted = true;
-        }
+    contentItem: Item {}
+
+    Shortcut {
+        sequence: "Down"
+        enabled: shellPopup.opened && shellPopup.menuItems.length > 0
+        context: Qt.WindowShortcut
+        onActivated: shellPopup.focusEntry(1, "")
+    }
+    Shortcut {
+        sequence: "Up"
+        enabled: shellPopup.opened && shellPopup.menuItems.length > 0
+        context: Qt.WindowShortcut
+        onActivated: shellPopup.focusEntry(-1, "")
+    }
+    Shortcut {
+        sequence: "Home"
+        enabled: shellPopup.opened && shellPopup.menuItems.length > 0
+        context: Qt.WindowShortcut
+        onActivated: shellPopup.focusEntry(0, "first")
+    }
+    Shortcut {
+        sequence: "End"
+        enabled: shellPopup.opened && shellPopup.menuItems.length > 0
+        context: Qt.WindowShortcut
+        onActivated: shellPopup.focusEntry(0, "last")
     }
 
     background: Rectangle {
@@ -48,6 +68,10 @@ Popup {
     Connections {
         target: shellPopup
         function onClosed() {
+            if (!shellPopup.restoreFocusOnClose) {
+                Qt.callLater(function() { shellPopup.restoreFocusOnClose = true; });
+                return;
+            }
             const item = shellPopup.returnFocusItem;
             if (item) Qt.callLater(function() { item.forceActiveFocus(Qt.PopupFocusReason); });
         }
