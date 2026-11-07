@@ -794,14 +794,15 @@ int main(int argc, char* argv[]) {
           if (shell.accountBusy() || shell.contentBusy()) return;
           u3_record(*context, QStringLiteral("account-registration"), shell.hasActiveAccount());
           if (!shell.hasActiveAccount()) { context->step = 99; return; }
-          shell.updateDraftCode(QStringLiteral("print(15)\n"));
+          shell.updateDraftCode(QStringLiteral("total = 7\nprint(15)\n"));
           shell.saveDraft();
           context->step++;
           return;
         case 5:
           if (shell.draftSaving()) return;
           u3_record(*context, QStringLiteral("draft-save"), !shell.draftDirty() &&
-              shell.draftCode() == QStringLiteral("print(15)\n") && shell.contentStatus() == QStringLiteral("草稿已保存"),
+              shell.draftCode() == QStringLiteral("total = 7\nprint(15)\n") &&
+              shell.contentStatus() == QStringLiteral("草稿已保存"),
               shell.contentStatus());
           shell.runCode();
           context->step++;
@@ -816,28 +817,61 @@ int main(int argc, char* argv[]) {
             auto* previous = u3_find_item(view.rootObject(), QStringLiteral("executionTracePrevious"));
             auto* next = u3_find_item(view.rootObject(), QStringLiteral("executionTraceNext"));
             auto* trace_output = u3_find_item(view.rootObject(), QStringLiteral("executionTraceOutput"));
-            const bool initial = panel && events && events->property("count").toInt() == 3 &&
-                events->property("currentIndex").toInt() == 2 && trace_output &&
+            const int final_event_index = events ? events->property("count").toInt() - 1 : -1;
+            const bool initial = panel && events && events->property("count").toInt() >= 4 &&
+                events->property("currentIndex").toInt() == final_event_index && trace_output &&
                 trace_output->property("text").toString() == QStringLiteral("15\n");
             u3_record(*context, QStringLiteral("execution-trace-events-and-current-output"), initial);
-            const bool previous_invoked = initial && previous && QMetaObject::invokeMethod(
-                previous, "clicked", Qt::DirectConnection) && QMetaObject::invokeMethod(
-                previous, "clicked", Qt::DirectConnection);
+            const auto trace_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            int source_step_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              const auto event = trace_events.at(index).toMap();
+              if (event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                  event.value(QStringLiteral("sourceLine")).toInt() == 2 &&
+                  event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "7") {
+                source_step_index = static_cast<int>(index);
+                break;
+              }
+            }
+            auto* source_line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            const bool source_snapshot_selected = initial && source_step_index >= 0 && source_line && variables &&
+                events->setProperty("currentIndex", source_step_index) &&
+                source_line->property("visible").toBool() &&
+                source_line->property("text").toString() == QStringLiteral("源码第 2 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 7"));
+            u3_record(*context, QStringLiteral("python-source-snapshot-line-and-local-variable"),
+                source_snapshot_selected);
+            if (initial) events->setProperty("currentIndex", final_event_index);
+            bool previous_invoked = initial && previous;
+            for (int index = 0; previous_invoked && index < final_event_index; ++index) {
+              previous_invoked = QMetaObject::invokeMethod(previous, "clicked", Qt::DirectConnection);
+            }
+            previous_invoked = previous_invoked && events->property("currentIndex").toInt() == 0;
             u3_record(*context, QStringLiteral("execution-trace-previous-shows-before-output"),
-                previous_invoked && events->property("currentIndex").toInt() == 0 &&
+                previous_invoked &&
                 trace_output->property("text").toString().isEmpty());
-            const bool next_invoked = previous_invoked && next && QMetaObject::invokeMethod(
-                next, "clicked", Qt::DirectConnection) && QMetaObject::invokeMethod(
-                next, "clicked", Qt::DirectConnection);
+            int output_event_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              if (trace_events.at(index).toMap().value(QStringLiteral("kind")).toString() == "output") {
+                output_event_index = static_cast<int>(index);
+                break;
+              }
+            }
+            bool next_invoked = previous_invoked && next && output_event_index >= 0;
+            for (int index = 0; next_invoked && index < output_event_index; ++index) {
+              next_invoked = QMetaObject::invokeMethod(next, "clicked", Qt::DirectConnection);
+            }
+            next_invoked = next_invoked && events->property("currentIndex").toInt() == output_event_index;
             u3_record(*context, QStringLiteral("execution-trace-next-restores-output"), next_invoked &&
-                events->property("currentIndex").toInt() == 2 &&
                 trace_output->property("text").toString() == QStringLiteral("15\n"));
             if (events) events->forceActiveFocus();
             send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
             const bool home = events && events->property("currentIndex").toInt() == 0;
             send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
             u3_record(*context, QStringLiteral("execution-trace-keyboard-home-end"), home &&
-                events->property("currentIndex").toInt() == 2);
+                events->property("currentIndex").toInt() == final_event_index);
             u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-completed"));
           }
           {

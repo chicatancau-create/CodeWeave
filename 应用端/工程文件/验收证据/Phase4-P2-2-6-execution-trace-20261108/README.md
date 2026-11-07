@@ -57,3 +57,29 @@ $LASTEXITCODE
 回滚：保护后来产生的用户修改后，执行 `git revert <本检查点提交>` 并重跑标准构建。没有新增存储格式和迁移，无需删除或重写账户 trace。
 
 下一入口：其它语言源码节点与变量快照的真实执行契约及程序状态图绑定；P2.9 的正式资料库和网页视觉等价保留待办。
+
+## 2026-11-08 续验：源码快照真实窗口断言
+
+- 修正隔离窗口夹具：草稿保存断言与两行 Python 程序一致；选择源码快照检查后恢复末事件，再单独验证上一事件回到开头、下一事件到达输出节点。
+- [通过] 再次执行 `cmd /c 工程文件\工具\构建当前Qt.cmd`：Release 构建成功，CTest 10/10。
+- [通过] 使用当前构建重新部署并执行可见窗口矩阵：`matrix.json` 198/198，52 张截图，进程退出码 0；新增 `python-source-snapshot-line-and-local-variable` 检查、回看按钮检查及 `qml-no-warnings` 全部通过。矩阵与同名截图已归档在本目录。
+- [先失败，修复后通过] 首轮新矩阵发现 `draft-save` 仍断言旧的单行源码；同时源码快照检查改变了当前事件，导致前后按钮测试从错误索引起步。更新保存内容断言，并在快照检查后恢复末事件，完整矩阵复测通过。
+- [未执行] C++、Java、JavaScript 源码快照、实时流式执行、正式账户/资料库联调和网页端视觉等价仍未覆盖。
+
+复现时先用标准命令构建，再部署到新目录；部署成功后创建报告目录并运行矩阵：
+
+```powershell
+cmd /c 工程文件\工具\构建当前Qt.cmd
+$traceDeploy = Join-Path $env:TEMP ('CodeWeave-P2-6-repro-' + [guid]::NewGuid().ToString('N'))
+& '应用端/项目/native/ui-qt/deploy-qt.ps1' -Exe 'G:/CodeWeave/.local/qt/current/ui-qt/CodeWeaveQtShell.exe' -OutputDir $traceDeploy -QmlDir 'G:/CodeWeave/.local/app/native/ui-qt/qml' -ContentDir 'G:/CodeWeave/.local/app/native/content' -ConfigDir 'G:/CodeWeave/.local/app/config' -QtBin 'G:/CodeWeave/.local/prep/qt/6.8.3/msvc2022_64/bin'
+New-Item -ItemType Directory -Path (Join-Path $traceDeploy 'evidence') | Out-Null
+& "$traceDeploy/CodeWeaveQtShell.exe" --u3-matrix-json "$traceDeploy/evidence/matrix.json" | Out-Null
+$LASTEXITCODE
+```
+
+最终归档 `matrix.json` SHA-256：`8185E828D24F7ACEC13E018EE5B63E116E4BE63A29E126B13D3152B203CCE101`。隔离部署位于系统临时目录；测试账户与数据由 `QTemporaryDir` 管理，不读取或写入真实工作区。部署提示缺少可选 `dxcompiler.dll`/`dxil.dll`，本次矩阵仍通过。
+
+## 临时目录
+
+- [未清理] 本轮隔离部署及失败尝试目录：`C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b`（通过矩阵部署）、`C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-next-2e68c5317f4e4dc99824522bd599ae74`（首次矩阵失败记录）、`C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-10bd5299323d48f4bf093aaba7401ea4`（部署前输出目录误创建后被脚本拒绝）。矩阵应用进程均已退出。
+- 对以上准确目录执行清理时，工具执行策略拒绝了递归删除命令；没有删除任何内容或改用其它删除方式。目录只在系统 Temp 下；后续清理前应重新确认准确路径、用途和进程占用，不要清空共享 Temp。

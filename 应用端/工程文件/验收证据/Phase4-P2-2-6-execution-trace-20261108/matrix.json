@@ -43,6 +43,10 @@
             "passed": true
         },
         {
+            "name": "python-source-snapshot-line-and-local-variable",
+            "passed": true
+        },
+        {
             "name": "execution-trace-previous-shows-before-output",
             "passed": true
         },
@@ -507,7 +511,7 @@
             "passed": true
         },
         {
-            "detail": "{\"contentId\":\"python-loop-sum\",\"dueKey\":\"2026-11-11\",\"evidenceCount\":4,\"exerciseId\":\"\",\"forgettingRisk\":\"low\",\"group\":\"upcoming\",\"hintLevel\":\"L1\",\"independent\":true,\"itemId\":\"python-loop-sum\",\"latestAt\":\"2026-11-07T17:58:47.843Z\",\"latestResult\":\"\",\"masteryLevel\":2,\"nextNodeIndex\":1,\"passed\":true,\"planSource\":\"fallback\"}",
+            "detail": "{\"contentId\":\"python-loop-sum\",\"dueKey\":\"2026-11-11\",\"evidenceCount\":4,\"exerciseId\":\"\",\"forgettingRisk\":\"low\",\"group\":\"upcoming\",\"hintLevel\":\"L1\",\"independent\":true,\"itemId\":\"python-loop-sum\",\"latestAt\":\"2026-11-07T20:05:27.063Z\",\"latestResult\":\"\",\"masteryLevel\":2,\"nextNodeIndex\":1,\"passed\":true,\"planSource\":\"fallback\"}",
             "name": "review-pass-refreshes-level-step-and-due-date",
             "passed": true
         },
@@ -753,12 +757,56 @@
             "passed": true
         },
         {
+            "name": "vault-fixture-created-outside-workspace",
+            "passed": true
+        },
+        {
+            "name": "vault-binding-requires-confirmation",
+            "passed": true
+        },
+        {
+            "name": "vault-bind-confirmed-action",
+            "passed": true
+        },
+        {
+            "name": "vault-connected-name-visible-after-binding",
+            "passed": true
+        },
+        {
+            "name": "vault-owner-progress-and-pending-evidence",
+            "passed": true
+        },
+        {
+            "name": "vault-preview-selected-evidence-action",
+            "passed": true
+        },
+        {
+            "name": "vault-preview-readonly-and-confirmation-disabled",
+            "passed": true
+        },
+        {
+            "name": "vault-commit-explicit-confirmed-action",
+            "passed": true
+        },
+        {
+            "name": "vault-committed-refresh-and-reload",
+            "passed": true
+        },
+        {
+            "name": "vault-narrow-ledger-screenshot",
+            "passed": true
+        },
+        {
+            "name": "vault-rollback-restores-pending-state",
+            "passed": true
+        },
+        {
             "name": "page-analysis",
             "passed": true
         },
         {
-            "detail": "47",
-            "name": "page-challenge-lesson-evidence-and-execution-trace-screenshots",
+            "detail": "52",
+            "name": "page-challenge-lesson-evidence-execution-trace-and-vault-screenshots",
             "passed": true
         },
         {
@@ -771,52 +819,57 @@
     "passed": true,
     "schemaVersion": 1,
     "screenshots": [
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-learning.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-course.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-editor.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-execution-trace-completed.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-execution-trace-narrow.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-execution-trace-stale.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-execution-trace-cancelled.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-execution-trace-failed.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-review.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-detail.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-detail-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-judgement-passed.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-judgement-failed.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-submitted.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-submitted-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-pending-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-verified-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-challenge-review-history.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-profile.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-security.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-privacy.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-login-intro.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-drafts.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-drafts-save-error.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-drafts-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-learning-empty.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-learning-completed.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-learning-details.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-learning-details-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-learning-details-selected.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-review-nonempty.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-review-updated.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-lesson-read.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-lesson-missed-cases.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-lesson-verified.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-lesson-external-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-lesson-external-states-small.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-workspace-save-error.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-analysis-empty.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-analysis-values.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-analysis-review-rate.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-checkin-sidebar.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-checkin-calendar.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-checkin-error.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-checkin-narrow.png",
-        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence-final/u3-analysis.png"
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-execution-trace-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-execution-trace-narrow.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-execution-trace-stale.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-execution-trace-cancelled.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-execution-trace-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-detail.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-detail-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-judgement-passed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-judgement-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-submitted.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-submitted-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-pending-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-verified-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-challenge-review-history.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-drafts-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-learning-empty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-learning-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-learning-details.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-learning-details-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-learning-details-selected.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-review-nonempty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-review-updated.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-lesson-read.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-lesson-missed-cases.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-lesson-verified.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-lesson-external-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-lesson-external-states-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-workspace-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-analysis-empty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-analysis-values.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-analysis-review-rate.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-checkin-sidebar.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-checkin-calendar.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-checkin-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-checkin-narrow.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-vault-connected-name.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-vault-evidence-preview.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-vault-confirmation.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-vault-ledger-narrow.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-vault-rolled-back.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-verified-94214a57dd18471eb2840f6e140bc74b/evidence/u3-analysis.png"
     ]
 }
