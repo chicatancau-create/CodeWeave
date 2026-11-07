@@ -1942,7 +1942,8 @@ void test_execution_service_compiles_and_runs_java(const std::filesystem::path& 
   codeweave::execution::ExecutionService service;
   const auto result = service.run(
       {"java-e2e-01", "java",
-       "public class Main { public static void main(String[] args) { System.out.println(42); } }",
+       "public class Main {\n public static void main(String[] args) {\n"
+       " int total = 7;\n total += 2;\n System.out.println(total);\n }\n}\n",
        10'000, 4096}, runtime, root);
   if (!result.validation.ok || !result.process.has_value()) {
     std::cerr << "java runtime execution failed: "
@@ -1956,10 +1957,129 @@ void test_execution_service_compiles_and_runs_java(const std::filesystem::path& 
   assert(result.process->started);
   assert(result.process->exit_code == 0);
   assert(result.process->error_code.empty());
-  assert(result.process->output == "42\r\n");
+  assert(result.process->output == "9\r\n");
+  assert(result.trace);
+  const auto& events = result.trace->events();
+  assert(std::any_of(events.begin(), events.end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":4") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  assert(std::any_of(events.begin(), events.end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":5") != std::string::npos &&
+        event.payload.find("\"total\":\"9\"") != std::string::npos;
+  }));
   assert(std::filesystem::is_empty(root, error));
   assert(!error);
   std::filesystem::remove_all(root, error);
+#else
+  (void)runtime;
+#endif
+}
+
+void test_java_source_trace_preserves_failures_and_bounds(const std::filesystem::path& runtime) {
+#ifdef _WIN32
+  if (runtime.empty()) return;
+  Fixture fixture;
+  const auto execution_root = fixture.root / "execution";
+  assert(std::filesystem::create_directory(execution_root));
+  codeweave::execution::ExecutionService service;
+  const auto run = [&](std::string source) {
+    const auto result = service.run({"java-trace-boundary", "java", std::move(source), 20'000, 4096},
+        runtime, execution_root);
+    assert(result.validation.ok && result.process && result.process->started && result.trace);
+    assert(std::filesystem::is_empty(execution_root));
+    std::size_t count = 0;
+    std::size_t bytes = 0;
+    for (const auto& event : result.trace->events()) {
+      if (event.kind != codeweave::execution::EventKind::SourceStep) continue;
+      assert(event.payload.size() <= 8192);
+      ++count;
+      bytes += event.payload.size();
+    }
+    assert(count <= 512 && bytes <= 256 * 1024);
+    return result;
+  };
+  const auto failure = run("public class Main {\npublic static void main(String[] args) {\n"
+      "int total = 7;\nthrow new IllegalStateException(\"trace failure\");\n}\n}\n");
+  assert(failure.process->exit_code != 0 && !failure.process->error_code.empty());
+  assert(failure.process->output.find("trace failure") != std::string::npos);
+  assert(failure.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  assert(std::any_of(failure.trace->events().begin(), failure.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"phase\":\"exception\"") != std::string::npos;
+  }));
+  const auto exit = run("public class Main { public static void main(String[] args) { System.exit(7); } }\n");
+  assert(exit.process->exit_code == 7);
+  const auto threaded = run("public class Main {\npublic static void main(String[] args) throws Exception {\n"
+      "Thread worker = new Thread(() -> {\nint total = 7;\nSystem.out.println(total);\n});\n"
+      "worker.start();\nworker.join();\n}\n}\n");
+  assert(threaded.process->exit_code == 0 && threaded.process->output == "7\r\n");
+  assert(std::any_of(threaded.trace->events().begin(), threaded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":5") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto syntax = run("public class Main {\ninvalid syntax\n}\n");
+  assert(syntax.process->exit_code != 0 && !syntax.process->execution_output_valid);
+  assert(syntax.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  assert(std::none_of(syntax.trace->events().begin(), syntax.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }));
+  std::atomic_bool cancelled_before_compile{true};
+  const auto compile_cancelled = service.run({"java-compile-cancel", "java",
+      "public class Main { public static void main(String[] args) { System.out.println(7); } }\n", 10'000, 4096},
+      runtime, execution_root, &cancelled_before_compile);
+  assert(compile_cancelled.process && compile_cancelled.process->cancelled && compile_cancelled.trace);
+  assert(compile_cancelled.trace->events().back().kind == codeweave::execution::EventKind::Cancelled);
+  assert(std::filesystem::is_empty(execution_root));
+  const auto bounded = run("public class Main {\npublic static void main(String[] args) {\n"
+      "Object object = new Object() { public String toString() { throw new AssertionError(\"toString called\"); } };\n"
+      "String text = \"x\".repeat(500000);\nint total = 0;\nfor (int i = 0; i < 2000; ++i) {\ntotal += i;\n}\n"
+      "System.out.println(total);\n}\n}\n");
+  assert(bounded.process->exit_code == 0 && bounded.process->output == "1999000\r\n");
+  assert(std::count_if(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }) == 512);
+  assert(std::any_of(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("<long string>") != std::string::npos &&
+        event.payload.find("<object>") != std::string::npos;
+  }));
+  const auto timeout = service.run({"java-trace-timeout", "java",
+      "public class Main { public static void main(String[] args) throws Exception {\n"
+      "java.nio.file.Files.writeString(java.nio.file.Path.of(\"..\", \"timeout-ready\"), \"ready\");\n"
+      "while (true) { Thread.sleep(20); }\n} }\n", 3'000, 4096}, runtime, execution_root);
+  assert(timeout.process && timeout.process->timed_out && std::filesystem::exists(execution_root / "timeout-ready"));
+  assert(std::filesystem::remove(execution_root / "timeout-ready") && std::filesystem::is_empty(execution_root));
+  std::atomic_bool cancellation{false};
+  std::optional<codeweave::execution::ServiceResult> cancelled;
+  std::thread worker([&] {
+    cancelled = service.run({"java-trace-cancel", "java",
+        "public class Main { public static void main(String[] args) throws Exception {\n"
+        "long ticks = 0;\nwhile (true) {\n"
+        "java.nio.file.Files.writeString(java.nio.file.Path.of(\"..\", \"cancel-ticks\"), Long.toString(++ticks));\n"
+        "Thread.sleep(20);\n}\n} }\n", 20'000, 4096}, runtime, execution_root, &cancellation);
+  });
+  const auto ticks_path = execution_root / "cancel-ticks";
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+  while (!std::filesystem::exists(ticks_path) && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const bool child_started = std::filesystem::exists(ticks_path);
+  cancellation.store(true);
+  worker.join();
+  assert(child_started && cancelled && cancelled->process && cancelled->process->cancelled);
+  const auto read_ticks = [&] {
+    std::ifstream file(ticks_path);
+    std::string ticks;
+    std::getline(file, ticks);
+    return ticks;
+  };
+  const auto stopped_ticks = read_ticks();
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  assert(read_ticks() == stopped_ticks);
+  assert(std::filesystem::remove(ticks_path) && std::filesystem::is_empty(execution_root));
 #else
   (void)runtime;
 #endif
@@ -2252,6 +2372,8 @@ int main(int argc, char** argv) {
   test_execution_service_rejects_failed_cpp_compilation(
       argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
   test_execution_service_compiles_and_runs_java(
+      argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
+  test_java_source_trace_preserves_failures_and_bounds(
       argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
   test_execution_service_runs_external_language("python",
       argc > 4 ? std::filesystem::path(argv[4]) : std::filesystem::path{},

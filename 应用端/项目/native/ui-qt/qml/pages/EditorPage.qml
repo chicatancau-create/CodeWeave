@@ -672,7 +672,7 @@ Item {
                                     }
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "Python / JavaScript 源码步骤快照；其他语言暂不支持"
+                                        text: "Python / JavaScript / Java 源码步骤快照；C++ 暂不支持"
                                         color: ds.faint
                                         font.family: ds.ui
                                         font.pixelSize: 11

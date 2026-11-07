@@ -525,7 +525,8 @@ int main(int argc, char** argv) {
       assert(trace.value(QStringLiteral("documentId")).toString() == document);
       assert(events.size() >= 3);
       assert(events.first().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("started"));
-      if (document == QStringLiteral("python-loop-sum") || document == QStringLiteral("javascript-loop-sum")) {
+      if (document == QStringLiteral("python-loop-sum") || document == QStringLiteral("javascript-loop-sum") ||
+          document == QStringLiteral("java-loop-sum")) {
         const auto source_step = std::find_if(events.begin(), events.end(), [](const auto& event) {
           const auto map = event.toMap();
           return map.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&

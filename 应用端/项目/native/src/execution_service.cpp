@@ -1,4 +1,5 @@
 #include "execution_service.hpp"
+#include "java_trace_runner.hpp"
 #include "javascript_trace_runner.hpp"
 
 #include <fstream>
@@ -68,13 +69,6 @@ std::filesystem::path java_source_path(const std::filesystem::path& working_dire
 
 std::filesystem::path sibling_java_compiler(const std::filesystem::path& java_tool) {
   return java_tool.parent_path() / "javac.exe";
-}
-
-std::filesystem::path unique_java_directory(const std::filesystem::path& root,
-    std::string_view session_id) {
-  std::random_device random;
-  return root / ("java-" + std::string(session_id) + "-" +
-      std::to_string(random()) + "-" + std::to_string(random()));
 }
 
 std::filesystem::path unique_source_trace_directory(const std::filesystem::path& root,
@@ -239,7 +233,7 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
   }
   if (request.language == "java") {
     std::error_code directory_error;
-    const auto java_directory = unique_java_directory(working_directory, request.session_id);
+    const auto java_directory = unique_source_trace_directory(working_directory, request.language);
     const bool created = std::filesystem::create_directory(java_directory, directory_error);
     if (!created || directory_error) {
       return {app::Result::failure(created ? "Java 隔离工作目录创建后不可用"
@@ -248,6 +242,12 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     }
     TemporaryDirectory java_cleanup(java_directory);
     const auto source_path = java_source_path(java_directory);
+    const auto runner_directory = java_directory / "codeweave" / "trace";
+    std::filesystem::create_directories(runner_directory, directory_error);
+    if (directory_error || !write_file(runner_directory / "CodeWeaveTraceRunner.java", kJavaTraceRunner)) {
+      return {app::Result::failure("无法创建 Java 源码追踪器"), std::nullopt, std::nullopt};
+    }
+    const auto snapshot_path = java_directory / "snapshots.jsonl";
     {
       std::ofstream source_file(source_path, std::ios::binary | std::ios::trunc);
       if (!source_file) return {app::Result::failure("无法创建 Java 源文件"), std::nullopt, std::nullopt};
@@ -257,7 +257,8 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     }
     const auto compiler = sibling_java_compiler(executable);
     const ProcessRequest compile_request{
-        compiler, {L"-encoding", L"UTF-8", L"Main.java"}, java_directory, "java-compile"};
+        compiler, {L"--add-modules", L"jdk.jdi", L"-g", L"-encoding", L"UTF-8", L"Main.java",
+                      L"codeweave/trace/CodeWeaveTraceRunner.java"}, java_directory, "java-compile"};
     if (const auto compile_valid = validate_process_request(compile_request); !compile_valid.ok) {
       return {app::Result::failure("Java 编译器未配置或不在同一 JDK 中"), std::nullopt, std::nullopt};
     }
@@ -267,15 +268,18 @@ ServiceResult ExecutionService::run(const Request& request, const std::filesyste
     if (!compilation.started || compilation.exit_code != 0 || !compilation.error_code.empty() ||
         (cancellation && cancellation->load())) {
       compilation.execution_output_valid = false;
-      if (!compilation.error_code.empty()) trace.append(EventKind::Failed, compilation.error_code);
-      else trace.append(EventKind::Failed, "java_compilation_failed");
       if (!compilation.output.empty()) trace.append(EventKind::Output, compilation.output);
+      if (compilation.cancelled || (cancellation && cancellation->load())) trace.append(EventKind::Cancelled);
+      else if (!compilation.error_code.empty()) trace.append(EventKind::Failed, compilation.error_code);
+      else trace.append(EventKind::Failed, "java_compilation_failed");
       return {validation, std::move(compilation), std::move(trace)};
     }
     ProcessPlan runtime_plan{
-        {executable, {L"-cp", java_directory.wstring(), L"Main"}, java_directory, "java"},
+        {executable, {L"--add-modules", L"jdk.jdi", L"-cp", java_directory.wstring(),
+                         L"codeweave.trace.CodeWeaveTraceRunner", snapshot_path.wstring()}, java_directory, "java"},
         {}, request.timeout_ms, request.output_limit};
     auto process = runner_.run(runtime_plan, cancellation, control);
+    append_source_steps(snapshot_path, trace);
     for (const auto& event : process.control_events) {
       if (event.command == ControlCommand::Pause) trace.append(EventKind::Paused);
       if (event.command == ControlCommand::Resume || event.command == ControlCommand::Step) trace.append(EventKind::Resumed);
