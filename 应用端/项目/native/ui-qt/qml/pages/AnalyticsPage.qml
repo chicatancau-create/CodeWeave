@@ -231,8 +231,10 @@ Item {
                             { idx: "03", icon: "◷", title: "连续打卡",
                               rows: [
                                 { n: "连续打卡天数", v: analyticsPage.metric("streakDays", "暂无数据"),
-                                  b: "从今天往回数连续有打卡记录的日期（countStreak）",
-                                  d: "当前数据源未提供打卡记录" },
+                                  b: "从今天或昨天往回数连续有打卡记录的日期（countStreak）",
+                                  d: uiShell.checkinSummary.ready
+                                     ? "累计打卡 " + uiShell.checkinSummary.totalDays + " 天"
+                                     : "打卡记录尚未读取或不可用" },
                                 { n: "今日打卡状态", v: analyticsPage.metric("todayCheckin", "暂无数据"), b: "打卡记录按本地日期键判定",
                                   d: "今天 " + analyticsPage.todayKey },
                                 { n: "学习时长（近 7 天）", v: "未统计",

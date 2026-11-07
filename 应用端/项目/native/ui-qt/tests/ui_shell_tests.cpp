@@ -2,6 +2,7 @@
 #include "evidence_store.hpp"
 #include "challenge_runtime.hpp"
 #include "challenge_submission_store.hpp"
+#include "checkin_store.hpp"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -9,6 +10,7 @@
 #include <QDate>
 #include <QDateTime>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -134,9 +136,70 @@ void test_challenge_submission_store() {
   assert(!ChallengeSubmissionStore(blocked.path()).append(record, records).ok);
   assert(read_file(blocked_root / "learning") == "not a directory");
 }
+void test_checkin_store() {
+  QTemporaryDir temporary;
+  assert(temporary.isValid());
+  const auto root = QDir(temporary.path()).filePath("account-a");
+  const CheckinStore store(root);
+  QStringList dates;
+  assert(store.read(dates).ok && dates.isEmpty());
+  assert(!QDir(root).exists());
+  const QDate today(2028, 3, 1);
+  assert(!store.checkIn(QDate{}, dates).ok);
+  assert(store.checkIn(today.addDays(-2), dates).ok);
+  assert(store.checkIn(today.addDays(-1), dates).ok);
+  assert(CheckinStore::streak(dates, today) == 2);
+  assert(store.checkIn(today, dates).ok && dates.size() == 3);
+  assert(CheckinStore::streak(dates, today) == 3);
+  assert(CheckinStore::streak(dates, today.addDays(1)) == 3);
+  assert(CheckinStore::streak(dates, today.addDays(2)) == 0);
+  const auto path = QDir(root).filePath("learning/checkin.v1.json");
+  auto read_bytes = [&] {
+    QFile file(path);
+    assert(file.open(QIODevice::ReadOnly));
+    return file.readAll();
+  };
+  const auto original = read_bytes();
+  QFile file(path);
+  const auto modified = QFileInfo(path).lastModified();
+  assert(store.checkIn(today, dates).ok && dates.size() == 3);
+  assert(read_bytes() == original && QFileInfo(path).lastModified() == modified);
+  dates.clear();
+  assert(CheckinStore(root).read(dates).ok && dates.size() == 3);
+  assert(CheckinStore(QDir(temporary.path()).filePath("account-b")).read(dates).ok && dates.isEmpty());
+  QLockFile lock(path + ".lock");
+  assert(lock.tryLock(0));
+  assert(!store.checkIn(today.addDays(1), dates).ok && read_bytes() == original);
+  lock.unlock();
+  for (const auto& bytes : {QByteArray("broken-json"), QByteArray("{\"schemaVersion\":2,\"dates\":[]}"),
+                          QByteArray("{\"schemaVersion\":1,\"dates\":[\"2028-02-30\"]}"),
+                          QByteArray("{\"schemaVersion\":1,\"dates\":[true]}"),
+                          QByteArray("{\"schemaVersion\":1,\"dates\":null}")}) {
+    assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    assert(file.write(bytes) == bytes.size());
+    file.close();
+    assert(!store.read(dates).ok && !store.checkIn(today, dates).ok);
+    assert(read_bytes() == bytes);
+  }
+  const QByteArray duplicate("{\"schemaVersion\":1,\"dates\":[\"2028-02-29\",\"2028-02-29\"]}");
+  assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  assert(file.write(duplicate) == duplicate.size());
+  file.close();
+  assert(store.read(dates).ok && dates.size() == 1);
+  assert(store.checkIn(today, dates).ok && dates.size() == 2);
+  QTemporaryDir blocked;
+  std::ofstream(std::filesystem::path(blocked.path().toStdWString()) / "learning") << "not a directory";
+  assert(!CheckinStore(blocked.path()).checkIn(today, dates).ok);
+  assert(!CheckinStore("relative-account").read(dates).ok);
+  assert(CheckinStore::streak({}, today) == 0);
+}
 }  // namespace
 
 struct UiShellTestAccess {
+  static void set_today(UiShell& shell, const QDate& date) {
+    shell.local_date_ = [date] { return date; };
+    shell.refreshLocalDay();
+  }
   static bool block_worker(UiShell& shell, std::mutex& mutex,
       std::condition_variable& condition, bool& started, bool& release) {
     codeweave::backend::TaskRequest request;
@@ -158,6 +221,7 @@ int main(int argc, char** argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") return challenge_worker_main();
   assert(argc == 6);
   test_challenge_submission_store();
+  test_checkin_store();
   QTemporaryDir temporary;
   assert(temporary.isValid());
   const auto workspace = std::filesystem::path(temporary.path().toStdWString()) / L"中文工作区";
@@ -180,6 +244,80 @@ int main(int argc, char** argv) {
   assert(first.learning_data_root(data, first_root).ok);
   assert(second.learning_data_root(data, second_root).ok);
   QString saved_document;
+  {
+    QTemporaryDir checkin_temporary;
+    assert(checkin_temporary.isValid());
+    const auto checkin_workspace = std::filesystem::path(checkin_temporary.path().toStdWString());
+    const auto checkin_data = checkin_workspace / "checkin-data";
+    codeweave::account::AccountStore checkin_accounts(checkin_data);
+    codeweave::account::AccountService checkin_a(checkin_accounts), checkin_b(checkin_accounts);
+    assert(checkin_a.register_account("Checkin A", "checkin-a@example.test", "Test-Password-123!").ok);
+    assert(checkin_b.register_account("Checkin B", "checkin-b@example.test", "Test-Password-123!").ok);
+    std::filesystem::path checkin_root;
+    assert(checkin_a.learning_data_root(checkin_data, checkin_root).ok);
+    UiShell shell;
+    UiShellTestAccess::set_today(shell, QDate(2028, 2, 29));
+    shell.checkIn();
+    assert(!shell.checkinSummary().value("ready").toBool());
+    assert(shell.setAccountContext(checkin_a, checkin_workspace, checkin_data));
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("ready").toBool());
+    assert(!shell.checkinSummary().value("checkedIn").toBool());
+    shell.checkIn();
+    shell.checkIn();
+    assert(!shell.clearAccountContext());
+    assert(!shell.requestClose());
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("checkedIn").toBool());
+    assert(shell.checkinSummary().value("streakDays").toInt() == 1);
+    shell.checkIn();
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("totalDays").toInt() == 1);
+    UiShellTestAccess::set_today(shell, QDate(2028, 3, 1));
+    assert(!shell.checkinSummary().value("checkedIn").toBool());
+    assert(shell.checkinSummary().value("streakDays").toInt() == 1);
+    shell.checkIn();
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("streakDays").toInt() == 2);
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.analysisSnapshot().value("streakDays").toInt() == 2);
+    assert(shell.analysisSnapshot().value("todayCheckin") == "已打卡");
+    UiShellTestAccess::set_today(shell, QDate(2028, 3, 2));
+    assert(shell.analysisSnapshot().value("todayCheckin") == "未打卡");
+    const auto account_snapshot = shell.analysisSnapshot();
+    shell.openFreeProgram(QStringLiteral("python"));
+    assert(shell.analysisSnapshot() == account_snapshot);
+    wait_for([&] { return !shell.contentBusy(); });
+    const auto checkin_path = QString::fromStdWString((checkin_root / "learning/checkin.v1.json").wstring());
+    QLockFile lock(checkin_path + ".lock");
+    assert(lock.tryLock(0));
+    shell.checkIn();
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(!shell.checkinSummary().value("ready").toBool());
+    assert(shell.checkinSummary().value("status").toString().contains(QStringLiteral("请稍后重试")));
+    lock.unlock();
+    shell.refreshCheckin();
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("ready").toBool());
+    assert(!shell.checkinSummary().value("checkedIn").toBool());
+    assert(shell.setAccountContext(checkin_b, checkin_workspace, checkin_data));
+    assert(shell.checkinSummary().value("dates").toStringList().isEmpty());
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("totalDays").toInt() == 0);
+    assert(shell.setAccountContext(checkin_a, checkin_workspace, checkin_data));
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("totalDays").toInt() == 2);
+    assert(shell.clearAccountContext());
+    assert(!shell.checkinSummary().value("ready").toBool());
+    assert(shell.checkinSummary().value("dates").toStringList().isEmpty());
+    // Read callbacks queued for a previous account must not reveal its dates.
+    assert(shell.setAccountContext(checkin_a, checkin_workspace, checkin_data));
+    assert(shell.setAccountContext(checkin_b, checkin_workspace, checkin_data));
+    wait_for([&] { return !shell.checkinSummary().value("busy").toBool(); });
+    assert(shell.checkinSummary().value("ready").toBool());
+    assert(shell.checkinSummary().value("totalDays").toInt() == 0);
+  }
   {
     UiShell shell;
     shell.saveDraft();

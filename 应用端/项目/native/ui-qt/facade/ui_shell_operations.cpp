@@ -233,7 +233,7 @@ void UiShell::refreshReviewSummary() {
   const auto workspace = workspace_root_;
   const auto account = active_account_id_;
   const auto generation = account_generation_;
-  const auto today_date = QDate::currentDate();
+  const auto today_date = local_date_();
   const auto today = today_date.toString(Qt::ISODate).toStdString();
   const auto first_day = today_date.addDays(-6).toString(Qt::ISODate).toStdString();
   const auto summary = std::make_shared<codeweave::learning::ReviewSummary>();

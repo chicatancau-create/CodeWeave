@@ -93,6 +93,7 @@ struct U3MatrixContext {
   QString output;
   QString screenshot_dir;
   QString blocked_draft_path;
+  QByteArray checkin_bytes;
   QVariantMap review_before;
   QSize detail_restore_size;
   bool detail_large = false;
@@ -731,6 +732,11 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("window-content-loaded"),
               !shell.publishedIds().isEmpty());
           u3_record(*context, QStringLiteral("page-learning"), shell.currentPage() == QStringLiteral("学习"));
+          {
+            auto* calendar = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+            u3_record(*context, QStringLiteral("checkin-guest-calendar-disabled"), calendar &&
+                !calendar->property("enabled").toBool() && !shell.checkinSummary().value("ready").toBool());
+          }
           u3_screenshot(*context, view, QStringLiteral("u3-learning"));
           context->step++;
           return;
@@ -2322,8 +2328,156 @@ int main(int argc, char* argv[]) {
         }
         case 413:
           u3_screenshot(*context, view, QStringLiteral("u3-analysis-review-rate"));
+          context->step = 419;
+          return;
+        case 419: {
+          if (shell.operationBusy()) return;
+          codeweave::learning::MasteryStore mastery(shell.nativeDataRoot() / "accounts" / shell.activeAccountId().toStdWString());
+          const codeweave::learning::MasteryEvidence record{"matrix-checkin-review", codeweave::learning::MasteryEvidenceKind::Lesson,
+              "python-loop-sum", "isolated eligible review schedule", QDateTime(QDate::currentDate().addDays(-2), QTime(12, 0))
+                  .toUTC().toString(Qt::ISODateWithMs).toStdString(),
+              true, codeweave::learning::CompletionVerification::SelfDeclared, codeweave::learning::RanBy::Learner,
+              true, "L1", "op-checkinreview-0123ab"};
+          bool duplicate = false;
+          u3_record(*context, QStringLiteral("sidebar-review-eligible-fixture"), mastery.append_idempotent(record, duplicate).ok && !duplicate);
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 420: {
+          if (shell.checkinSummary().value("busy").toBool() || shell.operationBusy()) return;
+          auto* card = u3_find_item(view.rootObject(), QStringLiteral("sidebarCheckinCard"));
+          auto* review = u3_find_item(view.rootObject(), QStringLiteral("sidebarReviewNavigation"));
+          const auto due = shell.analysisSnapshot().value("reviewDueCount").toInt();
+          u3_record(*context, QStringLiteral("sidebar-review-due-badge"), review && due > 0 &&
+              review->property("badge").toString() == QString::number(due));
+          u3_record(*context, QStringLiteral("checkin-authenticated-empty"), card &&
+              shell.checkinSummary().value("ready").toBool() && shell.checkinSummary().value("totalDays").toInt() == 0 &&
+              !shell.checkinSummary().value("checkedIn").toBool() && card->property("canCheckIn").toBool());
+          if (card) card->forceActiveFocus(Qt::TabFocusReason);
+          send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 421: {
+          if (shell.checkinSummary().value("busy").toBool()) return;
+          auto* card = u3_find_item(view.rootObject(), QStringLiteral("sidebarCheckinCard"));
+          u3_record(*context, QStringLiteral("checkin-keyboard-write-and-disable"), card &&
+              shell.checkinSummary().value("checkedIn").toBool() &&
+              shell.checkinSummary().value("streakDays").toInt() == 1 && !card->property("canCheckIn").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-checkin-sidebar"));
+          send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+          auto* button = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+          if (button) button->forceActiveFocus(Qt::TabFocusReason);
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 422: {
+          if (!view.rootObject()->property("checkinCalendarOpen").toBool()) return;
+          auto* previous = u3_find_item(view.contentItem(), QStringLiteral("checkinPreviousMonth"));
+          const auto today = QDate::currentDate();
+          auto* cell = u3_find_item(view.contentItem(), QStringLiteral("checkinDay-") + today.toString(Qt::ISODate));
+          u3_record(*context, QStringLiteral("checkin-calendar-focus-and-recorded-day"), previous && previous->hasActiveFocus() &&
+              cell && cell->isVisible() && shell.checkinSummary().value("totalDays").toInt() == 1);
+          send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+          auto* next = u3_find_item(view.contentItem(), QStringLiteral("checkinNextMonth"));
+          u3_record(*context, QStringLiteral("checkin-calendar-end-focus"), next && next->hasActiveFocus());
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 423: {
+          const auto next_month = QDate::currentDate().addMonths(1);
+          auto* label = u3_find_item(view.contentItem(), QStringLiteral("checkinCalendarMonth"));
+          u3_record(*context, QStringLiteral("checkin-calendar-next-month"), label &&
+              label->property("text").toString() == QStringLiteral("%1 年 %2 月").arg(next_month.year()).arg(next_month.month()));
+          u3_screenshot(*context, view, QStringLiteral("u3-checkin-calendar"));
+          send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 424: {
+          auto* button = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+          u3_record(*context, QStringLiteral("checkin-calendar-escape-return-focus"), button && button->hasActiveFocus() &&
+              !view.rootObject()->property("checkinCalendarOpen").toBool());
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 425: {
+          if (!view.rootObject()->property("checkinCalendarOpen").toBool()) return;
+          const QPointF point(view.width() - 30, 150);
+          QMouseEvent press(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+          QMouseEvent release(QEvent::MouseButtonRelease, point, point, point, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+          QCoreApplication::sendEvent(&view, &press);
+          QCoreApplication::sendEvent(&view, &release);
+          context->step++;
+          return;
+        }
+        case 426: {
+          u3_record(*context, QStringLiteral("checkin-calendar-outside-dismiss"),
+              !view.rootObject()->property("checkinCalendarOpen").toBool());
+          const auto path = QDir(nativeData).filePath("accounts/" + shell.activeAccountId() + "/learning/checkin.v1.json");
+          QFile file(path);
+          const bool opened = file.open(QIODevice::ReadOnly);
+          if (opened) context->checkin_bytes = file.readAll();
+          file.close();
+          const bool written = file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write("broken-checkin") == 14;
+          file.close();
+          u3_record(*context, QStringLiteral("checkin-isolated-corruption-fixture"), opened && written);
+          shell.refreshCheckin();
+          context->step++;
+          return;
+        }
+        case 427: {
+          if (shell.checkinSummary().value("busy").toBool()) return;
+          auto* error = u3_find_item(view.rootObject(), QStringLiteral("checkinErrorText"));
+          auto* retry = u3_find_item(view.rootObject(), QStringLiteral("checkinRetryButton"));
+          const auto path = QDir(nativeData).filePath("accounts/" + shell.activeAccountId() + "/learning/checkin.v1.json");
+          QFile file(path);
+          const bool retained = file.open(QIODevice::ReadOnly) && file.readAll() == "broken-checkin";
+          file.close();
+          u3_record(*context, QStringLiteral("checkin-corruption-visible-preserved-retry"), error && error->isVisible() &&
+              error->property("text").toString().contains(QStringLiteral("禁止覆盖")) && retry && retry->isVisible() && retained &&
+              !shell.checkinSummary().value("ready").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-checkin-error"));
+          const bool repaired = file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
+              file.write(context->checkin_bytes) == context->checkin_bytes.size();
+          file.close();
+          u3_record(*context, QStringLiteral("checkin-isolated-fixture-repair"), repaired);
+          if (retry) QMetaObject::invokeMethod(retry, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 428: {
+          if (shell.checkinSummary().value("busy").toBool()) return;
+          u3_record(*context, QStringLiteral("checkin-retry-reloads-record"), shell.checkinSummary().value("ready").toBool() &&
+              shell.checkinSummary().value("checkedIn").toBool() && shell.checkinSummary().value("totalDays").toInt() == 1);
+          view.resize(1100, 720);
+          auto* button = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+          if (button) QMetaObject::invokeMethod(button, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 429: {
+          if (!view.rootObject()->property("checkinCalendarOpen").toBool()) return;
+          auto* cell = u3_find_item(view.contentItem(), QStringLiteral("checkinDay-") + QDate::currentDate().toString(Qt::ISODate));
+          const auto point = cell ? cell->mapToScene(QPointF()) : QPointF(-1, -1);
+          auto* total = u3_find_item(view.contentItem(), QStringLiteral("checkinCalendarTotal"));
+          const auto total_point = total ? total->mapToScene(QPointF()) : QPointF(-1, -1);
+          u3_record(*context, QStringLiteral("checkin-narrow-calendar-framed"), cell && point.x() >= 0 && point.y() >= 0 &&
+              point.x() + cell->width() <= view.width() && point.y() + cell->height() <= view.height() &&
+              total && total_point.x() >= 0 && total_point.y() >= 0 &&
+              total_point.x() + total->width() <= view.width() && total_point.y() + total->height() <= view.height() &&
+              u3_screenshot(*context, view, QStringLiteral("u3-checkin-narrow"), QSize(1100, 720)));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          view.resize(1440, 900);
           context->step = 24;
           return;
+        }
         case 24:
           shell.selectPage(QStringLiteral("分析"));
           u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
@@ -2331,7 +2485,7 @@ int main(int argc, char* argv[]) {
           return;
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-and-lesson-evidence-screenshots"), context->screenshots.size() == 38,
+          u3_record(*context, QStringLiteral("page-challenge-and-lesson-evidence-screenshots"), context->screenshots.size() == 42,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

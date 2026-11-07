@@ -32,6 +32,15 @@ Rectangle {
     property bool accountMenuOpen: false
     property bool settingsOpen: false
     property bool helpOpen: false
+    property bool checkinCalendarOpen: false
+    property string sidebarReviewDay: ""
+    function refreshSidebarReview() {
+        const today = uiShell.checkinSummary.todayKey;
+        if (!uiShell.hasActiveAccount || uiShell.operationBusy || uiShell.executionBusy
+                || uiShell.accountBusy || sidebarReviewDay === today) return;
+        sidebarReviewDay = today;
+        if (uiShell.analysisSnapshot.todayKey !== today) uiShell.refreshReviewSummary();
+    }
     property Item dialogReturnFocusItem
     function returnDialogFocus() {
         const item = dialogReturnFocusItem;
@@ -59,6 +68,14 @@ Rectangle {
 
     Connections {
         target: uiShell
+        function onAccountChanged() {
+            root.sidebarReviewDay = "";
+            checkinDialog.close();
+            Qt.callLater(root.refreshSidebarReview);
+        }
+        function onOperationBusyChanged() { if (!uiShell.operationBusy) Qt.callLater(root.refreshSidebarReview); }
+        function onAccountBusyChanged() { if (!uiShell.accountBusy) Qt.callLater(root.refreshSidebarReview); }
+        function onExecutionBusyChanged() { if (!uiShell.executionBusy) Qt.callLater(root.refreshSidebarReview); }
         function onSelectedContentChanged() {
             for (let index = 0; index < uiShell.lessonMeta.length; index++) {
                 if (uiShell.lessonMeta[index].id === uiShell.documentId) {
@@ -476,6 +493,16 @@ Rectangle {
         }
     }
 
+    Timer {
+        interval: 30000
+        repeat: true
+        running: true
+        onTriggered: {
+            uiShell.refreshLocalDay();
+            root.refreshSidebarReview();
+        }
+    }
+
         ShellPopup {
             id: searchPopup
             objectName: "searchPopup"
@@ -767,6 +794,9 @@ Rectangle {
                     ds: root.designSystem
                     Layout.fillWidth: true
                     glyph: "◷"; label: "复习中心"; index: "04"
+                    objectName: "sidebarReviewNavigation"
+                    badge: Number(uiShell.analysisSnapshot.reviewDueCount || 0) > 0
+                           ? "" + uiShell.analysisSnapshot.reviewDueCount : ""
                     active: root.page === "复习与进度"
                     onActivated: uiShell.selectPage("复习与进度")
                 }
@@ -803,15 +833,23 @@ Rectangle {
 
                 // .streak-card
                 Rectangle {
+                    id: checkinCard
+                    objectName: "sidebarCheckinCard"
+                    readonly property bool canCheckIn: uiShell.hasActiveAccount && uiShell.checkinSummary.ready
+                        && !uiShell.checkinSummary.busy && !uiShell.checkinSummary.checkedIn
+                    activeFocusOnTab: canCheckIn
+                    Keys.onReturnPressed: if (canCheckIn) uiShell.checkIn()
+                    Keys.onEnterPressed: if (canCheckIn) uiShell.checkIn()
+                    Keys.onSpacePressed: if (canCheckIn) uiShell.checkIn()
                     Layout.fillWidth: true
-                    Layout.bottomMargin: ds.s14
+                    Layout.bottomMargin: ds.s8
                     implicitHeight: 60
                     radius: 7
                     color: streakHover.hovered ? ds.cardHover : ds.panel
                     border.color: ds.line
                     border.width: 1
 
-                    HoverHandler { id: streakHover }
+                    HoverHandler { id: streakHover; cursorShape: checkinCard.canCheckIn ? Qt.PointingHandCursor : Qt.ArrowCursor }
 
                     // Smooth transition
                     Behavior on color {
@@ -839,23 +877,71 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 1
                             Text {
-                                text: uiShell.analysisSnapshot.streakDays === undefined
-                                      || uiShell.analysisSnapshot.streakDays === "暂无数据"
-                                      ? "连续打卡数据暂无"
-                                      : "连续打卡 " + uiShell.analysisSnapshot.streakDays + " 天"
+                                Layout.fillWidth: true
+                                objectName: "sidebarCheckinTitle"
+                                text: uiShell.checkinSummary.ready
+                                      ? (uiShell.checkinSummary.checkedIn ? "已打卡 · 连续 " : "连续打卡 ")
+                                        + uiShell.checkinSummary.streakDays + " 天"
+                                      : "打卡数据暂无"
                                 color: ds.ink
                                 font.family: ds.ui
                                 font.pixelSize: 13
+                                elide: Text.ElideRight
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: uiShell.analysisSnapshot.todayCheckin || "打卡功能待接入"
+                                text: uiShell.checkinSummary.busy ? "正在保存…"
+                                      : uiShell.checkinSummary.status || (uiShell.checkinSummary.ready
+                                        ? (uiShell.checkinSummary.checkedIn ? "明天继续保持" : "点击卡片完成今日打卡")
+                                        : "请登录后使用打卡")
                                 color: ds.muted
                                 font.family: ds.ui
                                 font.pixelSize: 12
                                 elide: Text.ElideRight
                             }
                         }
+                    }
+                    TapHandler {
+                        enabled: checkinCard.canCheckIn
+                        onTapped: uiShell.checkIn()
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: uiShell.checkinSummary.ready
+                        ? (uiShell.checkinSummary.checkedIn ? "今日已打卡" : "连续打卡 " + uiShell.checkinSummary.streakDays + " 天，点击打卡")
+                        : "打卡数据不可用"
+                }
+                Text {
+                    objectName: "checkinErrorText"
+                    Layout.fillWidth: true
+                    visible: uiShell.hasActiveAccount && !uiShell.checkinSummary.ready && !!uiShell.checkinSummary.status
+                    text: uiShell.checkinSummary.status || ""
+                    color: ds.danger; font.family: ds.ui; font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: ds.s14
+                    BusyIndicator {
+                        Layout.preferredWidth: 20; Layout.preferredHeight: 20
+                        visible: running; running: uiShell.checkinSummary.busy
+                        palette.dark: ds.accent
+                    }
+                    QuietButton {
+                        objectName: "checkinRetryButton"
+                        ds: root.designSystem
+                        label: "重试"
+                        visible: uiShell.hasActiveAccount && !uiShell.checkinSummary.ready && !uiShell.checkinSummary.busy
+                        onClicked: uiShell.refreshCheckin()
+                    }
+                    Item { Layout.fillWidth: true }
+                    IconButton {
+                        id: checkinCalendarButton
+                        objectName: "checkinCalendarButton"
+                        ds: root.designSystem
+                        glyph: "⋯"
+                        tip: "查看打卡日历"
+                        enabled: uiShell.hasActiveAccount && uiShell.checkinSummary.ready
+                        onClicked: checkinDialog.open()
                     }
                 }
 
@@ -1045,6 +1131,31 @@ Rectangle {
 
 
     // ── Dialogs ─────────────────────────────────────────────────────────────
+    ShellPopup {
+        id: checkinDialog
+        objectName: "checkinCalendarDialog"
+        ds: root.designSystem
+        modal: true
+        returnFocusItem: checkinCalendarButton
+        menuItems: [checkinCalendar.previousButton, checkinCalendar.nextButton]
+        x: ds.s16
+        y: Math.max(ds.s16, Math.min(root.height - height - ds.s16,
+            checkinCalendarButton.mapToItem(root, 0, 0).y - height - ds.s8))
+        width: Math.min(320, root.width - ds.s32)
+        height: contentItem.implicitHeight + padding * 2
+        onAboutToShow: {
+            checkinCalendar.year = Number(uiShell.checkinSummary.todayKey.slice(0, 4));
+            checkinCalendar.month = Number(uiShell.checkinSummary.todayKey.slice(5, 7)) - 1;
+        }
+        onOpened: root.checkinCalendarOpen = true
+        onClosed: root.checkinCalendarOpen = false
+        contentItem: CheckinCalendar {
+            id: checkinCalendar
+            ds: root.designSystem
+            summary: uiShell.checkinSummary
+        }
+    }
+
     ShellDialog {
         id: settingsDialog
         objectName: "settingsDialog"

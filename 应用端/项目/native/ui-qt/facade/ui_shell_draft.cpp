@@ -29,13 +29,14 @@ void UiShell::dismissContentStatus() {
 
 bool UiShell::allowDocumentChange() {
   if (closing_ || operation_busy_ || execution_busy_ || challenge_run_busy_ ||
-      (challenge_history_busy_ && challenge_history_write_) || account_busy_) return false;
+      (challenge_history_busy_ && challenge_history_write_) ||
+      (checkin_busy_ && checkin_write_) || account_busy_) return false;
   if (!draftDirty()) return true;
   setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
   return false;
 }
 
-void UiShell::clearDraft() {
+void UiShell::clearDraft(bool accountChange) {
   lesson_expected_output_.clear();
   lesson_contract_ready_ = false;
   lesson_run_succeeded_ = false;
@@ -44,10 +45,15 @@ void UiShell::clearDraft() {
   emit independentAttemptChanged();
   hints_.clear();
   execution_output_.clear();
-  progress_summary_.clear();
-  review_summary_.clear();
-  analysis_snapshot_.clear();
-  emit reviewSummaryChanged();
+  // Account aggregates survive document changes, but never cross accounts.
+  if (accountChange) {
+    progress_summary_.clear();
+    review_summary_.clear();
+    review_items_.clear();
+    analysis_snapshot_.clear();
+    emit reviewSummaryChanged();
+    emit reviewItemsChanged();
+  }
   emit hintsChanged();
   emit executionOutputChanged();
   starter_language_.clear();
@@ -101,11 +107,13 @@ bool UiShell::setAccountContext(const codeweave::account::AccountService& sessio
   data_root_ = account_root;
   // All core I/O runs on the serial worker. The previous core is idle here.
   personal_core_ = std::make_shared<codeweave::app::ApplicationCore>();
+  clearCheckin();
   clearChallengeDrafts();
-  clearDraft();
+  clearDraft(true);
   emit accountChanged();
   if (hasSelectedContent()) loadStarterCode();
   refreshChallengeHistory();
+  refreshCheckin();
   return true;
 }
 
@@ -127,8 +135,9 @@ bool UiShell::clearAccountContext() {
   // its core lock are cleared here.
   data_root_ = native_data_root_;
   personal_core_.reset();
+  clearCheckin();
   clearChallengeDrafts();
-  clearDraft();
+  clearDraft(true);
   emit accountChanged();
   return true;
 }
@@ -139,6 +148,10 @@ void UiShell::discardDraftChanges() {
 }
 
 bool UiShell::requestClose() {
+  if (checkin_busy_ && checkin_write_) {
+    setStatus(QStringLiteral("打卡正在保存，请稍候再关闭"));
+    return false;
+  }
   if (draftDirty()) {
     setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
     return false;

@@ -7,6 +7,7 @@
 #include "review_service.hpp"
 
 #include <QObject>
+#include <QDate>
 #include <QHash>
 #include <QString>
 #include <QStringList>
@@ -66,6 +67,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(QString reviewSummary READ reviewSummary NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY reviewItemsChanged)
   Q_PROPERTY(QVariantMap analysisSnapshot READ analysisSnapshot NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QVariantMap checkinSummary READ checkinSummary NOTIFY checkinChanged)
   Q_PROPERTY(QVariantMap lessonEvidenceStates READ lessonEvidenceStates NOTIFY reviewSummaryChanged)
   Q_PROPERTY(bool lessonEvidenceReady READ lessonEvidenceReady NOTIFY reviewSummaryChanged)
   Q_PROPERTY(QVariantMap lessonAssessment READ lessonAssessment NOTIFY lessonAssessmentChanged)
@@ -121,7 +123,11 @@ class UiShell final : public QObject {
   [[nodiscard]] QString progressSummary() const { return progress_summary_; }
   [[nodiscard]] QString reviewSummary() const { return review_summary_; }
   [[nodiscard]] QVariantList reviewItems() const { return review_items_; }
-  [[nodiscard]] QVariantMap analysisSnapshot() const { return analysis_snapshot_; }
+  [[nodiscard]] QVariantMap analysisSnapshot() const;
+  [[nodiscard]] QVariantMap checkinSummary() const;
+  Q_INVOKABLE void refreshCheckin();
+  Q_INVOKABLE void checkIn();
+  Q_INVOKABLE void refreshLocalDay();
   [[nodiscard]] QVariantMap lessonEvidenceStates() const { return lesson_evidence_states_; }
   [[nodiscard]] bool lessonEvidenceReady() const { return lesson_evidence_ready_; }
   [[nodiscard]] QVariantMap lessonAssessment() const;
@@ -219,13 +225,16 @@ class UiShell final : public QObject {
   void executionStateChanged();
   void executionOutputChanged();
   void reviewSummaryChanged();
+  void checkinChanged();
   void lessonAssessmentChanged();
   void reviewItemsChanged();
   void independentAttemptChanged();
 
  private:
   friend struct UiShellTestAccess;
-  void clearDraft();
+  void performCheckinTask(bool write);
+  void clearCheckin();
+  void clearDraft(bool accountChange = false);
   void clearChallengeDrafts();
   void performChallengeHistoryTask(bool write,
       std::function<codeweave::app::Result(const ChallengeSubmissionStore&, QVariantList&)> work);
@@ -279,6 +288,14 @@ class UiShell final : public QObject {
   QString review_summary_;
   QVariantList review_items_;
   QVariantMap analysis_snapshot_;
+  QStringList checkin_dates_;
+  QString checkin_status_;
+  QString checkin_task_id_;
+  bool checkin_busy_{};
+  bool checkin_write_{};
+  bool checkin_ready_{};
+  QDate checkin_day_;
+  std::function<QDate()> local_date_{[] { return QDate::currentDate(); }};
   bool independent_attempt_{};
   bool hints_viewed_{};
   std::unordered_map<std::string, std::filesystem::path> execution_tools_;
