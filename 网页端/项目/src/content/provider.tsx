@@ -156,6 +156,7 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
    */
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     const run = async () => {
       if (!enabled) {
         if (cancelled) return
@@ -163,10 +164,11 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
         setStatus(null)
         setState('unconfigured')
         setError(null)
+        setLoading(false)
         return
       }
       setLoading(true)
-      const statusResult = await fetchStatus()
+      const statusResult = await fetchStatus(controller.signal)
       if (cancelled) return
       if (!statusResult.ok) {
         setStatus(null)
@@ -177,12 +179,13 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
       }
       setStatus(statusResult.data)
       setState(statusResult.data.state)
-      // LINK-08：绑定状态与教材准入一起刷新；它不影响课程包内容。
-      const learningResult = await fetchLearningStatus()
+      // 绑定状态与教材目录互不依赖，并行请求缩短首屏等待；两者共享本次加载的取消信号。
+      const [learningResult, catalogResult] = await Promise.all([
+        fetchLearningStatus(controller.signal),
+        fetchCatalog(controller.signal),
+      ])
       if (cancelled) return
       setLearningStatus(learningResult.ok ? learningResult.data : null)
-      const catalogResult = await fetchCatalog()
-      if (cancelled) return
       if (!catalogResult.ok) {
         setSnapshot(null)
         setError(catalogResult.message)
@@ -198,6 +201,7 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
     void run()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [enabled, reloadToken])
 

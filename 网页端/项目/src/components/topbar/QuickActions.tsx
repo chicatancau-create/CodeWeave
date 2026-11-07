@@ -20,6 +20,7 @@
  */
 import { memo, useEffect, useRef, useState } from 'react'
 import { BookOpen, CalendarClock, Play, Zap } from 'lucide-react'
+import { useMenuFocus } from '../../hooks/use-menu-focus'
 
 /* ---------------------------- 快捷动作 ------------------------------------ */
 
@@ -51,6 +52,7 @@ export const QuickActions = memo(function QuickActions({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useMenuFocus(open)
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -71,13 +73,15 @@ export const QuickActions = memo(function QuickActions({
   }, [open])
 
   return (
-    <div className="topbar-quick-actions" ref={wrapRef}>
+    <div className="topbar-quick-actions" ref={wrapRef} onBlur={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
+    }}>
       <button
         ref={triggerRef}
         type="button"
         className="icon-button topbar-quick-actions__trigger"
         onClick={() => setOpen((current) => !current)}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? PANEL_ID : undefined}
         aria-label="快捷动作"
@@ -85,9 +89,10 @@ export const QuickActions = memo(function QuickActions({
         <Zap size={17} aria-hidden="true" />
       </button>
       {open && (
-        <div className="topbar-quick-actions__panel" id={PANEL_ID} role="menu" aria-label="快捷动作">
+        <div ref={menuRef} className="topbar-quick-actions__panel" id={PANEL_ID} role="menu" aria-label="快捷动作">
           <strong>快捷动作</strong>
           <button
+            tabIndex={-1}
             role="menuitem"
             type="button"
             className="topbar-quick-actions__item"
@@ -112,6 +117,7 @@ export const QuickActions = memo(function QuickActions({
             </p>
           )}
           <button
+            tabIndex={-1}
             role="menuitem"
             type="button"
             className="topbar-quick-actions__item"
@@ -127,6 +133,7 @@ export const QuickActions = memo(function QuickActions({
             </span>
           </button>
           <button
+            tabIndex={-1}
             role="menuitem"
             type="button"
             className="topbar-quick-actions__item"

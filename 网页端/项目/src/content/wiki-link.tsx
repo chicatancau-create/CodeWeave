@@ -61,6 +61,8 @@ export function WikiLink({
   /** 详情读取失败时服务端给回的原因（01 号方案 §4：error 要能读懂原因，不只是一句「失败」）。 */
   const [detailMessage, setDetailMessage] = useState<string | null>(null)
   const closeButton = useRef<HTMLButtonElement | null>(null)
+  const triggerButton = useRef<HTMLButtonElement | null>(null)
+  const requestVersion = useRef(0)
 
   // 候选集只来自内容快照（lessons 元数据）：不访问磁盘，也不猜未发布文件
   const decision = useMemo(
@@ -74,10 +76,12 @@ export function WikiLink({
       onNavigate({ contentId: decision.contentId, title: decision.title })
       return
     }
+    const version = ++requestVersion.current
     setPreview('loading')
     // 详情取数现在把失败原因按次交回（content/provider.tsx 的 LessonDetailResult），
     // 这里把它显示出来：01 号方案 §4 的 error 行要求「可理解原因」，只说「读取失败」不够。
     const result = content ? await content.loadLessonDetail(decision.contentId) : null
+    if (version !== requestVersion.current) return
     if (!result) {
       setDetailMessage('内容服务尚未连接（教材包未就绪）。')
       setPreview('error')
@@ -93,17 +97,27 @@ export function WikiLink({
     setPreview(result.lesson.reading?.markdown ? 'ready' : 'empty')
   }, [content, decision, onNavigate])
 
-  const close = useCallback(() => setPreview('closed'), [])
+  const close = useCallback(() => {
+    requestVersion.current += 1
+    setPreview('closed')
+    triggerButton.current?.focus()
+  }, [])
 
+  useEffect(() => () => { requestVersion.current += 1 }, [])
+
+  const previewOpen = preview !== 'closed'
   useEffect(() => {
-    if (preview === 'closed') return
+    if (!previewOpen) return
     closeButton.current?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault()
+        close()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [preview, close])
+  }, [previewOpen, close])
 
   const flag = (text: string) => (
     <span className="md-wikilink-flag" style={FLAG_STYLE}>
@@ -142,6 +156,7 @@ export function WikiLink({
   const expanded = preview !== 'closed' && !onNavigate
   const button = (
     <button
+      ref={triggerButton}
       type="button"
       className="md-wikilink md-wikilink--target"
       style={LINK_BUTTON_STYLE}

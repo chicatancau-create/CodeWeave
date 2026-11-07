@@ -26,6 +26,7 @@
      深蓝黑底 + 冷白字，与冷青强调色同族，且仍满足对比度要求（见 §4 对照度说明）。 */
   --ds-canvas: #05070d;                           /* 冷调深蓝黑：比纯黑多一点空间层次 */
   --ds-canvas-solid: #05070d;                     /* L424 启动层、L465 降级层实底 */
+  --ds-canvas-deep: #03050a;
   --ds-canvas-raised: #0a0e18;                    /* 面板/卡片抬升一档的表面色 */
   --ds-canvas-overlay: #070a12;                   /* 弹层/遮罩层表面色 */
   --ds-text-primary: #e8eef7;                     /* 冷白，非纯白（保留暖白的可读感） */
@@ -48,6 +49,9 @@
   --ds-wash-grid: rgba(120, 175, 235, 0.022);     /* 页面细网格 */
   --ds-wash-accent: rgba(34, 211, 238, 0.1);      /* 冷青环境光 */
   --ds-wash-ambient: rgba(34, 211, 238, 0.30);    /* 页面左上环境光 */
+  --ds-wash-nebula: rgba(167, 139, 250, 0.32);
+  --ds-wash-toplight: rgba(125, 211, 252, 0.18);
+  --ds-wash-midlight: rgba(96, 165, 250, 0.16);
   --ds-stage-grid: #182438;                        /* 运行场景网格 */
   --ds-stage-active-glow: rgba(34, 211, 238, 0.12); /* 运行场景活动节点泛光 */
   --ds-stage-nebula-wash: rgba(167, 139, 250, 0.14); /* 运行场景星云节点浅底 */

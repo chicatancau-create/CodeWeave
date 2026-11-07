@@ -1,0 +1,112 @@
+{
+  "startedAt": "2026-11-07T02:16:28.504Z",
+  "status": "passed",
+  "viewports": [
+    {
+      "width": 375,
+      "sidebar": "62px",
+      "sidebarWidth": 62,
+      "topbar": "56px",
+      "busy": "false",
+      "courseHeroWidth": 281,
+      "courseHeroRight": 359,
+      "primaryWidth": 281,
+      "railWidth": 0,
+      "sourceLeadFits": true,
+      "sourceActionsFit": true,
+      "subjectLayout": "flex",
+      "decorZIndex": "-1",
+      "decorPointerEvents": "none",
+      "screenshot": "home-375.png"
+    },
+    {
+      "width": 768,
+      "sidebar": "200px",
+      "sidebarWidth": 200,
+      "topbar": "64px",
+      "busy": "false",
+      "courseHeroWidth": 512,
+      "courseHeroRight": 740,
+      "primaryWidth": 512,
+      "railWidth": 0,
+      "sourceLeadFits": true,
+      "sourceActionsFit": true,
+      "subjectLayout": "flex",
+      "decorZIndex": "-1",
+      "decorPointerEvents": "none",
+      "screenshot": "home-768.png"
+    },
+    {
+      "width": 1280,
+      "sidebar": "240px",
+      "sidebarWidth": 240,
+      "topbar": "68px",
+      "busy": "false",
+      "courseHeroWidth": 672,
+      "courseHeroRight": 936,
+      "primaryWidth": 672,
+      "railWidth": 286,
+      "sourceLeadFits": true,
+      "sourceActionsFit": true,
+      "subjectLayout": "flex",
+      "decorZIndex": "-1",
+      "decorPointerEvents": "none",
+      "screenshot": "home-1280.png"
+    },
+    {
+      "width": 1440,
+      "sidebar": "240px",
+      "sidebarWidth": 240,
+      "topbar": "68px",
+      "busy": "false",
+      "courseHeroWidth": 832,
+      "courseHeroRight": 1096,
+      "primaryWidth": 832,
+      "railWidth": 286,
+      "sourceLeadFits": true,
+      "sourceActionsFit": true,
+      "subjectLayout": "flex",
+      "decorZIndex": "-1",
+      "decorPointerEvents": "none",
+      "screenshot": "home-1440.png"
+    }
+  ],
+  "keyboard": [
+    "375: 账户菜单 focus, End, wrap, Escape",
+    "375: 快捷动作 focus, End, wrap, Escape",
+    "375: calendar focus, Tab trap, Escape",
+    "768: 账户菜单 focus, End, wrap, Escape",
+    "768: 快捷动作 focus, End, wrap, Escape",
+    "768: calendar focus, Tab trap, Escape",
+    "1280: 账户菜单 focus, End, wrap, Escape",
+    "1280: 快捷动作 focus, End, wrap, Escape",
+    "1280: calendar focus, Tab trap, Escape",
+    "1440: 账户菜单 focus, End, wrap, Escape",
+    "1440: 快捷动作 focus, End, wrap, Escape",
+    "1440: calendar focus, Tab trap, Escape"
+  ],
+  "motion": {
+    "normal": [
+      {
+        "pseudo": "::before",
+        "animation": "cw-bg-drift",
+        "transform": "matrix(1, 0, 0, 1, 0.678478, 0.678478)"
+      },
+      {
+        "pseudo": "::after",
+        "animation": "cw-bg-sheen",
+        "transform": "matrix(1, 0, 0, 1, -400.142, 0)"
+      }
+    ],
+    "systemReduced": [
+      "none",
+      "none"
+    ],
+    "appReduced": [
+      "none",
+      "none"
+    ]
+  },
+  "errors": [],
+  "completedAt": "2026-11-07T02:16:32.952Z"
+}

@@ -10,6 +10,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Database, FolderKanban, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import type { AuthUser } from '../../hooks/use-auth'
+import { useMenuFocus } from '../../hooks/use-menu-focus'
 
 /* ---------------------------- 账户菜单 ------------------------------------ */
 
@@ -33,6 +34,7 @@ export const AccountMenu = memo(function AccountMenu({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useMenuFocus(open)
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -53,7 +55,9 @@ export const AccountMenu = memo(function AccountMenu({
   }, [open])
 
   return (
-    <div className="account-menu-wrap" ref={wrapRef}>
+    <div className="account-menu-wrap" ref={wrapRef} onBlur={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
+    }}>
       <button
         ref={triggerRef}
         className="topbar-avatar"
@@ -65,10 +69,11 @@ export const AccountMenu = memo(function AccountMenu({
         {user.name.slice(0, 1).toUpperCase()}
       </button>
       {open && (
-        <div className="account-menu" role="menu" aria-label="账户操作">
+        <div ref={menuRef} className="account-menu" role="menu" aria-label="账户操作">
           <strong>{user.name}</strong>
           <span>{user.email ?? user.phone ?? ''}</span>
           <button
+            tabIndex={-1}
             role="menuitem"
             onClick={() => {
               setOpen(false)
@@ -79,6 +84,7 @@ export const AccountMenu = memo(function AccountMenu({
             个人中心
           </button>
           <button
+            tabIndex={-1}
             role="menuitem"
             onClick={() => {
               setOpen(false)
@@ -89,6 +95,7 @@ export const AccountMenu = memo(function AccountMenu({
             账户安全
           </button>
           <button
+            tabIndex={-1}
             role="menuitem"
             onClick={() => {
               setOpen(false)
@@ -99,6 +106,7 @@ export const AccountMenu = memo(function AccountMenu({
             数据与隐私
           </button>
           <button
+            tabIndex={-1}
             role="menuitem"
             onClick={() => {
               setOpen(false)
@@ -109,6 +117,7 @@ export const AccountMenu = memo(function AccountMenu({
             导出学习数据
           </button>
           <button
+            tabIndex={-1}
             role="menuitem"
             className="logout-button"
             onClick={() => {

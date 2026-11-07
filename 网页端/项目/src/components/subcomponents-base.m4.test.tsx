@@ -20,7 +20,7 @@
  * learning-workspace-view.m3.test.tsx、tests/styles.focus.test.mjs 同一口径）；
  * 结构、文案与回调（运行 / 单步 / 重置的调用）用真实渲染核对。
  */
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { CodeEditor } from './code-editor'
 import { ConsolePanel } from './console-panel'
@@ -249,10 +249,12 @@ describe('M4 子组件基座 · 归属与边界', () => {
       expect(src, file).not.toMatch(/use-execution|executeCode|new Function|setTimeout|setInterval/)
       if (file !== './code-editor.tsx') expect(src, file).not.toMatch(/requestAnimationFrame/)
     }
-    // 唯一的 RAF 仍是 code-editor 里的一次性光标恢复（M3 已核），本路没动它
+    // 仅光标恢复与滚动合帧可以调度 RAF，不允许自循环。
     const editor = rawSources['./code-editor.tsx'] ?? ''
     expect(editor).toMatch(/window\.requestAnimationFrame\(\(\)\s*=>/)
-    expect(editor.match(/requestAnimationFrame/g)).toHaveLength(1)
+    expect(editor.match(/requestAnimationFrame/g)).toHaveLength(2)
+    expect(editor).toContain('window.cancelAnimationFrame(scrollFrame.current)')
+    expect(editor).not.toMatch(/requestAnimationFrame\(\s*(frame|loop|tick)/)
   })
 
   it('六个基座文件的全局裸选择器数量 = 0（不碰 :root / html / body / 裸 *）', () => {
@@ -635,7 +637,7 @@ const variables: VariableValue[] = [
 describe('M4 子组件基座 · 渲染契约', () => {
   afterEach(() => cleanup())
 
-  it('CodeEditor：三层齐备，输入与光标位置仍由组件按用户字号计算', () => {
+  it('CodeEditor：三层齐备，输入与光标位置仍由组件按用户字号计算', async () => {
     const onChange = vi.fn()
     const { container } = render(
       <CodeEditor code={'def add(a, b):\n    return a + b'} language='python' languageLabel='Python' runtime='教学模拟器' activeLine={2} onChange={onChange} />,
@@ -652,7 +654,7 @@ describe('M4 子组件基座 · 渲染契约', () => {
     expect(container.querySelector('span.editor-actions button')).toBeTruthy()
     // 滚动同步：transform 由组件持有（行号层与高亮层跟随 textarea 滚动）
     fireEvent.scroll(area, { target: { scrollTop: 40, scrollLeft: 12 } })
-    expect(((container.querySelector('div.line-numbers-inner') as HTMLElement).getAttribute('style') ?? '')).toContain('-40px')
+    await waitFor(() => expect(((container.querySelector('div.line-numbers-inner') as HTMLElement).getAttribute('style') ?? '')).toContain('-40px'))
     expect(((container.querySelector('pre.code-tokens') as HTMLElement).getAttribute('style') ?? '')).toContain('-12px')
   })
 

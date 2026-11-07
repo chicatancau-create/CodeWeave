@@ -20,6 +20,7 @@ import { ErrorBoundary } from './components/error-boundary'
 import { DesktopLearningHome } from './components/desktop-learning-home'
 import { HelpModal, SettingsModal, type AppSettings } from './components/modals'
 import { GlobalTopbar } from './components/topbar'
+import { Clock } from './components/clock'
 import { computeWeeklyStats, countPassedChallenges } from './utils/analytics'
 import { mergeTransientEvents, type NotificationItem } from './utils/notifications'
 import { groupReviews, lessonCompletionNote } from './data/mastery'
@@ -39,7 +40,7 @@ import { ContentProvider, useContent } from './content/provider'
 import { ContentSourceBanner } from './components/content-source-view'
 import { VaultBindingPanel } from './components/vault-progress-view'
 import { type MasteryRecord } from './data/mastery'
-import { buildMonthGrid, formatLocalDate, getLocalDateKey } from './utils/date-helpers'
+import { buildMonthGrid, getLocalDateKey } from './utils/date-helpers'
 import {
   commitSaveSnapshot,
   createSaveSnapshot,
@@ -53,6 +54,8 @@ import { buildExportPayload, clearLocalData, type ClearResult } from './utils/lo
 import { summarizeExternalEvidence } from './utils/external-evidence'
 import { completionSourceOf, deriveLessonEvidenceStates, hasCompletionEvidence, holdsCompletion, type LessonEvidenceStates } from './utils/lesson-evidence'
 import { useLessonSignals } from './hooks/use-lesson-signals'
+import { useLocalDay } from './hooks/use-local-day'
+import { useEscapeToClose, useModalFocusTrap } from './hooks/use-modal-focus'
 import type { LessonCompletionPayload } from './components/learning-workspace-view'
 import type {
   AchievementObservation,
@@ -135,14 +138,6 @@ const CALENDAR_WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
  * 这里是 ~80 倍余量：预算内的正常路径永远是「等到位再画」，CLS 才成立。
  */
 const BOOT_WAIT_BUDGET_MS = 2500
-
-function greeting(hour: number): string {
-  if (hour < 6) return '夜深了'
-  if (hour < 12) return '早上好'
-  if (hour < 14) return '中午好'
-  if (hour < 18) return '下午好'
-  return '晚上好'
-}
 
 /**
  * §5.4「验证加载」所说的加载态：整屏占位，只说在等什么，不画任何依赖数据的东西。
@@ -262,8 +257,8 @@ function WorkspaceShell({
    * （实测这两块的高度在 293/372/454/479px 之间跳）。冷缓存下本来就是接口先赢，
    * 这个门等于让热缓存回到冷缓存的先后顺序。
    *
-   * 门的位置在整壳而不是正文区：侧栏一出现就等价于「数据依赖的内容已画完」这个约定
-   * 不能破——app.test.tsx 与 tools/visual 的取证脚本都以 .nav-item 为同步点。
+    * 本轮把加载门限定到正文数据区，顶栏和侧栏先保留，用户可以使用设置与登出。
+    * 验收以 main[aria-busy="false"] 或页内标题作为数据就绪的同步点。
    *
    * 判定只用 Provider 已经暴露的三个事实：`loading` 覆盖整段取数（成功与失败分支都会
    * 复位），而 `status` / `error` 在取数开始前必为 null，所以「不在取数且二者之一已
@@ -275,16 +270,13 @@ function WorkspaceShell({
   if (!contentSettled && !content.loading && (content.status !== null || content.error !== null)) {
     setContentSettled(true)
   }
-  // 门必须有上限。`content/api.ts` 的请求不带 AbortSignal，本机服务真挂住时它既不
-  // resolve 也不 reject —— 一味等下去就是一行加载文字到天荒地老，而登出、设置这类
-  // 自救入口都在壳里。到预算点就放外壳画出来，退化成修 bug 之前的行为：
-  // 宁可要一次可见的偏移，也不要一个救不了的死屏。
+  // 取消信号处理卸载和刷新；等待预算则在服务长时间无响应时放行正文兜底内容。
   useEffect(() => {
     if (contentSettled) return
     const timer = window.setTimeout(() => setContentSettled(true), BOOT_WAIT_BUDGET_MS)
     return () => window.clearTimeout(timer)
   }, [contentSettled])
-  const [now, setNow] = useState(() => new Date())
+  const now = useLocalDay()
   const [view, setView] = useState<ViewId>('path')
   const [settingsOpen, setSettingsOpen] = useState(false)
   // 关闭弹层后焦点回到触发按钮（键盘可达性，B6）
@@ -295,17 +287,10 @@ function WorkspaceShell({
   const [helpOpen, setHelpOpen] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // 每 30 秒刷新一次时钟，保证跨午夜后“今天”自动更新。
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000)
-    return () => window.clearInterval(timer)
-  }, [])
-
   // Escape 关闭浮层。
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      setCalendarOpen(false)
       setSettingsOpen(false)
       setHelpOpen(false)
     }
@@ -589,10 +574,11 @@ function WorkspaceShell({
     [content, scope, setCodeFromStorage],
   )
 
-  const handleLessonChange = (lesson: Lesson) => {
+  const { handleReset } = execution
+  const handleLessonChange = useCallback((lesson: Lesson) => {
     // 切课前先把当前待保存内容落盘（快照绑定的是旧课程，不会误写新课程）。
     if (saveSnapshotRef.current && (settings.autosave ?? true)) saveNow(false)
-    execution.handleReset()
+    handleReset()
     setActiveLesson(lesson)
     setLanguageId(lesson.language)
     // 打开课程时同步切换科目，保证返回列表后仍停在同一科目
@@ -606,7 +592,7 @@ function WorkspaceShell({
     setView('path')
     // 资料库条目：详情（主题原文 + 练习契约）按需拉取，失败就地给出原因与重试，不清草稿。
     if (lesson.contentId) requestLessonDetail(lesson)
-  }
+  }, [settings.autosave, saveNow, handleReset, setCodeFromStorage, requestLessonDetail, scope])
 
   const handleSubjectChange = (next: string) => {
     setSubjectId(next)
@@ -906,12 +892,32 @@ function WorkspaceShell({
     return () => document.documentElement.classList.remove('reduce-motion')
   }, [settings.reduceMotion])
 
-  // #49：首轮取数没结束之前不画外壳（见上面 contentSettled 的注释）。整块换掉而不是
-  // 只换正文区，是为了让「侧栏已经出现」仍然等价于「数据依赖的内容已经画完」——
-  // 取证的 tools/visual 与 app.test.tsx 都以侧栏为同步点，半扇门会把那个约定破掉。
-  if (!contentSettled) {
-    return <BootNotice>正在读取本机教材与学习状态…</BootNotice>
-  }
+  const markNotificationsRead = useCallback((ids: string[]) => {
+    setNotifState((current) => ({ ...current, readIds: [...new Set([...current.readIds, ...ids])] }))
+  }, [setNotifState])
+  const pickLesson = useCallback((lessonId: string) => {
+    const lesson = content.lessons.find((item) => item.id === lessonId)
+    if (lesson) handleLessonChange(lesson)
+  }, [content.lessons, handleLessonChange])
+  const pickChallenge = useCallback((challengeId: string) => {
+    setFocusChallengeId(challengeId)
+    setView('challenges')
+  }, [])
+  const { setSelectedProjectId } = projects
+  const pickProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId)
+    setView('projects')
+  }, [setSelectedProjectId])
+  const navigateView = useCallback((viewId: string) => setView(viewId as ViewId), [])
+  const navigateSecurity = useCallback(() => setView('security'), [])
+  const navigateData = useCallback(() => setView('data'), [])
+  const exportData = useCallback(() => exportLocalData(scope), [scope])
+  const continueLesson = useCallback(() => {
+    if (recommendedLesson) handleLessonChange(recommendedLesson)
+  }, [recommendedLesson, handleLessonChange])
+  const goReviews = useCallback(() => setView('reviews'), [])
+  const openHelp = useCallback(() => setHelpOpen(true), [])
+  const toggleCalendar = useCallback(() => setCalendarOpen((open) => !open), [])
 
   const shellClassName = [
     'app-shell',
@@ -960,7 +966,7 @@ function WorkspaceShell({
         dueReviewsCount={mastery.dueReviews.length}
         checkin={checkin}
         calendarOpen={calendarOpen}
-        onToggleCalendar={() => setCalendarOpen((open) => !open)}
+        onToggleCalendar={toggleCalendar}
         remainingChallenges={remainingChallenges}
         totalStages={displayStages.length}
       />
@@ -979,40 +985,28 @@ function WorkspaceShell({
           searchTargets={searchTargets}
           recentViews={recentViews}
           notifications={notifications}
-          onMarkAllRead={(ids) =>
-            setNotifState((current) => ({ ...current, readIds: [...new Set([...current.readIds, ...ids])] }))
-          }
+          onMarkAllRead={markNotificationsRead}
           user={user}
-          onPickLesson={(lessonId) => {
-            const lesson = content.lessons.find((item) => item.id === lessonId)
-            if (lesson) handleLessonChange(lesson)
-          }}
-          onPickChallenge={(challengeId) => {
-            setFocusChallengeId(challengeId)
-            setView('challenges')
-          }}
-          onPickProject={(projectId) => {
-            projects.setSelectedProjectId(projectId)
-            setView('projects')
-          }}
-          onNavigateView={(viewId) => setView(viewId as ViewId)}
+          onPickLesson={pickLesson}
+          onPickChallenge={pickChallenge}
+          onPickProject={pickProject}
+          onNavigateView={navigateView}
           onOpenSettings={openSettings}
-          onNavigateSecurity={() => setView('security')}
-          onNavigateData={() => setView('data')}
-          onExportData={() => exportLocalData(scope)}
+          onNavigateSecurity={navigateSecurity}
+          onNavigateData={navigateData}
+          onExportData={exportData}
           onLogout={onLogout}
           /* 01 §3.2「快捷动作」的三条都取上层已有的事实与动作：推荐单元、今日到期数、
              帮助弹层——本处不派生任何新的学习状态（§9 禁止第二套判定）。 */
           recommendedLesson={recommendedLesson ? { label: recommendedLesson.label, title: recommendedLesson.title } : null}
           reviewDueCount={mastery.dueReviews.length}
-          onContinueLesson={() => {
-            if (recommendedLesson) handleLessonChange(recommendedLesson)
-          }}
-          onGoReviews={() => setView('reviews')}
-          onOpenHelp={() => setHelpOpen(true)}
+          onContinueLesson={continueLesson}
+          onGoReviews={goReviews}
+          onOpenHelp={openHelp}
         />
 
-        <main className="content-wrap" id="main-content" tabIndex={-1}>
+        <main className="content-wrap" id="main-content" tabIndex={-1} aria-busy={!contentSettled}>
+          {!contentSettled ? <ViewFallback view={view} /> : <>
           <ContentSourceBanner />
           <details className="desktop-vault-settings">
             <summary>资料库连接与拥有者设置</summary>
@@ -1029,19 +1023,9 @@ function WorkspaceShell({
               路径页照旧显示（那里的阶段口径正是页面内容）。 */}
           {view === 'path' && !activeLesson && (
             <div className="welcome-row">
-              <div>
-                <p className="welcome-greeting">
-                  {greeting(now.getHours())}，{user.name}
-                  {/* 👋 是装饰（问候文字已在名称里），不进朗读顺序（§5.3 第 6 条） */}
-                  <span className="wave" aria-hidden="true">
-                    👋
-                  </span>
-                </p>
-                <p className="welcome-subtitle">
-                  {formatLocalDate(now)} · 学习计划共 {displayStages.length} 个阶段
-                  {stagesAreLegacy ? '（资料库未连接，当前为旧 A—M 口径）' : `（${displayStages.map((stage) => stage.id).join('、')}）`}
-                </p>
-              </div>
+              <Clock name={user.name} stageCount={displayStages.length} stageNote={stagesAreLegacy
+                ? '（资料库未连接，当前为旧 A—M 口径）'
+                : `（${displayStages.map((stage) => stage.id).join('、')}）`} />
               <div className="weekly-progress">
                 <div className="progress-ring" role="img" aria-label={`挑战完成度 ${completedCount}/${challenges.length}`}>
                   <span>{challenges.length ? Math.round((completedCount / challenges.length) * 100) : 0}%</span>
@@ -1199,6 +1183,7 @@ function WorkspaceShell({
             )}
             </Suspense>
           </ErrorBoundary>
+          </>}
         </main>
       </div>
 
@@ -1253,6 +1238,8 @@ function Sidebar({
   remainingChallenges,
   totalStages,
 }: SidebarProps) {
+  const calendarDialogRef = useModalFocusTrap<HTMLDivElement>(calendarOpen)
+  useEscapeToClose(onToggleCalendar, calendarOpen)
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date()
     return { year: now.getFullYear(), month: now.getMonth() }
@@ -1339,9 +1326,9 @@ function Sidebar({
             <MoreHorizontal size={15} />
           </button>
           {calendarOpen && (
-            <div className="checkin-calendar" role="dialog" aria-label="打卡日历">
+            <div ref={calendarDialogRef} className="checkin-calendar" role="dialog" aria-modal="true" aria-label="打卡日历">
               <div className="checkin-calendar-head">
-                <button className="icon-button" onClick={() => shiftMonth(-1)} aria-label="上一月">
+                  <button className="icon-button" data-autofocus onClick={() => shiftMonth(-1)} aria-label="上一月">
                   <ChevronLeft size={14} />
                 </button>
                 <span>

@@ -828,13 +828,15 @@ describe('M3 学习工作台 · 持续资源审计', () => {
     }
   })
 
-  it('唯一的 requestAnimationFrame 是 code-editor 里的一次性光标恢复，不是帧循环', () => {
+  it('requestAnimationFrame 只用于编辑器光标恢复和滚动合帧，无持续循环且有取消', () => {
     const total = pageFiles.reduce((sum, file) => sum + ((sourceOf(file).match(/requestAnimationFrame/g) ?? []).length), 0)
-    expect(total).toBe(1)
+    expect(total).toBe(2)
     const editor = sourceOf('./code-editor.tsx')
     expect(editor).toMatch(/window\.requestAnimationFrame\(\(\)\s*=>/)
     expect(editor).not.toMatch(/requestAnimationFrame\(\s*(frame|loop|tick)/)
     expect(editor).not.toMatch(/\bloop\b\s*\(/)
+    expect(editor).toContain('window.cancelAnimationFrame(scrollFrame.current)')
+    expect(editor).toContain('if (scrollFrame.current !== null) return')
   })
 
   it('本页无 XSS 出口：不用 dangerouslySetInnerHTML / innerHTML', () => {

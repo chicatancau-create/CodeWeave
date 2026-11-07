@@ -65,7 +65,7 @@ describe('§3.2 快捷动作 · 触发按钮与面板语义', () => {
   it('触发按钮有可读名称，未展开时 aria-expanded=false 且面板不挂载', () => {
     setup()
     const trigger = screen.getByRole('button', { name: '快捷动作' })
-    expect(trigger.getAttribute('aria-haspopup')).toBe('true')
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu')
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByRole('menu', { name: '快捷动作' })).toBeNull()
   })
@@ -194,12 +194,24 @@ describe('§3.2 快捷动作 · 键盘与焦点（同 AccountMenu 那份写法�
     expect(screen.getByRole('menu')).toBeTruthy()
   })
 
-  it('启用的条目是原生 button，没有 tabindex=-1（Tab 可达；真实顺序待真机取证）', () => {
+  it('首项禁用时聚焦首个可用项；方向键循环、Home/End 跳转，并只有当前项在 Tab 序列', () => {
     setup({ recommended: null })
     openPanel()
     const reachable = screen.getAllByRole('menuitem').filter((item) => !(item as HTMLButtonElement).disabled)
     expect(reachable.length).toBe(2)
-    expect(reachable.every((item) => item.getAttribute('tabindex') === null)).toBe(true)
+    expect(document.activeElement).toBe(reachable[0])
+    expect(reachable.map((item) => item.tabIndex)).toEqual([0, -1])
+    fireEvent.keyDown(reachable[0]!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(reachable[1])
+    expect(reachable.map((item) => item.tabIndex)).toEqual([-1, 0])
+    fireEvent.keyDown(reachable[1]!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(reachable[0])
+    fireEvent.keyDown(reachable[0]!, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(reachable[1])
+    fireEvent.keyDown(reachable[1]!, { key: 'Home' })
+    expect(document.activeElement).toBe(reachable[0])
+    fireEvent.keyDown(reachable[0]!, { key: 'End' })
+    expect(document.activeElement).toBe(reachable[1])
   })
 })
 

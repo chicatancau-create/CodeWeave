@@ -51,6 +51,8 @@ describe('白名单内图片渲染成 <img>', () => {
     expect(img?.getAttribute('src')).toBe(`/api/content/asset?path=${encodeURIComponent(`${DIR}/分支流程图.png`)}`)
     expect(img?.getAttribute('alt')).toBe('分支流程图')
     expect(img?.getAttribute('loading')).toBe('lazy')
+    expect(img?.style.aspectRatio).toBe('16 / 9')
+    expect(img?.style.objectFit).toBe('contain')
     expect(container.querySelector('a')).toBeNull()
     // 只允许指向同源附件接口的相对地址：既不是绝对 URL，也不是磁盘路径
     const urls = urlAttributes(container)

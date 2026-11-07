@@ -199,6 +199,7 @@ describe('双链命中已发布主题', () => {
     // 关闭后回到只显示链接文字
     fireEvent.click(screen.getByRole('button', { name: '关闭该主题的原文预览' }))
     expect(document.querySelector('.md-wikilink-card')).toBeNull()
+    expect(document.activeElement).toBe(button)
   })
 
   it('详情读取失败：给出可读说明，不静默也不崩', async () => {
@@ -211,6 +212,9 @@ describe('双链命中已发布主题', () => {
     const button = await screen.findByRole('button', { name: /打开已发布主题/ })
     fireEvent.click(button)
     expect(await screen.findByText(/详情读取失败/)).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('button', { name: '关闭该主题的原文预览' }), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(button)
   })
 })
 

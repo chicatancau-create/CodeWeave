@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodeEditor, indentBlock } from './code-editor'
 
@@ -185,6 +185,24 @@ describe('复制：只报真发生过的事', () => {
 })
 
 describe('三项设置真的落到 DOM 上', () => {
+  it('连续滚动合并到一帧，使用最后位置同步高亮与行号；卸载取消未处理帧', () => {
+    let flush: FrameRequestCallback = () => {}
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      flush = callback
+      return 27
+    })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+    const el = editor({ code: 'let a = 1\nlet b = 2' })
+    fireEvent.scroll(el, { target: { scrollTop: 10, scrollLeft: 4 } })
+    fireEvent.scroll(el, { target: { scrollTop: 25, scrollLeft: 9 } })
+    expect(frame).toHaveBeenCalledTimes(1)
+    act(() => flush(0))
+    expect(document.querySelector<HTMLElement>('.code-tokens')?.style.transform).toBe('translate(-9px, -25px)')
+    expect(document.querySelector<HTMLElement>('.line-numbers-inner')?.style.transform).toBe('translateY(-25px)')
+    fireEvent.scroll(el, { target: { scrollTop: 30 } })
+    cleanup()
+    expect(cancel).toHaveBeenCalledWith(27)
+  })
   it('行号可关：关掉后不画那一列，代码文本一字不变', () => {
     editor({ code: 'a\nb\nc', lineNumbers: true })
     expect(document.querySelectorAll('.line-numbers span')).toHaveLength(3)

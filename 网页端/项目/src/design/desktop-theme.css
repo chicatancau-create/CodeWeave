@@ -46,7 +46,7 @@
   --radius-pill: 6px;
 }
 
-html, body, #root { height: 100%; overflow: hidden; }
+.desktop-brand, .desktop-areas, .desktop-local { display: none; }
 body { background: var(--page); font-family: var(--font-ui); }
 button, input, select, textarea { font-family: inherit; }
 button { transition: background 160ms, border-color 160ms, color 160ms; }
@@ -57,6 +57,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 ::-webkit-scrollbar-track { background: transparent; }
 
 @media (min-width: 1201px) {
+  html, body, #root { height: 100%; overflow: hidden; }
   :root {
     --sidebar-w: 240px;
     --topbar-h: 68px;
@@ -102,7 +103,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .app-shell.is-account .sidebar { display: none; }
 .app-shell.is-account .main-content { margin-left: 0; }
 .app-shell.is-account .content-wrap { padding: var(--ds-space-20) var(--ds-space-32); }
-.app-shell .content-source-banner.cw-source { margin-bottom: var(--ds-space-8); min-height: 32px; padding: var(--ds-space-6) var(--ds-space-12); font: 12px var(--font-ui); border: 1px solid var(--line); background: #111923; border-radius: 5px; }
+.app-shell .content-source-banner.cw-source { flex: 0 0 auto; margin-bottom: var(--ds-space-8); min-height: 32px; padding: var(--ds-space-6) var(--ds-space-12); font: 12px var(--font-ui); border: 1px solid var(--line); background: #111923; border-radius: 5px; }
 .app-shell .content-source-banner.cw-source .cs-banner-lead { font-size: 12px; }
 .desktop-vault-settings { margin-bottom: var(--ds-space-14); color: var(--muted); font-size: 11px; }
 .desktop-vault-settings > summary { cursor: pointer; width: fit-content; padding: var(--ds-space-2) 0; }
@@ -130,6 +131,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .app-shell.is-immersive .desktop-vault-settings { margin-bottom: 0; }
 .app-shell.is-immersive .cw-workspace { flex: 1; min-height: 0; height: auto; --cw-chrome-h: 160px; }
 .app-shell.is-immersive .cw-workspace .learning-view { min-height: 0; flex: 1; }
+}
 
 /* Workspace home follows the reference's subject strip, hero, course grid and utility rail. */
 .desktop-learning-home { display: grid; gap: var(--ds-space-24); }
@@ -213,9 +215,20 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .desktop-learning-columns { grid-template-columns: minmax(0, 1fr) 320px; }
   .desktop-course-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 1200px) {
+  .desktop-learning-columns { grid-template-columns: minmax(0, 1fr); }
+  .desktop-course-art { display: none; }
+  .desktop-subjects { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .desktop-course-grid { grid-template-columns: minmax(0, 1fr); }
+  .desktop-section-heading, .desktop-hero-bottom, .desktop-course-toolbar { flex-wrap: wrap; gap: var(--ds-space-12); }
+  .desktop-course-copy { padding: var(--ds-space-16); }
+  .desktop-course-copy h2 { font-size: 20px; overflow-wrap: anywhere; }
 }
 
 @media (min-width: 1201px) {
@@ -350,9 +363,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
    那一圈内缩描边在窄窗口下会被顶栏与侧栏切掉一截，看着像没画完。 */
 .app-shell .shell-decor {
   display: block;
-  z-index: -1;
+  z-index: var(--z-decor);
 }
 .app-shell .shell-decor::before {
-  display: none;
+  display: block;
 }
 }

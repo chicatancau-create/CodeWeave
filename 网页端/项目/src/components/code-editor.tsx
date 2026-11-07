@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, Save } from 'lucide-react'
 import { tokenizeCode } from '../engine/syntax-tokenizer'
 import type { LanguageId } from '../types/lesson'
@@ -85,9 +85,64 @@ export function indentBlock(
   return { value, selectionStart: blockStart, selectionEnd: blockStart + block.length }
 }
 
+const LineNumbersLayer = memo(function LineNumbersLayer({
+  lines,
+  activeLine,
+  offset,
+}: {
+  lines: string[]
+  activeLine?: number
+  offset: number
+}) {
+  return (
+    <div className="line-numbers" aria-hidden="true">
+      <div className="line-numbers-inner" style={{ transform: `translateY(${-offset}px)` }}>
+        {lines.map((_, index) => <span className={activeLine === index + 1 ? 'active' : ''} key={index}>{String(index + 1).padStart(2, '0')}</span>)}
+      </div>
+    </div>
+  )
+})
+
+const CodeTokensLayer = memo(function CodeTokensLayer({
+  tokens,
+  left,
+  top,
+  tabSize,
+  wordWrap,
+}: {
+  tokens: ReturnType<typeof tokenizeCode>
+  left: number
+  top: number
+  tabSize: number
+  wordWrap: boolean
+}) {
+  return (
+    <pre
+      className="code-tokens"
+      aria-hidden="true"
+      style={{
+        transform: `translate(${-left}px, ${-top}px)`,
+        tabSize,
+        whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
+      }}
+    >
+      <CodeTokenContent tokens={tokens} />
+      {'\n'}
+    </pre>
+  )
+})
+
+const CodeTokenContent = memo(function CodeTokenContent({ tokens }: { tokens: ReturnType<typeof tokenizeCode> }) {
+  return tokens.map((token, index) => token.type === 'plain'
+    ? token.text
+    : <span key={index} className={`tok-${token.type}`}>{token.text}</span>)
+})
+
 export function CodeEditor({ code, language, languageLabel, runtime, activeLine, onChange, tabSize = 2, wordWrap = false, lineNumbers = true, reveal }: Props) {
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const [scroll, setScroll] = useState({ top: 0, left: 0 })
+  const scrollFrame = useRef<number | null>(null)
+  const pendingScroll = useRef({ top: 0, left: 0 })
   /**
    * EDIT-01 第 2 条要的那个「明确机制」：Tab 默认用来缩进，**按 Esc 交还给焦点导航**，
    * 再按一次 Esc 收回。状态写在页脚那句可见文字里（不是只在 title 里），
@@ -96,8 +151,12 @@ export function CodeEditor({ code, language, languageLabel, runtime, activeLine,
   const [tabReleasesFocus, setTabReleasesFocus] = useState(false)
   /** 复制只报**真实发生过**的结果：await 之后才定性，失败就说失败并给出手动回退。 */
   const [copyResult, setCopyResult] = useState<'idle' | 'ok' | 'fail'>('idle')
-  const lines = code.split('\n')
+  const lines = useMemo(() => code.split('\n'), [code])
   const tokens = useMemo(() => tokenizeCode(code, language), [code, language])
+
+  useEffect(() => () => {
+    if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
+  }, [])
 
   /**
    * 错误定位（EDIT-01 第 6 条）：把光标放到那一行的行首并聚焦，滚动由浏览器按
@@ -161,37 +220,23 @@ export function CodeEditor({ code, language, languageLabel, runtime, activeLine,
 
   const handleScroll = (event: React.UIEvent<HTMLTextAreaElement>) => {
     const el = event.currentTarget
-    setScroll({ top: el.scrollTop, left: el.scrollLeft })
+    pendingScroll.current = { top: el.scrollTop, left: el.scrollLeft }
+    if (scrollFrame.current !== null) return
+    scrollFrame.current = window.requestAnimationFrame(() => {
+      scrollFrame.current = null
+      setScroll(pendingScroll.current)
+    })
   }
 
   return <>
     <div className={`code-editor${wordWrap ? ' code-editor--wrap' : ''}`}>
       {lineNumbers && (
-        <div className="line-numbers" aria-hidden="true">
-          <div className="line-numbers-inner" style={{ transform: `translateY(${-scroll.top}px)` }}>
-            {lines.map((_, index) => <span className={activeLine === index + 1 ? 'active' : ''} key={index}>{String(index + 1).padStart(2, '0')}</span>)}
-          </div>
-        </div>
+        <LineNumbersLayer lines={lines} activeLine={activeLine} offset={scroll.top} />
       )}
       <div className="code-surface">
         {/* 高亮层：纯展示，aria-hidden 且不接收鼠标事件；输入始终由下方真实 textarea 承担。
             强制颜色模式下这一层整层隐掉，见 code-editor.css 的 forced-colors 段。 */}
-        <pre
-          className="code-tokens"
-          aria-hidden="true"
-          style={{
-            transform: `translate(${-scroll.left}px, ${-scroll.top}px)`,
-            tabSize: Math.max(1, tabSize),
-            whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
-          }}
-        >
-          {tokens.map((token, index) =>
-            token.type === 'plain'
-              ? token.text
-              : <span key={index} className={`tok-${token.type}`}>{token.text}</span>,
-          )}
-          {'\n'}
-        </pre>
+        <CodeTokensLayer tokens={tokens} left={scroll.left} top={scroll.top} tabSize={Math.max(1, tabSize)} wordWrap={wordWrap} />
         {activeLine && (
           <div
             className="code-highlight"

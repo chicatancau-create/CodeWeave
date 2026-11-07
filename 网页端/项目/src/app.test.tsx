@@ -35,6 +35,37 @@ afterEach(() => {
 })
 
 describe('App 入口', () => {
+  it('打卡日历打开时移入焦点，Tab 双向圈定，Esc 关闭后归还触发按钮', async () => {
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+    render(<App />)
+    const trigger = await screen.findByRole('button', { name: '查看打卡日历' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    const previous = screen.getByRole('button', { name: '上一月' })
+    const next = screen.getByRole('button', { name: '下一月' })
+    expect(document.activeElement).toBe(previous)
+    expect(screen.getByRole('dialog', { name: '打卡日历' }).getAttribute('aria-modal')).toBe('true')
+    fireEvent.keyDown(previous, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(next)
+    fireEvent.keyDown(next, { key: 'Tab' })
+    expect(document.activeElement).toBe(previous)
+    fireEvent.keyDown(previous, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '打卡日历' })).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('教材接口未返回时保留顶栏侧栏和操作入口，仅主区域显示加载骨架', async () => {
+    stubFetch((input) => input === '/api/content/status'
+      ? new Promise<MockResponse>(() => {})
+      : jsonResponse({ data: testUser }))
+    const { unmount } = render(<App />)
+    expect(await screen.findByRole('button', { name: '账户菜单' })).toBeTruthy()
+    expect(screen.getByRole('complementary', { name: '主导航' })).toBeTruthy()
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true')
+    expect(screen.queryByRole('heading', { name: '你的学习路径' })).toBeNull()
+    unmount()
+  })
+
   it('未登录时渲染登录页，且可切换到注册', async () => {
     stubFetch((_input) => jsonResponse({ data: null }))
 
@@ -59,6 +90,7 @@ describe('App 入口', () => {
     )
 
     expect((await screen.findAllByText(/小明/)).length).toBeGreaterThan(0)
+    await screen.findByRole('heading', { name: '你的学习路径' })
     // 学习路径视图：按**内容科目**选择（不是可执行语言）——HTML/CSS/Vue 等各自成组
     expect(screen.getByRole('heading', { name: '你的学习路径' })).toBeTruthy()
     // 13 个挑战阶段（A—M）体现在欢迎区文案
@@ -181,9 +213,8 @@ describe('离开学习路径视图时的两处闸门', () => {
   })
 })
 
-describe('#49 首屏加载门（§5.4 CLS ≤ 0.1 的修法）', () => {
-  /** 门没开之前，取证脚本与 app.test 用来同步的侧栏不能出现，页面上只能有一句实话。 */
-  it('首轮取数没结束时不画外壳，只挂加载态', async () => {
+describe('首屏数据区加载门', () => {
+  it('首轮取数没结束时保留外壳与自救操作，数据区只挂骨架', async () => {
     const hanging = new Promise(() => {})
     stubFetch((input) => {
       if (String(input).includes('/api/auth/me')) return jsonResponse({ data: testUser })
@@ -193,16 +224,18 @@ describe('#49 首屏加载门（§5.4 CLS ≤ 0.1 的修法）', () => {
     render(<StrictMode><App /></StrictMode>)
     await new Promise((r) => setTimeout(r, 80))
 
-    expect(document.querySelector('.app-shell'), '门没开就不该有外壳').toBeNull()
-    expect(document.querySelector('.nav-item'), '侧栏是取证的同步点，门开着等于没门').toBeNull()
+    expect(document.querySelector('.app-shell')).toBeTruthy()
+    expect(document.querySelector('.nav-item')).toBeTruthy()
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true')
+    expect(screen.queryByRole('heading', { name: '你的学习路径' })).toBeNull()
     const notice = document.querySelector('[role=status]')
     expect(notice, '加载态必须存在且带 role=status（§5.4 要验证加载态）').toBeTruthy()
-    expect(notice?.textContent).toContain('正在读取本机教材与学习状态')
+    expect(notice?.textContent).toContain('正在载入学习路径')
     vi.useRealTimers()
   })
 
   /** 预算的意义就在这：接口永不返回时也必须把界面还给用户，自救入口（登出/设置）都在壳里。 */
-  it('接口卡死时到预算点放外壳出来，不留死屏', async () => {
+  it('接口卡死时到预算点显示兜底内容，既有外壳不卸载', async () => {
     const hanging = new Promise(() => {})
     stubFetch((input) => {
       if (String(input).includes('/api/auth/me')) return jsonResponse({ data: testUser })
@@ -211,12 +244,15 @@ describe('#49 首屏加载门（§5.4 CLS ≤ 0.1 的修法）', () => {
 
     render(<StrictMode><App /></StrictMode>)
     await new Promise((r) => setTimeout(r, 80))
-    expect(document.querySelector('.nav-item')).toBeNull()
+    const sidebar = document.querySelector('.sidebar')
+    expect(sidebar).toBeTruthy()
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true')
 
     // BOOT_WAIT_BUDGET_MS = 2500，留出渲染余量再等一次
     await new Promise((r) => setTimeout(r, 2700))
-    expect(document.querySelector('.app-shell'), '过了预算还挂着加载态就是死屏').toBeTruthy()
-    expect(document.querySelector('.nav-item'), '外壳必须带侧栏回来').toBeTruthy()
+    await screen.findByRole('heading', { name: '你的学习路径' })
+    expect(document.querySelector('.sidebar')).toBe(sidebar)
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('false')
   }, 15000)
 })
 
@@ -230,6 +266,7 @@ describe('#77 每页恰好一个 h1，且它是页面自己的标题', () => {
     stubFetch((_input) => jsonResponse({ data: testUser }))
     render(<StrictMode><App /></StrictMode>)
     await screen.findAllByText(/小明/)
+    await screen.findByRole('heading', { name: '你的学习路径' })
   }
   const h1s = () => [...document.querySelectorAll('h1')]
 

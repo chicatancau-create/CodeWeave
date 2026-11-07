@@ -286,7 +286,7 @@ describe('M4 样式层收口 · z 档 / 触控 / 字号', () => {
   it('z 层只有五档：装饰 10、chrome 15、浮层 40、模态 50、系统 60', () => {
     for (const [name, value] of [
       ['--z-content', '1'],
-      ['--z-decor', '10'],
+      ['--z-decor', '-1'],
       ['--z-chrome', '15'],
       ['--z-popover', '40'],
       ['--z-modal', '50'],

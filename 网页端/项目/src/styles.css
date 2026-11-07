@@ -141,18 +141,17 @@
      产品不采用 —— 模板内容在 4、装饰在 6、chrome 在 8，而应用内容在 1、chrome 在 15，
      照搬会把装饰框压在顶栏之上。geometry.md §5 末尾明确「层级常量的落地由共享层
      在 styles.css 内决定」，故这里定义产品档位；除下列五档外不得再新增数值。
-       裁定 1  装饰层 10：高于内容(1)、低于持久 chrome(15)，且只在入口/壳层挂载，
-                工作台与弹层不挂装饰框。
+       裁定 1  背景装饰层 -1：在内容栈上下文内置于正文后方，避免不透明背景遮挡文字。
+                工作台与弹层不挂背景装饰。
        裁定 2  持久 chrome 收在同一档 15：顶栏与侧栏是同层的两条线，不互相遮盖
                 （原侧栏 20 > 顶栏 15）。
        裁定 3  浮层三档：40 = 一次性浮层（账户菜单、搜索面板、通知面板、打卡日历），
                 50 = 模态遮罩 + 模态内容，60 = skip-link 与模态之上的系统级提示。
                 原 40/45/50 混用（面板比菜单高、遮罩只比面板高 5）已收拢；
                 `.global-search__input:focus` 借用的 50 随搜索面板归入 40。
-     内容列（.main-content）自身成栈上下文（1），装饰层挂在它内部，这样装饰框
-     压在正文之上、顶栏之下（顶栏与它同上下文），且不会被侧栏切掉。 */
+     内容列（.main-content）自身成栈上下文（1），背景装饰挂在它内部，置于正文后方。 */
   --z-content: 1;                              /* 内容列 */
-  --z-decor: 10;                               /* 发丝线取景框：纯装饰，只在壳层挂载 */
+  --z-decor: -1;                               /* 背景装饰：在内容栈内置于正文后方 */
   --z-chrome: 15;                              /* 持久 chrome：顶栏 + 侧栏同档 */
   --z-popover: 40;                             /* 一次性浮层 */
   --z-modal: 50;                               /* 模态遮罩 + 模态内容 */
@@ -278,85 +277,44 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
   inset: 0;
   z-index: var(--z-decor);
   pointer-events: none;                  /* §5.3 第 6 条：装饰层不截获指针与键盘 */
+  background-color: var(--ds-canvas-deep);
+  background-image: radial-gradient(72rem 46rem at 6% -8%, var(--ds-wash-ambient), transparent 64%),
+    radial-gradient(62rem 44rem at 98% 106%, var(--ds-wash-nebula), transparent 66%),
+    radial-gradient(90rem 26rem at 50% -14%, var(--ds-wash-toplight), transparent 72%),
+    radial-gradient(78rem 52rem at 52% 46%, var(--ds-wash-midlight), transparent 70%);
+  mask-image: radial-gradient(140% 108% at 50% 40%, #000 62%, transparent 100%);
+  -webkit-mask-image: radial-gradient(140% 108% at 50% 40%, #000 62%, transparent 100%);
 }
 .shell-decor::before {
   content: '';
   position: absolute;
-  inset: var(--ds-frame-inset);          /* L91 clamp(10px, 1.5vw, 20px) */
-  border: var(--hair) solid var(--line-frame);
-  border-radius: var(--ds-shape-none);   /* 模板取景框直角（geometry §2 裁定 1） */
+  inset: -40px;
+  background-image: linear-gradient(var(--ds-grid-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ds-grid-strong) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  animation: cw-bg-drift 34s linear infinite;
 }
 
-/* ── 首页流动科技背景 ────────────────────────────────────────────────────────
-   用户要求：「背景是流动的科技风」。挂回 `.shell-decor` 这一处**已有的**装饰层，
-   不新加 DOM 节点——它已经满足三个前提：`aria-hidden="true"`（不进朗读顺序）、
-   `pointer-events: none`（不截获指针键盘）、`z-index: var(--z-decor)`（高于内容 1、
-   低于 chrome 15）；而且 `.app-shell.is-immersive` 下整层 `display: none`，
-   **工作台自动没有背景**——编辑器与画布那一屏保持低动态（§5.3 第 1 条）。
-   全项目的 @keyframes 除了 `run-stage.css` 的两处减动效开关之外，只落在这一块。
-
-   两层结构（`.shell-decor` 的两个伪元素位刚好够）：
-
-   `::before` 已有的**发丝线取景框**，保持不动。
-
-   `::after` 承担流动背景，内部三层 `background-image` 逗号叠放：
-     ① 左上冷青、右下星云紫的两团巨大 radial —— 静止的定调层；
-     ②③ 两道 40px 的 linear-gradient 网格 —— 这层靠 `background-position` 平移，
-        是「网格在流」的那一层，最容易被认出是科技风。
-   网格位移走 `background-position` 而不是 `transform`：伪元素只有一块，
-   用 `transform` 会让底色的 radial 跟着一起跑，画面会「漂」；单独平移背景层
-   才能让网格在固定的底色上流过去。
-
-   动效纪律：两个 keyframes 只动 `background-position` 与 `opacity`，
-   没有 `filter`、没有颜色插值、没有触发重排的属性；周期 30s 远长于
-   「一眼能看出在动」的阈值，属于环境氛围而不是抢注意力的动效。
-   `prefers-reduced-motion` 与 `.reduce-motion` 两道开关在文件末尾统一停掉。 */
+/* 背景底色保持静止；网格与扫光使用独立合成层，减少逐帧重绘。 */
 .shell-decor::after {
   content: '';
   position: absolute;
-  inset: 0;
-  /* 底色留在这一层，且**比页面底色再深一档**——它现在是整页最底的那一层，
-     要能压住 `.app-shell` 的 --page，否则两团径向光晕会浮在页面底色之上、
-     看着像「贴在玻璃上」而不是「从背景里透出来」。 */
-  background-color: var(--ds-canvas-deep, #03050a);
-
-  /* 七层，从「定调」到「质感」由远及近：
-     ①② 两团巨大径向光晕（左上冷青、右下星云紫）——**静止**，负责空间感与色相；
-     ③   一道顶部辉光带，把视线压到内容区上方，页面不会显得上下一样重；
-     ④   中场一团大而缓的紫青混合辉光——**这一层是后加的**：只留两个角时，
-         视口中段是一片死黑，整页看着像「没渲染出来」而不是「暗场」；
-     ⑤⑥ 两层网格：两层都是 40px 的方格，**同向不同速**——
-         一层跟 `background-position` 的位移走、一层反向走，速度差就是视差；
-     ⑦   一层淡的斜向扫光，给平面加一点点方向性，避免纯正交网格的死板。 */
-  background-image: radial-gradient(72rem 46rem at 6% -8%, var(--ds-wash-ambient), transparent 64%),
-    radial-gradient(62rem 44rem at 98% 106%, rgba(167, 139, 250, 0.32), transparent 66%),
-    radial-gradient(90rem 26rem at 50% -14%, rgba(125, 211, 252, 0.18), transparent 72%),
-    radial-gradient(78rem 52rem at 52% 46%, rgba(96, 165, 250, 0.16), transparent 70%),
-    linear-gradient(var(--ds-grid-strong) 1px, transparent 1px),
-    linear-gradient(90deg, var(--ds-grid-strong) 1px, transparent 1px),
-    linear-gradient(115deg, rgba(34, 211, 238, 0.10), transparent 38%, rgba(167, 139, 250, 0.10) 68%, transparent 92%);
-  /* 按序对应上面七层：四团径向铺满视口，两层 40px 方格，扫光铺满。 */
-  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px, 100% 100%;
-  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
-  /* 两条动画同时跑：网格走一个 40px 格距，扫光 26s 横向掠过。 */
-  animation: cw-bg-drift 34s linear infinite, cw-bg-sheen 26s ease-in-out infinite;
-  /* 边缘压到透明：网格与扫光铺到视口外也不会在边界切出硬线。
-     用 mask 而不是再叠一层渐变压暗——后者会连带把底色一起吃掉。
-     2026-10-01 调亮：原来 46%/94% 的收口太早，四周被吃掉大半，中间那团光
-     也跟着一起淡；放宽到 62%/100%，中心全幅保留、只在最外缘收边。 */
-  mask-image: radial-gradient(140% 108% at 50% 40%, #000 62%, transparent 100%);
-  -webkit-mask-image: radial-gradient(140% 108% at 50% 40%, #000 62%, transparent 100%);
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 38%, var(--ds-wash-accent) 50%, transparent 62%);
+  opacity: 0.35;
+  transform: translate3d(-20%, 0, 0);
+  will-change: transform, opacity;
+  animation: cw-bg-sheen 26s ease-in-out infinite;
 }
-/* 网格流动：只平移第 5、6 层（两层方格）。前四团径向与末层扫光通过重复
-   同一值保持静止（扫光自己另有一条动画在动）。下面那层走 +40px、上面那层
-   走 -40px，两层反向错开——同向同速会看成一张静图，反向才有「空间在转」。
-   两层位移量都正好一个格距（40px），循环接缝处完全无缝。 */
+/* 平移一个完整网格周期，循环时无接缝。 */
 @keyframes cw-bg-drift {
   from {
-    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+    transform: translate3d(0, 0, 0);
   }
   to {
-    background-position: 0 0, 0 0, 0 0, 0 0, 40px 40px, -40px -40px, 0 0;
+    transform: translate3d(40px, 40px, 0);
   }
 }
 /* 扫光横向掠过：只动末层，一层淡的斜向高光以 26s 从左侧扫到右侧再回来。
@@ -364,10 +322,12 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 @keyframes cw-bg-sheen {
   0%,
   100% {
-    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, -60% 0;
+    opacity: 0.2;
+    transform: translate3d(-20%, 0, 0);
   }
   50% {
-    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 60% 0;
+    opacity: 0.5;
+    transform: translate3d(20%, 0, 0);
   }
 }
 .app-shell.is-immersive .shell-decor { display: none; }
@@ -2767,6 +2727,8 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 
   /* 3) 已知装饰性循环：连一次都不必跑 */
   .run-indicator.running span,
+  .shell-decor::before,
+  .shell-decor::after,
   .moving-border__beam {
     animation: none !important;
   }
@@ -2810,6 +2772,8 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
   scroll-behavior: auto !important;
 }
 .reduce-motion .run-indicator.running span,
+.reduce-motion .shell-decor::before,
+.reduce-motion .shell-decor::after,
 .reduce-motion .moving-border__beam {
   animation: none !important;
 }
@@ -2862,8 +2826,10 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
   /* `.skip-link` 以前也在这份清单里——那是个无障碍缺陷不是省空间的办法：
      它本来就靠 `top: -56px` 停在屏幕外、:focus 才落回 12px（上方 `.skip-link` 规则），
      再用 display:none 隐藏等于把「跳到主内容」从 Tab 顺序里整个删掉，窄屏键盘用户拿不到。 */
-  .brand > span, .workspace-switcher, .nav-label, .checkin-calendar,
-  .streak-more { display: none; }
+  .brand > span, .workspace-switcher, .nav-label { display: none; }
+  .streak-wrap { display: flex; flex-direction: column; align-items: center; }
+  .streak-more { position: static; display: grid; place-items: center; width: var(--tap-min); height: var(--tap-min); }
+  .checkin-calendar { position: fixed; left: 70px; right: 8px; bottom: 80px; width: auto; max-width: 300px; }
   /* 图标化导航保留可访问名称：视觉隐藏文字但不从无障碍树移除。
      编号与计数徽标不在这份清单里：编号在窄屏让位给图标（信息已在顶栏面包屑里），
      徽标则保留为图标上的小数字点（下方 .nav-badge 规则就是为它写的）。 */
@@ -2905,8 +2871,11 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
   .challenge-grid { grid-template-columns: minmax(0, 1fr); }
   /* 顶部导航触控目标 ≥44px；搜索折叠为图标宽度，点击展开 */
   .topbar { padding: 0 var(--ds-space-12, 12px); }
+  .topbar { gap: var(--ds-space-4); }
+  .topbar-actions { flex: 0 0 auto; gap: var(--ds-space-4); }
+  .breadcrumbs { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .topbar .icon-button, .topbar-avatar { width: 44px; height: 44px; }
-  .global-search { flex: 0 1 44px; }
+  .global-search { flex: 0 0 44px; }
   .global-search__input { min-height: 44px; padding-left: var(--ds-space-32, 32px); }
   .global-search__input:not(:focus) { width: 44px; padding-left: var(--ds-space-32, 32px); color: transparent; caret-color: transparent; }
   .global-search__input:focus { position: absolute; left: 0; right: 44px; z-index: var(--z-popover); width: auto; }   /* M4 裁定 3：随搜索面板归一次性浮层档，不与模态同值 */
@@ -2922,6 +2891,8 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
      （.notification-badge 锚在 .notification-trigger 上，那条仍是 relative，不受影响。） */
   .notification-wrap { position: static; }
   .notification-panel { top: 58px; left: 12px; right: 12px; width: auto; max-width: 340px; }
+  .account-menu-wrap, .topbar-quick-actions { position: static; }
+  .topbar .account-menu, .topbar .topbar-quick-actions__panel { top: calc(100% + 6px); left: 12px; right: 12px; width: auto; max-width: none; }
   .challenge-filters { align-items: stretch; flex-direction: column; }
   .challenge-filter { justify-content: space-between; }
   .challenge-filter select { flex: 1; min-width: 0; }

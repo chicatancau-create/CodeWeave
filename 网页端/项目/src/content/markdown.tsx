@@ -49,7 +49,15 @@ const DELIMITER_CELL = /^:?-{1,}:?$/
 /** 图片语法 `![说明](目标 "可选标题")`；判定不过就整段按纯文本显示。 */
 const IMAGE_TOKEN = /^!\[([^\]]*)\]\(([^\s)]+)(?:\s+(?:"[^"]*"|'[^']*'))?\)$/
 /** 本轮不允许改 styles.css：附件只用最小内联样式保证可读与不溢出。 */
-const IMAGE_STYLE = { maxWidth: '100%', height: 'auto', display: 'block', margin: '8px 0' }
+const IMAGE_STYLE = {
+  maxWidth: '100%',
+  width: '100%',
+  aspectRatio: '16 / 9',
+  objectFit: 'contain' as const,
+  height: 'auto',
+  display: 'block',
+  margin: '8px 0',
+}
 const IMAGE_NOTE_STYLE = { color: 'var(--muted)', fontSize: '0.9em' }
 
 /**

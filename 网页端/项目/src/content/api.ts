@@ -158,16 +158,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T
   }
 }
 
-export function fetchStatus(): Promise<ApiResult<ContentStatusResponse>> {
-  return request<ContentStatusResponse>('/api/content/status')
+export function fetchStatus(signal?: AbortSignal): Promise<ApiResult<ContentStatusResponse>> {
+  return request<ContentStatusResponse>('/api/content/status', { signal })
 }
 
 /**
  * 拉取目录并组装为快照。目录接口本身不返回正文；
  * 正文按需通过 fetchLesson 拉取，避免一次把整库带进浏览器。
  */
-export async function fetchCatalog(): Promise<ApiResult<ContentSnapshot>> {
-  const result = await request<ContentSnapshot>('/api/content/catalog')
+export async function fetchCatalog(signal?: AbortSignal): Promise<ApiResult<ContentSnapshot>> {
+  const result = await request<ContentSnapshot>('/api/content/catalog', { signal })
   return result
 }
 
@@ -197,8 +197,8 @@ export function fetchSyncJob(jobId: string): Promise<ApiResult<Record<string, un
 // LINK-08：学习事实（只读）
 // ---------------------------------------------------------------------------
 
-export function fetchLearningStatus(): Promise<ApiResult<LearningStatus>> {
-  return request<LearningStatus>('/api/learning/status')
+export function fetchLearningStatus(signal?: AbortSignal): Promise<ApiResult<LearningStatus>> {
+  return request<LearningStatus>('/api/learning/status', { signal })
 }
 
 /** 显式绑定：必须由用户主动确认，服务端不接受自动猜测。 */
