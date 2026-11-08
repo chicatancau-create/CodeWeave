@@ -77,21 +77,18 @@ Item {
                 objectName: "learningSourceBanner"
                 Layout.fillWidth: true
                 Layout.bottomMargin: ds.s8
-                implicitHeight: 32
+                implicitHeight: 44
                 radius: ds.radiusSm
                 color: ds.bannerBg
                 border.color: ds.line
                 border.width: 1
                 RowLayout {
                     anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
-                    spacing: ds.s8
-                    Rectangle {   // ::before hollow diamond
-                        implicitWidth: 7
-                        implicitHeight: 7
-                        color: "transparent"
-                        border.color: ds.ink
-                        border.width: 1
-                        rotation: 45
+                    spacing: ds.s12
+                    LucideIcon {
+                        name: "Database"
+                        size: 14
+                        color: ds.muted
                         Layout.alignment: Qt.AlignVCenter
                     }
                     Text {
@@ -99,16 +96,16 @@ Item {
                         text: "当前课程来自本机发布目录，阶段与来源按课程标注展示。"
                         color: ds.ink
                         font.family: ds.ui
-                        font.pixelSize: 12
+                        font.pixelSize: 16
                         elide: Text.ElideRight
                         Layout.alignment: Qt.AlignVCenter
                     }
                     QuietButton {
-
                         ds: studyPage.ds
-                        implicitHeight: 28
-                        label: uiShell.contentBusy ? "同步中…" : "重试同步"
+                        implicitHeight: 44
+                        label: uiShell.contentBusy ? "读取中…" : "重新读取"
                         enabled: !uiShell.contentBusy
+                        ToolTip.text: "重新读取本机发布目录中的课程"
                         onClicked: uiShell.reloadPublishedContent()
                     }
                 }

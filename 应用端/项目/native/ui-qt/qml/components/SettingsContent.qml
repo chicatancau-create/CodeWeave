@@ -14,6 +14,7 @@ ColumnLayout {
             ds: settings.ds
             label: "恢复默认"
             objectName: "settingsRestoreDefaults"
+            implicitHeight: 44
             enabled: uiShell.preferenceStorageReady
                 && (uiShell.reducedMotion || uiShell.editorFontSize !== 13 || !uiShell.editorLineNumbers)
             ToolTip.text: "恢复已接入的偏好默认值"
@@ -50,13 +51,13 @@ ColumnLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: settings.ds.s4
-                    Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
+                    Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 16; wrapMode: Text.WrapAnywhere }
                     Text {
                         Layout.fillWidth: true
                         text: modelData.description
                             + (preferenceRow.supported ? "" : "（待接入）")
                             + (preferenceRow.supported && !uiShell.preferenceStorageReady ? "（本机配置不可用）" : "")
-                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 12
+                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13
                         wrapMode: Text.WrapAnywhere
                     }
                 }
@@ -107,6 +108,7 @@ ColumnLayout {
                         ? modelData.options.indexOf(uiShell.editorFontSize) : 0
                     enabled: modelData.title === "编辑器字号" && uiShell.preferenceStorageReady
                     implicitWidth: 90
+                    implicitHeight: 44
                     palette.base: settings.ds.inset; palette.button: settings.ds.inset
                     palette.text: settings.ds.muted; palette.buttonText: settings.ds.muted
                     palette.mid: settings.ds.lineStrong
@@ -134,20 +136,20 @@ ColumnLayout {
             spacing: settings.ds.s12
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
-                Text { Layout.fillWidth: true; text: modelData.detail; color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 12; wrapMode: Text.WrapAnywhere }
+                Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 16; wrapMode: Text.WrapAnywhere }
+                Text { Layout.fillWidth: true; text: modelData.detail; color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
             }
-            QuietButton { ds: settings.ds; label: modelData.action; enabled: false }
+            QuietButton { ds: settings.ds; label: modelData.action; enabled: false; implicitHeight: 44 }
         }
     }
-    QuietButton { Layout.topMargin: settings.ds.s16; ds: settings.ds; label: "数据与隐私"; onClicked: settings.openPrivacy() }
+    QuietButton { Layout.topMargin: settings.ds.s16; ds: settings.ds; label: "数据与隐私"; implicitHeight: 44; onClicked: settings.openPrivacy() }
     Text {
         Layout.fillWidth: true
         Layout.topMargin: settings.ds.s20
         text: "未接入的学习与编辑器偏好暂不可用。"
         color: settings.ds.muted
         font.family: settings.ds.ui
-        font.pixelSize: 12
+        font.pixelSize: 13
         wrapMode: Text.WrapAnywhere
     }
 }

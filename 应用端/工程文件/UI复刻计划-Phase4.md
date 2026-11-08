@@ -3,7 +3,7 @@
 # UI 复刻计划 - Phase 4（结构复刻补全）
 
 **创建时间**：2026-10-10
-**状态**：进行中（2026-11-08 工作台模式/指南专项 15/15、完整窗口矩阵 218/218；视觉差异仍按证据追踪）
+**状态**：进行中（2026-11-08 工作台模式/指南专项 15/15、完整窗口矩阵 218/218、来源/设置窗口复测；视觉差异仍按证据追踪）
 **前置文档**：`UI复刻计划-Phase2.md`、`UI复刻计划-Phase3.md`
 
 ---
@@ -466,3 +466,12 @@ Phase 2/3 主要打磨已有区块。下表保留最初盘点中的历史粗估�
 - [通过] `cmd /c 工程文件\工具\构建当前Qt.cmd`：最终 Release 增量构建，CTest 11/11（113.50 秒）；`node 工程文件/工具/check-layout.mjs` 与 `git diff --check` 通过。独立审查无阻断问题；装饰图标标记 `Accessible.ignored: true`，但窗口 smoke 未枚举完整辅助技术树。
 - [先失败，修复后通过] 首次可见窗口 smoke 在账户菜单 `profileAction` 焦点检查时退出，已保存失败报告和首张截图；改用 `Start-Process -Wait` 重跑通过。最终报告 `验收证据/Phase4-help-icons-retest-20261108/accessibility-retest/qml-window-report.json`：8 张 1440×900 / 1100×720 截图、4 个 Popup 锚点通过、`python-loop-sum`、QML warnings 0。帮助、外壳、快捷动作、账户、搜索截图已人工查看。
 - [未完成] 入口/菜单图符字形差异已显著收敛，但来源提示、设置项可用性、Qt/Web 内容状态仍不同；帮助文案也按平台能力保留差异，故不宣称 Phase 4.2 整体视觉等价。旧报告和复现见 `验收证据/Phase4-help-icons-retest-20261108/README.md`。
+
+### 2026-11-08 来源提示与设置视图复核
+
+- [通过] 学习页来源提示保留本机发布目录事实，动作文案改为“重新读取”；设置标题/说明层级和已接入控件尺寸收敛，未接入偏好与数据操作仍禁用。窗口截图人工检查未见当前可视区域内的重叠；1100×720 下后续设置行由滚动区域承载。
+- [通过] `cmd /c 工程文件\工具\构建当前Qt.cmd`：Qt Release 构建成功，CTest 11/11（137.79 秒）；`node 工程文件/工具/check-layout.mjs` 与 `git diff --check` 通过。
+- [先失败，修复后通过] 首轮可见窗口 smoke 在账户菜单 `profileAction` 焦点检查失败，失败报告保留在本目录；检查发生于首张截图前。以 `Start-Process -PassThru -Wait -NoNewWindow` 重跑后通过，但焦点丢失根因仍未定位。最终报告 `final/qml-window-report.json`：8 张 1440×900/1100×720 截图、DPR 1、4 个浮层锚点通过、QML warnings 0。
+- [通过] 重读按钮调用本机 `reloadPublishedContent()`，不显示为远端同步；由于 `contentBusy/contentStatus` 同时覆盖正文、起始代码和草稿读取/操作状态，本批不把这些共享属性解释为专属目录同步状态。
+- [未执行] 窄窗口内所有设置行逐项滚动截图、正式账户/资料库联调及与 Web 来源状态的逐像素等价；本机安装版未替换。
+- 证据、截图和复现见 `验收证据/Phase4-source-settings-retest-20261108/README.md`。4.2 整体验收仍未关闭。
