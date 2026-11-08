@@ -6,9 +6,11 @@
 #include "evidence_store.hpp"
 
 #include <QGuiApplication>
+#include <QAccessible>
 #include <QColor>
 #include <QDir>
 #include <QDate>
+#include <QFont>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickView>
@@ -245,6 +247,7 @@ int main(int argc, char* argv[]) {
       QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
   const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() :
       (qml_smoke ? benchmark_data->path() : workspace);
+  shell.configurePreferenceStorage(std::filesystem::path(nativeData.toStdWString()));
   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
   if (!isolated_window && !qml_smoke && benchmark < 0) {
     QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
@@ -342,6 +345,8 @@ int main(int argc, char* argv[]) {
   QJsonArray smoke_popup_geometry;
   bool smoke_reference_ready = false;
   bool smoke_reference_registration_started = false;
+  QString smoke_preference_draft;
+  qulonglong smoke_preference_revision = 0;
   const auto write_smoke_report = [&] {
       QJsonObject report;
       report.insert(QStringLiteral("diagnostic"), diagnostic);
@@ -712,6 +717,171 @@ int main(int argc, char* argv[]) {
             application.exit(1);
             return;
           }
+          {
+            auto* toggle = u3_find_item(settings_scroll, QStringLiteral("settingsReducedMotionToggle"));
+            auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+            auto* busy_indicator = u3_find_item(view.rootObject(), QStringLiteral("topbarBusyIndicator"));
+            auto* restore = u3_find_item(settings_scroll, QStringLiteral("settingsRestoreDefaults"));
+            auto* font_size = u3_find_item(settings_scroll, QStringLiteral("settingsEditorFontSize"));
+            auto* line_toggle = u3_find_item(settings_scroll, QStringLiteral("settingsEditorLineNumbersToggle"));
+            auto* spinner = busy_indicator
+                ? u3_find_item(busy_indicator, QStringLiteral("motionSpinner")) : nullptr;
+            auto* static_ring = busy_indicator
+                ? u3_find_item(busy_indicator, QStringLiteral("motionStaticRing")) : nullptr;
+            auto* static_dot = busy_indicator
+                ? u3_find_item(busy_indicator, QStringLiteral("motionStaticDot")) : nullptr;
+            if (!toggle || !design_system || !busy_indicator || !spinner || !static_ring || !static_dot || !restore ||
+                !font_size || !line_toggle || !font_size->property("enabled").toBool() ||
+                !line_toggle->property("enabled").toBool() || shell.editorFontSize() != 13 ||
+                !shell.editorLineNumbers() || font_size->property("currentIndex").toInt() != 1 ||
+                !line_toggle->property("checked").toBool() ||
+                !shell.preferenceStorageReady() || !toggle->property("enabled").toBool() ||
+                toggle->property("checked").toBool() || shell.reducedMotion() ||
+                design_system->property("durQuick").toInt() != 150) {
+              diagnostic = QStringLiteral("Reduced-motion initial state failed: toggle=%1 design=%2 busy=%3 spinner=%4 ring=%5 dot=%6 restore=%7 storage=%8 enabled=%9 checked=%10 reduced=%11 duration=%12")
+                  .arg(toggle != nullptr).arg(design_system != nullptr).arg(busy_indicator != nullptr)
+                  .arg(spinner != nullptr).arg(static_ring != nullptr).arg(static_dot != nullptr)
+                  .arg(restore != nullptr).arg(shell.preferenceStorageReady())
+                  .arg(toggle && toggle->property("enabled").toBool())
+                  .arg(toggle && toggle->property("checked").toBool())
+                  .arg(shell.reducedMotion())
+                  .arg(design_system ? design_system->property("durQuick").toInt() : -1);
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            busy_indicator->setProperty("busy", true);
+            QCoreApplication::processEvents();
+            if (!spinner->isVisible() || !spinner->property("running").toBool() ||
+                static_ring->isVisible() || static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Default busy indicator did not use its animated state");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            toggle->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+            QCoreApplication::processEvents();
+            if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 0 || spinner->isVisible() ||
+                spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Reduced-motion toggle did not disable transitions and spinner motion");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Reduced-motion defaults action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+            if (shell.reducedMotion() || toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 150 || !spinner->isVisible() ||
+                !spinner->property("running").toBool() || static_ring->isVisible() || static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Restoring defaults did not restore animated behavior");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            auto* accessible_toggle = QAccessible::queryAccessibleInterface(toggle);
+            auto* accessible_actions = accessible_toggle ? accessible_toggle->actionInterface() : nullptr;
+            if (!accessible_toggle || accessible_toggle->role() != QAccessible::CheckBox ||
+                !accessible_actions ||
+                !accessible_actions->actionNames().contains(QAccessibleActionInterface::toggleAction())) {
+              diagnostic = QStringLiteral("Reduced-motion checkbox did not expose an accessible toggle action");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            accessible_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+            if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 0 || spinner->isVisible() ||
+                spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Accessible reduced-motion action did not apply its checked state");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection);
+            QCoreApplication::processEvents();
+            if (shell.reducedMotion() || toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 150) {
+              diagnostic = QStringLiteral("Reduced-motion checkbox did not restore after its accessible action");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            const auto preference_draft = shell.draftCode();
+            const auto preference_revision = shell.draftRevision();
+            auto* accessible_lines = QAccessible::queryAccessibleInterface(line_toggle);
+            auto* line_actions = accessible_lines ? accessible_lines->actionInterface() : nullptr;
+            if (!accessible_lines || accessible_lines->role() != QAccessible::CheckBox || !line_actions ||
+                !line_actions->actionNames().contains(QAccessibleActionInterface::toggleAction()) ||
+                !QMetaObject::invokeMethod(font_size, "activated", Qt::DirectConnection, Q_ARG(int, 4))) {
+              diagnostic = QStringLiteral("Editor preferences did not expose their activation actions");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            line_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+            if (shell.editorFontSize() != 16 || shell.editorLineNumbers() ||
+                font_size->property("currentIndex").toInt() != 4 || line_toggle->property("checked").toBool() ||
+                shell.draftCode() != preference_draft || shell.draftRevision() != preference_revision) {
+              diagnostic = QStringLiteral("Editor preferences did not apply or changed the current draft");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Editor preferences defaults action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+            if (shell.editorFontSize() != 13 || !shell.editorLineNumbers() ||
+                font_size->property("currentIndex").toInt() != 1 || !line_toggle->property("checked").toBool() ||
+                shell.draftCode() != preference_draft || shell.draftRevision() != preference_revision) {
+              diagnostic = QStringLiteral("Restoring editor preferences changed the draft or missed defaults");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            const auto preference_path = QDir(nativeData).filePath(QStringLiteral("preferences.ini"));
+            if (!QFile::remove(preference_path) || !QDir().mkpath(preference_path)) {
+              diagnostic = QStringLiteral("Could not create isolated preference write-failure fixture");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            toggle->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+            font_size->setProperty("currentIndex", 4);
+            if (!QMetaObject::invokeMethod(font_size, "activated", Qt::DirectConnection, Q_ARG(int, 4))) {
+              diagnostic = QStringLiteral("Editor font size failure action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            line_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+            const bool write_failure_preserved_state = !shell.reducedMotion() &&
+                !toggle->property("checked").toBool() && design_system->property("durQuick").toInt() == 150 &&
+                shell.editorFontSize() == 13 && shell.editorLineNumbers() &&
+                font_size->property("currentIndex").toInt() == 1 && line_toggle->property("checked").toBool() &&
+                shell.draftCode() == preference_draft && shell.draftRevision() == preference_revision;
+            if (!QDir(preference_path).removeRecursively() || !write_failure_preserved_state) {
+              diagnostic = QStringLiteral("Failed preference write changed the visible or applied state");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            busy_indicator->setProperty("busy", false);
+          }
           if (!capture_topbar(QStringLiteral("topbar-settings"))) { application.exit(1); return; }
           smoke_expected_size = QSize(1100, 720);
           view.setMinimumSize(QSize(1100, 720));
@@ -810,6 +980,142 @@ int main(int argc, char* argv[]) {
             application.exit(1);
             return;
           }
+          if (shell.draftDirty()) {
+            diagnostic = QStringLiteral("Editor preference smoke refused to replace an unsaved draft");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          shell.selectPage(QStringLiteral("编辑器"));
+          if (!shell.publishedIds().isEmpty()) {
+            const auto reference_index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+            shell.openPublishedContent(reference_index >= 0 ? reference_index : 0);
+          } else {
+            shell.selectPage(QStringLiteral("编辑器"));
+          }
+          break;
+        case 25:
+          {
+            if (shell.contentBusy()) {
+              --qml_smoke_page;
+              return;
+            }
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* line_numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            auto* code_scroll = u3_find_item(view.rootObject(), QStringLiteral("codeScroll"));
+            auto* font_size = u3_find_item(settings_scroll, QStringLiteral("settingsEditorFontSize"));
+            auto* line_toggle = u3_find_item(settings_scroll, QStringLiteral("settingsEditorLineNumbersToggle"));
+            if (!editor || !line_numbers || !code_scroll || !font_size || !line_toggle ||
+                !line_numbers->parentItem() || !code_scroll->parentItem() ||
+                editor->property("font").value<QFont>().pixelSize() != 13 ||
+                line_numbers->property("font").value<QFont>().pixelSize() != 13 ||
+                !line_numbers->parentItem()->isVisible() ||
+                std::abs(line_numbers->parentItem()->width() - 44) > 1 ||
+                std::abs(code_scroll->x() - 45) > 1 ||
+                (!shell.publishedIds().isEmpty() &&
+                    (!shell.hasSelectedContent() || shell.selectedContentBody().isEmpty() ||
+                     shell.starterLanguage().isEmpty() || editor->property("text").toString().isEmpty()))) {
+              diagnostic = QStringLiteral("Editor preference defaults failed: page=%1 busy=%2 editor=%3 lines=%4 scroll=%5 selected=%6 body=%7 language=%8 editorFont=%9 lineFont=%10 gutterVisible=%11 gutterWidth=%12 scrollX=%13 textEmpty=%14")
+                  .arg(shell.currentPage()).arg(shell.contentBusy()).arg(editor != nullptr)
+                  .arg(line_numbers != nullptr).arg(code_scroll != nullptr)
+                  .arg(shell.hasSelectedContent()).arg(!shell.selectedContentBody().isEmpty())
+                  .arg(!shell.starterLanguage().isEmpty())
+                  .arg(editor ? editor->property("font").value<QFont>().pixelSize() : -1)
+                  .arg(line_numbers ? line_numbers->property("font").value<QFont>().pixelSize() : -1)
+                  .arg(line_numbers && line_numbers->parentItem() && line_numbers->parentItem()->isVisible())
+                  .arg(line_numbers && line_numbers->parentItem() ? line_numbers->parentItem()->width() : -1)
+                  .arg(code_scroll ? code_scroll->x() : -1)
+                  .arg(editor && editor->property("text").toString().isEmpty());
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            smoke_preference_draft = shell.draftCode();
+            smoke_preference_revision = shell.draftRevision();
+            if (!QMetaObject::invokeMethod(settings, "open", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Editor preference settings dialog could not be opened");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+            if (!settings->property("opened").toBool()) {
+              diagnostic = QStringLiteral("Editor preference settings dialog did not become visible");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!font_size->property("enabled").toBool() || !line_toggle->property("enabled").toBool()) {
+              diagnostic = QStringLiteral("Editor preference controls were disabled while storage was ready");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(font_size, "activated", Qt::DirectConnection, Q_ARG(int, 4))) {
+              diagnostic = QStringLiteral("Loaded editor font size action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            auto* line_interface = QAccessible::queryAccessibleInterface(line_toggle);
+            auto* line_actions = line_interface ? line_interface->actionInterface() : nullptr;
+            if (!line_actions || !line_actions->actionNames().contains(QAccessibleActionInterface::toggleAction())) {
+              diagnostic = QStringLiteral("Loaded editor line number toggle action is unavailable");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            line_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+          }
+          break;
+        case 26:
+          {
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* line_numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            auto* code_scroll = u3_find_item(view.rootObject(), QStringLiteral("codeScroll"));
+            auto* restore = u3_find_item(settings_scroll, QStringLiteral("settingsRestoreDefaults"));
+            if (!editor || !line_numbers || !code_scroll || !restore || !line_numbers->parentItem() ||
+                !code_scroll->parentItem() ||
+                editor->property("font").value<QFont>().pixelSize() != 16 ||
+                line_numbers->property("font").value<QFont>().pixelSize() != 16 ||
+                line_numbers->parentItem()->isVisible() || std::abs(code_scroll->x()) > 1 ||
+                std::abs(code_scroll->width() - code_scroll->parentItem()->width()) > 1 ||
+                shell.draftCode() != smoke_preference_draft || shell.draftRevision() != smoke_preference_revision ||
+                editor->property("text").toString() != smoke_preference_draft) {
+              diagnostic = QStringLiteral("Editor preferences did not change font and gutter without changing the draft");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Loaded editor defaults action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+          }
+          break;
+        case 27:
+          {
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* line_numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            auto* code_scroll = u3_find_item(view.rootObject(), QStringLiteral("codeScroll"));
+            if (!editor || !line_numbers || !code_scroll || !line_numbers->parentItem() ||
+                shell.editorFontSize() != 13 ||
+                !shell.editorLineNumbers() || editor->property("font").value<QFont>().pixelSize() != 13 ||
+                line_numbers->property("font").value<QFont>().pixelSize() != 13 ||
+                !line_numbers->parentItem()->isVisible() || std::abs(code_scroll->x() - 45) > 1 ||
+                shell.draftCode() != smoke_preference_draft || shell.draftRevision() != smoke_preference_revision ||
+                editor->property("text").toString() != smoke_preference_draft) {
+              diagnostic = QStringLiteral("Restoring loaded editor defaults changed the draft or missed its layout");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          QMetaObject::invokeMethod(settings, "close");
           diagnostic = QStringLiteral("passed");
           write_smoke_report();
           application.exit(0);

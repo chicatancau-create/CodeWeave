@@ -1,5 +1,7 @@
 # Phase4 顶栏锚点复核（2026-11-08）
 
+> 本报告记录搜索边距调整前的尺寸。后续按 `ds.s2` 收敛后的当前几何、截图和复现命令见 `../Phase4-topbar-spacing-20261108/README.md`；本目录保留为前序证据。
+
 ## 结果
 
 - [通过] 当前 Qt Release 构建和 CTest 11/11（本次 131.05 秒）；顶栏 smoke `passed`，隔离账户 `Reference`，账户菜单显示的邮箱与 facade 一致，QML 警告为空。

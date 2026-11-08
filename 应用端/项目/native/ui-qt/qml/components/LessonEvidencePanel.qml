@@ -156,7 +156,12 @@ ColumnLayout {
             enabled: uiShell.hasActiveAccount && !panel.busy
             onClicked: uiShell.refreshReviewSummary()
         }
-        BusyIndicator { implicitWidth: 24; implicitHeight: 24; running: panel.busy; visible: running }
+        MotionAwareBusyIndicator {
+            ds: panel.ds
+            implicitWidth: 24; implicitHeight: 24
+            busy: panel.busy
+            accessibleName: "正在更新学习证据"
+        }
     }
     Text {
         objectName: "lessonEvidenceStatus"

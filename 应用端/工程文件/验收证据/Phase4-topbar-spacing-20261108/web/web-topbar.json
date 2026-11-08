@@ -1,0 +1,228 @@
+{
+  "startedAt": "2026-11-08T04:01:22.358Z",
+  "isolatedApi": true,
+  "screenshots": [
+    {
+      "name": "topbar-shell",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".topbar",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 68
+      }
+    },
+    {
+      "name": "topbar-quick",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".topbar-quick-actions__panel",
+      "geometry": {
+        "x": 910,
+        "y": 59.5,
+        "width": 268,
+        "height": 183.390625
+      }
+    },
+    {
+      "name": "topbar-notifications",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".notification-panel",
+      "geometry": {
+        "x": 922,
+        "y": 59.5,
+        "width": 300,
+        "height": 103.984375
+      }
+    },
+    {
+      "name": "topbar-account",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".account-menu",
+      "geometry": {
+        "x": 1220,
+        "y": 56.5,
+        "width": 196,
+        "height": 296.59375
+      }
+    },
+    {
+      "name": "topbar-search",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".global-search__panel",
+      "geometry": {
+        "x": 463.53125,
+        "y": 59.6875,
+        "width": 658.46875,
+        "height": 92.796875
+      }
+    },
+    {
+      "name": "topbar-settings",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".settings-modal",
+      "geometry": {
+        "x": 440,
+        "y": 63,
+        "width": 560,
+        "height": 774
+      }
+    },
+    {
+      "name": "topbar-settings-small",
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "selector": ".settings-modal",
+      "geometry": {
+        "x": 270,
+        "y": 50.40625,
+        "width": 560,
+        "height": 619.1875
+      }
+    },
+    {
+      "name": "topbar-help",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".help-modal",
+      "geometry": {
+        "x": 490,
+        "y": 198.609375,
+        "width": 460,
+        "height": 502.78125
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": ".topbar-quick-actions__panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".notification-panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".account-menu:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".global-search__panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".settings-modal:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".help-modal:escape-and-return-focus",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "reference": {
+    "accountName": "Reference",
+    "email": "topbar@example.test",
+    "documentId": "python-loop-sum",
+    "lessonCount": 61,
+    "lessonIds": [
+      "b1-array-basics",
+      "b2-bubble-sort",
+      "b3-binary-search",
+      "c-02",
+      "c-03",
+      "c-04",
+      "c-loop-sum",
+      "csharp-02",
+      "csharp-03",
+      "csharp-04",
+      "csharp-loop-sum",
+      "d1-html-semantics",
+      "d2-css-box-model",
+      "d3-dom-events",
+      "e1-vue-composition",
+      "e2-vue-router-guard",
+      "e3-pinia-state",
+      "f1-webpack-entry-loader",
+      "f2-webpack-plugin-devserver",
+      "f3-webpack-splitting",
+      "g1-http-rest-basics",
+      "g2-servlet-tomcat",
+      "g3-jdbc-mysql-crud",
+      "h1-spring-ioc-di",
+      "h2-spring-mvc-validation",
+      "h3-mybatis-mapper",
+      "i1-springboot-starter",
+      "i2-springboot-rest-actuator",
+      "i3-springboot-package-upload",
+      "j1-auth-session-flow",
+      "j2-xss-sanitize-sandbox",
+      "j3-csrf-cors-boundary",
+      "java-02",
+      "java-03",
+      "java-04",
+      "java-algo-c1",
+      "java-algo-c2",
+      "java-algo-c3",
+      "java-env-a1",
+      "java-env-a2",
+      "java-env-a3",
+      "java-loop-sum",
+      "javascript-02",
+      "javascript-03",
+      "javascript-04",
+      "javascript-loop-sum",
+      "k1-service-discovery",
+      "k2-gateway-config",
+      "k3-circuit-limit-trace",
+      "l1-linux-ops-basics",
+      "l2-docker-compose",
+      "l3-nginx-backup-rollback",
+      "m1-requirement-modeling",
+      "m2-timebox-mvp",
+      "m3-review-defense",
+      "python-condition",
+      "python-function",
+      "python-loop-sum",
+      "python-output",
+      "python-types",
+      "python-while"
+    ],
+    "subject": "Python",
+    "filteredLessonIds": [
+      "python-condition",
+      "python-function",
+      "python-loop-sum",
+      "python-output",
+      "python-types",
+      "python-while"
+    ],
+    "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f",
+    "sourceVerification": "running Vite module, rendered course cards and editor textarea",
+    "learningState": "not-run, no evidence, no notifications"
+  },
+  "passed": true,
+  "completedAt": "2026-11-08T04:01:26.989Z"
+}

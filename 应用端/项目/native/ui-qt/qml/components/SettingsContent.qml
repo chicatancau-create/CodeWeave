@@ -10,7 +10,15 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Text { Layout.fillWidth: true; text: "学习体验"; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13 }
-        QuietButton { ds: settings.ds; label: "恢复默认"; enabled: false; ToolTip.text: "偏好持久化待接入" }
+        QuietButton {
+            ds: settings.ds
+            label: "恢复默认"
+            objectName: "settingsRestoreDefaults"
+            enabled: uiShell.preferenceStorageReady
+                && (uiShell.reducedMotion || uiShell.editorFontSize !== 13 || !uiShell.editorLineNumbers)
+            ToolTip.text: "恢复已接入的偏好默认值"
+            onClicked: uiShell.restoreDefaultPreferences()
+        }
     }
     Repeater {
         model: [
@@ -24,8 +32,11 @@ ColumnLayout {
             { title: "显示行号", description: "只控制行号显示，不修改代码文本", options: [] }
         ]
         delegate: Item {
+            id: preferenceRow
             required property var modelData
             required property int index
+            readonly property bool supported: modelData.title === "减弱动画"
+                || modelData.title === "编辑器字号" || modelData.title === "显示行号"
             objectName: "settingsPreferenceRow" + index
             Layout.fillWidth: true
             implicitHeight: Math.max(72, row.implicitHeight + settings.ds.s24)
@@ -40,30 +51,72 @@ ColumnLayout {
                     Layout.fillWidth: true
                     spacing: settings.ds.s4
                     Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
-                    Text { Layout.fillWidth: true; text: modelData.description + "（待接入）"; color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 12; wrapMode: Text.WrapAnywhere }
+                    Text {
+                        Layout.fillWidth: true
+                        text: modelData.description
+                            + (preferenceRow.supported ? "" : "（待接入）")
+                            + (preferenceRow.supported && !uiShell.preferenceStorageReady ? "（本机配置不可用）" : "")
+                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 12
+                        wrapMode: Text.WrapAnywhere
+                    }
                 }
-                CheckBox {
+                Rectangle {
+                    id: preferenceToggle
+                    objectName: modelData.title === "减弱动画" ? "settingsReducedMotionToggle"
+                        : (modelData.title === "显示行号" ? "settingsEditorLineNumbersToggle" : "")
                     visible: modelData.options.length === 0
                     implicitWidth: 48; implicitHeight: 28
-                    indicator: Rectangle {
-                        implicitWidth: 48; implicitHeight: 28
-                        color: settings.ds.inset
-                        border.color: settings.ds.lineStrong
-                        Rectangle { x: 5; y: 5; width: 16; height: 16; color: settings.ds.muted }
+                    enabled: (modelData.title === "减弱动画" || modelData.title === "显示行号")
+                        && uiShell.preferenceStorageReady
+                    readonly property bool checked: (modelData.title === "减弱动画" && uiShell.reducedMotion)
+                        || (modelData.title === "显示行号" && uiShell.editorLineNumbers)
+                    activeFocusOnTab: enabled
+                    color: enabled ? settings.ds.inset : settings.ds.panel
+                    border.color: activeFocus || checked ? settings.ds.accent : settings.ds.lineStrong
+                    radius: 4
+                    function choose() {
+                        if (!enabled) return;
+                        if (modelData.title === "减弱动画") uiShell.setReducedMotion(!checked);
+                        else if (modelData.title === "显示行号") uiShell.setEditorLineNumbers(!checked);
                     }
-                    Accessible.name: modelData.title + "（待接入）"
-                    enabled: false
+                    Keys.onSpacePressed: choose()
+                    Keys.onReturnPressed: choose()
+                    TapHandler { onTapped: { preferenceToggle.forceActiveFocus(); preferenceToggle.choose(); } }
+                    Text {
+                        anchors.centerIn: parent
+                        text: preferenceToggle.checked ? "✓" : ""
+                        color: settings.ds.accent
+                        font.family: settings.ds.ui
+                        font.pixelSize: 15
+                    }
+                    Accessible.role: Accessible.CheckBox
+                    Accessible.checkable: true
+                    Accessible.checked: checked
+                    Accessible.name: modelData.title
+                        + ((modelData.title === "减弱动画" || modelData.title === "显示行号") ? "" : "（待接入）")
+                    Accessible.onPressAction: choose()
+                    Accessible.onToggleAction: choose()
                 }
                 ComboBox {
+                    objectName: modelData.title === "编辑器字号" ? "settingsEditorFontSize" : ""
                     visible: modelData.options.length > 0
-                    model: modelData.options
-                    currentIndex: modelData.title === "编辑器字号" ? 1 : 0
-                    enabled: false
+                    model: modelData.title === "编辑器字号"
+                        ? modelData.options.map(size => size + " px")
+                        : modelData.options.map(size => size + " 格")
+                    currentIndex: modelData.title === "编辑器字号"
+                        ? modelData.options.indexOf(uiShell.editorFontSize) : 0
+                    enabled: modelData.title === "编辑器字号" && uiShell.preferenceStorageReady
                     implicitWidth: 90
                     palette.base: settings.ds.inset; palette.button: settings.ds.inset
                     palette.text: settings.ds.muted; palette.buttonText: settings.ds.muted
                     palette.mid: settings.ds.lineStrong
-                    Accessible.name: modelData.title + "（待接入）"
+                    onActivated: index => {
+                        if (modelData.title !== "编辑器字号") return;
+                        uiShell.setEditorFontSize(modelData.options[index]);
+                        currentIndex = Qt.binding(() => modelData.options.indexOf(uiShell.editorFontSize));
+                    }
+                    Accessible.name: modelData.title
+                        + (modelData.title === "编辑器字号" ? "" : "（待接入）")
                 }
             }
         }
@@ -91,7 +144,7 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         Layout.topMargin: settings.ds.s20
-        text: "当前使用统一深色工作台。偏好持久化未接入的选项暂不可用。"
+        text: "未接入的学习与编辑器偏好暂不可用。"
         color: settings.ds.muted
         font.family: settings.ds.ui
         font.pixelSize: 12

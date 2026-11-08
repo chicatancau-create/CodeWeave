@@ -2,6 +2,7 @@ import QtQuick
 
 QtObject {
     property real hostWidth: 1440
+    property bool reducedMotion: false
 
     // Surfaces
     readonly property color page:       "#0f131b"   // --page
@@ -102,11 +103,11 @@ QtObject {
     readonly property int sizeControl: 13
 
     // Animation system (from web tokens.css L238-256)
-    readonly property int durQuick: 150
-    readonly property int durBase: 220
-    readonly property int durSlow: 300
-    readonly property int durHover: 400
-    readonly property int durState: 500
+    readonly property int durQuick: reducedMotion ? 0 : 150
+    readonly property int durBase: reducedMotion ? 0 : 220
+    readonly property int durSlow: reducedMotion ? 0 : 300
+    readonly property int durHover: reducedMotion ? 0 : 400
+    readonly property int durState: reducedMotion ? 0 : 500
     // Easing curve: cubic-bezier(0.22, 1, 0.36, 1)
     // Qt equivalent: Easing.OutCubic or custom Easing.Bezier
     readonly property int easingType: Easing.OutCubic

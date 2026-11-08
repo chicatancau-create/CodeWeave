@@ -100,6 +100,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/ShellMenuItem.qml
     qml/components/SettingsContent.qml
     qml/components/PreferenceToggle.qml
+    qml/components/MotionAwareBusyIndicator.qml
     qml/components/SubjectPill.qml
     qml/components/ChallengeSubmissionPanel.qml
     qml/components/LessonEvidencePanel.qml

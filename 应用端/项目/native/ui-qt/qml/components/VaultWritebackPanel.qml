@@ -61,7 +61,12 @@ ColumnLayout {
         Layout.fillWidth: true
         Text { text: "证据与资料库"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
         Item { Layout.fillWidth: true }
-        BusyIndicator { implicitWidth: 24; implicitHeight: 24; visible: panel.state.busy === true; running: visible }
+        MotionAwareBusyIndicator {
+            ds: panel.ds
+            implicitWidth: 24; implicitHeight: 24
+            busy: panel.state.busy === true
+            accessibleName: "正在同步资料库"
+        }
         QuietButton {
             ds: panel.ds
             objectName: "vaultChooseRoot"

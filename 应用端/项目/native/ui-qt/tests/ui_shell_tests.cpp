@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLockFile>
+#include <QSettings>
 #include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
@@ -193,6 +194,95 @@ void test_checkin_store() {
   assert(!CheckinStore("relative-account").read(dates).ok);
   assert(CheckinStore::streak({}, today) == 0);
 }
+
+void test_ui_preferences() {
+  QTemporaryDir temporary;
+  assert(temporary.isValid());
+  const auto root = std::filesystem::path(temporary.path().toStdWString()) / L"app-config";
+
+  UiShell unconfigured;
+  assert(!unconfigured.preferenceStorageReady());
+  assert(!unconfigured.reducedMotion());
+  assert(unconfigured.editorFontSize() == 13);
+  assert(unconfigured.editorLineNumbers());
+  assert(!unconfigured.setReducedMotion(true));
+  assert(!unconfigured.setEditorFontSize(16));
+  assert(!unconfigured.setEditorLineNumbers(false));
+  assert(!unconfigured.reducedMotion());
+
+  UiShell shell;
+  assert(!shell.reducedMotion());
+  assert(shell.configurePreferenceStorage(root));
+  assert(shell.preferenceStorageReady());
+  assert(!shell.reducedMotion());
+  assert(shell.editorFontSize() == 13);
+  assert(shell.editorLineNumbers());
+  assert(shell.setReducedMotion(true));
+  assert(shell.setEditorFontSize(16));
+  assert(!shell.setEditorFontSize(17));
+  assert(shell.setEditorLineNumbers(false));
+  assert(shell.reducedMotion());
+  assert(shell.editorFontSize() == 16);
+  assert(!shell.editorLineNumbers());
+
+  const auto settings_path = QDir(QString::fromStdWString(root.wstring()))
+      .filePath(QStringLiteral("preferences.ini"));
+  UiShell reopened;
+  assert(reopened.configurePreferenceStorage(root));
+  assert(reopened.reducedMotion());
+  assert(reopened.editorFontSize() == 16);
+  assert(!reopened.editorLineNumbers());
+  {
+    QSettings settings(settings_path, QSettings::IniFormat);
+    assert(settings.value(QStringLiteral("preferences/reducedMotion")).toBool());
+    assert(settings.value(QStringLiteral("preferences/editorFontSize")).toInt() == 16);
+    assert(!settings.value(QStringLiteral("preferences/editorLineNumbers")).toBool());
+    settings.setValue(QStringLiteral("unrelated/keep"), QStringLiteral("preserved"));
+    settings.sync();
+
+    assert(reopened.restoreDefaultPreferences());
+    assert(!reopened.reducedMotion());
+    assert(reopened.editorFontSize() == 13);
+    assert(reopened.editorLineNumbers());
+    settings.sync();
+    assert(!settings.contains(QStringLiteral("preferences/reducedMotion")));
+    assert(!settings.contains(QStringLiteral("preferences/editorFontSize")));
+    assert(!settings.contains(QStringLiteral("preferences/editorLineNumbers")));
+    assert(settings.value(QStringLiteral("unrelated/keep")).toString() == QStringLiteral("preserved"));
+  }
+  assert(reopened.setEditorFontSize(16));
+  assert(reopened.setEditorLineNumbers(false));
+  assert(QFile::remove(settings_path));
+  assert(QDir().mkpath(settings_path));
+  assert(!reopened.setReducedMotion(true));
+  assert(!reopened.setEditorFontSize(18));
+  assert(!reopened.setEditorLineNumbers(true));
+  assert(!reopened.restoreDefaultPreferences());
+  assert(!reopened.reducedMotion());
+  assert(reopened.editorFontSize() == 16);
+  assert(!reopened.editorLineNumbers());
+  assert(QDir(settings_path).removeRecursively());
+
+  UiShell after_reset;
+  assert(after_reset.configurePreferenceStorage(root));
+  assert(!after_reset.reducedMotion());
+  assert(after_reset.editorFontSize() == 13);
+  assert(after_reset.editorLineNumbers());
+  assert(after_reset.setReducedMotion(false));
+
+  for (const auto& invalid : {QVariant(17), QVariant(QStringLiteral("not-a-size"))}) {
+    QSettings malformed_settings(settings_path, QSettings::IniFormat);
+    malformed_settings.setFallbacksEnabled(false);
+    malformed_settings.setValue(QStringLiteral("preferences/editorFontSize"), invalid);
+    malformed_settings.sync();
+    assert(malformed_settings.status() == QSettings::NoError);
+    UiShell malformed;
+    assert(malformed.configurePreferenceStorage(root));
+    assert(malformed.editorFontSize() == 13);
+    malformed_settings.remove(QStringLiteral("preferences/editorFontSize"));
+    malformed_settings.sync();
+  }
+}
 }  // namespace
 
 struct UiShellTestAccess {
@@ -222,6 +312,7 @@ int main(int argc, char** argv) {
   assert(argc == 6);
   test_challenge_submission_store();
   test_checkin_store();
+  test_ui_preferences();
   QTemporaryDir temporary;
   assert(temporary.isValid());
   const auto workspace = std::filesystem::path(temporary.path().toStdWString()) / L"中文工作区";

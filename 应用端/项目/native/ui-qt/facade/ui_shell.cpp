@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
+#include <QSettings>
 #include <QTimer>
 
 #include <algorithm>
@@ -68,6 +69,128 @@ UiShell::~UiShell() {
 }
 
 QString UiShell::appTitle() const { return QStringLiteral("CodeWeave"); }
+
+bool UiShell::configurePreferenceStorage(const std::filesystem::path& root) {
+  const auto root_path = QString::fromStdWString(root.wstring());
+  if (root_path.isEmpty() || !QDir().mkpath(root_path)) return false;
+
+  const auto settings_path = QDir(root_path).filePath(QStringLiteral("preferences.ini"));
+  QSettings settings(settings_path, QSettings::IniFormat);
+  settings.setFallbacksEnabled(false);
+  const bool reduced_motion = settings.value(QStringLiteral("preferences/reducedMotion"), false).toBool();
+  bool font_size_valid = false;
+  const int stored_font_size = settings.value(QStringLiteral("preferences/editorFontSize"), 13)
+      .toInt(&font_size_valid);
+  const bool font_size_supported = font_size_valid &&
+      (stored_font_size == 12 || stored_font_size == 13 || stored_font_size == 14 ||
+       stored_font_size == 15 || stored_font_size == 16 || stored_font_size == 18);
+  const int editor_font_size = font_size_supported ? stored_font_size : 13;
+  const bool editor_line_numbers = settings.value(QStringLiteral("preferences/editorLineNumbers"), true).toBool();
+  if (settings.status() != QSettings::NoError) return false;
+
+  const bool was_ready = preferenceStorageReady();
+  preference_settings_path_ = settings_path;
+  if (!was_ready) emit preferenceStorageReadyChanged();
+  if (reduced_motion_ != reduced_motion) {
+    reduced_motion_ = reduced_motion;
+    emit reducedMotionChanged();
+  }
+  if (editor_font_size_ != editor_font_size) {
+    editor_font_size_ = editor_font_size;
+    emit editorFontSizeChanged();
+  }
+  if (editor_line_numbers_ != editor_line_numbers) {
+    editor_line_numbers_ = editor_line_numbers;
+    emit editorLineNumbersChanged();
+  }
+  return true;
+}
+
+bool UiShell::persistPreference(const QString& key, const QVariant& value) {
+  if (preference_settings_path_.isEmpty()) return false;
+
+  QSettings settings(preference_settings_path_, QSettings::IniFormat);
+  settings.setFallbacksEnabled(false);
+  const bool had_value = settings.contains(key);
+  const auto previous_value = settings.value(key);
+  settings.setValue(key, value);
+  settings.sync();
+  if (settings.status() == QSettings::NoError) return true;
+
+  if (had_value) settings.setValue(key, previous_value);
+  else settings.remove(key);
+  settings.sync();
+  return false;
+}
+
+bool UiShell::setReducedMotion(bool value) {
+  if (preference_settings_path_.isEmpty()) return false;
+  if (reduced_motion_ == value) return true;
+  if (!persistPreference(QStringLiteral("preferences/reducedMotion"), value)) return false;
+  reduced_motion_ = value;
+  emit reducedMotionChanged();
+  return true;
+}
+
+bool UiShell::setEditorFontSize(int value) {
+  if (value != 12 && value != 13 && value != 14 && value != 15 && value != 16 && value != 18) {
+    return false;
+  }
+  if (preference_settings_path_.isEmpty()) return false;
+  if (editor_font_size_ == value) return true;
+  if (!persistPreference(QStringLiteral("preferences/editorFontSize"), value)) return false;
+  editor_font_size_ = value;
+  emit editorFontSizeChanged();
+  return true;
+}
+
+bool UiShell::setEditorLineNumbers(bool value) {
+  if (preference_settings_path_.isEmpty()) return false;
+  if (editor_line_numbers_ == value) return true;
+  if (!persistPreference(QStringLiteral("preferences/editorLineNumbers"), value)) return false;
+  editor_line_numbers_ = value;
+  emit editorLineNumbersChanged();
+  return true;
+}
+
+bool UiShell::restoreDefaultPreferences() {
+  if (preference_settings_path_.isEmpty()) return false;
+
+  QSettings settings(preference_settings_path_, QSettings::IniFormat);
+  settings.setFallbacksEnabled(false);
+  const QStringList keys = {
+      QStringLiteral("preferences/reducedMotion"),
+      QStringLiteral("preferences/editorFontSize"),
+      QStringLiteral("preferences/editorLineNumbers"),
+  };
+  QVariantMap previous_values;
+  for (const auto& key : keys) {
+    if (settings.contains(key)) previous_values.insert(key, settings.value(key));
+    settings.remove(key);
+  }
+  settings.sync();
+  if (settings.status() != QSettings::NoError) {
+    for (auto it = previous_values.cbegin(); it != previous_values.cend(); ++it) {
+      settings.setValue(it.key(), it.value());
+    }
+    settings.sync();
+    return false;
+  }
+
+  if (reduced_motion_) {
+    reduced_motion_ = false;
+    emit reducedMotionChanged();
+  }
+  if (editor_font_size_ != 13) {
+    editor_font_size_ = 13;
+    emit editorFontSizeChanged();
+  }
+  if (!editor_line_numbers_) {
+    editor_line_numbers_ = true;
+    emit editorLineNumbersChanged();
+  }
+  return true;
+}
 
 QString UiShell::currentPage() const { return current_page_; }
 

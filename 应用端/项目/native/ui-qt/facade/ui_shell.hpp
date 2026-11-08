@@ -77,6 +77,10 @@ class UiShell final : public QObject {
   Q_PROPERTY(QVariantMap lessonAssessment READ lessonAssessment NOTIFY lessonAssessmentChanged)
   Q_PROPERTY(int executionTimeout READ executionTimeout WRITE setExecutionTimeout NOTIFY executionOptionsChanged)
   Q_PROPERTY(bool independentAttempt READ independentAttempt WRITE setIndependentAttempt NOTIFY independentAttemptChanged)
+  Q_PROPERTY(bool reducedMotion READ reducedMotion WRITE setReducedMotion NOTIFY reducedMotionChanged)
+  Q_PROPERTY(int editorFontSize READ editorFontSize NOTIFY editorFontSizeChanged)
+  Q_PROPERTY(bool editorLineNumbers READ editorLineNumbers NOTIFY editorLineNumbersChanged)
+  Q_PROPERTY(bool preferenceStorageReady READ preferenceStorageReady NOTIFY preferenceStorageReadyChanged)
 
  public:
   explicit UiShell(QObject* parent = nullptr);
@@ -150,6 +154,15 @@ class UiShell final : public QObject {
   void setExecutionTimeout(int milliseconds);
   [[nodiscard]] bool independentAttempt() const { return independent_attempt_; }
   void setIndependentAttempt(bool value);
+  [[nodiscard]] bool reducedMotion() const { return reduced_motion_; }
+  [[nodiscard]] int editorFontSize() const { return editor_font_size_; }
+  [[nodiscard]] bool editorLineNumbers() const { return editor_line_numbers_; }
+  [[nodiscard]] bool preferenceStorageReady() const { return !preference_settings_path_.isEmpty(); }
+  Q_INVOKABLE bool setReducedMotion(bool value);
+  Q_INVOKABLE bool setEditorFontSize(int value);
+  Q_INVOKABLE bool setEditorLineNumbers(bool value);
+  Q_INVOKABLE bool restoreDefaultPreferences();
+  bool configurePreferenceStorage(const std::filesystem::path& root);
 
   Q_INVOKABLE void reloadPublishedContent();
   Q_INVOKABLE void openChallenge(const QString& challengeId);
@@ -246,6 +259,10 @@ class UiShell final : public QObject {
   void lessonAssessmentChanged();
   void reviewItemsChanged();
   void independentAttemptChanged();
+  void reducedMotionChanged();
+  void editorFontSizeChanged();
+  void editorLineNumbersChanged();
+  void preferenceStorageReadyChanged();
 
  private:
   friend struct UiShellTestAccess;
@@ -273,6 +290,7 @@ class UiShell final : public QObject {
   void authenticate(const QString& name, const QString& identifier,
       const QString& password, bool registration);
   void setOperationStatus(const QString& status);
+  bool persistPreference(const QString& key, const QVariant& value);
   QString current_page_;
   QStringList published_titles_;
   QStringList published_ids_;
@@ -324,6 +342,10 @@ class UiShell final : public QObject {
   QDate checkin_day_;
   std::function<QDate()> local_date_{[] { return QDate::currentDate(); }};
   bool independent_attempt_{};
+  bool reduced_motion_{};
+  int editor_font_size_{13};
+  bool editor_line_numbers_{true};
+  QString preference_settings_path_;
   bool hints_viewed_{};
   std::unordered_map<std::string, std::filesystem::path> execution_tools_;
   std::atomic_bool execution_cancelled_{false};

@@ -285,12 +285,13 @@ Item {
                             font.weight: Font.DemiBold
                         }
                         Item { Layout.fillWidth: true }
-                        BusyIndicator {
+                        MotionAwareBusyIndicator {
+                            ds: editorPage.ds
                             implicitWidth: 20
                             implicitHeight: 20
-                            running: uiShell.hasSelectedContent && uiShell.contentBusy
-                                     && uiShell.selectedContentBody.length === 0
-                            visible: running
+                            busy: uiShell.hasSelectedContent && uiShell.contentBusy
+                                  && uiShell.selectedContentBody.length === 0
+                            accessibleName: "正在读取课程正文"
                         }
                         Text {
                             visible: uiShell.hasSelectedContent && uiShell.contentBusy
@@ -425,6 +426,7 @@ Item {
 
                                 // div.line-numbers — 44px
                                 Item {
+                                    visible: uiShell.editorLineNumbers
                                     Layout.preferredWidth: 44
                                     Layout.fillHeight: true
                                     clip: true
@@ -447,7 +449,7 @@ Item {
                                         }
                                         color: ds.muted
                                         font.family: ds.mono
-                                        font.pixelSize: 13
+                                        font.pixelSize: uiShell.editorFontSize
                                         horizontalAlignment: Text.AlignRight
                                         lineHeight: lineAdvance
                                         lineHeightMode: Text.FixedHeight
@@ -455,6 +457,7 @@ Item {
                                     }
                                 }
                                 Rectangle {
+                                    visible: uiShell.editorLineNumbers
                                     Layout.preferredWidth: 1
                                     Layout.fillHeight: true
                                     color: ds.line
@@ -477,7 +480,7 @@ Item {
                                         selectionColor: ds.accent
                                         selectedTextColor: ds.inkOnAccent
                                         font.family: ds.mono
-                                        font.pixelSize: 13
+                                        font.pixelSize: uiShell.editorFontSize
                                         topPadding: ds.s12
                                         leftPadding: ds.s12
                                         background: null

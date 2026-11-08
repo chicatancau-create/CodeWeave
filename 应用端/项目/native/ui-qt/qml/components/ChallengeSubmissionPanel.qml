@@ -104,7 +104,12 @@ ColumnLayout {
         Text { text: "02  已提交记录"; color: panel.ds.accent; font.family: panel.ds.ui; font.pixelSize: 13 }
         Item { Layout.fillWidth: true }
         QuietButton { objectName: "challengeHistoryRefresh"; ds: panel.ds; label: "刷新"; enabled: uiShell.hasActiveAccount && !panel.busy; onClicked: uiShell.refreshChallengeHistory() }
-        BusyIndicator { Layout.preferredWidth: 24; Layout.preferredHeight: 24; visible: panel.busy; running: visible }
+        MotionAwareBusyIndicator {
+            ds: panel.ds
+            Layout.preferredWidth: 24; Layout.preferredHeight: 24
+            busy: panel.busy
+            accessibleName: "正在加载提交记录"
+        }
     }
     Text {
         objectName: "challengeHistoryStatus"

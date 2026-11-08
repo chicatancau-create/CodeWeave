@@ -154,6 +154,7 @@ Rectangle {
         id: ds
         objectName: "designSystem"
         hostWidth: root.width
+        reducedMotion: uiShell.reducedMotion
     }
 
     // root grid backdrop (web .shell-decor)
@@ -335,6 +336,8 @@ Rectangle {
                 objectName: "globalSearchBox"
                 Layout.fillWidth: true
                 Layout.minimumWidth: 100
+                Layout.leftMargin: ds.s2
+                Layout.rightMargin: ds.s2
                 implicitHeight: 41
                 radius: ds.radius
                 color: ds.inset
@@ -390,14 +393,14 @@ Rectangle {
                 spacing: ds.s8
                 Layout.alignment: Qt.AlignVCenter
 
-                BusyIndicator {
-                    running: uiShell.operationBusy || uiShell.contentBusy
-                             || uiShell.draftSaving || uiShell.executionBusy
-                    visible: running
+                MotionAwareBusyIndicator {
+                    objectName: "topbarBusyIndicator"
+                    ds: root.designSystem
+                    busy: uiShell.operationBusy || uiShell.contentBusy
+                          || uiShell.draftSaving || uiShell.executionBusy
                     implicitWidth: 20
                     implicitHeight: 20
-                    palette.highlight: ds.accent
-                    Accessible.name: "正在处理"
+                    accessibleName: "正在处理"
                 }
 
                 IconButton {
@@ -956,10 +959,11 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.bottomMargin: ds.s14
-                    BusyIndicator {
+                    MotionAwareBusyIndicator {
+                        ds: root.designSystem
                         Layout.preferredWidth: 20; Layout.preferredHeight: 20
-                        visible: running; running: uiShell.checkinSummary.busy
-                        palette.dark: ds.accent
+                        busy: uiShell.checkinSummary.busy
+                        accessibleName: "正在更新打卡状态"
                     }
                     QuietButton {
                         objectName: "checkinRetryButton"

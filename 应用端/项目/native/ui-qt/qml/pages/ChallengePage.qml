@@ -956,9 +956,10 @@ Item {
                             onClicked: uiShell.challengeRunBusy ? uiShell.cancelChallenge() : uiShell.runChallenge()
                             Layout.alignment: Qt.AlignRight
                         }
-                        BusyIndicator {
-                            visible: uiShell.challengeRunBusy
-                            running: visible
+                        MotionAwareBusyIndicator {
+                            ds: challengePage.ds
+                            busy: uiShell.challengeRunBusy
+                            accessibleName: "正在运行挑战"
                             Layout.alignment: Qt.AlignRight
                             Layout.preferredHeight: 28
                             Layout.preferredWidth: 28
