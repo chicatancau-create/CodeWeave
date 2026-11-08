@@ -92,6 +92,7 @@ qt_add_qml_module(codeweave-qt
     qml/DesignSystem.qml
     qml/components/NavItem.qml
     qml/components/IconButton.qml
+    qml/components/LucideIcon.qml
     qml/components/ShellField.qml
     qml/components/PrimaryButton.qml
     qml/components/QuietButton.qml

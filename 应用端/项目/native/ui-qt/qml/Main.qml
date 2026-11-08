@@ -207,13 +207,11 @@ Rectangle {
                     color: ds.markBg
                     border.color: ds.accentRing
                     border.width: 1
-                    Text {
+                    LucideIcon {
                         anchors.centerIn: parent
-                        text: "</>"
+                        name: "CodeXml"
+                        size: 20
                         color: ds.accent
-                        font.family: ds.mono
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
                     }
                 }
                 Text {
@@ -258,7 +256,7 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: ds.s4
                     Repeater {
-                        model: [{ t: "工作区", p: "学习", icon: "▦" }, { t: "个人中心", p: "账户", icon: "○" }]
+                        model: [{ t: "工作区", p: "学习", icon: "PanelsTopLeft" }, { t: "个人中心", p: "账户", icon: "UserRound" }]
                         delegate: Rectangle {
                             required property var modelData
                             implicitWidth: areaTabContent.implicitWidth + ds.s24
@@ -293,10 +291,16 @@ Rectangle {
                                 anchors.centerIn: parent
                                 spacing: ds.s6
                                 Text {
+                                    visible: modelData.icon === ""
                                     text: modelData.icon
                                     color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
                                     font.family: Qt.platform.os === "windows" ? "Segoe UI Symbol" : ds.ui
                                     font.pixelSize: 14
+                                }
+                                LucideIcon {
+                                    name: modelData.icon
+                                    size: 15
+                                    color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
                                 }
                                 Text {
                                     id: atLabel
@@ -346,11 +350,10 @@ Rectangle {
                 RowLayout {
                     anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
                     spacing: ds.s8
-                    Text {
-                        text: "⌕"
+                    LucideIcon {
+                        name: "Search"
+                        size: 14
                         color: ds.muted
-                        font.family: ds.ui
-                        font.pixelSize: 14
                         Layout.alignment: Qt.AlignVCenter
                     }
                     TextField {
@@ -407,7 +410,7 @@ Rectangle {
                     ds: root.designSystem
                     id: quickButton
                     objectName: "quickButton"
-                    glyph: "⚡"
+                    iconName: "Zap"
                     tip: "快捷动作"
                     active: root.quickActionsOpen
                     onClicked: {
@@ -421,7 +424,7 @@ Rectangle {
                     ds: root.designSystem
                     id: notificationButton
                     objectName: "notificationButton"
-                    glyph: "🔔"
+                    iconName: "Bell"
                     tip: "通知中心（无未读）"
                     active: root.notificationsOpen
                     onClicked: {
@@ -465,7 +468,7 @@ Rectangle {
                     ds: root.designSystem
                     id: settingsButton
                     objectName: "settingsButton"
-                    glyph: "⚙"
+                    iconName: "Settings"
                     tip: "账户与设置"
                     onClicked: {
                         root.dialogReturnFocusItem = settingsButton;
@@ -636,7 +639,7 @@ Rectangle {
                     objectName: "continueAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "▶"
+                    iconName: "Play"
                     label: "继续学习"
                     detail: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"
                     framed: true
@@ -648,7 +651,7 @@ Rectangle {
                     objectName: "reviewAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "↻"
+                    iconName: "RotateCcw"
                     label: uiShell.hasActiveAccount && uiShell.analysisSnapshot.reviewDueCount !== undefined
                         ? "今日复习 " + uiShell.analysisSnapshot.reviewDueCount + " 项" : "复习中心"
                     detail: uiShell.hasActiveAccount ? "查看到期复测" : "登录后查看到期复测"
@@ -660,7 +663,7 @@ Rectangle {
                     objectName: "helpAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "▤"
+                    iconName: "BookOpen"
                     label: "学习指南"
                     detail: "如何学习"
                     framed: true
@@ -711,11 +714,11 @@ Rectangle {
                 Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
                 Text { objectName: "accountContactLabel"; Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.accountContact || uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 12; elide: Text.ElideRight }
                 Rectangle { Layout.fillWidth: true; Layout.bottomMargin: ds.s4; height: 1; color: ds.line }
-                ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "○"; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
-                ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "◆"; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
-                ShellMenuItem { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "▤"; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
-                ShellMenuItem { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "⇩"; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
-                ShellMenuItem { id: logoutAction; objectName: "logoutAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "↪"; label: "退出登录"; enabled: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
+                ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "UserRound"; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
+                ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "ShieldCheck"; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
+                ShellMenuItem { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "Database"; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
+                ShellMenuItem { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "FolderKanban"; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                ShellMenuItem { id: logoutAction; objectName: "logoutAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "LogOut"; label: "退出登录"; enabled: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
             }
         }
 
@@ -808,14 +811,14 @@ Rectangle {
                 NavItem {
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "▤"; label: "学习路径"; index: "01"
+                    iconName: "BookOpen"; label: "学习路径"; index: "01"
                     active: root.page === "学习"
                     onActivated: uiShell.selectPage("学习")
                 }
                 NavItem {
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "◈"; label: "实战挑战"; index: "02"
+                    iconName: "Trophy"; label: "实战挑战"; index: "02"
                     badge: uiShell.challengeMeta.length > 0
                            ? "" + uiShell.challengeMeta.length : ""
                     active: root.page === "挑战"
@@ -824,14 +827,14 @@ Rectangle {
                 NavItem {
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "▥"; label: "代码草稿"; index: "03"
+                    iconName: "FolderKanban"; label: "代码草稿"; index: "03"
                     active: root.page === "草稿"
                     onActivated: uiShell.selectPage("草稿")
                 }
                 NavItem {
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "◷"; label: "复习中心"; index: "04"
+                    iconName: "CalendarClock"; label: "复习中心"; index: "04"
                     objectName: "sidebarReviewNavigation"
                     badge: Number(uiShell.analysisSnapshot.reviewDueCount || 0) > 0
                            ? "" + uiShell.analysisSnapshot.reviewDueCount : ""
@@ -841,7 +844,7 @@ Rectangle {
                 NavItem {
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    glyph: "◉"; label: "学习分析"; index: "05"
+                    iconName: "Activity"; label: "学习分析"; index: "05"
                     active: root.page === "分析"
                     onActivated: uiShell.selectPage("分析")
                 }
@@ -1239,16 +1242,47 @@ Rectangle {
             spacing: ds.s16
             Repeater {
                 model: [
-                    { title: "可视化执行", body: "运行后可回看真实执行事件与变量快照。流程图高亮当前事件，变量面板显示相邻源码快照的变化。" },
-                    { title: "按十步学习法推进", body: "按讲解、例子和练习推进。运行成功后，按课程验收点显式标记完成；系统安排复测，阅读和运行本身不代表掌握。" },
-                    { title: "真实与模拟的边界", body: "本机执行需要对应语言工具。外部环境实验需在真实环境完成并提交证据；未采集的事件或变量不会用模拟数据填充。" }
+                    { icon: "Lightbulb", title: "可视化执行", body: "运行后可回看采集到的执行事件与变量快照。流程图按当前记录定位，变量面板展示相邻源码快照中的变化。" },
+                    { icon: "Settings2", title: "按十步学习法推进", body: "按单元中的讲解、示例和练习循序推进；依据课程验收点显式标记掌握。系统安排复测，阅读和运行本身不代表掌握。" },
+                    { icon: "Lightbulb", title: "真实与模拟的边界", body: "本机执行需要对应语言工具。外部环境实验需在真实环境完成并提交证据；未采集的事件或变量不会用模拟数据填充。" }
                 ]
                 delegate: ColumnLayout {
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: ds.s4
-                    Text { Layout.fillWidth: true; text: modelData.title; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-                    Text { Layout.fillWidth: true; text: modelData.body; color: ds.muted; font.family: ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere; lineHeight: 1.6 }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s12
+                        LucideIcon {
+                            Layout.alignment: Qt.AlignTop
+                            Layout.topMargin: ds.s6
+                            name: modelData.icon
+                            size: 16
+                            color: ds.muted
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s4
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.title
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 16
+                                font.weight: Font.DemiBold
+                                wrapMode: Text.WrapAnywhere
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.body
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                wrapMode: Text.WrapAnywhere
+                                lineHeight: 1.6
+                            }
+                        }
+                    }
                 }
             }
         }

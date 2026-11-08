@@ -7,6 +7,7 @@ Item {
     property QtObject ds
     id: nav
     property string glyph: ""
+    property string iconName: ""
     property string label: ""
     property string index: ""
     property string badge: ""
@@ -74,6 +75,7 @@ Item {
 
             Text {
                 id: iconText
+                visible: nav.iconName === ""
                 text: nav.glyph
                 // 选中态图标: accent 色 + drop-shadow
                 color: nav.active ? ds.accent : (navHover.hovered ? ds.inkStrong : ds.muted)
@@ -92,6 +94,13 @@ Item {
                 Behavior on color {
                     ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
                 }
+            }
+            LucideIcon {
+                visible: nav.iconName !== ""
+                name: nav.iconName
+                size: 20
+                color: nav.active ? ds.accent : (navHover.hovered ? ds.inkStrong : ds.muted)
+                Layout.alignment: Qt.AlignVCenter
             }
 
             Text {

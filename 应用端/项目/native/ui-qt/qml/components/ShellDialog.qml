@@ -36,7 +36,7 @@ Dialog {
             implicitWidth: 44; implicitHeight: 44
             anchors.right: parent.right; anchors.rightMargin: dialog.ds.modalPadding
             anchors.top: parent.top; anchors.topMargin: dialog.ds.modalPadding
-            glyph: "×"; tip: "关闭" + dialog.title
+            iconName: "X"; tip: "关闭" + dialog.title
             onClicked: dialog.close()
         }
         Rectangle {

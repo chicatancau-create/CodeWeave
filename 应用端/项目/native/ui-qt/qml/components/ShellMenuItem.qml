@@ -7,6 +7,7 @@ Rectangle {
     property string label: ""
     property string detail: ""
     property string glyph: ""
+    property string iconName: ""
     property bool framed: false
     signal clicked
     implicitHeight: 38
@@ -22,7 +23,7 @@ Rectangle {
         anchors.rightMargin: entry.ds.s8
         spacing: entry.ds.s8
         Text {
-            visible: entry.glyph !== ""
+            visible: entry.glyph !== "" && entry.iconName === ""
             Layout.preferredWidth: visible ? 14 : 0
             text: entry.glyph
             color: entry.enabled ? entry.ds.muted : entry.ds.faint
@@ -30,6 +31,13 @@ Rectangle {
             font.pixelSize: 13
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+        }
+        LucideIcon {
+            visible: entry.iconName !== ""
+            name: entry.iconName
+            size: 14
+            color: entry.enabled ? entry.ds.muted : entry.ds.faint
+            Layout.alignment: Qt.AlignVCenter
         }
         Text {
             text: entry.label

@@ -5,6 +5,7 @@ Rectangle {
     property QtObject ds
     id: ibtn
     property string glyph: ""
+    property string iconName: ""
     property string tip: ""
     property bool active: false
     property bool enabled: true
@@ -29,6 +30,7 @@ Rectangle {
     }
 
     Text {
+        visible: ibtn.iconName === ""
         anchors.centerIn: parent
         text: ibtn.glyph
         color: !ibtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
@@ -39,6 +41,13 @@ Rectangle {
         Behavior on color {
             ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
         }
+    }
+    LucideIcon {
+        visible: ibtn.iconName !== ""
+        anchors.centerIn: parent
+        name: ibtn.iconName
+        size: 17
+        color: !ibtn.enabled ? ds.faint : (ibtn.active || ibHover.hovered ? ds.accentHi : ds.muted)
     }
     HoverHandler {
         id: ibHover

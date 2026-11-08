@@ -458,3 +458,11 @@ Phase 2/3 主要打磨已有区块。下表保留最初盘点中的历史粗估�
 - [通过] 标准 Qt Release 构建及 CTest 11/11；真实窗口 smoke 8 张截图，1440×900 / 1100×720，DPR 1，QML warnings 为空。报告及复现见 `验收证据/Phase4-editor-preferences-retest-20261108/README.md`。
 - [先失败，修复后通过] 首次 smoke 在“学习”页执行编辑器可见性断言；显式切到“编辑器”并等待课程异步读取完成后通过。首次失败报告保留在 `验收证据/Phase4-editor-preferences-20261108/`。
 - [未完成] 未接入的其它偏好仍禁用；4.2 整体视觉验收仍受来源文案、帮助正文和图符字形差异影响，见上方顶栏复核记录。
+
+### 2026-11-08 帮助正文与 Lucide 图标复核
+
+- [通过] 新增原生 `LucideIcon.qml`，按 24×24 Lucide 路径绘制，不引入运行时依赖；应用于品牌标记、搜索、顶栏动作、工作区/账户切换、账户/快捷菜单、主导航、帮助章节和弹窗关闭按钮。未知名称不绘制图案；图标许可声明随组件保留。
+- [通过] 帮助弹窗的章节图标、标题/正文层级对齐 Web 的 Lucide 参考和 14px 正文字号。Qt 文案仍只描述本机真实执行事件、变量快照和外部环境证据，不复制 Web 浏览器沙箱能力说明。
+- [通过] `cmd /c 工程文件\工具\构建当前Qt.cmd`：最终 Release 增量构建，CTest 11/11（113.50 秒）；`node 工程文件/工具/check-layout.mjs` 与 `git diff --check` 通过。独立审查无阻断问题；装饰图标标记 `Accessible.ignored: true`，但窗口 smoke 未枚举完整辅助技术树。
+- [先失败，修复后通过] 首次可见窗口 smoke 在账户菜单 `profileAction` 焦点检查时退出，已保存失败报告和首张截图；改用 `Start-Process -Wait` 重跑通过。最终报告 `验收证据/Phase4-help-icons-retest-20261108/accessibility-retest/qml-window-report.json`：8 张 1440×900 / 1100×720 截图、4 个 Popup 锚点通过、`python-loop-sum`、QML warnings 0。帮助、外壳、快捷动作、账户、搜索截图已人工查看。
+- [未完成] 入口/菜单图符字形差异已显著收敛，但来源提示、设置项可用性、Qt/Web 内容状态仍不同；帮助文案也按平台能力保留差异，故不宣称 Phase 4.2 整体视觉等价。旧报告和复现见 `验收证据/Phase4-help-icons-retest-20261108/README.md`。
