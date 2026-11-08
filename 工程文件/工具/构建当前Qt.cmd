@@ -17,26 +17,42 @@ if errorlevel 1 (
   goto cleanup
 )
 
-rem Ninja's Windows file enumeration cannot handle the physical SDK path's non-ASCII segments.
-rem Use an unused subst drive for this invocation and leave existing mappings untouched.
+rem Ninja cannot enumerate a physical SDK path containing non-ASCII segments
+rem (.local\prep is a junction into a folder whose real path has CJK names), so map a
+rem short drive for this run.
+rem Rules: (1) prefer a fixed letter (Q:) so generated paths stay stable;
+rem         (2) adopt a leftover mapping that already points at our SDK (an interrupted
+rem             build leaves one behind) and delete it in :cleanup as usual.
 set "QT_DRIVE="
 set "QT_MAPPED=0"
-for %%D in (Q R S T U V W X Y Z) do if not defined QT_DRIVE if not exist %%D:\nul (
-  subst %%D: >nul 2>&1
-  if errorlevel 1 (
-    subst %%D: "%QT_PHYSICAL%" >nul 2>&1
-    if not errorlevel 1 (
-      set "QT_DRIVE=%%D"
-      set "QT_MAPPED=1"
+rem `subst <drive>:` (drive only, no path) is not a valid query here, and findstr
+rem cannot match backslash paths reliably, so list every mapping and compare as strings.
+set "QT_LIST=%TEMP%\qt-subst-list-%RANDOM%.txt"
+subst > "%QT_LIST%" 2>nul
+for /f "usebackq delims=" %%L in ("%QT_LIST%") do if not defined QT_DRIVE (
+  for /f "tokens=1,* delims=>" %%A in ("%%L") do (
+    for /f "tokens=* delims= " %%C in ("%%B") do if /I "%%C"=="%QT_PHYSICAL%" (
+      for /f "tokens=1 delims=:" %%X in ("%%A") do set "QT_DRIVE=%%X"
+      if defined QT_DRIVE (
+        set "QT_MAPPED=1"
+        echo [Qt] reusing leftover mapping "%%L"
+      )
     )
-  ) else (
-    subst %%D: /d >nul 2>&1
+  )
+)
+del "%QT_LIST%" >nul 2>&1
+if not defined QT_DRIVE for %%D in (Q R S T U V W X Y Z) do if not defined QT_DRIVE if not exist %%D:\ (
+  subst %%D: "%QT_PHYSICAL%" >nul 2>&1
+  if not errorlevel 1 (
+    set "QT_DRIVE=%%D"
+    set "QT_MAPPED=1"
   )
 )
 if not defined QT_DRIVE (
   set "RESULT=94"
   goto cleanup
 )
+echo [Qt] using drive %QT_DRIVE%:
 set "QT_PREFIX=%QT_DRIVE%:/"
 
 cmake %CONFIGURE_ARGS% -S "%SRC%" -B "%OUT%" -G Ninja -DCMAKE_BUILD_TYPE=Release -DQEWEAVE_BUILD_UI_QT=ON -DCMAKE_PREFIX_PATH=%QT_PREFIX% -DQt6_DIR=%QT_PREFIX%lib/cmake/Qt6
