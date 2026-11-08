@@ -955,6 +955,11 @@ int main(int argc, char** argv) {
     assert(!shell.lessonEvidenceStates().contains("javascript-loop-sum"));
     const auto first_lesson = shell.lessonMeta().first().toMap();
     assert(!first_lesson.value("code").toString().isEmpty() && !first_lesson.value("prerequisites").toList().isEmpty());
+    const auto guide = first_lesson.value("content").toMap();
+    assert(!guide.value("objective").toString().isEmpty());
+    assert(!guide.value("explanation").toList().isEmpty());
+    assert(!guide.value("guidedSteps").toList().isEmpty());
+    assert(!guide.value("completion").toString().isEmpty());
     std::ofstream(learning_root / "learning" / "mastery.v1.log", std::ios::trunc) << "invalid fixture record\n";
     shell.refreshReviewSummary();
     wait_for([&] { return !shell.operationBusy(); });

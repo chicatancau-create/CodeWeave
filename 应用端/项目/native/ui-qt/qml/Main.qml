@@ -51,6 +51,10 @@ Rectangle {
         if (uiShell.hasActiveAccount && !uiShell.operationBusy && !uiShell.executionBusy)
             uiShell.refreshReviewSummary();
     }
+    function openLearningHelp(trigger) {
+        dialogReturnFocusItem = trigger;
+        helpDialog.open();
+    }
     function openLesson(index) {
         if (index < 0 || index >= uiShell.lessonMeta.length || uiShell.contentBusy
                 || uiShell.operationBusy || uiShell.accountBusy || uiShell.draftSaving) return false;
@@ -137,6 +141,8 @@ Rectangle {
     }
 
     readonly property string page: uiShell.currentPage
+    readonly property bool workspaceCodeMode: page === "编辑器" && editorLoader.item !== null
+                                             && editorLoader.item.codeMode
     readonly property string breadcrumbText: "Code Canvas / " + page
         + (page === "编辑器" && uiShell.hasSelectedContent ? " / "
            + (selectedLesson && selectedLesson.id === uiShell.documentId
@@ -172,7 +178,8 @@ Rectangle {
     Rectangle {
         id: topbar
         anchors { top: parent.top; left: parent.left; right: parent.right }
-        height: ds.topbarH
+        visible: !root.workspaceCodeMode
+        height: visible ? ds.topbarH : 0
         color: ds.chrome
         z: 30
 
@@ -686,7 +693,8 @@ Rectangle {
     Rectangle {
         id: sidebar
         anchors { top: topbar.bottom; left: parent.left; bottom: parent.bottom }
-        width: ds.sidebarW
+        visible: !root.workspaceCodeMode
+        width: visible ? ds.sidebarW : 0
         color: ds.sidebarBg
         z: 15
 
@@ -1002,10 +1010,10 @@ Rectangle {
 
         StackLayout {
             anchors.fill: parent
-            anchors.leftMargin: ds.s24
-            anchors.rightMargin: ds.s24
-            anchors.topMargin: ds.s20
-            anchors.bottomMargin: ds.s20
+            anchors.leftMargin: root.workspaceCodeMode ? ds.s8 : ds.s24
+            anchors.rightMargin: root.workspaceCodeMode ? ds.s8 : ds.s24
+            anchors.topMargin: root.workspaceCodeMode ? ds.s8 : ds.s20
+            anchors.bottomMargin: root.workspaceCodeMode ? ds.s8 : ds.s20
             currentIndex: {
                 switch (root.page) {
                 case "挑战": return 1;
@@ -1105,6 +1113,7 @@ Rectangle {
                 sourceComponent: PrivacyPage { ds: root.designSystem }
             }
             Loader {
+                id: editorLoader
                 objectName: "pageLoader"
                 Layout.fillWidth: true
                 Layout.fillHeight: true

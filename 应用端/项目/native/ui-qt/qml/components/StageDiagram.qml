@@ -84,6 +84,7 @@ Item {
                     ctx.strokeStyle = edge.state === "active" ? diagram.ds.accent : diagram.ds.lineStrong;
                     ctx.fillStyle = ctx.strokeStyle;
                     ctx.lineWidth = edge.state === "active" ? 2 : 1;
+                    ctx.setLineDash(edge.state === "idle" ? [4, 4] : []);
                     ctx.beginPath();
                     if (!edge.back && from.y === to.y) {
                         ctx.moveTo(from.x + 156, from.y + 56);
@@ -108,10 +109,15 @@ Item {
                 for (const laid of diagram.drawing.nodes) {
                     const node = laid.node;
                     const x = laid.x, y = laid.y, w = 156, h = 112;
-                    ctx.fillStyle = node.state === "now" ? diagram.ds.accentSoft : diagram.ds.panel;
+                    const tones = { purple: diagram.ds.tonePurple, blue: diagram.ds.toneBlue,
+                        yellow: diagram.ds.toneYellow, coral: diagram.ds.toneCoral, green: diagram.ds.toneGreen };
+                    ctx.fillStyle = node.state === "now" ? diagram.ds.accentSoft
+                                  : node.state === "todo" ? diagram.ds.stageBg : diagram.ds.panel;
                     ctx.strokeStyle = node.failed ? diagram.ds.danger : node.state === "now"
-                                      ? diagram.ds.accent : diagram.ds.lineStrong;
+                                      ? diagram.ds.accent : node.state === "todo"
+                                      ? (tones[node.tone] || diagram.ds.lineStrong) : diagram.ds.lineStrong;
                     ctx.lineWidth = node.state === "now" ? 2 : 1;
+                    ctx.setLineDash(node.state === "todo" ? [4, 4] : []);
                     ctx.beginPath();
                     if (node.kind === "decision") {
                         ctx.moveTo(x + 20, y); ctx.lineTo(x + w - 20, y); ctx.lineTo(x + w, y + h / 2);
@@ -129,6 +135,7 @@ Item {
                     }
                     ctx.closePath(); ctx.fill(); ctx.stroke();
                 }
+                ctx.setLineDash([]);
             }
         }
 

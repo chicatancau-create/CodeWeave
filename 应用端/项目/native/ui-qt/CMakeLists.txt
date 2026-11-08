@@ -101,6 +101,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/SubjectPill.qml
     qml/components/ChallengeSubmissionPanel.qml
     qml/components/LessonEvidencePanel.qml
+    qml/components/LessonGuide.qml
     qml/components/CheckinCalendar.qml
     qml/components/ExecutionTracePanel.qml
     qml/components/ExecutionStage.js

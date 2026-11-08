@@ -1,0 +1,88 @@
+{
+  "isolatedApi": true,
+  "documentId": "python-loop-sum",
+  "state": "not-run",
+  "screenshots": [
+    {
+      "name": "web-workbench-code",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 1414,
+        "height": 884
+      }
+    },
+    {
+      "name": "web-workbench-reading",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "geometry": {
+        "x": 256,
+        "y": 171.59375,
+        "width": 1158,
+        "height": 720.40625
+      }
+    },
+    {
+      "name": "web-workbench-guide",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "geometry": {
+        "x": 256,
+        "y": 171.59375,
+        "width": 1158,
+        "height": 720.40625
+      }
+    },
+    {
+      "name": "web-workbench-help",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "geometry": {
+        "x": 256,
+        "y": 171.59375,
+        "width": 1158,
+        "height": 720.40625
+      }
+    },
+    {
+      "name": "web-workbench-code-1100",
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 1084,
+        "height": 704
+      }
+    },
+    {
+      "name": "web-workbench-code-375",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 359,
+        "height": 796
+      }
+    }
+  ],
+  "errors": [],
+  "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f",
+  "passed": true
+}

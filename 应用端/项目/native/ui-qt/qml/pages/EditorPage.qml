@@ -13,7 +13,17 @@ Item {
     property bool consoleOutputCleared: false
     property string consoleCopyStatus: ""
     property string evidenceAccountRequested: ""
-    property bool showExecutionTrace: true
+    property bool showExecutionTrace: false
+    property bool codeMode: false
+    property string modeDocumentId: ""
+    function syncCodeMode() {
+        if (modeDocumentId === uiShell.documentId) return;
+        modeDocumentId = uiShell.documentId;
+        codeMode = uiShell.starterLanguage.length > 0
+                   || (currentLesson !== null && (currentLesson.flow || []).length > 0);
+        courseGuide.close();
+    }
+    Component.onCompleted: syncCodeMode()
     readonly property var currentLesson: {
         for (const lesson of uiShell.lessonMeta)
             if (lesson.id === uiShell.documentId) return lesson;
@@ -33,8 +43,11 @@ Item {
 
     Connections {
         target: uiShell
+        function onSelectedContentChanged() { Qt.callLater(editorPage.syncCodeMode); }
         function onAccountChanged() { editorPage.evidenceAccountRequested = ""; }
-        function onExecutionTraceChanged() { editorPage.showExecutionTrace = true; }
+        function onExecutionTraceChanged() {
+            editorPage.showExecutionTrace = (uiShell.executionTrace.events || []).length > 0;
+        }
         function onExecutionOutputChanged() {
             editorPage.consoleOutputCleared = false;
             editorPage.consoleCopyStatus = "";
@@ -99,7 +112,15 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: ds.s12
-                QuietButton { ds: editorPage.ds; label: "←"; onClicked: uiShell.selectPage("学习") }
+                QuietButton {
+                    objectName: "workspaceBack"
+                    ds: editorPage.ds; label: "←"
+                    onClicked: uiShell.selectPage("学习")
+                    Accessible.name: "返回课程列表"
+                    ToolTip.visible: backHover.hovered
+                    ToolTip.text: "返回课程列表"
+                    HoverHandler { id: backHover }
+                }
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 2
@@ -116,6 +137,7 @@ Item {
                         font.weight: Font.DemiBold
                     }
                     Text {
+                        visible: !editorPage.codeMode
                         text: (editorPage.currentLesson && editorPage.currentLesson.level
                                ? editorPage.currentLesson.level : "等级待定")
                               + " · "
@@ -127,6 +149,31 @@ Item {
                         font.family: ds.ui
                         font.pixelSize: 12
                     }
+                }
+                PreferenceToggle {
+                    objectName: "workspaceCodeModeToggle"
+                    ds: editorPage.ds
+                    text: "代码模式"
+                    checked: editorPage.codeMode
+                    onToggled: editorPage.codeMode = checked
+                    Accessible.name: "代码模式"
+                }
+                IconButton {
+                    id: guideButton
+                    objectName: "workspaceGuideButton"
+                    ds: editorPage.ds
+                    glyph: "▤"
+                    tip: "课程指南"
+                    enabled: editorPage.currentLesson !== null
+                    onClicked: courseGuide.open()
+                }
+                IconButton {
+                    id: workspaceHelpButton
+                    objectName: "workspaceHelpButton"
+                    ds: editorPage.ds
+                    glyph: "?"
+                    tip: "查看学习指南"
+                    onClicked: hostRoot.openLearningHelp(workspaceHelpButton)
                 }
                 QuietButton {
                     objectName: "workspaceSaveDraft"
@@ -189,6 +236,7 @@ Item {
             Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
 
             RowLayout {
+                visible: !editorPage.codeMode
                 Layout.fillWidth: true
                 Text {
                     Layout.fillWidth: true
@@ -215,6 +263,8 @@ Item {
             }
 
             Rectangle {
+                objectName: "workspaceLessonReader"
+                visible: !editorPage.codeMode
                 Layout.fillWidth: true
                 Layout.preferredHeight: 176
                 radius: ds.radius
@@ -302,15 +352,20 @@ Item {
             }
 
             // Editor + run stage
-            RowLayout {
+            GridLayout {
+                objectName: "workspacePaneLayout"
+                columns: editorPage.width >= 1000 ? 2 : 1
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: ds.s16
+                columnSpacing: ds.s16
+                rowSpacing: ds.s16
 
                 // LEFT — code pane
                 Rectangle {
+                    objectName: "workspaceCodePane"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumHeight: 320
                     Layout.horizontalStretchFactor: 5
                     radius: ds.radius
                     color: ds.page
@@ -476,6 +531,7 @@ Item {
 
                 // RIGHT — run stage + output
                 ColumnLayout {
+                    objectName: "workspaceRuntimePane"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.horizontalStretchFactor: 5
@@ -720,4 +776,25 @@ Item {
             }
         }
         }
+    ShellDialog {
+        id: courseGuide
+        objectName: "workspaceCourseGuide"
+        ds: editorPage.ds
+        parent: Overlay.overlay
+        title: "课程指南"
+        width: Math.min(760, editorPage.hostRoot.width - editorPage.ds.s32)
+        height: Math.min(640, editorPage.hostRoot.height - editorPage.ds.s32)
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        onClosed: guideButton.forceActiveFocus(Qt.PopupFocusReason)
+        contentItem: ScrollView {
+            id: guideScroll
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            LessonGuide {
+                width: guideScroll.availableWidth
+                ds: editorPage.ds
+                lesson: editorPage.currentLesson
+            }
+        }
+    }
     }

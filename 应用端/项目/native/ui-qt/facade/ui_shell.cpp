@@ -123,6 +123,7 @@ void UiShell::loadPublishedContent(const QString& root) {
       m[QStringLiteral("languageLabel")] = obj.value(QStringLiteral("languageLabel")).toString();
       m[QStringLiteral("level")] = obj.value(QStringLiteral("level")).toString();
       m[QStringLiteral("duration")] = obj.value(QStringLiteral("duration")).toString();
+      m[QStringLiteral("content")] = obj.value(QStringLiteral("content")).toObject().toVariantMap();
       for (const auto* field : {"stageId", "reading", "code", "fileName", "legacy", "contentId",
                                "source", "exercise", "executable"}) {
         const auto key = QString::fromLatin1(field);

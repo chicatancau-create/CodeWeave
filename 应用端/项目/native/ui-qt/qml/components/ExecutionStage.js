@@ -77,7 +77,8 @@ function frameAt(events, index) {
 function skeleton(flow) {
     const nodes = flow.map(function(node, index) {
         return { id: node.id || "course:" + index, ordinal: null, label: node.label || "",
-            kind: node.kind || "process", line: node.line || 0, state: "todo", visits: 0,
+            kind: node.kind || "process", tone: node.tone || "blue",
+            line: node.line || 0, state: "todo", visits: 0,
             cells: [], detail: "", failed: false, lastEventIndex: -1 };
     });
     const edges = nodes.slice(1).map(function(node, index) {
