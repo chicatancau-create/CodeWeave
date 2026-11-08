@@ -37,6 +37,7 @@
 #include <QUrl>
 
 #include <filesystem>
+#include <cmath>
 #include <algorithm>
 #include <iterator>
 #include <string_view>
@@ -206,6 +207,8 @@ int main(int argc, char* argv[]) {
   const auto arguments = application.arguments();
   const bool qml_smoke = arguments.contains(QStringLiteral("--qml-load-smoke"));
   const auto qml_smoke_arg = arguments.indexOf(QStringLiteral("--qml-load-smoke"));
+  const auto topbar_reference = arguments.indexOf(QStringLiteral("--topbar-reference-content"));
+  if (topbar_reference >= 0 && (!qml_smoke || topbar_reference + 1 >= arguments.size())) return 2;
   const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
   if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
   const auto matrix = arguments.indexOf(QStringLiteral("--u3-matrix-json"));
@@ -254,7 +257,8 @@ int main(int argc, char* argv[]) {
     shell.configureExecutionTool(QString::fromUtf8(language.data(),
         static_cast<int>(language.size())), configured_tool(language, nativeDataPath));
   }
-  const auto contentRoot = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("content"));
+  const auto contentRoot = topbar_reference >= 0 ? arguments.at(topbar_reference + 1) :
+      QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("content"));
   shell.loadPublishedContent(contentRoot);
   ShellView view(shell);
   QObject::connect(&shell, &UiShell::vaultSelectionRequested, &view, [&] {
@@ -335,12 +339,33 @@ int main(int argc, char* argv[]) {
   QString diagnostic = QStringLiteral("running");
   QStringList smoke_screenshots;
   QJsonArray smoke_geometry;
+  QJsonArray smoke_popup_geometry;
+  bool smoke_reference_ready = false;
+  bool smoke_reference_registration_started = false;
   const auto write_smoke_report = [&] {
       QJsonObject report;
       report.insert(QStringLiteral("diagnostic"), diagnostic);
       report.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
       report.insert(QStringLiteral("screenshots"), QJsonArray::fromStringList(smoke_screenshots));
       report.insert(QStringLiteral("geometry"), smoke_geometry);
+      report.insert(QStringLiteral("popupGeometry"), smoke_popup_geometry);
+      report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
+      report.insert(QStringLiteral("referenceSubject"), topbar_reference >= 0 ? QStringLiteral("Python") : QString());
+      report.insert(QStringLiteral("accountName"), shell.accountName());
+      report.insert(QStringLiteral("accountContact"), shell.accountContact());
+      report.insert(QStringLiteral("lessonCount"), shell.lessonMeta().size());
+      QJsonArray lesson_ids;
+      for (const auto& lesson : shell.lessonMeta()) lesson_ids.append(lesson.toMap().value("id").toString());
+      report.insert(QStringLiteral("lessonIds"), lesson_ids);
+      auto* study = view.rootObject()->findChild<QObject*>(QStringLiteral("studyPageRoot"));
+      QJsonArray filtered_ids;
+      if (study) {
+        for (const auto& lesson : study->property("filteredLessons").value<QJSValue>().toVariant().toList())
+          filtered_ids.append(lesson.toMap().value("id").toString());
+      }
+      report.insert(QStringLiteral("filteredLessonIds"), filtered_ids);
+      report.insert(QStringLiteral("selectedLesson"), QJsonObject::fromVariantMap(
+          view.rootObject()->property("selectedLesson").toMap()));
       QFile report_file(report_path);
       return report_file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
           report_file.write(QJsonDocument(report).toJson(QJsonDocument::Indented)) >= 0 && report_file.flush();
@@ -353,6 +378,39 @@ int main(int argc, char* argv[]) {
           .arg(name).arg(expected.width()).arg(expected.height()).arg(view.width()).arg(view.height());
       write_smoke_report();
       return false;
+    }
+    const auto popup_name = name == QStringLiteral("topbar-search") ? "searchPopup" :
+        name == QStringLiteral("topbar-quick") ? "quickPopup" :
+        name == QStringLiteral("topbar-notifications") ? "notificationPopup" :
+        name == QStringLiteral("topbar-account") ? "accountPopup" : nullptr;
+    if (popup_name) {
+      auto* popup = view.rootObject()->findChild<QObject*>(QString::fromLatin1(popup_name));
+      auto* anchor = popup ? qobject_cast<QQuickItem*>(popup->property("anchorItem").value<QObject*>()) : nullptr;
+      const auto x = popup ? popup->property("x").toReal() : -1;
+      const auto y = popup ? popup->property("y").toReal() : -1;
+      const auto width = popup ? popup->property("width").toReal() : 0;
+      const auto height = popup ? popup->property("height").toReal() : 0;
+      const auto origin = anchor ? anchor->mapToItem(view.rootObject(), QPointF(0, anchor->height())) : QPointF();
+      const auto gap = popup ? popup->property("anchorGap").toReal() : 0;
+      const bool right = popup && popup->property("alignRight").toBool();
+      const auto anchor_edge = origin.x() + (anchor && right ? anchor->width() : 0);
+      if (!anchor || x < 0 || y < 50 || x + width > view.width() + 1 || y + height > view.height() + 1 ||
+          std::abs(y - origin.y() - gap) > 1 || std::abs(x + (right ? width : 0) - anchor_edge) > 1) {
+        diagnostic = QStringLiteral("Capture %1 popup is not anchored: %2,%3 %4x%5 anchor %6,%7")
+            .arg(name).arg(x).arg(y).arg(width).arg(height).arg(origin.x()).arg(origin.y());
+        write_smoke_report();
+        return false;
+      }
+      smoke_popup_geometry.append(QJsonObject{{"name", name}, {"x", x}, {"y", y},
+          {"width", width}, {"height", height}, {"anchorBottom", origin.y()}, {"anchorEdge", anchor_edge}});
+      if (name == QStringLiteral("topbar-account")) {
+        auto* contact = view.rootObject()->findChild<QObject*>(QStringLiteral("accountContactLabel"));
+        if (!contact || contact->property("text").toString() != shell.accountContact()) {
+          diagnostic = QStringLiteral("Account popup contact does not match the active account");
+          write_smoke_report();
+          return false;
+        }
+      }
     }
     const auto image = view.grabWindow();
     if (image.isNull() || image.size() != expected) {
@@ -381,6 +439,53 @@ int main(int argc, char* argv[]) {
         write_smoke_report();
         application.exit(1);
         return;
+      }
+      if (shell.accountBusy() || shell.contentBusy()) return;
+      if (topbar_reference >= 0 && !smoke_reference_ready) {
+        if (!shell.hasActiveAccount()) {
+          if (!smoke_reference_registration_started) {
+            smoke_reference_registration_started = true;
+            shell.registerAccount(QStringLiteral("Reference"), QStringLiteral("topbar@example.test"),
+                QStringLiteral("Topbar-Reference-123!"));
+          }
+          return;
+        }
+        int selected = -1;
+        const auto lessons = shell.lessonMeta();
+        for (qsizetype index = 0; index < lessons.size(); ++index)
+          if (lessons.at(index).toMap().value("id").toString() == QStringLiteral("python-loop-sum"))
+            selected = static_cast<int>(index);
+        if (selected < 0) {
+          diagnostic = QStringLiteral("Isolated reference account or python-loop-sum content is missing");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+        view.rootObject()->setProperty("selectedLessonIndex", selected);
+        auto* study = view.rootObject()->findChild<QObject*>(QStringLiteral("studyPageRoot"));
+        const auto subjects = study ? study->property("subjectOptions").value<QJSValue>().toVariant().toList() : QVariantList{};
+        int python = -1;
+        for (qsizetype index = 0; index < subjects.size(); ++index)
+          if (subjects.at(index).toString() == QStringLiteral("Python")) python = static_cast<int>(index);
+        if (python < 0 || !QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection,
+                Q_ARG(QVariant, python))) {
+          diagnostic = QStringLiteral("Python reference filter is unavailable");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+        QCoreApplication::processEvents();
+        const auto filtered = study->property("filteredLessons").value<QJSValue>().toVariant().toList();
+        const bool selected_in_filter = std::any_of(filtered.cbegin(), filtered.cend(), [&](const QVariant& lesson) {
+          return lesson.toMap().value("id").toString() == QStringLiteral("python-loop-sum");
+        });
+        if (study->property("subjectFilter").toInt() != python || filtered.size() != 6 || !selected_in_filter) {
+          diagnostic = QStringLiteral("Python reference filter did not apply to the initial visible state");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+        smoke_reference_ready = true;
       }
       if (view.windowState() != Qt::WindowNoState || view.size() != smoke_expected_size) {
         view.setWindowState(Qt::WindowNoState);
@@ -437,6 +542,8 @@ int main(int argc, char* argv[]) {
       auto* profile = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileAction"));
       auto* security = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityAction"));
       auto* privacy = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyAction"));
+      auto* export_action = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("exportAction"));
+      auto* logout_action = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("logoutAction"));
       auto* notifications = view.rootObject()->findChild<QObject*>(QStringLiteral("notificationPopup"));
       auto* notification_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("notificationButton"));
       auto* settings = view.rootObject()->findChild<QObject*>(QStringLiteral("settingsDialog"));
@@ -453,7 +560,8 @@ int main(int argc, char* argv[]) {
         application.exit(1);
         return;
       }
-      if (!quick || !account || !trigger || !first || !review || !help || !profile || !security || !privacy) {
+      if (!quick || !account || !trigger || !first || !review || !help || !profile || !security || !privacy ||
+          !export_action || !logout_action) {
         diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 privacy=%9 logout=%10")
             .arg(quick != nullptr).arg(account != nullptr).arg(trigger != nullptr).arg(first != nullptr)
             .arg(review != nullptr).arg(help != nullptr).arg(profile != nullptr).arg(security != nullptr)
@@ -479,6 +587,7 @@ int main(int argc, char* argv[]) {
       };
       switch (qml_smoke_page++ - pages.size()) {
         case 0:
+          shell.selectPage(QStringLiteral("学习"));
           view.requestActivate();
           QMetaObject::invokeMethod(quick, "open");
           break;
@@ -517,11 +626,11 @@ int main(int argc, char* argv[]) {
           send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
           break;
         case 8:
-          if (!require_focus(privacy)) return;
+          if (!require_focus(shell.hasActiveAccount() ? logout_action : privacy)) return;
           send_editor_shortcut(view, Qt::Key_Up, Qt::NoModifier);
           break;
         case 9:
-          if (!require_focus(security)) return;
+          if (!require_focus(shell.hasActiveAccount() ? export_action : security)) return;
           send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
           break;
         case 10:
@@ -683,7 +792,7 @@ int main(int argc, char* argv[]) {
           search_field->setProperty("text", QStringLiteral("no-match-qt-smoke"));
           break;
         case 23:
-          if (!search->property("opened").toBool() || search->property("height").toReal() < 112 ||
+          if (!search->property("opened").toBool() || search->property("height").toReal() < 92 ||
               search_results->property("count").toInt() != 0) {
             diagnostic = QStringLiteral("Search empty state is missing or clipped");
             write_smoke_report();

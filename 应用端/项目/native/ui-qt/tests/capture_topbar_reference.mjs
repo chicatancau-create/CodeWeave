@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -15,7 +16,7 @@ try {
     const authenticated = new URL(route.request().url()).pathname === '/api/auth/me';
     return route.fulfill({ status: authenticated ? 200 : 503, contentType: 'application/json',
       body: JSON.stringify(authenticated ? { data: {
-        id: 'topbar-reference', name: '访客模式', bio: '', createdAt: '2026-11-08T00:00:00Z',
+        id: 'topbar-reference', name: 'Reference', email: 'topbar@example.test', bio: '', createdAt: '2026-11-08T00:00:00Z',
       } } : { code: 'unavailable', error: 'Isolated reference: vault unavailable' }),
     });
   });
@@ -43,6 +44,31 @@ try {
   await page.goto(origin);
   await page.getByRole('heading', { name: '你的学习路径', exact: true }).waitFor();
   await page.getByRole('group', { name: '选择学习科目' }).getByRole('button', { name: /Python/ }).click();
+  const title = await page.locator('.desktop-course-hero h2').textContent();
+  assert.equal(title, '循环是怎么工作的？');
+  // Read the module used by the running fallback and verify the rendered editor separately.
+  const lessons = await page.evaluate(async () => (await import('/src/data/lessons.ts')).lessons);
+  const lesson = lessons.find(item => item.id === 'python-loop-sum');
+  assert.equal(lesson.title, title);
+  const pythonLessons = lessons.filter(item => item.languageLabel === 'Python');
+  assert.equal(await page.locator('.desktop-unit-card').count(), pythonLessons.length);
+  assert.deepEqual(await page.locator('.desktop-unit-card').evaluateAll(cards =>
+    cards.map(card => card.querySelector('strong')?.textContent?.trim() ?? '')),
+  pythonLessons.map(item => item.title));
+  await page.getByRole('button', { name: '进入学习', exact: true }).click();
+  const editor = page.locator('.code-editor textarea');
+  await editor.waitFor();
+  const code = await editor.inputValue();
+  assert.equal(code, lesson.code);
+  await page.goto(origin);
+  await page.getByRole('heading', { name: '你的学习路径', exact: true }).waitFor();
+  await page.locator('.desktop-course-hero h2').waitFor();
+  report.reference = { accountName: 'Reference', email: 'topbar@example.test', documentId: lesson.id,
+    lessonCount: lessons.length, lessonIds: lessons.map(item => item.id).sort(),
+    subject: 'Python', filteredLessonIds: pythonLessons.map(item => item.id).sort(),
+    sourceCodeSha256: createHash('sha256').update(code).digest('hex'),
+    sourceVerification: 'running Vite module, rendered course cards and editor textarea',
+    learningState: 'not-run, no evidence, no notifications' };
   await capture('topbar-shell', '.topbar');
   const quick = page.getByRole('button', { name: '快捷动作', exact: true });
   await quick.click();

@@ -221,7 +221,7 @@ Rectangle {
                     font.family: ds.ui
                     font.pixelSize: 21
                     font.weight: Font.DemiBold
-                    font.letterSpacing: -0.8
+                    font.letterSpacing: 0
                 }
                 Rectangle {
                     implicitWidth: desktopTag.implicitWidth + ds.s12
@@ -234,7 +234,7 @@ Rectangle {
                     Text {
                         id: desktopTag
                         anchors.centerIn: parent
-                        text: "DESKTOP"
+                        text: "APP"
                         color: ds.accent
                         font.family: ds.mono
                         font.pixelSize: 10
@@ -257,10 +257,10 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: ds.s4
                     Repeater {
-                        model: [{ t: "工作区", p: "学习" }, { t: "个人中心", p: "账户" }]
+                        model: [{ t: "工作区", p: "学习", icon: "▦" }, { t: "个人中心", p: "账户", icon: "○" }]
                         delegate: Rectangle {
                             required property var modelData
-                            implicitWidth: atLabel.implicitWidth + ds.s24
+                            implicitWidth: areaTabContent.implicitWidth + ds.s24
                             implicitHeight: 34
                             radius: ds.radiusSm
                             color: root.page === modelData.p ? ds.accentSoft : "transparent"
@@ -287,16 +287,26 @@ Rectangle {
                                 }
                             }
 
-                            Text {
-                                id: atLabel
+                            Row {
+                                id: areaTabContent
                                 anchors.centerIn: parent
-                                text: modelData.t
-                                color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
-                                font.family: ds.ui
-                                font.pixelSize: 13
+                                spacing: ds.s6
+                                Text {
+                                    text: modelData.icon
+                                    color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
+                                    font.family: Qt.platform.os === "windows" ? "Segoe UI Symbol" : ds.ui
+                                    font.pixelSize: 14
+                                }
+                                Text {
+                                    id: atLabel
+                                    text: modelData.t
+                                    color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
 
-                                Behavior on color {
-                                    ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                    Behavior on color {
+                                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                    }
                                 }
                             }
                             HoverHandler { id: areaTabHover; cursorShape: Qt.PointingHandCursor }
@@ -308,7 +318,7 @@ Rectangle {
 
             Text {
                 objectName: "breadcrumbs"
-                Layout.fillWidth: true
+                visible: root.width <= 1200
                 Layout.minimumWidth: 0
                 text: root.breadcrumbText
                 elide: Text.ElideRight
@@ -322,8 +332,10 @@ Rectangle {
             Rectangle {
                 id: searchBox
                 Layout.alignment: Qt.AlignVCenter
-                Layout.preferredWidth: Math.min(root.width * 0.25, 330)
-                implicitHeight: 36
+                objectName: "globalSearchBox"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 100
+                implicitHeight: 41
                 radius: ds.radius
                 color: ds.inset
                 border.color: searchField.activeFocus ? ds.accent : ds.lineStrong
@@ -513,10 +525,12 @@ Rectangle {
         ShellPopup {
             id: searchPopup
             objectName: "searchPopup"
-            x: searchBox.mapToItem(root, 0, 0).x
-            y: searchBox.mapToItem(root, 0, searchBox.height).y + ds.s6
+            parent: root
+            anchorItem: searchBox
+            alignRight: false
+            anchorGap: ds.s6
             width: searchBox.width
-            height: Math.min(360, Math.max(112, searchResultsView.contentHeight + ds.s24))
+            height: Math.min(360, Math.max(93, searchResultsView.contentHeight + ds.s24))
             ds: root.designSystem
             returnFocusItem: searchField
             onOpened: searchField.forceActiveFocus()
@@ -579,7 +593,7 @@ Rectangle {
                     else if (event.key === Qt.Key_Escape) { searchPopup.close(); event.accepted = true; }
                 }
             }
-            ColumnLayout {
+            RowLayout {
                 anchors.centerIn: parent
                 visible: searchResultsView.count === 0
                 Text {
@@ -600,9 +614,9 @@ Rectangle {
         ShellPopup {
             id: quickPopup
             objectName: "quickPopup"
+            parent: root
+            anchorItem: quickButton
             menuItems: [continueAction, reviewAction, helpAction]
-            x: Math.max(ds.s12, quickButton.mapToItem(root, 0, 0).x + quickButton.width - width)
-            y: quickButton.mapToItem(root, 0, quickButton.height).y + ds.s8
             width: 268
             height: quickActionsColumn.implicitHeight + ds.s24
             ds: root.designSystem
@@ -619,6 +633,7 @@ Rectangle {
                     objectName: "continueAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
+                    glyph: "▶"
                     label: "继续学习"
                     detail: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"
                     framed: true
@@ -630,6 +645,7 @@ Rectangle {
                     objectName: "reviewAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
+                    glyph: "↻"
                     label: uiShell.hasActiveAccount && uiShell.analysisSnapshot.reviewDueCount !== undefined
                         ? "今日复习 " + uiShell.analysisSnapshot.reviewDueCount + " 项" : "复习中心"
                     detail: uiShell.hasActiveAccount ? "查看到期复测" : "登录后查看到期复测"
@@ -641,6 +657,7 @@ Rectangle {
                     objectName: "helpAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
+                    glyph: "▤"
                     label: "学习指南"
                     detail: "如何学习"
                     framed: true
@@ -656,8 +673,8 @@ Rectangle {
         ShellPopup {
             id: notificationPopup
             objectName: "notificationPopup"
-            x: Math.max(ds.s12, notificationButton.mapToItem(root, 0, 0).x + notificationButton.width - width)
-            y: notificationButton.mapToItem(root, 0, notificationButton.height).y + ds.s8
+            parent: root
+            anchorItem: notificationButton
             width: 300
             height: 104
             ds: root.designSystem
@@ -674,9 +691,10 @@ Rectangle {
         ShellPopup {
             id: accountPopup
             objectName: "accountPopup"
+            parent: root
+            anchorItem: topbarAvatar
+            anchorGap: ds.s6
             menuItems: [profileAction, securityAction, privacyAction, exportAction, logoutAction]
-            x: topbar.width - width - ds.s24
-            y: topbarAvatar.mapToItem(root, 0, topbarAvatar.height).y + ds.s6
             width: 196
             padding: ds.s14
             height: accountActionsColumn.implicitHeight + padding * 2
@@ -688,13 +706,13 @@ Rectangle {
                 anchors.fill: parent
                 spacing: ds.s6
                 Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-                Text { Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
-                Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
-                ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
-                ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
-                ShellMenuItem { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
-                ShellMenuItem { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
-                ShellMenuItem { id: logoutAction; ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; enabled: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
+                Text { objectName: "accountContactLabel"; Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.accountContact || uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 12; elide: Text.ElideRight }
+                Rectangle { Layout.fillWidth: true; Layout.bottomMargin: ds.s4; height: 1; color: ds.line }
+                ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "○"; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
+                ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "◆"; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
+                ShellMenuItem { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "▤"; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
+                ShellMenuItem { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "⇩"; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                ShellMenuItem { id: logoutAction; objectName: "logoutAction"; ds: root.designSystem; Layout.fillWidth: true; glyph: "↪"; label: "退出登录"; enabled: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
             }
         }
 

@@ -6,9 +6,10 @@ Rectangle {
     required property QtObject ds
     property string label: ""
     property string detail: ""
+    property string glyph: ""
     property bool framed: false
     signal clicked
-    implicitHeight: 36
+    implicitHeight: 38
     implicitWidth: 180
     activeFocusOnTab: enabled
     radius: ds.radiusSm
@@ -20,6 +21,16 @@ Rectangle {
         anchors.leftMargin: entry.ds.s8
         anchors.rightMargin: entry.ds.s8
         spacing: entry.ds.s8
+        Text {
+            visible: entry.glyph !== ""
+            Layout.preferredWidth: visible ? 14 : 0
+            text: entry.glyph
+            color: entry.enabled ? entry.ds.muted : entry.ds.faint
+            font.family: Qt.platform.os === "windows" ? "Segoe UI Symbol" : entry.ds.ui
+            font.pixelSize: 13
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
         Text {
             text: entry.label
             color: entry.enabled ? entry.ds.ink : entry.ds.muted

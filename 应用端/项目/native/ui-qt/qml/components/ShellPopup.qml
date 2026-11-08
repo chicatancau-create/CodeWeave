@@ -5,8 +5,26 @@ Popup {
     id: shellPopup
     property QtObject ds
     property Item returnFocusItem
+    property Item anchorItem
+    property bool alignRight: true
+    property real anchorGap: 8
     property list<Item> menuItems
     property bool restoreFocusOnClose: true
+
+    function updateAnchor() {
+        if (!anchorItem || !parent) return;
+        const origin = anchorItem.mapToItem(parent, 0, anchorItem.height);
+        x = Math.max(12, Math.min(parent.width - width - 12,
+            origin.x + (alignRight ? anchorItem.width - width : 0)));
+        y = origin.y + anchorGap;
+    }
+
+    onAboutToShow: updateAnchor()
+    Connections {
+        target: shellPopup.parent
+        function onWidthChanged() { if (shellPopup.opened) Qt.callLater(shellPopup.updateAnchor); }
+        function onHeightChanged() { if (shellPopup.opened) Qt.callLater(shellPopup.updateAnchor); }
+    }
 
     function closeForTransfer() {
         restoreFocusOnClose = false;

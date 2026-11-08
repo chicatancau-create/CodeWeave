@@ -10,6 +10,13 @@ QString UiShell::accountName() const {
       ? QString::fromUtf8(account_service_->current()->name) : QString();
 }
 
+QString UiShell::accountContact() const {
+  if (!account_service_ || !account_service_->current()) return {};
+  const auto& record = *account_service_->current();
+  if (!record.email.empty()) return QString::fromUtf8(record.email);
+  return QString::fromUtf8(record.phone);
+}
+
 bool UiShell::accountBusy() const { return account_busy_; }
 
 void UiShell::setAccountStatus(const QString& status) {

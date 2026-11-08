@@ -353,11 +353,13 @@ int main(int argc, char** argv) {
     wait_for([&] { return !shell.accountBusy(); });
     if (!shell.hasActiveAccount()) std::cerr << "Registration failed: " << shell.accountStatus().toStdString() << '\n';
     assert(shell.hasActiveAccount() && !shell.accountName().isEmpty());
+    assert(shell.accountContact() == QStringLiteral("qt@example.test"));
     shell.logout();
-    assert(!shell.hasActiveAccount());
+    assert(!shell.hasActiveAccount() && shell.accountContact().isEmpty());
     shell.login(QStringLiteral("qt@example.test"), QStringLiteral("Test-Password-123!"));
     wait_for([&] { return !shell.accountBusy(); });
     assert(shell.hasActiveAccount());
+    assert(shell.accountContact() == QStringLiteral("qt@example.test"));
     // Runs are challenge-scoped, never consume the selected lesson draft and
     // do not create learning facts until a separate submission command.
     const auto challenge_learning_root = data / "accounts" /

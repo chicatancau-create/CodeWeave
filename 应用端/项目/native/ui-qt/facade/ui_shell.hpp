@@ -57,6 +57,7 @@ class UiShell final : public QObject {
   Q_PROPERTY(bool accountBusy READ accountBusy NOTIFY accountBusyChanged)
   Q_PROPERTY(QString accountStatus READ accountStatus NOTIFY accountStatusChanged)
   Q_PROPERTY(QString accountName READ accountName NOTIFY accountChanged)
+  Q_PROPERTY(QString accountContact READ accountContact NOTIFY accountChanged)
   Q_PROPERTY(QString hints READ hints NOTIFY hintsChanged)
   Q_PROPERTY(QString operationStatus READ operationStatus NOTIFY operationStatusChanged)
   Q_PROPERTY(bool operationBusy READ operationBusy NOTIFY operationBusyChanged)
@@ -116,6 +117,7 @@ class UiShell final : public QObject {
   [[nodiscard]] bool accountBusy() const;
   [[nodiscard]] QString accountStatus() const;
   [[nodiscard]] QString accountName() const;
+  [[nodiscard]] QString accountContact() const;
   [[nodiscard]] QString hints() const { return hints_; }
   [[nodiscard]] QString operationStatus() const { return operation_status_; }
   [[nodiscard]] bool operationBusy() const { return operation_busy_; }
