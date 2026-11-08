@@ -2370,11 +2370,32 @@ void test_javascript_source_trace_preserves_failures_and_bounds(const std::files
   assert(syntax.process->exit_code != 0 && !syntax.process->error_code.empty());
   const auto module = run("import path from 'node:path';\nconsole.log(path.sep.length);\n");
   assert(module.process->exit_code == 0 && module.process->output == "1\n");
-  assert(std::none_of(module.trace->events().begin(), module.trace->events().end(), [](const auto& event) {
-    return event.kind == codeweave::execution::EventKind::SourceStep;
+  assert(std::any_of(module.trace->events().begin(), module.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":2") != std::string::npos;
   }));
+  const auto module_failure = run("import { missing } from 'node:path';\nconsole.log(missing);\n");
+  assert(module_failure.process->exit_code != 0 &&
+      module_failure.process->output.find("missing") != std::string::npos &&
+      module_failure.trace->events().back().kind == codeweave::execution::EventKind::Failed);
   const auto awaited = run("console.log(await Promise.resolve(7));\n");
   assert(awaited.process->exit_code == 0 && awaited.process->output == "7\n");
+  assert(std::any_of(awaited.trace->events().begin(), awaited.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }));
+  const auto module_variables = run("import path from 'node:path';\nlet total = 7;\n"
+      "total += await Promise.resolve(8);\nconsole.log(total, this === undefined, typeof require, typeof module);\n");
+  assert(module_variables.process->exit_code == 0 && module_variables.process->output == "15 true undefined undefined\n");
+  assert(std::any_of(module_variables.trace->events().begin(), module_variables.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":4") != std::string::npos && event.payload.find("\"total\":\"15\"") != std::string::npos;
+  }));
+  const auto module_throw = run("import 'node:path';\nlet total = 7;\nthrow new Error('module-trace-failure');\n");
+  assert(module_throw.process->exit_code != 0 && module_throw.process->output.find("module-trace-failure") != std::string::npos);
+  const auto module_exit = run("import 'node:path';\nprocess.exit(7);\n");
+  assert(module_exit.process->exit_code == 7);
+  const auto module_pending = run("await new Promise(() => {});\n");
+  assert(module_pending.process->exit_code == 13 && !module_pending.process->timed_out);
   const auto local_module = execution_root / "local-module.cjs";
   {
     std::ofstream module_file(local_module);
@@ -2389,6 +2410,11 @@ void test_javascript_source_trace_preserves_failures_and_bounds(const std::files
       runtime, execution_root);
   assert(required.process && required.process->exit_code == 0 &&
       required.process->output == "7\n[stdin] . [stdin]\ntrue true\n");
+  const auto imported = service.run({"javascript-relative-import", "javascript",
+      "import answer from './local-module.cjs';\nconsole.log(answer);\n"
+      "console.log(import.meta.filename.endsWith('[eval1]'), import.meta.dirname === process.cwd());\n",
+      10'000, 4096}, runtime, execution_root);
+  assert(imported.process && imported.process->exit_code == 0 && imported.process->output == "7\ntrue true\n");
   assert(std::filesystem::remove(local_module) && std::filesystem::is_empty(execution_root));
   const auto global = run("var total = 7;\nconsole.log(this === globalThis, globalThis.total);\n");
   assert(global.process->exit_code == 0 && global.process->output == "true 7\n");

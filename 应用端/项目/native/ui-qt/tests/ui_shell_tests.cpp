@@ -536,7 +536,17 @@ int main(int argc, char** argv) {
         assert(source_step->toMap().value(QStringLiteral("sourceLine")).toInt() > 0);
         assert(source_step->toMap().value(QStringLiteral("variables")).toMap().size() > 0);
       }
-      assert(events.at(events.size() - 2).toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("output"));
+      QString traced_output;
+      for (qsizetype event_index = 0; event_index < events.size(); ++event_index) {
+        const auto event = events.at(event_index).toMap();
+        const auto kind = event.value(QStringLiteral("kind")).toString();
+        assert(event.value(QStringLiteral("sequence")).toULongLong() == static_cast<qulonglong>(event_index + 1));
+        if (kind == QStringLiteral("output")) traced_output += event.value(QStringLiteral("payload")).toString();
+        else if (kind == QStringLiteral("started")) assert(event_index == 0);
+        else if (kind == QStringLiteral("completed")) assert(event_index == events.size() - 1);
+        else assert(kind == QStringLiteral("source_step"));
+      }
+      assert(traced_output == expected);
       assert(events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("completed"));
       shell.refreshReviewSummary();
       wait_for([&] { return !shell.operationBusy(); });

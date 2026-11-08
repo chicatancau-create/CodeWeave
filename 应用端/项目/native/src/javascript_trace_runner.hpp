@@ -15,7 +15,7 @@ const { JSON, Object, String, Set, Buffer } = globalThis;
 const sourcePath = path.resolve(process.argv[2]);
 const snapshotPath = process.argv[3];
 const syntaxFallbackPath = process.argv[4];
-const sourceUrl = pathToFileURL(sourcePath).href;
+let sourceUrl = pathToFileURL(sourcePath).href;
 const source = fs.readFileSync(sourcePath, 'utf8');
 const lastSourceLine = source.trimEnd().split(/\r\n|\r|\n/).length - 1;
 const session = new inspector.Session();
@@ -67,7 +67,8 @@ session.on('Debugger.paused', ({ params }) => {
   ++stepCount;
   const variables = Object.create(null);
   const scopes = frame.scopeChain.filter(scope => scope.type === 'local' || scope.type === 'block' ||
-      scope.type === 'catch' || scope.type === 'closure' || scope.type === 'script' || scope.type === 'global');
+      scope.type === 'catch' || scope.type === 'closure' || scope.type === 'script' ||
+      scope.type === 'module' || scope.type === 'global');
   function readScope(index) {
     if (index >= scopes.length || Object.keys(variables).length >= 16) {
       const record = JSON.stringify({ line: frame.location.lineNumber + 1,
@@ -113,12 +114,43 @@ let compiled;
 try {
   compiled = new vm.Script(source, { filename: sourcePath });
 } catch (error) {
-  // Node stdin can accept module syntax that vm.Script cannot trace.
-  if (error.name === 'SyntaxError') {
+  if (error.name !== 'SyntaxError') throw error;
+  if (typeof Module.registerHooks !== 'function') {
     fs.writeFileSync(syntaxFallbackPath, '1');
     process.exit(1);
   }
-  throw error;
+  // Match Node's stdin ESM entry URL: relative imports and import.meta resolve
+  // against cwd, not against the disposable trace directory.
+  sourceUrl = pathToFileURL(path.join(process.cwd(), '[eval1]')).href;
+  for (const name of ['require', 'module', 'exports', '__filename', '__dirname']) delete globalThis[name];
+  Module.registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === sourceUrl) return { url: sourceUrl, shortCircuit: true };
+      return nextResolve(specifier, context);
+    },
+    load(url, context, nextLoad) {
+      if (url === sourceUrl) return { format: 'module', source, shortCircuit: true };
+      return nextLoad(url, context);
+    }
+  });
+  let settled = false;
+  let unresolvedExit = false;
+  process.on('beforeExit', () => {
+    if (!settled && (process.exitCode === undefined || process.exitCode === 0)) {
+      unresolvedExit = true;
+      process.exitCode = 13;
+    }
+  });
+  import(sourceUrl).then(() => {
+    settled = true;
+    if (unresolvedExit && process.exitCode === 13) process.exitCode = 0;
+  }, moduleError => {
+    settled = true;
+    // Throw outside promise/Inspector callbacks to retain ordinary uncaught
+    // failure and nonzero exit behavior; never retry learner execution.
+    setImmediate(() => { throw moduleError; });
+  });
+  return;
 }
 // Execute outside Inspector callbacks so learner exceptions retain their exit status.
 compiled.runInThisContext();

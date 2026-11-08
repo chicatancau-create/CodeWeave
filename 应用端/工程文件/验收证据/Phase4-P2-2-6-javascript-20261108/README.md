@@ -2,6 +2,8 @@
 
 日期：2026-11-08。本检查点扩展 Python 之后的 JavaScript 普通脚本快照；整个修缮目标和 P2.6 仍为部分完成。
 
+后续检查点已补齐[JavaScript 模块源码快照](../Phase4-P2-2-6-js-module-20261108/README.md)；下文“模块无快照/仅结束后交付”保留为本检查点的历史边界，当前进度以 Phase4 进度表为准。
+
 ## 契约与决策
 
 - `native/src/javascript_trace_runner.hpp` 使用 Node 内建 `inspector.Session`，在本子进程连接，不打开 TCP 监听端口。仅为本次学习源码建立实际可停靠的断点，每行至多一个、最多 4096 行；从暂停事件读取源码行和作用域属性。
