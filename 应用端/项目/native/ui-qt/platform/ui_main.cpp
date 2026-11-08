@@ -742,6 +742,20 @@ int main(int argc, char* argv[]) {
             auto* restore = u3_find_item(settings_scroll, QStringLiteral("settingsRestoreDefaults"));
             auto* font_size = u3_find_item(settings_scroll, QStringLiteral("settingsEditorFontSize"));
             auto* line_toggle = u3_find_item(settings_scroll, QStringLiteral("settingsEditorLineNumbersToggle"));
+            const auto require_toggle_thumb = [&](QQuickItem* item) {
+              auto* thumb = u3_find_item(item, item->objectName() + QStringLiteral("Thumb"));
+              const auto expected_x = item->property("checked").toBool() ? 26.0 : 6.0;
+              if (thumb && thumb->isVisible() && thumb->parentItem() == item &&
+                  std::abs(item->width() - 48) < 0.01 && std::abs(item->height() - 28) < 0.01 &&
+                  item->property("radius").toReal() == 0 &&
+                  std::abs(thumb->width() - 16) < 0.01 && std::abs(thumb->height() - 16) < 0.01 &&
+                  std::abs(thumb->x() - expected_x) < 0.01 && std::abs(thumb->y() - 6) < 0.01) return true;
+              diagnostic = QStringLiteral("Settings toggle thumb did not reflect its checked state: %1")
+                  .arg(item->objectName());
+              write_smoke_report();
+              application.exit(1);
+              return false;
+            };
             auto* spinner = busy_indicator
                 ? u3_find_item(busy_indicator, QStringLiteral("motionSpinner")) : nullptr;
             auto* static_ring = busy_indicator
@@ -768,6 +782,7 @@ int main(int argc, char* argv[]) {
               application.exit(1);
               return;
             }
+            if (!require_toggle_thumb(toggle) || !require_toggle_thumb(line_toggle)) return;
             busy_indicator->setProperty("busy", true);
             QCoreApplication::processEvents();
             if (!spinner->isVisible() || !spinner->property("running").toBool() ||
@@ -780,6 +795,7 @@ int main(int argc, char* argv[]) {
             toggle->forceActiveFocus();
             send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
             QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
             if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
                 design_system->property("durQuick").toInt() != 0 || spinner->isVisible() ||
                 spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
@@ -795,6 +811,7 @@ int main(int argc, char* argv[]) {
               return;
             }
             QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
             if (shell.reducedMotion() || toggle->property("checked").toBool() ||
                 design_system->property("durQuick").toInt() != 150 || !spinner->isVisible() ||
                 !spinner->property("running").toBool() || static_ring->isVisible() || static_dot->isVisible()) {
@@ -815,6 +832,7 @@ int main(int argc, char* argv[]) {
             }
             accessible_actions->doAction(QAccessibleActionInterface::toggleAction());
             QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
             if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
                 design_system->property("durQuick").toInt() != 0 || spinner->isVisible() ||
                 spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
@@ -825,6 +843,7 @@ int main(int argc, char* argv[]) {
             }
             QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection);
             QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
             if (shell.reducedMotion() || toggle->property("checked").toBool() ||
                 design_system->property("durQuick").toInt() != 150) {
               diagnostic = QStringLiteral("Reduced-motion checkbox did not restore after its accessible action");
@@ -846,6 +865,7 @@ int main(int argc, char* argv[]) {
             }
             line_actions->doAction(QAccessibleActionInterface::toggleAction());
             QCoreApplication::processEvents();
+            if (!require_toggle_thumb(line_toggle)) return;
             if (shell.editorFontSize() != 16 || shell.editorLineNumbers() ||
                 font_size->property("currentIndex").toInt() != 4 || line_toggle->property("checked").toBool() ||
                 shell.draftCode() != preference_draft || shell.draftRevision() != preference_revision) {
@@ -861,6 +881,7 @@ int main(int argc, char* argv[]) {
               return;
             }
             QCoreApplication::processEvents();
+            if (!require_toggle_thumb(line_toggle)) return;
             if (shell.editorFontSize() != 13 || !shell.editorLineNumbers() ||
                 font_size->property("currentIndex").toInt() != 1 || !line_toggle->property("checked").toBool() ||
                 shell.draftCode() != preference_draft || shell.draftRevision() != preference_revision) {

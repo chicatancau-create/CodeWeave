@@ -74,7 +74,7 @@ ColumnLayout {
                     activeFocusOnTab: enabled
                     color: enabled ? settings.ds.inset : settings.ds.panel
                     border.color: activeFocus || checked ? settings.ds.accent : settings.ds.lineStrong
-                    radius: 4
+                    radius: 0
                     function choose() {
                         if (!enabled) return;
                         if (modelData.title === "减弱动画") uiShell.setReducedMotion(!checked);
@@ -83,12 +83,15 @@ ColumnLayout {
                     Keys.onSpacePressed: choose()
                     Keys.onReturnPressed: choose()
                     TapHandler { onTapped: { preferenceToggle.forceActiveFocus(); preferenceToggle.choose(); } }
-                    Text {
-                        anchors.centerIn: parent
-                        text: preferenceToggle.checked ? "✓" : ""
-                        color: settings.ds.accent
-                        font.family: settings.ds.ui
-                        font.pixelSize: 15
+                    Rectangle {
+                        objectName: preferenceToggle.objectName + "Thumb"
+                        width: settings.ds.s16
+                        height: settings.ds.s16
+                        x: preferenceToggle.checked ? preferenceToggle.width - width - settings.ds.s6 : settings.ds.s6
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: preferenceToggle.checked ? settings.ds.ink : settings.ds.muted
+                        border.color: settings.ds.lineStrong
+                        Accessible.ignored: true
                     }
                     Accessible.role: Accessible.CheckBox
                     Accessible.checkable: true
