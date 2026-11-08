@@ -31,9 +31,14 @@ Dialog {
         }
         IconButton {
             id: headerClose
+            objectName: "shellDialogHeaderClose"
             visible: dialog.referenceStyle
             ds: dialog.ds
             implicitWidth: 44; implicitHeight: 44
+            radius: 0
+            border.width: 1
+            border.color: closeHover.hovered ? dialog.ds.lineStrong : dialog.ds.line
+            HoverHandler { id: closeHover }
             anchors.right: parent.right; anchors.rightMargin: dialog.ds.modalPadding
             anchors.top: parent.top; anchors.topMargin: dialog.ds.modalPadding
             iconName: "X"; tip: "关闭" + dialog.title

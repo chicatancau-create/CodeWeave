@@ -62,6 +62,14 @@
         {
             "devicePixelRatio": 1,
             "height": 720,
+            "name": "topbar-settings-middle-small",
+            "pixelHeight": 720,
+            "pixelWidth": 1100,
+            "width": 1100
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 720,
             "name": "topbar-settings-bottom-small",
             "pixelHeight": 720,
             "pixelWidth": 1100,
@@ -197,6 +205,7 @@
         "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-notifications.png",
         "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-settings.png",
         "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-settings-small.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-settings-middle-small.png",
         "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-settings-bottom-small.png",
         "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-help.png",
         "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/topbar-search.png"
@@ -305,6 +314,64 @@
         ],
         "title": "循环是怎么工作的？"
     },
+    "settingsRows": [
+        {
+            "control": "settingsPreferenceToggle0",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0
+        },
+        {
+            "control": "settingsPreferenceToggle1",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1
+        },
+        {
+            "control": "settingsPreferenceToggle2",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 2
+        },
+        {
+            "control": "settingsReducedMotionToggle",
+            "controlEnabled": true,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3
+        },
+        {
+            "control": "settingsEditorFontSize",
+            "controlEnabled": true,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4
+        },
+        {
+            "control": "settingsPreferenceSelect5",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 5
+        },
+        {
+            "control": "settingsPreferenceToggle6",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 6
+        },
+        {
+            "control": "settingsEditorLineNumbersToggle",
+            "controlEnabled": true,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 7
+        }
+    ],
     "topbarGeometry": [
         {
             "height": 32,

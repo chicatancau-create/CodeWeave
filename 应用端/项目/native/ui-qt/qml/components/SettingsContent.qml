@@ -64,7 +64,7 @@ ColumnLayout {
                 Rectangle {
                     id: preferenceToggle
                     objectName: modelData.title === "减弱动画" ? "settingsReducedMotionToggle"
-                        : (modelData.title === "显示行号" ? "settingsEditorLineNumbersToggle" : "")
+                        : (modelData.title === "显示行号" ? "settingsEditorLineNumbersToggle" : "settingsPreferenceToggle" + index)
                     visible: modelData.options.length === 0
                     implicitWidth: 48; implicitHeight: 28
                     enabled: (modelData.title === "减弱动画" || modelData.title === "显示行号")
@@ -102,7 +102,7 @@ ColumnLayout {
                     Accessible.onToggleAction: choose()
                 }
                 ComboBox {
-                    objectName: modelData.title === "编辑器字号" ? "settingsEditorFontSize" : ""
+                    objectName: modelData.title === "编辑器字号" ? "settingsEditorFontSize" : "settingsPreferenceSelect" + index
                     visible: modelData.options.length > 0
                     model: modelData.title === "编辑器字号"
                         ? modelData.options.map(size => size + " px")

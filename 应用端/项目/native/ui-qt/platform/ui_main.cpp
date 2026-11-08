@@ -13,6 +13,7 @@
 #include <QFont>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QQmlProperty>
 #include <QQuickView>
 #include <QCloseEvent>
 #include <QClipboard>
@@ -343,6 +344,7 @@ int main(int argc, char* argv[]) {
   QStringList smoke_screenshots;
   QJsonArray smoke_geometry;
   QJsonArray smoke_popup_geometry;
+  QJsonArray smoke_settings_rows;
   QJsonArray smoke_topbar_geometry;
   bool smoke_reference_ready = false;
   bool smoke_reference_registration_started = false;
@@ -355,6 +357,7 @@ int main(int argc, char* argv[]) {
       report.insert(QStringLiteral("screenshots"), QJsonArray::fromStringList(smoke_screenshots));
       report.insert(QStringLiteral("geometry"), smoke_geometry);
       report.insert(QStringLiteral("popupGeometry"), smoke_popup_geometry);
+      report.insert(QStringLiteral("settingsRows"), smoke_settings_rows);
       report.insert(QStringLiteral("topbarGeometry"), smoke_topbar_geometry);
       report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
       report.insert(QStringLiteral("referenceSubject"), topbar_reference >= 0 ? QStringLiteral("Python") : QString());
@@ -582,6 +585,34 @@ int main(int argc, char* argv[]) {
         application.exit(1);
         return;
       }
+      const auto require_reference_close_style = [&](QObject* dialog) {
+        auto* tokens = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+        auto* close = dialog->findChild<QQuickItem*>(QStringLiteral("shellDialogHeaderClose"));
+        const auto move_pointer = [&](const QPointF& point) {
+          QMouseEvent move(QEvent::MouseMove, point, point, view.mapToGlobal(point.toPoint()),
+              Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+          QCoreApplication::sendEvent(&view, &move);
+          QCoreApplication::processEvents();
+        };
+        move_pointer(QPointF(1, 1));
+        const bool resting_style = tokens && close && close->isVisible() && std::abs(close->width() - 44) < 0.01 &&
+            std::abs(close->height() - 44) < 0.01 && close->property("radius").toReal() == 0 &&
+            QQmlProperty::read(close, QStringLiteral("border.width")).toReal() == 1 &&
+            QQmlProperty::read(close, QStringLiteral("border.color")).value<QColor>() ==
+                tokens->property("line").value<QColor>();
+        if (resting_style) {
+          move_pointer(close->mapToScene(QPointF(close->width() / 2, close->height() / 2)));
+          const bool hovered_style = QQmlProperty::read(close, QStringLiteral("border.color")).value<QColor>() ==
+              tokens->property("lineStrong").value<QColor>();
+          move_pointer(QPointF(1, 1));
+          if (hovered_style && QQmlProperty::read(close, QStringLiteral("border.color")).value<QColor>() ==
+              tokens->property("line").value<QColor>()) return true;
+        }
+        diagnostic = QStringLiteral("Reference dialog close button square outline or hover state is incorrect");
+        write_smoke_report();
+        application.exit(1);
+        return false;
+      };
       if (!quick || !account || !trigger || !first || !review || !help || !profile || !security || !privacy ||
           !export_action || !logout_action) {
         diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 privacy=%9 logout=%10")
@@ -735,6 +766,7 @@ int main(int argc, char* argv[]) {
             application.exit(1);
             return;
           }
+          if (!require_reference_close_style(settings)) return;
           {
             auto* toggle = u3_find_item(settings_scroll, QStringLiteral("settingsReducedMotionToggle"));
             auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
@@ -967,14 +999,76 @@ int main(int argc, char* argv[]) {
               application.exit(1);
               return;
             }
-            flick->setProperty("contentY", content_height - flick->height());
-            QCoreApplication::processEvents();
             const auto fully_visible = [&](QQuickItem* item) {
               const auto origin = item->mapToItem(flick, QPointF());
-              return item->isVisible() && origin.x() >= -1 && origin.y() >= -1 &&
+              return item->isVisible() && item->width() > 0 && item->height() > 0 &&
+                  origin.x() >= -1 && origin.y() >= -1 &&
                   origin.x() + item->width() <= flick->width() + 1 &&
                   origin.y() + item->height() <= flick->height() + 1;
             };
+            for (int index = 0; index < 8; ++index) {
+              auto* row = u3_find_item(settings_scroll,
+                  QStringLiteral("settingsPreferenceRow%1").arg(index));
+              if (!row) {
+                diagnostic = QStringLiteral("Settings preference row %1 is missing").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              flick->setProperty("contentY", 0);
+              QCoreApplication::processEvents();
+              const auto initial = row->mapToItem(flick, QPointF());
+              const auto target_y = initial.y() + row->height() / 2 - flick->height() / 2;
+              flick->setProperty("contentY", std::clamp(target_y, 0.0, content_height - flick->height()));
+              QCoreApplication::processEvents();
+              if (!fully_visible(row)) {
+                diagnostic = QStringLiteral("Settings preference row %1 is clipped at 1100x720").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              const auto control_name = index == 3 ? QStringLiteral("settingsReducedMotionToggle") :
+                  index == 4 ? QStringLiteral("settingsEditorFontSize") :
+                  index == 7 ? QStringLiteral("settingsEditorLineNumbersToggle") :
+                  QStringLiteral("settingsPreference%1%2").arg(index == 5 ? "Select" : "Toggle").arg(index);
+              auto* control = u3_find_item(row, control_name);
+              const auto origin = control ? control->mapToItem(row, QPointF()) : QPointF();
+              if (!control || !fully_visible(control) || origin.x() < 0 || origin.y() < 0 ||
+                  origin.x() + control->width() > row->width() + 1 ||
+                  origin.y() + control->height() > row->height() + 1) {
+                diagnostic = QStringLiteral("Settings preference row %1 control is clipped or missing").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              const bool supported = index == 3 || index == 4 || index == 7;
+              if (control->property("enabled").toBool() != supported) {
+                diagnostic = QStringLiteral("Settings preference row %1 has incorrect availability").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              smoke_settings_rows.append(QJsonObject{{"index", index}, {"height", row->height()},
+                  {"control", control_name}, {"fullyVisible", true},
+                  {"controlEnabled", control->property("enabled").toBool()}});
+            }
+            auto* middle_row = u3_find_item(settings_scroll, QStringLiteral("settingsPreferenceRow4"));
+            const auto middle_origin = middle_row->mapToItem(flick, QPointF());
+            const auto middle_content_y = flick->property("contentY").toReal();
+            flick->setProperty("contentY", std::clamp(
+                middle_content_y + middle_origin.y() + middle_row->height() / 2 - flick->height() / 2,
+                0.0, content_height - flick->height()));
+            QCoreApplication::processEvents();
+            if (!fully_visible(middle_row) ||
+                !capture_topbar(QStringLiteral("topbar-settings-middle-small"))) {
+              if (diagnostic == QStringLiteral("running"))
+                diagnostic = QStringLiteral("Settings middle rows could not be captured");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            flick->setProperty("contentY", content_height - flick->height());
+            QCoreApplication::processEvents();
             if (flick->property("contentY").toReal() <= 0 || !fully_visible(export_data) ||
                 !fully_visible(clear_data)) {
               diagnostic = QStringLiteral("Settings data controls are clipped after scrolling to the bottom");
@@ -1022,6 +1116,7 @@ int main(int argc, char* argv[]) {
             application.exit(1);
             return;
           }
+          if (!require_reference_close_style(help_dialog)) return;
           if (!capture_topbar(QStringLiteral("topbar-help"))) { application.exit(1); return; }
           send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
           break;
