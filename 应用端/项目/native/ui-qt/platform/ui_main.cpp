@@ -32,6 +32,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJSValue>
 #include <QScreen>
 #include <QUrl>
 
@@ -158,6 +159,22 @@ QQuickItem* u3_find_item(QQuickItem* parent, const QString& name) {
     if (auto* found = u3_find_item(child, name)) return found;
   }
   return nullptr;
+}
+
+bool u3_stage_terminal_visible(QQuickItem* root, const QVariantMap& event, bool failed) {
+  auto* diagram = u3_find_item(root, QStringLiteral("executionStageDiagram"));
+  if (!diagram) return false;
+  const auto frame = diagram->property("frame").value<QJSValue>().toVariant().toMap();
+  const auto nodes = frame.value(QStringLiteral("nodes")).toList();
+  if (nodes.isEmpty()) return false;
+  const auto terminal = nodes.last().toMap();
+  return terminal.value(QStringLiteral("kind")).toString() == QStringLiteral("end") &&
+      terminal.value(QStringLiteral("state")).toString() == QStringLiteral("now") &&
+      terminal.value(QStringLiteral("label")) == event.value(QStringLiteral("label")) &&
+      terminal.value(QStringLiteral("failed")).toBool() == failed &&
+      diagram->property("currentNodeId").toString() ==
+          QStringLiteral("event:") + event.value(QStringLiteral("sequence")).toString() &&
+      diagram->property("currentNodeVisible").toBool();
 }
 
 bool u3_reveal_challenge_item(QQuickItem* root, const QString& name) {
@@ -843,6 +860,16 @@ int main(int argc, char* argv[]) {
                 variables->property("text").toString().contains(QStringLiteral("total = 7"));
             u3_record(*context, QStringLiteral("python-source-snapshot-line-and-local-variable"),
                 source_snapshot_selected);
+            auto* diagram = u3_find_item(view.rootObject(), QStringLiteral("executionStageDiagram"));
+            auto* variable_table = u3_find_item(view.rootObject(), QStringLiteral("executionVariableTable"));
+            u3_record(*context, QStringLiteral("execution-stage-source-pointer-edges-and-variable-table"),
+                source_snapshot_selected && diagram && variable_table &&
+                diagram->property("nodeCount").toInt() >= 2 && diagram->property("edgeCount").toInt() >= 1 &&
+                diagram->property("currentNodeId").toString() == QStringLiteral("line:2") &&
+                variable_table->property("variableCount").toInt() == 1 &&
+                variable_table->property("snapshotLabel").toString().contains(QStringLiteral("L2")));
+            u3_record(*context, QStringLiteral("execution-stage-current-node-and-pointer-fit-viewport"),
+                diagram && diagram->property("currentNodeVisible").toBool());
             if (initial) events->setProperty("currentIndex", final_event_index);
             bool previous_invoked = initial && previous;
             for (int index = 0; previous_invoked && index < final_event_index; ++index) {
@@ -852,6 +879,11 @@ int main(int argc, char* argv[]) {
             u3_record(*context, QStringLiteral("execution-trace-previous-shows-before-output"),
                 previous_invoked &&
                 trace_output->property("text").toString().isEmpty());
+            u3_record(*context, QStringLiteral("execution-stage-rewind-clears-future-nodes-and-variables"),
+                previous_invoked && diagram && variable_table &&
+                diagram->property("nodeCount").toInt() == 1 && diagram->property("edgeCount").toInt() == 0 &&
+                diagram->property("currentNodeId").toString() == QStringLiteral("event:1") &&
+                variable_table->property("variableCount").toInt() == 0);
             int output_event_index = -1;
             for (qsizetype index = 0; index < trace_events.size(); ++index) {
               if (trace_events.at(index).toMap().value(QStringLiteral("kind")).toString() == "output") {
@@ -1213,6 +1245,8 @@ int main(int argc, char* argv[]) {
               resumed = resumed || event.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("resumed");
             }
             u3_record(*context, QStringLiteral("execution-trace-pause-resume-events"), paused && resumed);
+            u3_record(*context, QStringLiteral("execution-stage-cancelled-terminal-visible-without-success"),
+                !events.isEmpty() && u3_stage_terminal_visible(view.rootObject(), events.last().toMap(), false));
             u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-cancelled"));
           }
           shell.setExecutionTimeout(100);
@@ -1228,6 +1262,11 @@ int main(int argc, char* argv[]) {
             const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
             u3_record(*context, QStringLiteral("execution-trace-failed-event"), !events.isEmpty() &&
                 events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("failed"));
+            auto* error = u3_find_item(view.rootObject(), QStringLiteral("executionTraceError"));
+            u3_record(*context, QStringLiteral("execution-stage-failed-terminal-and-error-visible"),
+                !events.isEmpty() && u3_stage_terminal_visible(view.rootObject(), events.last().toMap(), true) &&
+                error && error->isVisible() && !error->property("text").toString().isEmpty() &&
+                error->property("text").toString() == events.last().toMap().value(QStringLiteral("payload")).toString());
             u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-failed"));
           }
           {
@@ -2302,7 +2341,7 @@ int main(int argc, char* argv[]) {
               view.rootObject()->property("breadcrumbText").toString().contains(shell.documentId()));
           auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
           u3_record(*context, QStringLiteral("lesson-workspace-missing-metadata-clears-previous-flow"),
-              flow && flow->property("count").toInt() == 0);
+              flow && flow->property("nodeCount").isValid() && flow->property("nodeCount").toInt() == 0);
           auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
           u3_record(*context, QStringLiteral("lesson-evidence-opens-from-workspace"), open && open->isVisible() &&
               open->property("enabled").toBool() && QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection));
@@ -2400,7 +2439,7 @@ int main(int argc, char* argv[]) {
           auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
           const auto title_text = title ? title->property("text").toString() : QStringLiteral("<missing>");
           const auto expected_title = lesson.value("title").toString();
-          const auto flow_count = flow ? flow->property("count").toInt() : -1;
+          const auto flow_count = flow ? flow->property("nodeCount").toInt() : -1;
           const auto expected_flow_count = lesson.value("flow").toList().size();
           u3_record(*context, QStringLiteral("lesson-workspace-external-document-updates-title-and-flow"),
               !lesson.isEmpty() && title_text.contains(expected_title) && flow_count == expected_flow_count &&

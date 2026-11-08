@@ -103,6 +103,9 @@ qt_add_qml_module(codeweave-qt
     qml/components/LessonEvidencePanel.qml
     qml/components/CheckinCalendar.qml
     qml/components/ExecutionTracePanel.qml
+    qml/components/ExecutionStage.js
+    qml/components/StageDiagram.qml
+    qml/components/TraceVariables.qml
     qml/components/VaultWritebackPanel.qml
     qml/components/LearningCatalog.js
     qml/pages/AccountPage.qml
@@ -176,6 +179,8 @@ if (BUILD_TESTING)
   find_program(CODEWEAVE_QT_TEST_PYTHON_TOOL NAMES python.exe python3.exe)
   find_program(CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL NAMES node.exe)
   if (CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL)
+    add_test(NAME qt-execution-stage COMMAND "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}"
+      --test "${CMAKE_CURRENT_SOURCE_DIR}/tests/execution_stage_tests.mjs")
     add_test(NAME qt-learning-catalog COMMAND "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}"
       --test "${CMAKE_CURRENT_SOURCE_DIR}/tests/learning_catalog_tests.mjs")
   endif()

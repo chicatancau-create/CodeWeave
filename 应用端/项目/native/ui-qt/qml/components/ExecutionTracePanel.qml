@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import "ExecutionStage.js" as Stage
 
 Rectangle {
     id: panel
@@ -12,6 +13,7 @@ Rectangle {
     readonly property int currentIndex: eventList.currentIndex
     readonly property var currentEvent: currentIndex >= 0 && currentIndex < events.length
                                          ? events[currentIndex] : null
+    readonly property var frame: Stage.frameAt(events, currentIndex)
     property string viewedSession: ""
     property bool followLatest: true
     property int viewedSequence: 0
@@ -98,8 +100,19 @@ Rectangle {
             font.family: panel.ds.mono
             font.pixelSize: 11
             wrapMode: Text.WordWrap
-            maximumLineCount: 4
+            maximumLineCount: 1
             elide: Text.ElideRight
+        }
+
+        StageDiagram {
+            objectName: "executionStageDiagram"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 176
+            Layout.minimumHeight: 176
+            ds: panel.ds
+            frame: panel.frame
+            emptyText: panel.busy ? "运行中，等待执行事件" : "暂无执行事件"
+            onNodeSelected: function(eventIndex) { panel.selectEvent(eventIndex); }
         }
 
         ListView {
@@ -108,20 +121,22 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 52
-            Layout.preferredHeight: 114
+            Layout.preferredHeight: 52
             model: panel.events
+            orientation: ListView.Horizontal
             clip: true
             activeFocusOnTab: true
             keyNavigationEnabled: true
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { }
+            ScrollBar.horizontal: ScrollBar { }
             Accessible.name: "执行事件回看"
             onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Home || event.key === Qt.Key_End ||
-                        event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                        event.key === Qt.Key_Up || event.key === Qt.Key_Down ||
+                        event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
                     const target = event.key === Qt.Key_Home ? 0 : event.key === Qt.Key_End ? count - 1 :
-                                   currentIndex + (event.key === Qt.Key_Up ? -1 : 1);
+                                   currentIndex + (event.key === Qt.Key_Up || event.key === Qt.Key_Left ? -1 : 1);
                     panel.selectEvent(target);
                     event.accepted = true;
                 }
@@ -130,14 +145,14 @@ Rectangle {
                 id: node
                 required property var modelData
                 required property int index
-                width: eventList.width
+                width: 220
                 height: 38
                 readonly property bool selected: eventList.currentIndex === index
                 Rectangle {
-                    x: 13
-                    y: 0
-                    width: 2
-                    height: node.index < panel.events.length - 1 ? parent.height : 18
+                    x: 0
+                    y: 17
+                    width: parent.width
+                    height: 2
                     color: panel.ds.lineStrong
                 }
                 Rectangle {
@@ -176,7 +191,7 @@ Rectangle {
                         }
                         Text {
                             visible: node.selected
-                            text: "← 当前事件"
+                            text: "当前"
                             color: panel.ds.accent
                             font.family: panel.ds.ui
                             font.pixelSize: 11

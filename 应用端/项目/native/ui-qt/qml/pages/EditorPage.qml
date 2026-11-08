@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "../components"
+import "../components/ExecutionStage.js" as Stage
 
 Item {
     property var hostRoot
@@ -553,94 +554,19 @@ Item {
                                 }
                             }
 
-                            // div.rs-canvas-wrap — grid paper
-                            Rectangle {
+                            StageDiagram {
+                                objectName: "workspaceFlowNodes"
                                 visible: !editorPage.showExecutionTrace
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                radius: ds.radiusSm
-                                color: ds.stageBg
-                                border.color: ds.line
-                                border.width: 1
-                                clip: true
-
-                                Canvas {
-                                    anchors.fill: parent
-                                    onPaint: {
-                                        const ctx = getContext("2d");
-                                        ctx.clearRect(0, 0, width, height);
-                                        ctx.strokeStyle = ds.line;
-                                        ctx.lineWidth = 1;
-                                        for (let x = 0; x <= width; x += 20) {
-                                            ctx.beginPath();
-                                            ctx.moveTo(x + 0.5, 0);
-                                            ctx.lineTo(x + 0.5, height);
-                                            ctx.stroke();
-                                        }
-                                        for (let y = 0; y <= height; y += 20) {
-                                            ctx.beginPath();
-                                            ctx.moveTo(0, y + 0.5);
-                                            ctx.lineTo(width, y + 0.5);
-                                            ctx.stroke();
-                                        }
-                                    }
-                                }
-
-                                Repeater {
-                                    objectName: "workspaceFlowNodes"
-                                    model: editorPage.currentLesson ? (editorPage.currentLesson.flow || []) : []
-                                    delegate: Item {
-                                        required property var modelData
-                                        required property int index
-                                        x: 16 + (index % 4) * 118
-                                        y: 20 + Math.floor(index / 4) * 74
-                                        width: 96
-                                        height: 50
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: modelData.kind === "decision" ? 6 : 6
-                                            rotation: modelData.kind === "decision" ? 45 : 0
-                                            color: ds.panel
-                                            border.color: ds.lineStrong
-                                            border.width: 2
-                                        }
-                                        Column {
-                                            anchors.centerIn: parent
-                                            spacing: 1
-                                            Text {
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                text: modelData.label || ""
-                                                color: ds.ink
-                                                font.family: ds.ui
-                                                font.pixelSize: 11
-                                                width: 84
-                                                horizontalAlignment: Text.AlignHCenter
-                                                elide: Text.ElideRight
-                                            }
-                                            Text {
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                visible: modelData.kind !== "decision"
-                                                text: modelData.kind || ""
-                                                color: ds.faint
-                                                font.family: ds.mono
-                                                font.pixelSize: 9
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: !editorPage.currentLesson || (editorPage.currentLesson.flow || []).length === 0
-                                    text: "选择课程后显示流程结构"
-                                    color: ds.faint
-                                    font.family: ds.ui
-                                    font.pixelSize: 12
-                                }
+                                Layout.minimumHeight: 176
+                                ds: editorPage.ds
+                                frame: Stage.skeleton(editorPage.currentLesson ? (editorPage.currentLesson.flow || []) : [])
+                                emptyText: "选择课程后显示流程结构"
                             }
 
                             ExecutionTracePanel {
+                                id: executionPanel
                                 objectName: "executionTracePanel"
                                 visible: editorPage.showExecutionTrace
                                 Layout.fillWidth: true
@@ -652,33 +578,12 @@ Item {
                                 draftRevision: uiShell.draftRevision
                             }
 
-                            Rectangle {
+                            TraceVariables {
+                                objectName: "executionVariableTable"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 72
-                                radius: ds.radiusSm
-                                color: ds.panel
-                                border.color: ds.line
-                                border.width: 1
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: ds.s10
-                                    spacing: ds.s4
-                                    Text {
-                                        text: "变量追踪"
-                                        color: ds.ink
-                                        font.family: ds.ui
-                                        font.pixelSize: 12
-                                        font.weight: Font.DemiBold
-                                    }
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "Python / JavaScript / Java / C++ 源码步骤快照"
-                                        color: ds.faint
-                                        font.family: ds.ui
-                                        font.pixelSize: 11
-                                        wrapMode: Text.WordWrap
-                                    }
-                                }
+                                Layout.preferredHeight: implicitHeight
+                                ds: editorPage.ds
+                                frame: executionPanel.frame
                             }
 
                             Rectangle {

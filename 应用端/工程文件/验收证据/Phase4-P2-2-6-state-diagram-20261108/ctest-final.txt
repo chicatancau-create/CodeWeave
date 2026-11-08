@@ -1,0 +1,200 @@
+Start testing: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+----------------------------------------------------------
+1/11 Testing: native-core
+1/11 Test: native-core
+Command: "G:/CodeWeave/.local/qt/current/codeweave-native-tests.exe"
+Directory: G:/CodeWeave/.local/qt/current
+"native-core" start time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+native core tests passed
+<end of output>
+Test time =   2.89 sec
+----------------------------------------------------------
+Test Passed.
+"native-core" end time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+"native-core" time elapsed: 00:00:02
+----------------------------------------------------------
+
+2/11 Testing: native-content-delivery
+2/11 Test: native-content-delivery
+Command: "G:/CodeWeave/.local/qt/current/codeweave-content-delivery-tests.exe"
+Directory: G:/CodeWeave/.local/qt/current
+"native-content-delivery" start time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"native-content-delivery" end time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+"native-content-delivery" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/11 Testing: native-startup
+3/11 Test: native-startup
+Command: "G:/CodeWeave/.local/qt/current/codeweave-native.exe" "--self-test"
+Directory: G:/CodeWeave/.local/qt/current
+"native-startup" start time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"native-startup" end time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+"native-startup" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/11 Testing: native-gui-smoke
+4/11 Test: native-gui-smoke
+Command: "G:/CodeWeave/.local/qt/current/codeweave-native.exe" "--gui-smoke"
+Directory: G:/CodeWeave/.local/qt/current
+"native-gui-smoke" start time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.31 sec
+----------------------------------------------------------
+Test Passed.
+"native-gui-smoke" end time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+"native-gui-smoke" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/11 Testing: native-gui-interaction-smoke
+5/11 Test: native-gui-interaction-smoke
+Command: "G:/CodeWeave/.local/qt/current/codeweave-native.exe" "--gui-interaction-smoke"
+Directory: G:/CodeWeave/.local/qt/current
+"native-gui-interaction-smoke" start time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.29 sec
+----------------------------------------------------------
+Test Passed.
+"native-gui-interaction-smoke" end time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+"native-gui-interaction-smoke" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/11 Testing: native-cpp-compile-run
+6/11 Test: native-cpp-compile-run
+Command: "G:/CodeWeave/.local/qt/current/codeweave-native-tests.exe" "G:/CodeWeave/.local/qt/current/codeweave-cpp-runner.exe" "C:/mingw64/bin/g++.exe" "D:/JAVA/jdk/bin/java.exe" "D:/PyCharm/Python/python.exe" "D:/Node.js/node.exe"
+Directory: G:/CodeWeave/.local/qt/current
+"native-cpp-compile-run" start time: Nov 08 08:26 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+native core tests passed
+<end of output>
+Test time =  51.56 sec
+----------------------------------------------------------
+Test Passed.
+"native-cpp-compile-run" end time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+"native-cpp-compile-run" time elapsed: 00:00:51
+----------------------------------------------------------
+
+7/11 Testing: qt-vault-writeback
+7/11 Test: qt-vault-writeback
+Command: "C:/mingw64/bin/cmake.exe" "-E" "env" "PATH=Q://bin" "G:/CodeWeave/.local/qt/current/ui-qt/codeweave-vault-writeback-tests.exe"
+Directory: G:/CodeWeave/.local/qt/current/ui-qt
+"qt-vault-writeback" start time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+Vault writeback: confirmation, hash conflicts, account boundaries, recovery and rollback passed
+<end of output>
+Test time =   1.25 sec
+----------------------------------------------------------
+Test Passed.
+"qt-vault-writeback" end time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+"qt-vault-writeback" time elapsed: 00:00:01
+----------------------------------------------------------
+
+8/11 Testing: qt-qml-load
+8/11 Test: qt-qml-load
+Command: "C:/mingw64/bin/cmake.exe" "-E" "env" "PATH=Q://bin" "QT_QPA_PLATFORM=offscreen" "QT_PLUGIN_PATH=Q://plugins" "QML_IMPORT_PATH=Q://qml" "G:/CodeWeave/.local/qt/current/ui-qt/CodeWeaveQtShell.exe" "--qml-load-smoke" "G:/CodeWeave/.local/qt/current/qt-qml-smoke-report.json"
+Directory: G:/CodeWeave/.local/qt/current/ui-qt
+"qt-qml-load" start time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   7.13 sec
+----------------------------------------------------------
+Test Passed.
+"qt-qml-load" end time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+"qt-qml-load" time elapsed: 00:00:07
+----------------------------------------------------------
+
+9/11 Testing: qt-execution-stage
+9/11 Test: qt-execution-stage
+Command: "D:/Node.js/node.exe" "--test" "G:/CodeWeave/.local/app/native/ui-qt/tests/execution_stage_tests.mjs"
+Directory: G:/CodeWeave/.local/qt/current/ui-qt
+"qt-execution-stage" start time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+âœ” empty and invalid selections do not invent nodes, variables or output (0.9709ms)
+âœ” rewinding is idempotent and cannot expose future values or paths (0.636ms)
+âœ” real repeated line visits produce a return edge and one current pointer (0.1876ms)
+âœ” variables compare source snapshots across output and retain the latest snapshot at termination (0.1189ms)
+âœ” empty snapshots remove old bindings and unusual variable names stay data (0.0997ms)
+âœ” layout preserves fixed readable node sizes with scrolling on narrow viewports (0.1871ms)
+âœ” failure, cancellation and exception snapshots retain actual state without inventing success (0.1135ms)
+â„¹ tests 7
+â„¹ suites 0
+â„¹ pass 7
+â„¹ fail 0
+â„¹ cancelled 0
+â„¹ skipped 0
+â„¹ todo 0
+â„¹ duration_ms 79.2636
+<end of output>
+Test time =   0.14 sec
+----------------------------------------------------------
+Test Passed.
+"qt-execution-stage" end time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+"qt-execution-stage" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/11 Testing: qt-learning-catalog
+10/11 Test: qt-learning-catalog
+Command: "D:/Node.js/node.exe" "--test" "G:/CodeWeave/.local/app/native/ui-qt/tests/learning_catalog_tests.mjs"
+Directory: G:/CodeWeave/.local/qt/current/ui-qt
+"qt-learning-catalog" start time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+âœ” only completion facts satisfy the completed filter (0.4484ms)
+âœ” the stage ledger preserves legacy units without inventing mappings (0.6418ms)
+âœ” stage gaps count only holes within observed numbered stages (0.1305ms)
+âœ” source and gap labels follow actual metadata and distinguish missing fields (0.1174ms)
+âœ” subject metadata uses the full catalog and combines only actual capabilities (0.1295ms)
+â„¹ tests 5
+â„¹ suites 0
+â„¹ pass 5
+â„¹ fail 0
+â„¹ cancelled 0
+â„¹ skipped 0
+â„¹ todo 0
+â„¹ duration_ms 76.7305
+<end of output>
+Test time =   0.14 sec
+----------------------------------------------------------
+Test Passed.
+"qt-learning-catalog" end time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+"qt-learning-catalog" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/11 Testing: qt-facade
+11/11 Test: qt-facade
+Command: "C:/mingw64/bin/cmake.exe" "-E" "env" "PATH=Q://bin" "G:/CodeWeave/.local/qt/current/ui-qt/codeweave-qt-facade-tests.exe" "G:/CodeWeave/.local/app/native/content" "C:/mingw64/bin/g++.exe" "D:/JAVA/jdk/bin/java.exe" "D:/PyCharm/Python/python.exe" "D:/Node.js/node.exe"
+Directory: G:/CodeWeave/.local/qt/current/ui-qt
+"qt-facade" start time: Nov 08 08:27 ÖÐ¹ú±ê×¼Ê±¼ä
+Output:
+----------------------------------------------------------
+Qt facade: account isolation, analytics windows, revisions, persistence, lesson evidence, failures and shutdown passed
+<end of output>
+Test time =  28.82 sec
+----------------------------------------------------------
+Test Passed.
+"qt-facade" end time: Nov 08 08:28 ÖÐ¹ú±ê×¼Ê±¼ä
+"qt-facade" time elapsed: 00:00:28
+----------------------------------------------------------
+
+End testing: Nov 08 08:28 ÖÐ¹ú±ê×¼Ê±¼ä
