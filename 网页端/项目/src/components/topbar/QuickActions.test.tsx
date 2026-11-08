@@ -18,7 +18,9 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import { QuickActions, type QuickActionsProps } from './QuickActions'
+import { HelpModal } from '../modals'
 import { GlobalTopbar } from '../topbar'
 import type { AuthUser } from '../../hooks/use-auth'
 import type { NotificationItem } from '../../utils/notifications'
@@ -165,6 +167,26 @@ describe('§3.2 快捷动作 · 今日复习与学习指南', () => {
 })
 
 describe('§3.2 快捷动作 · 键盘与焦点（同 AccountMenu 那份写法）', () => {
+  it('学习指南关闭后归焦仍在页面中的快捷动作按钮', () => {
+    function Harness() {
+      const [helpOpen, setHelpOpen] = useState(false)
+      return <>
+        <QuickActions recommended={recommended} dueCount={0} onContinue={() => {}}
+          onGoReviews={() => {}} onOpenHelp={() => setHelpOpen(true)} />
+        {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      </>
+    }
+    render(<Harness />)
+    const trigger = openPanel()
+    const help = screen.getByRole('menuitem', { name: /学习指南/ })
+    help.focus()
+    fireEvent.click(help)
+    expect(screen.getByRole('dialog', { name: '如何学习' })).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('button', { name: '知道了' }), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
   it('Esc 关闭面板并把焦点还给触发按钮', () => {
     setup()
     const trigger = openPanel()

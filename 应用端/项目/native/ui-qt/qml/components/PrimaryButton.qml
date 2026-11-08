@@ -7,6 +7,10 @@ Rectangle {
         id: pbtn
         property string label: ""
         property bool enabled: true
+        activeFocusOnTab: enabled
+        Keys.onReturnPressed: if (enabled) clicked()
+        Keys.onEnterPressed: if (enabled) clicked()
+        Keys.onSpacePressed: if (enabled) clicked()
         signal clicked
         implicitWidth: pLabel.implicitWidth + ds.s32
         implicitHeight: 36
@@ -14,7 +18,7 @@ Rectangle {
         // 禁用态: 遮光层一档 opacity 0.5，启用态正常
         color: !pbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
                              : (pbtnHover.hovered ? ds.accentHi : ds.accent)
-        border.color: pbtn.enabled ? ds.accentEdge : Qt.rgba(32/255, 36/255, 43/255, 0.5)
+        border.color: pbtn.enabled ? (pbtn.activeFocus ? ds.ink : ds.accentEdge) : Qt.rgba(32/255, 36/255, 43/255, 0.5)
         border.width: 1
         opacity: pbtn.enabled ? 1.0 : 0.5
 

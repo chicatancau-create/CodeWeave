@@ -139,6 +139,7 @@ export const QuickActions = memo(function QuickActions({
             className="topbar-quick-actions__item"
             onClick={() => {
               setOpen(false)
+              triggerRef.current?.focus()
               onOpenHelp()
             }}
           >

@@ -1,0 +1,57 @@
+{
+    "diagnostic": "passed",
+    "geometry": [
+        {
+            "height": 900,
+            "name": "topbar-account",
+            "width": 1440
+        },
+        {
+            "height": 900,
+            "name": "topbar-shell",
+            "width": 1440
+        },
+        {
+            "height": 900,
+            "name": "topbar-quick",
+            "width": 1440
+        },
+        {
+            "height": 900,
+            "name": "topbar-notifications",
+            "width": 1440
+        },
+        {
+            "height": 900,
+            "name": "topbar-settings",
+            "width": 1440
+        },
+        {
+            "height": 720,
+            "name": "topbar-settings-small",
+            "width": 1100
+        },
+        {
+            "height": 900,
+            "name": "topbar-help",
+            "width": 1440
+        },
+        {
+            "height": 900,
+            "name": "topbar-search",
+            "width": 1440
+        }
+    ],
+    "qmlWarnings": [
+    ],
+    "screenshots": [
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-account.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-shell.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-quick.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-notifications.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-settings.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-settings-small.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-help.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-search.png"
+    ]
+}

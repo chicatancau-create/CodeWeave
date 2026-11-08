@@ -97,6 +97,8 @@ qt_add_qml_module(codeweave-qt
     qml/components/QuietButton.qml
     qml/components/ShellPopup.qml
     qml/components/ShellDialog.qml
+    qml/components/ShellMenuItem.qml
+    qml/components/SettingsContent.qml
     qml/components/PreferenceToggle.qml
     qml/components/SubjectPill.qml
     qml/components/ChallengeSubmissionPanel.qml

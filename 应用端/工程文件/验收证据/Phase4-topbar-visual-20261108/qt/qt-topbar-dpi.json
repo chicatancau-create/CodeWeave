@@ -1,0 +1,81 @@
+{
+    "diagnostic": "passed",
+    "geometry": [
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-account",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-shell",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-quick",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-notifications",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-settings",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 720,
+            "name": "topbar-settings-small",
+            "pixelHeight": 720,
+            "pixelWidth": 1100,
+            "width": 1100
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-help",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        },
+        {
+            "devicePixelRatio": 1,
+            "height": 900,
+            "name": "topbar-search",
+            "pixelHeight": 900,
+            "pixelWidth": 1440,
+            "width": 1440
+        }
+    ],
+    "qmlWarnings": [
+    ],
+    "screenshots": [
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-account.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-shell.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-quick.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-notifications.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-settings.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-settings-small.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-help.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-visual-20261108/qt/topbar-search.png"
+    ]
+}

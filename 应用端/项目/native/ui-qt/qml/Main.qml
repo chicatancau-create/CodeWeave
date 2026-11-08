@@ -514,7 +514,7 @@ Rectangle {
             id: searchPopup
             objectName: "searchPopup"
             x: searchBox.mapToItem(root, 0, 0).x
-            y: topbar.height + 4
+            y: searchBox.mapToItem(root, 0, searchBox.height).y + ds.s6
             width: searchBox.width
             height: Math.min(360, Math.max(112, searchResultsView.contentHeight + ds.s24))
             ds: root.designSystem
@@ -602,8 +602,8 @@ Rectangle {
             objectName: "quickPopup"
             menuItems: [continueAction, reviewAction, helpAction]
             x: Math.max(ds.s12, quickButton.mapToItem(root, 0, 0).x + quickButton.width - width)
-            y: topbar.height + 4
-            width: 260
+            y: quickButton.mapToItem(root, 0, quickButton.height).y + ds.s8
+            width: 268
             height: quickActionsColumn.implicitHeight + ds.s24
             ds: root.designSystem
             returnFocusItem: quickButton
@@ -611,38 +611,45 @@ Rectangle {
             ColumnLayout {
                 id: quickActionsColumn
                 anchors.fill: parent
-                spacing: ds.s8
-                Text { text: "快捷动作"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
-                QuietButton {
+                spacing: ds.s6
+                Text { text: "快捷动作"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+                ShellMenuItem {
                     id: continueAction
                     objectName: "continueAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
                     label: "继续学习"
+                    detail: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"
+                    framed: true
                     enabled: root.selectedLesson !== null
                     onClicked: { quickPopup.close(); root.openLesson(root.safeSelectedLessonIndex); }
                 }
-                QuietButton {
+                ShellMenuItem {
                     id: reviewAction
                     objectName: "reviewAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    label: "打开复习中心"
+                    label: uiShell.hasActiveAccount && uiShell.analysisSnapshot.reviewDueCount !== undefined
+                        ? "今日复习 " + uiShell.analysisSnapshot.reviewDueCount + " 项" : "复习中心"
+                    detail: uiShell.hasActiveAccount ? "查看到期复测" : "登录后查看到期复测"
+                    framed: true
                     onClicked: { quickPopup.close(); uiShell.selectPage("复习与进度"); }
                 }
-                QuietButton {
+                ShellMenuItem {
                     id: helpAction
                     objectName: "helpAction"
                     ds: root.designSystem
                     Layout.fillWidth: true
-                    label: "查看帮助"
+                    label: "学习指南"
+                    detail: "如何学习"
+                    framed: true
                     onClicked: {
                         root.dialogReturnFocusItem = quickButton;
                         quickPopup.closeForTransfer();
                         helpDialog.open();
                     }
                 }
-                Text { Layout.fillWidth: true; text: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
             }
         }
 
@@ -650,17 +657,17 @@ Rectangle {
             id: notificationPopup
             objectName: "notificationPopup"
             x: Math.max(ds.s12, notificationButton.mapToItem(root, 0, 0).x + notificationButton.width - width)
-            y: topbar.height + 4
-            width: 260
-            height: 128
+            y: notificationButton.mapToItem(root, 0, notificationButton.height).y + ds.s8
+            width: 300
+            height: 104
             ds: root.designSystem
             returnFocusItem: notificationButton
             onClosed: root.notificationsOpen = false
             ColumnLayout {
                 anchors.fill: parent
                 spacing: ds.s8
-                Text { text: "通知"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
-                Text { Layout.fillWidth: true; text: "暂无通知，通知来源尚未接入。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                Text { text: "通知"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Text { Layout.fillWidth: true; text: "暂无通知，通知来源尚未接入。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13; wrapMode: Text.WordWrap; lineHeight: 1.6 }
             }
         }
 
@@ -669,23 +676,25 @@ Rectangle {
             objectName: "accountPopup"
             menuItems: [profileAction, securityAction, privacyAction, exportAction, logoutAction]
             x: topbar.width - width - ds.s24
-            y: topbar.height + 4
-            width: 260
-            height: accountActionsColumn.implicitHeight + ds.s24
+            y: topbarAvatar.mapToItem(root, 0, topbarAvatar.height).y + ds.s6
+            width: 196
+            padding: ds.s14
+            height: accountActionsColumn.implicitHeight + padding * 2
             ds: root.designSystem
             returnFocusItem: topbarAvatar
             onClosed: root.accountMenuOpen = false
             ColumnLayout {
                 id: accountActionsColumn
                 anchors.fill: parent
-                spacing: ds.s8
-                Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.DemiBold }
+                spacing: ds.s6
+                Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
                 Text { Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
-                QuietButton { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
-                QuietButton { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
-                QuietButton { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
-                QuietButton { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
-                QuietButton { id: logoutAction; ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; visible: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
+                Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+                ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
+                ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
+                ShellMenuItem { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
+                ShellMenuItem { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                ShellMenuItem { id: logoutAction; ds: root.designSystem; Layout.fillWidth: true; label: "退出登录"; enabled: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
             }
         }
 
@@ -1170,51 +1179,22 @@ Rectangle {
         objectName: "settingsDialog"
         ds: root.designSystem
         title: "设置"
+        eyebrow: "工作台偏好"
+        referenceStyle: true
         anchors.centerIn: parent
         width: Math.min(560, root.width - ds.s32)
+        height: Math.min(root.height * 0.86, root.height - ds.s32)
         onOpened: root.settingsOpen = true
         onClosed: { root.settingsOpen = false; root.returnDialogFocus(); }
         contentItem: ScrollView {
+            id: settingsScroll
             objectName: "settingsScroll"
-            implicitHeight: Math.min(settingsContent.implicitHeight, root.height - 200)
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ColumnLayout {
-            id: settingsContent
-            width: parent.availableWidth
-            spacing: ds.s12
-            Text { text: "工作台偏好"; color: ds.ink; font.family: ds.ui; font.pixelSize: 15; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "本地偏好持久化尚未接入的选项暂不可用。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
-            PreferenceToggle { ds: root.designSystem; text: "学习提醒（待接入）"; enabled: false; Accessible.name: text }
-            PreferenceToggle { ds: root.designSystem; text: "编辑器自动保存（待接入）"; enabled: false; Accessible.name: text }
-            PreferenceToggle { ds: root.designSystem; text: "紧凑工作区（待接入）"; enabled: false; Accessible.name: text }
-            PreferenceToggle { ds: root.designSystem; objectName: "settingsReduceMotion"; text: "减弱动画（待接入）"; enabled: false; Accessible.name: text }
-            RowLayout {
-                Text { Layout.fillWidth: true; text: "编辑器字号（待接入）"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
-                ComboBox {
-                    model: [12, 13, 14, 15, 16, 18]; currentIndex: 1; enabled: false
-                    Accessible.name: "编辑器字号（待接入）"
-                    palette.base: ds.inset; palette.button: ds.inset; palette.text: ds.muted
-                    palette.buttonText: ds.muted; palette.mid: ds.lineStrong
-                }
-            }
-            RowLayout {
-                Text { Layout.fillWidth: true; text: "Tab 缩进宽度（待接入）"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
-                ComboBox {
-                    model: [2, 4]; currentIndex: 0; enabled: false
-                    Accessible.name: "Tab 缩进宽度（待接入）"
-                    palette.base: ds.inset; palette.button: ds.inset; palette.text: ds.muted
-                    palette.buttonText: ds.muted; palette.mid: ds.lineStrong
-                }
-            }
-            PreferenceToggle { ds: root.designSystem; text: "代码自动换行（待接入）"; enabled: false; Accessible.name: text }
-            PreferenceToggle { ds: root.designSystem; text: "显示行号（待接入）"; enabled: false; Accessible.name: text }
-            Text { text: "数据管理"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-            QuietButton {
+            SettingsContent {
+                width: settingsScroll.availableWidth
                 ds: root.designSystem
-                label: "数据与隐私"
-                onClicked: { settingsDialog.close(); uiShell.selectPage("数据与隐私"); }
-            }
+                onOpenPrivacy: { settingsDialog.close(); uiShell.selectPage("数据与隐私"); }
             }
         }
     }
@@ -1225,18 +1205,30 @@ Rectangle {
         ds: root.designSystem
         closeLabel: "知道了"
         title: "如何学习"
+        eyebrow: "使用指南"
+        referenceStyle: true
+        primaryClose: true
         anchors.centerIn: parent
-        width: Math.min(520, root.width - ds.s32)
+        width: Math.min(460, root.width - ds.s32)
+        height: Math.min(504, root.height - ds.s32)
         onOpened: root.helpOpen = true
         onClosed: { root.helpOpen = false; root.returnDialogFocus(); }
         contentItem: ColumnLayout {
-            spacing: ds.s10
-            Text { text: "可视化执行"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "代码执行结果显示在控制台；当前流程图展示课程的静态流程，逐步变量快照尚未接入。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
-            Text { text: "十步学习法"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "按课程已提供的讲解、例子和练习推进；标记完成以实际证据为准，阅读和运行本身不代表掌握。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
-            Text { text: "真实与模拟的边界"; color: ds.accent; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-            Text { Layout.fillWidth: true; text: "本机执行需要对应语言工具；外部环境实验在真实环境完成后记录实践证据。尚无逐行事件时不会显示虚构执行状态。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+            spacing: ds.s16
+            Repeater {
+                model: [
+                    { title: "可视化执行", body: "运行后可回看真实执行事件与变量快照。流程图高亮当前事件，变量面板显示相邻源码快照的变化。" },
+                    { title: "按十步学习法推进", body: "按讲解、例子和练习推进。运行成功后，按课程验收点显式标记完成；系统安排复测，阅读和运行本身不代表掌握。" },
+                    { title: "真实与模拟的边界", body: "本机执行需要对应语言工具。外部环境实验需在真实环境完成并提交证据；未采集的事件或变量不会用模拟数据填充。" }
+                ]
+                delegate: ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: ds.s4
+                    Text { Layout.fillWidth: true; text: modelData.title; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+                    Text { Layout.fillWidth: true; text: modelData.body; color: ds.muted; font.family: ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere; lineHeight: 1.6 }
+                }
+            }
         }
     }
 

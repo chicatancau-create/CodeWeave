@@ -1,0 +1,143 @@
+{
+  "startedAt": "2026-11-08T01:04:57.179Z",
+  "isolatedApi": true,
+  "screenshots": [
+    {
+      "name": "topbar-shell",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".topbar",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 68
+      }
+    },
+    {
+      "name": "topbar-quick",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".topbar-quick-actions__panel",
+      "geometry": {
+        "x": 910,
+        "y": 59.5,
+        "width": 268,
+        "height": 183.390625
+      }
+    },
+    {
+      "name": "topbar-notifications",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".notification-panel",
+      "geometry": {
+        "x": 922,
+        "y": 59.5,
+        "width": 300,
+        "height": 103.984375
+      }
+    },
+    {
+      "name": "topbar-account",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".account-menu",
+      "geometry": {
+        "x": 1220,
+        "y": 56.5,
+        "width": 196,
+        "height": 275.796875
+      }
+    },
+    {
+      "name": "topbar-search",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".global-search__panel",
+      "geometry": {
+        "x": 463.53125,
+        "y": 59.6875,
+        "width": 658.46875,
+        "height": 92.796875
+      }
+    },
+    {
+      "name": "topbar-settings",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".settings-modal",
+      "geometry": {
+        "x": 440,
+        "y": 63,
+        "width": 560,
+        "height": 774
+      }
+    },
+    {
+      "name": "topbar-settings-small",
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "selector": ".settings-modal",
+      "geometry": {
+        "x": 270,
+        "y": 50.40625,
+        "width": 560,
+        "height": 619.1875
+      }
+    },
+    {
+      "name": "topbar-help",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".help-modal",
+      "geometry": {
+        "x": 490,
+        "y": 198.609375,
+        "width": 460,
+        "height": 502.78125
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": ".topbar-quick-actions__panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".notification-panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".account-menu:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".global-search__panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".settings-modal:escape-and-return-focus",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "failure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert(await trigger.evaluate(element => element === document.activeElement))\n",
+  "completedAt": "2026-11-08T01:04:59.491Z"
+}

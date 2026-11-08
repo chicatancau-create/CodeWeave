@@ -21,6 +21,8 @@ QtObject {
     readonly property color tabActive:  "#161a21"   // #ffffff08 over panel
     readonly property color cardHover:  "#1b2531"
     readonly property color hoverWash:  "#1b2531"
+    readonly property color modalSurface: chrome
+    readonly property color modalScrim: Qt.rgba(0, 0, 0, 0.78)
     readonly property bool useLayerEffects: true
 
     // Lines — web values are translucent; these are the resolved composites
@@ -84,6 +86,7 @@ QtObject {
     readonly property int s20: 20; readonly property int s22: 22
     readonly property int s24: 24; readonly property int s28: 28
     readonly property int s32: 32
+    readonly property int modalPadding: 28
 
     // Shell metrics
     readonly property int topbarH: 68

@@ -197,7 +197,8 @@ int main(int argc, char* argv[]) {
   }
   for (int index = 1; index < argc; ++index) {
     if (std::string_view(argv[index]) == "--visual-comparison-json" ||
-        std::string_view(argv[index]) == "--u3-matrix-json")
+        std::string_view(argv[index]) == "--u3-matrix-json" ||
+        std::string_view(argv[index]) == "--qml-load-smoke")
       QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Floor);
   }
   const double entered = probe_clock();
@@ -307,6 +308,12 @@ int main(int argc, char* argv[]) {
     view.setMaximumSize(QSize(1440, 900));
     view.resize(1440, 900);
   }
+  if (qml_smoke) {
+    view.setFlags(Qt::Window | Qt::FramelessWindowHint);
+    view.setMinimumSize(QSize(1440, 900));
+    view.setMaximumSize(QSize(1440, 900));
+    view.resize(1440, 900);
+  }
   view.setTitle(shell.appTitle());
   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
   view.setResizeMode(QQuickView::SizeRootObjectToView);
@@ -322,27 +329,66 @@ int main(int argc, char* argv[]) {
   view.show();
   QTimer qml_smoke_timer;
   int qml_smoke_page = 0;
+  int qml_smoke_ticks = 0;
+  QSize smoke_expected_size(1440, 900);
   const auto report_path = qml_smoke ? arguments.at(qml_smoke_arg + 1) : QString{};
   QString diagnostic = QStringLiteral("running");
   QStringList smoke_screenshots;
+  QJsonArray smoke_geometry;
   const auto write_smoke_report = [&] {
       QJsonObject report;
       report.insert(QStringLiteral("diagnostic"), diagnostic);
       report.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
       report.insert(QStringLiteral("screenshots"), QJsonArray::fromStringList(smoke_screenshots));
+      report.insert(QStringLiteral("geometry"), smoke_geometry);
       QFile report_file(report_path);
       return report_file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
           report_file.write(QJsonDocument(report).toJson(QJsonDocument::Indented)) >= 0 && report_file.flush();
   };
   const auto capture_topbar = [&](const QString& name) {
     if (QGuiApplication::platformName() == QStringLiteral("offscreen")) return true;
+    const auto expected = name.endsWith(QStringLiteral("small")) ? QSize(1100, 720) : QSize(1440, 900);
+    if (view.size() != expected) {
+      diagnostic = QStringLiteral("Capture %1 expected %2x%3, got %4x%5")
+          .arg(name).arg(expected.width()).arg(expected.height()).arg(view.width()).arg(view.height());
+      write_smoke_report();
+      return false;
+    }
+    const auto image = view.grabWindow();
+    if (image.isNull() || image.size() != expected) {
+      diagnostic = QStringLiteral("Capture %1 expected image %2x%3, got %4x%5 (DPR %6)")
+          .arg(name).arg(expected.width()).arg(expected.height())
+          .arg(image.width()).arg(image.height()).arg(view.devicePixelRatio());
+      write_smoke_report();
+      return false;
+    }
     const auto path = QFileInfo(report_path).dir().filePath(name + QStringLiteral(".png"));
-    if (!view.grabWindow().save(path)) return false;
+    if (!image.save(path)) {
+      diagnostic = QStringLiteral("Could not save screenshot: ") + path;
+      write_smoke_report();
+      return false;
+    }
     smoke_screenshots.append(path);
+    smoke_geometry.append(QJsonObject{{"name", name}, {"width", view.width()}, {"height", view.height()},
+        {"pixelWidth", image.width()}, {"pixelHeight", image.height()},
+        {"devicePixelRatio", view.devicePixelRatio()}});
     return true;
   };
   if (qml_smoke) {
     QObject::connect(&qml_smoke_timer, &QTimer::timeout, &application, [&] {
+      if (++qml_smoke_ticks > 200) {
+        diagnostic = QStringLiteral("QML smoke timed out while waiting for its viewport");
+        write_smoke_report();
+        application.exit(1);
+        return;
+      }
+      if (view.windowState() != Qt::WindowNoState || view.size() != smoke_expected_size) {
+        view.setWindowState(Qt::WindowNoState);
+        view.setMinimumSize(smoke_expected_size);
+        view.setMaximumSize(smoke_expected_size);
+        view.resize(smoke_expected_size);
+        return;
+      }
       if (!qml_warnings.isEmpty()) {
         diagnostic = QStringLiteral("QML warning: ") + qml_warnings.join(QLatin1Char('\n'));
         write_smoke_report();
@@ -467,6 +513,7 @@ int main(int argc, char* argv[]) {
           break;
         case 7:
           if (!require_focus(profile)) return;
+          if (!capture_topbar(QStringLiteral("topbar-account"))) { application.exit(1); return; }
           send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
           break;
         case 8:
@@ -526,6 +573,8 @@ int main(int argc, char* argv[]) {
               return;
             }
           }
+          shell.selectPage(QStringLiteral("学习"));
+          if (!capture_topbar(QStringLiteral("topbar-shell"))) { application.exit(1); return; }
           QMetaObject::invokeMethod(quick, "open");
           break;
         case 14:
@@ -555,6 +604,10 @@ int main(int argc, char* argv[]) {
             return;
           }
           if (!capture_topbar(QStringLiteral("topbar-settings"))) { application.exit(1); return; }
+          smoke_expected_size = QSize(1100, 720);
+          view.setMinimumSize(QSize(1100, 720));
+          view.setMaximumSize(QSize(1100, 720));
+          view.setWindowState(Qt::WindowNoState);
           view.resize(1100, 720);
           break;
         case 18:
@@ -603,6 +656,10 @@ int main(int argc, char* argv[]) {
             }
             return;
           }
+          smoke_expected_size = QSize(1440, 900);
+          view.setMinimumSize(QSize(1440, 900));
+          view.setMaximumSize(QSize(1440, 900));
+          view.setWindowState(Qt::WindowNoState);
           view.resize(1440, 900);
           QMetaObject::invokeMethod(quick, "open");
           break;
@@ -633,6 +690,7 @@ int main(int argc, char* argv[]) {
             application.exit(1);
             return;
           }
+          if (!capture_topbar(QStringLiteral("topbar-search"))) { application.exit(1); return; }
           send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
           break;
         case 24:
