@@ -103,9 +103,12 @@ Item {
                     QuietButton {
                         ds: studyPage.ds
                         implicitHeight: 44
-                        label: uiShell.contentBusy ? "读取中…" : "重新读取"
+                        label: "重新读取"
                         enabled: !uiShell.contentBusy
                         ToolTip.text: "重新读取本机发布目录中的课程"
+                        ToolTip.visible: sourceReloadHover.hovered
+                        ToolTip.delay: 500
+                        HoverHandler { id: sourceReloadHover }
                         onClicked: uiShell.reloadPublishedContent()
                     }
                 }

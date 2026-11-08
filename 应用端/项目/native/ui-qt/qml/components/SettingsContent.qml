@@ -139,7 +139,13 @@ ColumnLayout {
                 Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 16; wrapMode: Text.WrapAnywhere }
                 Text { Layout.fillWidth: true; text: modelData.detail; color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
             }
-            QuietButton { ds: settings.ds; label: modelData.action; enabled: false; implicitHeight: 44 }
+            QuietButton {
+                objectName: modelData.action === "导出" ? "settingsDataExportAction" : "settingsDataClearAction"
+                ds: settings.ds
+                label: modelData.action
+                enabled: false
+                implicitHeight: 44
+            }
         }
     }
     QuietButton { Layout.topMargin: settings.ds.s16; ds: settings.ds; label: "数据与隐私"; implicitHeight: 44; onClicked: settings.openPrivacy() }

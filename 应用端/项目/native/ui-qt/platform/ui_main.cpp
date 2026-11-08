@@ -343,6 +343,7 @@ int main(int argc, char* argv[]) {
   QStringList smoke_screenshots;
   QJsonArray smoke_geometry;
   QJsonArray smoke_popup_geometry;
+  QJsonArray smoke_topbar_geometry;
   bool smoke_reference_ready = false;
   bool smoke_reference_registration_started = false;
   QString smoke_preference_draft;
@@ -354,6 +355,7 @@ int main(int argc, char* argv[]) {
       report.insert(QStringLiteral("screenshots"), QJsonArray::fromStringList(smoke_screenshots));
       report.insert(QStringLiteral("geometry"), smoke_geometry);
       report.insert(QStringLiteral("popupGeometry"), smoke_popup_geometry);
+      report.insert(QStringLiteral("topbarGeometry"), smoke_topbar_geometry);
       report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
       report.insert(QStringLiteral("referenceSubject"), topbar_reference >= 0 ? QStringLiteral("Python") : QString());
       report.insert(QStringLiteral("accountName"), shell.accountName());
@@ -376,6 +378,21 @@ int main(int argc, char* argv[]) {
           report_file.write(QJsonDocument(report).toJson(QJsonDocument::Indented)) >= 0 && report_file.flush();
   };
   const auto capture_topbar = [&](const QString& name) {
+    if (name == QStringLiteral("topbar-shell")) {
+      const QStringList items{QStringLiteral("topbarBrand"), QStringLiteral("topbarAreas"),
+          QStringLiteral("globalSearchBox"), QStringLiteral("topbarActions")};
+      for (const auto& item_name : items) {
+        auto* item = view.rootObject()->findChild<QQuickItem*>(item_name);
+        if (!item || !item->isVisible() || item->width() <= 0 || item->height() <= 0) {
+          diagnostic = QStringLiteral("Topbar geometry item is missing: ") + item_name;
+          write_smoke_report();
+          return false;
+        }
+        const auto origin = item->mapToItem(view.rootObject(), QPointF());
+        smoke_topbar_geometry.append(QJsonObject{{"name", item_name}, {"x", origin.x()},
+            {"y", origin.y()}, {"width", item->width()}, {"height", item->height()}});
+      }
+    }
     if (QGuiApplication::platformName() == QStringLiteral("offscreen")) return true;
     const auto expected = name.endsWith(QStringLiteral("small")) ? QSize(1100, 720) : QSize(1440, 900);
     if (view.size() != expected) {
@@ -581,8 +598,9 @@ int main(int argc, char* argv[]) {
       const auto require_focus = [&](QQuickItem* item) {
         if (item->hasActiveFocus()) return true;
         const auto* active = view.activeFocusItem();
-        diagnostic = QStringLiteral("Menu focus assertion failed at step %1: popup=%2 target=%3 active=%4")
+        diagnostic = QStringLiteral("Menu focus assertion failed at step %1: quickOpened=%2 accountOpened=%3 windowActive=%4 target=%5 active=%6")
             .arg(qml_smoke_page).arg(quick->property("opened").toBool())
+            .arg(account->property("opened").toBool()).arg(view.isActive())
             .arg(QString::fromUtf8(item->objectName().toUtf8()))
             .arg(active ? QString::fromUtf8(active->objectName().toUtf8()) : QStringLiteral("<none>"));
         write_smoke_report();
@@ -916,6 +934,36 @@ int main(int argc, char* argv[]) {
             }
           }
           if (!capture_topbar(QStringLiteral("topbar-settings-small"))) { application.exit(1); return; }
+          {
+            auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
+            auto* export_data = u3_find_item(settings_scroll, QStringLiteral("settingsDataExportAction"));
+            auto* clear_data = u3_find_item(settings_scroll, QStringLiteral("settingsDataClearAction"));
+            const auto content_height = flick ? flick->property("contentHeight").toReal() : 0;
+            if (!flick || !export_data || !clear_data || content_height <= flick->height() ||
+                export_data->property("enabled").toBool() || clear_data->property("enabled").toBool()) {
+              diagnostic = QStringLiteral("Settings bottom controls or scrollable content are missing");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            flick->setProperty("contentY", content_height - flick->height());
+            QCoreApplication::processEvents();
+            const auto fully_visible = [&](QQuickItem* item) {
+              const auto origin = item->mapToItem(flick, QPointF());
+              return item->isVisible() && origin.x() >= -1 && origin.y() >= -1 &&
+                  origin.x() + item->width() <= flick->width() + 1 &&
+                  origin.y() + item->height() <= flick->height() + 1;
+            };
+            if (flick->property("contentY").toReal() <= 0 || !fully_visible(export_data) ||
+                !fully_visible(clear_data)) {
+              diagnostic = QStringLiteral("Settings data controls are clipped after scrolling to the bottom");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!capture_topbar(QStringLiteral("topbar-settings-bottom-small"))) { application.exit(1); return; }
+            flick->setProperty("contentY", 0);
+          }
           {
             const QPointF point(12, 12);
             QMouseEvent press(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton,

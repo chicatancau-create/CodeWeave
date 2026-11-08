@@ -198,6 +198,7 @@ Rectangle {
 
             // .desktop-brand
             RowLayout {
+                objectName: "topbarBrand"
                 spacing: ds.s10
                 Layout.alignment: Qt.AlignVCenter
                 Rectangle {
@@ -244,6 +245,7 @@ Rectangle {
 
             // .desktop-areas — 工作区 / 个人中心
             Rectangle {
+                objectName: "topbarAreas"
                 Layout.alignment: Qt.AlignVCenter
                 implicitWidth: areaRow.implicitWidth + ds.s8
                 implicitHeight: 44
@@ -393,6 +395,7 @@ Rectangle {
 
             // .topbar-actions
             RowLayout {
+                objectName: "topbarActions"
                 spacing: ds.s8
                 Layout.alignment: Qt.AlignVCenter
 
