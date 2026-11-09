@@ -1,0 +1,54 @@
+{
+    "accountContact": "",
+    "accountName": "",
+    "diagnostic": "Settings preference row 0 control alignment mismatch: width=493 controlRightInset=3",
+    "filteredLessonIds": [
+    ],
+    "geometry": [
+    ],
+    "lessonCount": 0,
+    "lessonIds": [
+    ],
+    "popupGeometry": [
+    ],
+    "qmlWarnings": [
+    ],
+    "referenceAccount": false,
+    "referenceSubject": "",
+    "screenshots": [
+    ],
+    "selectedLesson": {
+    },
+    "settingsRows": [
+    ],
+    "topbarGeometry": [
+        {
+            "height": 32,
+            "name": "topbarBrand",
+            "width": 307,
+            "x": 24,
+            "y": 18
+        },
+        {
+            "height": 44,
+            "name": "topbarAreas",
+            "width": 193,
+            "x": 351,
+            "y": 12
+        },
+        {
+            "height": 41,
+            "name": "globalSearchBox",
+            "width": 556,
+            "x": 566,
+            "y": 14
+        },
+        {
+            "height": 36,
+            "name": "topbarActions",
+            "width": 272,
+            "x": 1144,
+            "y": 16
+        }
+    ]
+}

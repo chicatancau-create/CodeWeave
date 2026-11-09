@@ -1,0 +1,3006 @@
+{
+  "startedAt": "2026-11-09T07:34:38.814Z",
+  "isolatedApi": true,
+  "screenshots": [
+    {
+      "name": "topbar-shell",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".topbar",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 68
+      }
+    },
+    {
+      "name": "topbar-quick",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".topbar-quick-actions__panel",
+      "geometry": {
+        "x": 910,
+        "y": 59.5,
+        "width": 268,
+        "height": 183.390625
+      }
+    },
+    {
+      "name": "topbar-notifications",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".notification-panel",
+      "geometry": {
+        "x": 922,
+        "y": 59.5,
+        "width": 300,
+        "height": 103.984375
+      }
+    },
+    {
+      "name": "topbar-account",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".account-menu",
+      "geometry": {
+        "x": 1220,
+        "y": 56.5,
+        "width": 196,
+        "height": 296.59375
+      }
+    },
+    {
+      "name": "topbar-search",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".global-search__panel",
+      "geometry": {
+        "x": 463.53125,
+        "y": 59.6875,
+        "width": 658.46875,
+        "height": 92.796875
+      }
+    },
+    {
+      "name": "topbar-settings",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".settings-modal",
+      "geometry": {
+        "x": 440,
+        "y": 63,
+        "width": 560,
+        "height": 774
+      }
+    },
+    {
+      "name": "topbar-settings-small",
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "selector": ".settings-modal",
+      "geometry": {
+        "x": 270,
+        "y": 50.40625,
+        "width": 560,
+        "height": 619.1875
+      }
+    },
+    {
+      "name": "topbar-shell-small",
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "selector": ".topbar",
+      "geometry": {
+        "x": 240,
+        "y": 0,
+        "width": 860,
+        "height": 64
+      }
+    },
+    {
+      "name": "topbar-help",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "selector": ".help-modal",
+      "geometry": {
+        "x": 490,
+        "y": 198.609375,
+        "width": 460,
+        "height": 502.78125
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": ".topbar-quick-actions__panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".notification-panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".account-menu:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".global-search__panel:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".settings-modal:escape-and-return-focus",
+      "passed": true
+    },
+    {
+      "name": ".help-modal:escape-and-return-focus",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "reference": {
+    "accountName": "Reference",
+    "email": "topbar@example.test",
+    "documentId": "python-loop-sum",
+    "lessonCount": 61,
+    "lessonIds": [
+      "b1-array-basics",
+      "b2-bubble-sort",
+      "b3-binary-search",
+      "c-02",
+      "c-03",
+      "c-04",
+      "c-loop-sum",
+      "csharp-02",
+      "csharp-03",
+      "csharp-04",
+      "csharp-loop-sum",
+      "d1-html-semantics",
+      "d2-css-box-model",
+      "d3-dom-events",
+      "e1-vue-composition",
+      "e2-vue-router-guard",
+      "e3-pinia-state",
+      "f1-webpack-entry-loader",
+      "f2-webpack-plugin-devserver",
+      "f3-webpack-splitting",
+      "g1-http-rest-basics",
+      "g2-servlet-tomcat",
+      "g3-jdbc-mysql-crud",
+      "h1-spring-ioc-di",
+      "h2-spring-mvc-validation",
+      "h3-mybatis-mapper",
+      "i1-springboot-starter",
+      "i2-springboot-rest-actuator",
+      "i3-springboot-package-upload",
+      "j1-auth-session-flow",
+      "j2-xss-sanitize-sandbox",
+      "j3-csrf-cors-boundary",
+      "java-02",
+      "java-03",
+      "java-04",
+      "java-algo-c1",
+      "java-algo-c2",
+      "java-algo-c3",
+      "java-env-a1",
+      "java-env-a2",
+      "java-env-a3",
+      "java-loop-sum",
+      "javascript-02",
+      "javascript-03",
+      "javascript-04",
+      "javascript-loop-sum",
+      "k1-service-discovery",
+      "k2-gateway-config",
+      "k3-circuit-limit-trace",
+      "l1-linux-ops-basics",
+      "l2-docker-compose",
+      "l3-nginx-backup-rollback",
+      "m1-requirement-modeling",
+      "m2-timebox-mvp",
+      "m3-review-defense",
+      "python-condition",
+      "python-function",
+      "python-loop-sum",
+      "python-output",
+      "python-types",
+      "python-while"
+    ],
+    "subject": "Python",
+    "filteredLessonIds": [
+      "python-condition",
+      "python-function",
+      "python-loop-sum",
+      "python-output",
+      "python-types",
+      "python-while"
+    ],
+    "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f",
+    "sourceVerification": "running Vite module, rendered course cards and editor textarea",
+    "learningState": "not-run, no evidence, no notifications"
+  },
+  "topbar": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "shell": {
+        "text": "CodeCanvasWEB工作区个人中心Code Canvas/课程/01学习路径本机工作空间R",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 68
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgb(11, 16, 24)",
+          "borderWidth": "0px 0px 1px",
+          "borderStyle": "none none solid",
+          "borderColor": "rgb(226, 231, 239) rgb(226, 231, 239) rgba(255, 255, 255, 0.07)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "brand": {
+        "text": "CodeCanvasWEB",
+        "geometry": {
+          "x": 24,
+          "y": 16.703125,
+          "width": 196.53125,
+          "height": 33.59375
+        },
+        "computed": {
+          "fontSize": "21px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "650",
+          "lineHeight": "33.6px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areas": {
+        "text": "工作区个人中心",
+        "geometry": {
+          "x": 240.53125,
+          "y": 11.5,
+          "width": 203,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgb(9, 13, 20)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgba(255, 255, 255, 0.07)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areaButtons": [
+        {
+          "text": "工作区",
+          "geometry": {
+            "x": 245.53125,
+            "y": 16.5,
+            "width": 88,
+            "height": 34
+          },
+          "computed": {
+            "fontSize": "13px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "20.8px",
+            "color": "rgb(142, 213, 255)",
+            "backgroundColor": "rgba(56, 189, 248, 0.08)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(56, 189, 248, 0.3)",
+            "borderRadius": "5px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(142, 213, 255)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "个人中心",
+          "geometry": {
+            "x": 337.53125,
+            "y": 16.5,
+            "width": 101,
+            "height": 34
+          },
+          "computed": {
+            "fontSize": "13px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "20.8px",
+            "color": "rgb(163, 175, 190)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "borderRadius": "5px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(163, 175, 190)",
+            "outlineOffset": "0px"
+          }
+        }
+      ],
+      "search": {
+        "text": "",
+        "geometry": {
+          "x": 463.53125,
+          "y": 13.296875,
+          "width": 658.46875,
+          "height": 40.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "actions": {
+        "text": "本机工作空间R",
+        "geometry": {
+          "x": 1142,
+          "y": 15.5,
+          "width": 274,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "breadcrumbs": [
+        {
+          "text": "Code Canvas/课程",
+          "geometry": {
+            "x": 24,
+            "y": 22.3125,
+            "width": 0,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "Code Canvas",
+          "geometry": {
+            "x": 24,
+            "y": 22.3125,
+            "width": 81.171875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "600",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 113.171875,
+            "y": 22.3125,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "课程",
+          "geometry": {
+            "x": 126.640625,
+            "y": 22.3125,
+            "width": 0,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(163, 175, 190)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(163, 175, 190)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(163, 175, 190)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 32,
+            "y": 22.3125,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01学习路径",
+          "geometry": {
+            "x": 45.46875,
+            "y": 21.8125,
+            "width": 85,
+            "height": 23.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "700",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01",
+          "geometry": {
+            "x": 45.46875,
+            "y": 22.8125,
+            "width": 21,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(142, 213, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(142, 213, 255)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(142, 213, 255)",
+            "outlineOffset": "0px"
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "shell": {
+        "text": "CodeCanvasWEB工作区个人中心Code Canvas/课程/01学习路径本机工作空间R",
+        "geometry": {
+          "x": 240,
+          "y": 0,
+          "width": 860,
+          "height": 64
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgb(11, 16, 24)",
+          "borderWidth": "0px 0px 1px",
+          "borderStyle": "none none solid",
+          "borderColor": "rgb(226, 231, 239) rgb(226, 231, 239) rgba(34, 211, 238, 0.2)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "brand": {
+        "text": "CodeCanvasWEB",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areas": {
+        "text": "工作区个人中心",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areaButtons": [
+        {
+          "text": "工作区",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "个人中心",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        }
+      ],
+      "search": {
+        "text": "",
+        "geometry": {
+          "x": 501.109375,
+          "y": 9.5,
+          "width": 362.890625,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "actions": {
+        "text": "本机工作空间R",
+        "geometry": {
+          "x": 864,
+          "y": 9.5,
+          "width": 212,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "breadcrumbs": [
+        {
+          "text": "Code Canvas/课程",
+          "geometry": {
+            "x": 264,
+            "y": 20.296875,
+            "width": 130.640625,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "Code Canvas",
+          "geometry": {
+            "x": 264,
+            "y": 20.296875,
+            "width": 81.171875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "600",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 353.171875,
+            "y": 20.296875,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "课程",
+          "geometry": {
+            "x": 366.640625,
+            "y": 20.296875,
+            "width": 28,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(163, 175, 190)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(163, 175, 190)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(163, 175, 190)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 402.640625,
+            "y": 20.296875,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01学习路径",
+          "geometry": {
+            "x": 416.109375,
+            "y": 19.796875,
+            "width": 85,
+            "height": 23.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "700",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01",
+          "geometry": {
+            "x": 416.109375,
+            "y": 20.796875,
+            "width": 21,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(142, 213, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(142, 213, 255)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(142, 213, 255)",
+            "outlineOffset": "0px"
+          }
+        }
+      ]
+    }
+  ],
+  "account": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "name": {
+      "text": "Reference",
+      "geometry": {
+        "x": 1235,
+        "y": 71.5,
+        "width": 166,
+        "height": 20.796875
+      },
+      "computed": {
+        "fontSize": "13px",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontWeight": "700",
+        "lineHeight": "20.8px",
+        "color": "rgb(226, 231, 239)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderWidth": "0px",
+        "borderStyle": "none",
+        "borderColor": "rgb(226, 231, 239)",
+        "borderRadius": "0px",
+        "outlineWidth": "3px",
+        "outlineColor": "rgb(226, 231, 239)",
+        "outlineOffset": "0px"
+      }
+    },
+    "contact": {
+      "text": "topbar@example.test",
+      "geometry": {
+        "x": 1235,
+        "y": 98.296875,
+        "width": 166,
+        "height": 29.796875
+      },
+      "computed": {
+        "fontSize": "13px",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontWeight": "400",
+        "lineHeight": "20.8px",
+        "color": "rgb(163, 175, 190)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderWidth": "0px 0px 1px",
+        "borderStyle": "none none solid",
+        "borderColor": "rgb(163, 175, 190) rgb(163, 175, 190) rgba(255, 255, 255, 0.07)",
+        "borderRadius": "0px",
+        "outlineWidth": "3px",
+        "outlineColor": "rgb(163, 175, 190)",
+        "outlineOffset": "0px"
+      }
+    },
+    "buttons": [
+      {
+        "text": "个人中心",
+        "geometry": {
+          "x": 1235,
+          "y": 134.09375,
+          "width": 166,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "13px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "账户安全",
+        "geometry": {
+          "x": 1235,
+          "y": 176.09375,
+          "width": 166,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "13px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "数据与隐私",
+        "geometry": {
+          "x": 1235,
+          "y": 218.09375,
+          "width": 166,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "13px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "导出学习数据",
+        "geometry": {
+          "x": 1235,
+          "y": 260.09375,
+          "width": 166,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "13px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "退出登录",
+        "geometry": {
+          "x": 1235,
+          "y": 302.09375,
+          "width": 166,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "13px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      }
+    ]
+  },
+  "searchFocus": {
+    "text": "",
+    "geometry": {
+      "x": 463.53125,
+      "y": 13.296875,
+      "width": 658.46875,
+      "height": 40.390625
+    },
+    "computed": {
+      "fontSize": "14px",
+      "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+      "fontWeight": "400",
+      "lineHeight": "22.4px",
+      "color": "rgb(226, 231, 239)",
+      "backgroundColor": "rgb(10, 14, 21)",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "borderColor": "rgb(142, 213, 255)",
+      "borderRadius": "8px",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(142, 213, 255)",
+      "outlineOffset": "2px"
+    },
+    "focused": true,
+    "focusVisible": true
+  },
+  "settings": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "rows": [
+        {
+          "index": 0,
+          "title": "学习提醒",
+          "label": {
+            "text": "学习提醒",
+            "geometry": {
+              "x": 469,
+              "y": 260.6875,
+              "width": 143,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "在本机保留学习提醒状态",
+            "geometry": {
+              "x": 469,
+              "y": 287.078125,
+              "width": 143,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "学习提醒在本机保留学习提醒状态",
+            "geometry": {
+              "x": 469,
+              "y": 248.6875,
+              "width": 492,
+              "height": 71.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 270.28125,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 1,
+          "title": "编辑器自动保存",
+          "label": {
+            "text": "编辑器自动保存",
+            "geometry": {
+              "x": 469,
+              "y": 332.875,
+              "width": 368.046875,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "修改课程代码时自动保存到本机（关闭后可用 Ctrl+S 手动保存）",
+            "geometry": {
+              "x": 469,
+              "y": 359.265625,
+              "width": 368.046875,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "编辑器自动保存修改课程代码时自动保存到本机（关闭后可用 Ctrl+S 手动保存）",
+            "geometry": {
+              "x": 469,
+              "y": 319.875,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 342.46875,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 2,
+          "title": "紧凑工作区",
+          "label": {
+            "text": "紧凑工作区",
+            "geometry": {
+              "x": 469,
+              "y": 405.0625,
+              "width": 195,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "减少面板间距，显示更多代码内容",
+            "geometry": {
+              "x": 469,
+              "y": 431.453125,
+              "width": 195,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "紧凑工作区减少面板间距，显示更多代码内容",
+            "geometry": {
+              "x": 469,
+              "y": 392.0625,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 414.65625,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 3,
+          "title": "减弱动画",
+          "label": {
+            "text": "减弱动画",
+            "geometry": {
+              "x": 469,
+              "y": 477.25,
+              "width": 208,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "关闭过渡与闪烁动画，保持静态界面",
+            "geometry": {
+              "x": 469,
+              "y": 503.640625,
+              "width": 208,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "减弱动画关闭过渡与闪烁动画，保持静态界面",
+            "geometry": {
+              "x": 469,
+              "y": 464.25,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 486.84375,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 4,
+          "title": "编辑器字号",
+          "label": {
+            "text": "编辑器字号",
+            "geometry": {
+              "x": 469,
+              "y": 549.4375,
+              "width": 156,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "调整代码编辑区的字体大小",
+            "geometry": {
+              "x": 469,
+              "y": 575.828125,
+              "width": 156,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "编辑器字号调整代码编辑区的字体大小12 px13 px14 px15 px16 px18 px",
+            "geometry": {
+              "x": 469,
+              "y": 536.4375,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "12 px13 px14 px15 px16 px18 px",
+            "geometry": {
+              "x": 880,
+              "y": 551.03125,
+              "width": 81,
+              "height": 44
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+              "fontWeight": "400",
+              "lineHeight": "normal",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 5,
+          "title": "Tab 缩进宽度",
+          "label": {
+            "text": "Tab 缩进宽度",
+            "geometry": {
+              "x": 469,
+              "y": 621.625,
+              "width": 379.3125,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走",
+            "geometry": {
+              "x": 469,
+              "y": 648.015625,
+              "width": 379.3125,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "Tab 缩进宽度按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走2 格4 格",
+            "geometry": {
+              "x": 469,
+              "y": 608.625,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "2 格4 格",
+            "geometry": {
+              "x": 889,
+              "y": 623.21875,
+              "width": 72,
+              "height": 44
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+              "fontWeight": "400",
+              "lineHeight": "normal",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 6,
+          "title": "代码自动换行",
+          "label": {
+            "text": "代码自动换行",
+            "geometry": {
+              "x": 469,
+              "y": 693.8125,
+              "width": 299,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "geometry": {
+              "x": 469,
+              "y": 720.203125,
+              "width": 299,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "代码自动换行开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "geometry": {
+              "x": 469,
+              "y": 680.8125,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 703.40625,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 7,
+          "title": "显示行号",
+          "label": {
+            "text": "显示行号",
+            "geometry": {
+              "x": 469,
+              "y": 766,
+              "width": 286,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "关掉只是不画左栏那一列，代码文本一个字都不变",
+            "geometry": {
+              "x": 469,
+              "y": 792.390625,
+              "width": 286,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "显示行号关掉只是不画左栏那一列，代码文本一个字都不变",
+            "geometry": {
+              "x": 469,
+              "y": 753,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 775.59375,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        }
+      ],
+      "headerClose": {
+        "text": "",
+        "geometry": {
+          "x": 917,
+          "y": 92,
+          "width": 44,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgba(255, 255, 255, 0.07)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      }
+    },
+    {
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "rows": [
+        {
+          "index": 0,
+          "title": "学习提醒",
+          "label": {
+            "text": "学习提醒",
+            "geometry": {
+              "x": 299,
+              "y": 248.09375,
+              "width": 143,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "在本机保留学习提醒状态",
+            "geometry": {
+              "x": 299,
+              "y": 274.484375,
+              "width": 143,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "学习提醒在本机保留学习提醒状态",
+            "geometry": {
+              "x": 299,
+              "y": 236.09375,
+              "width": 492,
+              "height": 71.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 257.6875,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 1,
+          "title": "编辑器自动保存",
+          "label": {
+            "text": "编辑器自动保存",
+            "geometry": {
+              "x": 299,
+              "y": 320.28125,
+              "width": 368.046875,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "修改课程代码时自动保存到本机（关闭后可用 Ctrl+S 手动保存）",
+            "geometry": {
+              "x": 299,
+              "y": 346.671875,
+              "width": 368.046875,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "编辑器自动保存修改课程代码时自动保存到本机（关闭后可用 Ctrl+S 手动保存）",
+            "geometry": {
+              "x": 299,
+              "y": 307.28125,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 329.875,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 2,
+          "title": "紧凑工作区",
+          "label": {
+            "text": "紧凑工作区",
+            "geometry": {
+              "x": 299,
+              "y": 392.46875,
+              "width": 195,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "减少面板间距，显示更多代码内容",
+            "geometry": {
+              "x": 299,
+              "y": 418.859375,
+              "width": 195,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "紧凑工作区减少面板间距，显示更多代码内容",
+            "geometry": {
+              "x": 299,
+              "y": 379.46875,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 402.0625,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 3,
+          "title": "减弱动画",
+          "label": {
+            "text": "减弱动画",
+            "geometry": {
+              "x": 299,
+              "y": 464.65625,
+              "width": 208,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "关闭过渡与闪烁动画，保持静态界面",
+            "geometry": {
+              "x": 299,
+              "y": 491.046875,
+              "width": 208,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "减弱动画关闭过渡与闪烁动画，保持静态界面",
+            "geometry": {
+              "x": 299,
+              "y": 451.65625,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 474.25,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 4,
+          "title": "编辑器字号",
+          "label": {
+            "text": "编辑器字号",
+            "geometry": {
+              "x": 299,
+              "y": 536.84375,
+              "width": 156,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "调整代码编辑区的字体大小",
+            "geometry": {
+              "x": 299,
+              "y": 563.234375,
+              "width": 156,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "编辑器字号调整代码编辑区的字体大小12 px13 px14 px15 px16 px18 px",
+            "geometry": {
+              "x": 299,
+              "y": 523.84375,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "12 px13 px14 px15 px16 px18 px",
+            "geometry": {
+              "x": 710,
+              "y": 538.4375,
+              "width": 81,
+              "height": 44
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+              "fontWeight": "400",
+              "lineHeight": "normal",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 5,
+          "title": "Tab 缩进宽度",
+          "label": {
+            "text": "Tab 缩进宽度",
+            "geometry": {
+              "x": 299,
+              "y": 609.03125,
+              "width": 379.3125,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走",
+            "geometry": {
+              "x": 299,
+              "y": 635.421875,
+              "width": 379.3125,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "Tab 缩进宽度按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走2 格4 格",
+            "geometry": {
+              "x": 299,
+              "y": 596.03125,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "2 格4 格",
+            "geometry": {
+              "x": 719,
+              "y": 610.625,
+              "width": 72,
+              "height": 44
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+              "fontWeight": "400",
+              "lineHeight": "normal",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 6,
+          "title": "代码自动换行",
+          "label": {
+            "text": "代码自动换行",
+            "geometry": {
+              "x": 299,
+              "y": 681.21875,
+              "width": 299,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "geometry": {
+              "x": 299,
+              "y": 707.609375,
+              "width": 299,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "代码自动换行开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "geometry": {
+              "x": 299,
+              "y": 668.21875,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 690.8125,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 7,
+          "title": "显示行号",
+          "label": {
+            "text": "显示行号",
+            "geometry": {
+              "x": 299,
+              "y": 753.40625,
+              "width": 286,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "关掉只是不画左栏那一列，代码文本一个字都不变",
+            "geometry": {
+              "x": 299,
+              "y": 779.796875,
+              "width": 286,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "显示行号关掉只是不画左栏那一列，代码文本一个字都不变",
+            "geometry": {
+              "x": 299,
+              "y": 740.40625,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 763,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        }
+      ],
+      "headerClose": {
+        "text": "",
+        "geometry": {
+          "x": 747,
+          "y": 79.40625,
+          "width": 44,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgba(255, 255, 255, 0.07)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      }
+    }
+  ],
+  "help": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "title": {
+      "text": "如何学习",
+      "geometry": {
+        "x": 519,
+        "y": 254.40625,
+        "width": 101.921875,
+        "height": 29.890625
+      },
+      "computed": {
+        "fontSize": "26px",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontWeight": "600",
+        "lineHeight": "29.9px",
+        "color": "rgb(226, 231, 239)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderWidth": "0px",
+        "borderStyle": "none",
+        "borderColor": "rgb(226, 231, 239)",
+        "borderRadius": "0px",
+        "outlineWidth": "3px",
+        "outlineColor": "rgb(226, 231, 239)",
+        "outlineOffset": "0px"
+      }
+    },
+    "sectionTitles": [
+      {
+        "text": "可视化执行",
+        "geometry": {
+          "x": 547,
+          "y": 319.296875,
+          "width": 364,
+          "height": 22.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "600",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "按十步学习法推进",
+        "geometry": {
+          "x": 547,
+          "y": 406.46875,
+          "width": 364,
+          "height": 22.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "600",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "真实与模拟的边界",
+        "geometry": {
+          "x": 547,
+          "y": 516.03125,
+          "width": 364,
+          "height": 22.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "600",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      }
+    ],
+    "body": [
+      {
+        "text": "点击运行按钮，观察程序的每一步执行过程。流程图会高亮当前步骤，变量面板实时显示数据变化。",
+        "geometry": {
+          "x": 547,
+          "y": 345.6875,
+          "width": 364,
+          "height": 44.78125
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "每个单元包含讲解、例子/反例、跟做、独立题、变式题和项目任务；运行成功后可标记完成，系统会按 1/3/7/14/30 天安排复测。",
+        "geometry": {
+          "x": 547,
+          "y": 432.859375,
+          "width": 364,
+          "height": 67.171875
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "教学运行器只支持子集语法；浏览器沙箱真实执行纯 JavaScript；标注“外部环境实验”的关卡需要在真实环境完成后提交证据。",
+        "geometry": {
+          "x": 547,
+          "y": 542.421875,
+          "width": 364,
+          "height": 67.171875
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      }
+    ],
+    "button": {
+      "text": "知道了",
+      "geometry": {
+        "x": 519,
+        "y": 633.59375,
+        "width": 392,
+        "height": 38.796875
+      },
+      "computed": {
+        "fontSize": "13px",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontWeight": "650",
+        "lineHeight": "20.8px",
+        "color": "rgb(5, 37, 54)",
+        "backgroundColor": "rgb(142, 213, 255)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(161, 221, 255)",
+        "borderRadius": "5px",
+        "outlineWidth": "3px",
+        "outlineColor": "rgb(5, 37, 54)",
+        "outlineOffset": "0px"
+      }
+    }
+  },
+  "passed": true,
+  "completedAt": "2026-11-09T07:34:43.356Z"
+}

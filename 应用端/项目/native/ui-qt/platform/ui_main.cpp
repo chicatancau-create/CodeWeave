@@ -728,8 +728,12 @@ int main(int argc, char* argv[]) {
           }
           {
             auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
             if (!breadcrumb || breadcrumb->property("text").toString() !=
-                    QStringLiteral("Code Canvas / 数据与隐私")) {
+                    QStringLiteral("Code Canvas / 数据 / 数据与隐私") ||
+                !accessible_breadcrumb || accessible_breadcrumb->text(QAccessible::Name) !=
+                    QStringLiteral("当前位置：Code Canvas / 数据 / 数据与隐私")) {
               diagnostic = QStringLiteral("Breadcrumb did not follow the current page");
               write_smoke_report();
               application.exit(1);
@@ -1033,10 +1037,16 @@ int main(int argc, char* argv[]) {
                   QStringLiteral("settingsPreference%1%2").arg(index == 5 ? "Select" : "Toggle").arg(index);
               auto* control = u3_find_item(row, control_name);
               const auto origin = control ? control->mapToItem(row, QPointF()) : QPointF();
+              const auto control_right_inset = control
+                  ? row->width() - origin.x() - control->width() : -1.0;
+              const auto expected_right_inset = index == 4 || index == 5 ? 0.0 : 3.0;
               if (!control || !fully_visible(control) || origin.x() < 0 || origin.y() < 0 ||
                   origin.x() + control->width() > row->width() + 1 ||
-                  origin.y() + control->height() > row->height() + 1) {
-                diagnostic = QStringLiteral("Settings preference row %1 control is clipped or missing").arg(index);
+                  origin.y() + control->height() > row->height() + 1 ||
+                  std::abs(control_right_inset - expected_right_inset) > 0.01 ||
+                  (index == 4 && std::abs(row->width() - 493) > 0.01)) {
+                diagnostic = QStringLiteral("Settings preference row %1 control alignment mismatch: width=%2 controlRightInset=%3 expected=%4")
+                    .arg(index).arg(row->width()).arg(control_right_inset).arg(expected_right_inset);
                 write_smoke_report();
                 application.exit(1);
                 return;
@@ -1048,9 +1058,34 @@ int main(int argc, char* argv[]) {
                 application.exit(1);
                 return;
               }
+              auto* select_text = u3_find_item(row, control_name + QStringLiteral("Text"));
+              if ((index == 4 || index == 5) &&
+                  (std::abs(control->width() - (index == 4 ? 81 : 72)) > 0.01 ||
+                   std::abs(control->height() - 44) > 0.01 ||
+                   !select_text || select_text->property("truncated").toBool() ||
+                   select_text->property("font").value<QFont>().pixelSize() != 14 ||
+                   !u3_find_item(row, control_name + QStringLiteral("Indicator")) ||
+                   !u3_find_item(row, control_name + QStringLiteral("Background")))) {
+                diagnostic = QStringLiteral("Settings preference select %1 mismatch: size=%2x%3 text=%4 truncated=%5 font=%6 textWidth=%7 paintedWidth=%8 display=%9 leftPadding=%10 rightPadding=%11")
+                    .arg(index).arg(control->width()).arg(control->height()).arg(select_text != nullptr)
+                    .arg(select_text && select_text->property("truncated").toBool())
+                    .arg(select_text ? select_text->property("font").value<QFont>().pixelSize() : -1)
+                    .arg(select_text ? select_text->width() : -1)
+                    .arg(select_text ? select_text->property("paintedWidth").toReal() : -1)
+                    .arg(select_text ? select_text->property("text").toString() : QString())
+                    .arg(select_text ? select_text->property("leftPadding").toReal() : -1)
+                    .arg(select_text ? select_text->property("rightPadding").toReal() : -1);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
               smoke_settings_rows.append(QJsonObject{{"index", index}, {"height", row->height()},
+                  {"rowWidth", row->width()}, {"controlRightInset", control_right_inset},
                   {"control", control_name}, {"fullyVisible", true},
-                  {"controlEnabled", control->property("enabled").toBool()}});
+                  {"controlEnabled", control->property("enabled").toBool()},
+                  {"controlX", control->mapToItem(row, QPointF()).x()},
+                  {"controlWidth", control->width()}, {"controlHeight", control->height()},
+                  {"textTruncated", select_text && select_text->property("truncated").toBool()}});
             }
             auto* middle_row = u3_find_item(settings_scroll, QStringLiteral("settingsPreferenceRow4"));
             const auto middle_origin = middle_row->mapToItem(flick, QPointF());
@@ -1098,6 +1133,51 @@ int main(int argc, char* argv[]) {
             }
             return;
           }
+          shell.selectPage(QStringLiteral("分析"));
+          {
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            if (!breadcrumb || breadcrumb->property("text").toString() !=
+                    QStringLiteral("Code Canvas / 分析 / 05 学习分析") ||
+                !accessible_breadcrumb || accessible_breadcrumb->text(QAccessible::Name) !=
+                    QStringLiteral("当前位置：Code Canvas / 分析 / 05 学习分析") ||
+                view.rootObject()->property("breadcrumbEntry").toMap().value("index").toString() != QStringLiteral("05") ||
+                view.rootObject()->property("breadcrumbEntry").toMap().value("label").toString() != QStringLiteral("学习分析")) {
+              diagnostic = QStringLiteral("Analytics breadcrumb did not preserve its navigation index and label");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          shell.selectPage(QStringLiteral("学习"));
+          {
+            auto* compact_brand = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("compactSidebarBrand"));
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* breadcrumb_root = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbRoot"));
+            auto* breadcrumb_section = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbSection"));
+            auto* breadcrumb_index = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbIndex"));
+            auto* breadcrumb_entry = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbEntryLabel"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            if (view.size() != QSize(1100, 720) || !compact_brand || !compact_brand->isVisible() ||
+                compact_brand->width() != 240 || compact_brand->height() != 64 ||
+                !breadcrumb || breadcrumb->property("text").toString() !=
+                    QStringLiteral("Code Canvas / 课程 / 01 学习路径") ||
+                !accessible_breadcrumb || accessible_breadcrumb->text(QAccessible::Name) !=
+                    QStringLiteral("当前位置：Code Canvas / 课程 / 01 学习路径") ||
+                !breadcrumb_root || breadcrumb_root->property("text").toString() != QStringLiteral("Code Canvas") ||
+                !breadcrumb_section || breadcrumb_section->property("text").toString() != QStringLiteral("课程") ||
+                !breadcrumb_index || !breadcrumb_index->isVisible() ||
+                breadcrumb_index->property("text").toString() != QStringLiteral("01") ||
+                !breadcrumb_entry || breadcrumb_entry->property("text").toString() != QStringLiteral("学习路径")) {
+              diagnostic = QStringLiteral("Compact topbar brand or breadcrumb hierarchy is incomplete");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          if (!capture_topbar(QStringLiteral("topbar-shell-small"))) { application.exit(1); return; }
           smoke_expected_size = QSize(1440, 900);
           view.setMinimumSize(QSize(1440, 900));
           view.setMaximumSize(QSize(1440, 900));
@@ -1132,6 +1212,17 @@ int main(int argc, char* argv[]) {
             write_smoke_report();
             application.exit(1);
             return;
+          }
+          {
+            auto* ring = u3_find_item(view.rootObject(), QStringLiteral("globalSearchFocusRing"));
+            if (!ring || !ring->isVisible() || !search_field->hasActiveFocus() ||
+                QQmlProperty::read(ring, QStringLiteral("border.width")).toReal() != 2 ||
+                std::abs(ring->x() + 4) > 0.01 || std::abs(ring->y() + 4) > 0.01) {
+              diagnostic = QStringLiteral("Focused search is missing its visible outer ring");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
           }
           if (!capture_topbar(QStringLiteral("topbar-search"))) { application.exit(1); return; }
           send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
@@ -1543,6 +1634,49 @@ int main(int argc, char* argv[]) {
               !shell.starterCode().isEmpty());
           shell.selectPage(QStringLiteral("编辑器"));
           u3_screenshot(*context, view, QStringLiteral("u3-editor"));
+          {
+            const auto original_size = view.size();
+            view.resize(QSize(1100, 720));
+            QCoreApplication::processEvents();
+            auto* mode_toggle = u3_find_item(view.rootObject(), QStringLiteral("workspaceCodeModeToggle"));
+            const bool code_mode_initial = mode_toggle && mode_toggle->property("checked").toBool();
+            if (code_mode_initial) {
+              mode_toggle->forceActiveFocus();
+              send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+              QCoreApplication::processEvents();
+            }
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* breadcrumb_index = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbIndex"));
+            auto* breadcrumb_label = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbEntryLabel"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            const auto selected = view.rootObject()->property("selectedLesson").toMap();
+            const auto lesson_index = view.rootObject()->property("safeSelectedLessonIndex").toInt();
+            const auto expected_breadcrumb = QStringLiteral("Code Canvas / 课程 / %1 %2")
+                .arg(QString::number(lesson_index + 1).rightJustified(2, QLatin1Char('0')),
+                    selected.value(QStringLiteral("title")).toString());
+            u3_record(*context, QStringLiteral("selected-course-breadcrumb-visible-and-accessible"),
+                code_mode_initial && !view.rootObject()->property("workspaceCodeMode").toBool() &&
+                shell.documentId() == QStringLiteral("python-loop-sum") &&
+                selected.value(QStringLiteral("id")).toString() == shell.documentId() &&
+                breadcrumb && breadcrumb->isVisible() && breadcrumb->property("text").toString() == expected_breadcrumb &&
+                accessible_breadcrumb && accessible_breadcrumb->text(QAccessible::Name) ==
+                    QStringLiteral("当前位置：") + expected_breadcrumb &&
+                breadcrumb_index && breadcrumb_index->isVisible() &&
+                breadcrumb_index->property("text").toString() ==
+                    QString::number(lesson_index + 1).rightJustified(2, QLatin1Char('0')) &&
+                breadcrumb_label && breadcrumb_label->isVisible() &&
+                breadcrumb_label->property("text").toString() == selected.value(QStringLiteral("title")).toString());
+            u3_record(*context, QStringLiteral("selected-course-breadcrumb-narrow-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-workspace-breadcrumb-narrow"), QSize(1100, 720)));
+            if (code_mode_initial) {
+              mode_toggle->forceActiveFocus();
+              send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+              QCoreApplication::processEvents();
+            }
+            view.resize(original_size);
+            QCoreApplication::processEvents();
+          }
           shell.registerAccount(QStringLiteral("Qt U3 Fixture"), QStringLiteral("qt-u3@example.test"),
               QStringLiteral("Qt-U3-Test-Password-123!"));
           context->step++;
@@ -3074,11 +3208,58 @@ int main(int argc, char* argv[]) {
           return;
         case 300: {
           if (shell.contentBusy()) return;
+          const auto workspace_size = view.size();
+          view.resize(QSize(1100, 720));
+          QCoreApplication::processEvents();
           auto* title = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonTitle"));
-          const auto published = shell.publishedIds().indexOf(shell.documentId());
-          u3_record(*context, QStringLiteral("lesson-workspace-header-matches-evidence-document"),
-              title && published >= 0 && title->property("text").toString() == shell.publishedTitles().at(published) &&
-              view.rootObject()->property("breadcrumbText").toString().contains(shell.documentId()));
+          auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+          auto* breadcrumb_index = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbIndex"));
+          auto* breadcrumb_label = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbEntryLabel"));
+          auto* accessible_breadcrumb = breadcrumb
+              ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+          const auto published_index = shell.publishedIds().indexOf(shell.documentId());
+          const auto published_title = published_index >= 0
+              ? shell.publishedTitles().value(published_index) : QString{};
+          const auto selected = view.rootObject()->property("selectedLesson").toMap();
+          const bool is_course = selected.value(QStringLiteral("id")).toString() == shell.documentId();
+          const auto expected_header = published_title;
+          const auto expected_breadcrumb = QStringLiteral("Code Canvas / 课程 / stage-d");
+          const auto actual_breadcrumb = breadcrumb
+              ? breadcrumb->property("text").toString() : QString{};
+          const auto actual_accessible_name = accessible_breadcrumb
+              ? accessible_breadcrumb->text(QAccessible::Name) : QString{};
+          const auto detail = QStringLiteral(
+              "document=%1 selected=%2 publishedIndex=%3 catalogTitle=%4 header=%5 isCourse=%6 "
+              "selectedLessonId=%7 indexVisible=%8 indexText=%9 entryLabel=%10 breadcrumb=%11 accessible=%12")
+              .arg(shell.documentId())
+              .arg(shell.hasSelectedContent())
+              .arg(published_index)
+              .arg(published_title)
+              .arg(title ? title->property("text").toString() : QString{})
+              .arg(is_course)
+              .arg(selected.value(QStringLiteral("id")).toString())
+              .arg(breadcrumb_index && breadcrumb_index->isVisible())
+              .arg(breadcrumb_index ? breadcrumb_index->property("text").toString() : QString{})
+              .arg(breadcrumb_label ? breadcrumb_label->property("text").toString() : QString{})
+              .arg(actual_breadcrumb)
+              .arg(actual_accessible_name);
+          u3_record(*context, QStringLiteral("challenge-document-workspace-header-matches-catalog"),
+              shell.documentId() == QStringLiteral("stage-d") &&
+              shell.hasSelectedContent() && published_index >= 0 &&
+              title && title->isVisible() && title->property("text").toString() == expected_header, detail);
+          u3_record(*context, QStringLiteral("challenge-document-breadcrumb-is-accessible-without-course-index"),
+              !is_course &&
+              breadcrumb && breadcrumb->isVisible() &&
+              actual_breadcrumb == expected_breadcrumb &&
+              accessible_breadcrumb && actual_accessible_name ==
+                  QStringLiteral("当前位置：") + expected_breadcrumb &&
+              breadcrumb_index && !breadcrumb_index->isVisible() &&
+              breadcrumb_label && breadcrumb_label->isVisible() &&
+              breadcrumb_label->property("text").toString() == QStringLiteral("stage-d"), detail);
+          u3_record(*context, QStringLiteral("lesson-workspace-breadcrumb-narrow-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-workspace-breadcrumb-unlisted-narrow"), QSize(1100, 720)));
+          view.resize(workspace_size);
+          QCoreApplication::processEvents();
           auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
           u3_record(*context, QStringLiteral("lesson-workspace-missing-metadata-clears-previous-flow"),
               flow && flow->property("nodeCount").isValid() && flow->property("nodeCount").toInt() == 0);
@@ -3684,7 +3865,7 @@ int main(int argc, char* argv[]) {
         }
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 57,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 59,
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }

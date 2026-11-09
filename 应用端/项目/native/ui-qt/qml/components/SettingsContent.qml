@@ -28,9 +28,9 @@ ColumnLayout {
             { title: "紧凑工作区", description: "减少面板间距，显示更多代码内容", options: [] },
             { title: "减弱动画", description: "关闭过渡与闪烁动画，保持静态界面", options: [] },
             { title: "编辑器字号", description: "调整代码编辑区的字体大小", options: [12, 13, 14, 15, 16, 18] },
-            { title: "Tab 缩进宽度", description: "每次缩进或退格使用的空格数", options: [2, 4] },
-            { title: "代码自动换行", description: "长行折进本栏；关闭时可横向滚动", options: [] },
-            { title: "显示行号", description: "只控制行号显示，不修改代码文本", options: [] }
+            { title: "Tab 缩进宽度", description: "按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走", options: [2, 4] },
+            { title: "代码自动换行", description: "开着长行折进本栏；关着长行走横向滚动条（默认）", options: [] },
+            { title: "显示行号", description: "关掉只是不画左栏那一列，代码文本一个字都不变", options: [] }
         ]
         delegate: Item {
             id: preferenceRow
@@ -40,7 +40,7 @@ ColumnLayout {
                 || modelData.title === "编辑器字号" || modelData.title === "显示行号"
             objectName: "settingsPreferenceRow" + index
             Layout.fillWidth: true
-            implicitHeight: Math.max(72, row.implicitHeight + settings.ds.s24)
+            implicitHeight: Math.max(72, row.implicitHeight)
             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: settings.ds.line }
             RowLayout {
                 id: row
@@ -51,13 +51,20 @@ ColumnLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: settings.ds.s4
-                    Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 16; wrapMode: Text.WrapAnywhere }
+                    Text {
+                        Layout.fillWidth: true
+                        text: modelData.title + (preferenceRow.supported ? "" : "（待接入）")
+                        color: settings.ds.ink
+                        font.family: settings.ds.ui
+                        font.pixelSize: 14
+                        lineHeight: 1.6
+                        wrapMode: Text.WrapAnywhere
+                    }
                     Text {
                         Layout.fillWidth: true
                         text: modelData.description
-                            + (preferenceRow.supported ? "" : "（待接入）")
                             + (preferenceRow.supported && !uiShell.preferenceStorageReady ? "（本机配置不可用）" : "")
-                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13
+                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13; lineHeight: 1.6
                         wrapMode: Text.WrapAnywhere
                     }
                 }
@@ -67,6 +74,7 @@ ColumnLayout {
                         : (modelData.title === "显示行号" ? "settingsEditorLineNumbersToggle" : "settingsPreferenceToggle" + index)
                     visible: modelData.options.length === 0
                     implicitWidth: 48; implicitHeight: 28
+                    Layout.rightMargin: visible ? settings.ds.settingsToggleTrailingInset : 0
                     enabled: (modelData.title === "减弱动画" || modelData.title === "显示行号")
                         && uiShell.preferenceStorageReady
                     readonly property bool checked: (modelData.title === "减弱动画" && uiShell.reducedMotion)
@@ -102,6 +110,7 @@ ColumnLayout {
                     Accessible.onToggleAction: choose()
                 }
                 ComboBox {
+                    id: preferenceSelect
                     objectName: modelData.title === "编辑器字号" ? "settingsEditorFontSize" : "settingsPreferenceSelect" + index
                     visible: modelData.options.length > 0
                     model: modelData.title === "编辑器字号"
@@ -110,11 +119,41 @@ ColumnLayout {
                     currentIndex: modelData.title === "编辑器字号"
                         ? modelData.options.indexOf(uiShell.editorFontSize) : 0
                     enabled: modelData.title === "编辑器字号" && uiShell.preferenceStorageReady
-                    implicitWidth: 90
+                    implicitWidth: modelData.title === "编辑器字号" ? 81 : 72
                     implicitHeight: 44
+                    padding: 0
+                    leftPadding: 0
+                    rightPadding: 0
                     palette.base: settings.ds.inset; palette.button: settings.ds.inset
                     palette.text: settings.ds.muted; palette.buttonText: settings.ds.muted
                     palette.mid: settings.ds.lineStrong
+                    contentItem: Text {
+                        objectName: preferenceSelect.objectName + "Text"
+                        leftPadding: settings.ds.s8
+                        rightPadding: 0
+                        text: preferenceSelect.displayText
+                        color: preferenceSelect.enabled ? settings.ds.ink : settings.ds.muted
+                        font.family: settings.ds.mono
+                        font.pixelSize: 14
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    indicator: LucideIcon {
+                        objectName: preferenceSelect.objectName + "Indicator"
+                        x: preferenceSelect.width - width - settings.ds.s10
+                        y: (preferenceSelect.height - height) / 2
+                        width: 14
+                        height: 14
+                        name: "ChevronDown"
+                        size: 14
+                        color: preferenceSelect.enabled ? settings.ds.muted : settings.ds.faint
+                    }
+                    background: Rectangle {
+                        objectName: preferenceSelect.objectName + "Background"
+                        color: settings.ds.page
+                        border.width: 1
+                        border.color: preferenceSelect.activeFocus ? settings.ds.accent : settings.ds.lineStrong
+                    }
                     onActivated: index => {
                         if (modelData.title !== "编辑器字号") return;
                         uiShell.setEditorFontSize(modelData.options[index]);

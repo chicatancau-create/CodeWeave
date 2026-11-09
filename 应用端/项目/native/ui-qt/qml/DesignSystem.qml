@@ -77,6 +77,7 @@ QtObject {
 
     // QFont takes one family name; CSS fallback lists are treated as an unknown family.
     readonly property string ui:   Qt.platform.os === "windows" ? "Microsoft YaHei UI" : "sans-serif"
+    readonly property string shellUi: Qt.platform.os === "windows" ? "Segoe UI" : ui
     readonly property string mono: Qt.platform.os === "windows" ? "Consolas" : "monospace"
 
     // Spacing
@@ -88,6 +89,7 @@ QtObject {
     readonly property int s24: 24; readonly property int s28: 28
     readonly property int s32: 32
     readonly property int modalPadding: 28
+    readonly property int settingsToggleTrailingInset: 3
 
     // Shell metrics
     readonly property int topbarH: 68

@@ -10,7 +10,7 @@ Rectangle {
     property string iconName: ""
     property bool framed: false
     signal clicked
-    implicitHeight: 38
+    implicitHeight: framed ? 38 : 36
     implicitWidth: 180
     activeFocusOnTab: enabled
     radius: ds.radiusSm
@@ -41,7 +41,7 @@ Rectangle {
         }
         Text {
             text: entry.label
-            color: entry.enabled ? entry.ds.ink : entry.ds.muted
+            color: entry.ds.muted
             font.family: entry.ds.ui
             font.pixelSize: 13
         }

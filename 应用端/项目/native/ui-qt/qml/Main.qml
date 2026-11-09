@@ -148,6 +148,17 @@ Rectangle {
            + (selectedLesson && selectedLesson.id === uiShell.documentId
               ? String(safeSelectedLessonIndex + 1).padStart(2, "0") + " · " + selectedLesson.title
               : uiShell.documentId) : "")
+    readonly property var breadcrumbEntry: ({
+        "学习": { section: "课程", index: "01", label: "学习路径" },
+        "编辑器": { section: "课程", index: "01", label: "学习工作台" },
+        "挑战": { section: "挑战", index: "02", label: "实战挑战" },
+        "草稿": { section: "项目", index: "03", label: "代码草稿" },
+        "复习与进度": { section: "复习", index: "04", label: "复习中心" },
+        "分析": { section: "分析", index: "05", label: "学习分析" },
+        "账户": { section: "账户", index: "", label: "个人中心" },
+        "账户安全": { section: "账户", index: "", label: "账户安全" },
+        "数据与隐私": { section: "数据", index: "", label: "数据与隐私" }
+    })[page] || { section: page, index: "", label: page }
 
     // ── Design tokens ───────────────────────────────────────────────────────
     DesignSystem {
@@ -178,9 +189,9 @@ Rectangle {
     // ── Topbar ──────────────────────────────────────────────────────────────
     Rectangle {
         id: topbar
-        anchors { top: parent.top; left: parent.left; right: parent.right }
+        anchors { top: parent.top; left: parent.left; right: parent.right; leftMargin: root.width <= 1200 ? ds.sidebarW : 0 }
         visible: !root.workspaceCodeMode
-        height: visible ? ds.topbarH : 0
+        height: visible ? (root.width <= 1200 ? 64 : ds.topbarH) : 0
         color: ds.chrome
         z: 30
 
@@ -199,6 +210,7 @@ Rectangle {
             // .desktop-brand
             RowLayout {
                 objectName: "topbarBrand"
+                visible: root.width > 1200
                 spacing: ds.s10
                 Layout.alignment: Qt.AlignVCenter
                 Rectangle {
@@ -218,7 +230,7 @@ Rectangle {
                 Text {
                     text: "CodeCanvas"
                     color: ds.ink
-                    font.family: ds.ui
+                    font.family: ds.shellUi
                     font.pixelSize: 21
                     font.weight: Font.DemiBold
                     font.letterSpacing: 0
@@ -246,6 +258,7 @@ Rectangle {
             // .desktop-areas — 工作区 / 个人中心
             Rectangle {
                 objectName: "topbarAreas"
+                visible: root.width > 1200
                 Layout.alignment: Qt.AlignVCenter
                 implicitWidth: areaRow.implicitWidth + ds.s8
                 implicitHeight: 44
@@ -323,16 +336,40 @@ Rectangle {
                 }
             }
 
-            Text {
+            RowLayout {
+                id: breadcrumbs
                 objectName: "breadcrumbs"
+                readonly property string indexLabel: root.page === "编辑器" && uiShell.hasSelectedContent
+                    ? (root.selectedLesson && root.selectedLesson.id === uiShell.documentId
+                       ? String(root.safeSelectedLessonIndex + 1).padStart(2, "0") : "")
+                    : root.breadcrumbEntry.index
+                readonly property string entryLabel: root.page === "编辑器" && uiShell.hasSelectedContent
+                    ? (root.selectedLesson && root.selectedLesson.id === uiShell.documentId
+                       ? root.selectedLesson.title
+                       : uiShell.documentId) : root.breadcrumbEntry.label
+                readonly property string text: "Code Canvas / " + root.breadcrumbEntry.section
+                    + (indexLabel.length > 0
+                       ? " / " + indexLabel + " " + entryLabel
+                       : " / " + entryLabel)
                 visible: root.width <= 1200
                 Layout.minimumWidth: 0
-                text: root.breadcrumbText
-                elide: Text.ElideRight
-                color: ds.muted
-                font.family: ds.ui
-                font.pixelSize: 12
+                Layout.maximumWidth: Math.max(160, root.width * 0.35)
+                spacing: ds.s8
+                Accessible.role: Accessible.StaticText
                 Accessible.name: "当前位置：" + text
+                Text { objectName: "breadcrumbRoot"; text: "Code Canvas"; color: ds.faint; font.family: ds.shellUi; font.pixelSize: 14; font.weight: Font.DemiBold; Accessible.ignored: true }
+                Text { text: "/"; color: ds.faint; font.family: ds.shellUi; font.pixelSize: 14; Accessible.ignored: true }
+                Text { objectName: "breadcrumbSection"; text: root.breadcrumbEntry.section; color: ds.muted; font.family: ds.ui; font.pixelSize: 14; Accessible.ignored: true }
+                Text { text: "/"; color: ds.faint; font.family: ds.shellUi; font.pixelSize: 14; Accessible.ignored: true }
+                Text { objectName: "breadcrumbIndex"; visible: breadcrumbs.indexLabel.length > 0; text: breadcrumbs.indexLabel; color: ds.accent; font.family: ds.mono; font.pixelSize: 14; Accessible.ignored: true }
+                Text {
+                    objectName: "breadcrumbEntryLabel"
+                    Layout.fillWidth: true
+                    text: breadcrumbs.entryLabel
+                    elide: Text.ElideRight
+                    color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.Bold
+                    Accessible.ignored: true
+                }
             }
 
             // .global-search
@@ -342,13 +379,24 @@ Rectangle {
                 objectName: "globalSearchBox"
                 Layout.fillWidth: true
                 Layout.minimumWidth: 100
-                Layout.leftMargin: ds.s2
+                Layout.leftMargin: ds.s8
                 Layout.rightMargin: ds.s2
                 implicitHeight: 41
                 radius: ds.radius
                 color: ds.inset
                 border.color: searchField.activeFocus ? ds.accent : ds.lineStrong
                 border.width: 1
+                Rectangle {
+                    objectName: "globalSearchFocusRing"
+                    anchors.fill: parent
+                    anchors.margins: -ds.s4
+                    visible: searchField.activeFocus
+                    color: "transparent"
+                    radius: parent.radius + ds.s4
+                    border.width: ds.s2
+                    border.color: ds.accent
+                    Accessible.ignored: true
+                }
                 RowLayout {
                     anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
                     spacing: ds.s8
@@ -396,7 +444,7 @@ Rectangle {
             // .topbar-actions
             RowLayout {
                 objectName: "topbarActions"
-                spacing: ds.s8
+                spacing: root.width <= 1200 ? ds.s12 : ds.s8
                 Layout.alignment: Qt.AlignVCenter
 
                 MotionAwareBusyIndicator {
@@ -412,6 +460,8 @@ Rectangle {
                 IconButton {
                     ds: root.designSystem
                     id: quickButton
+                    implicitWidth: root.width <= 1200 ? 44 : 36
+                    implicitHeight: implicitWidth
                     objectName: "quickButton"
                     iconName: "Zap"
                     tip: "快捷动作"
@@ -426,6 +476,8 @@ Rectangle {
                 IconButton {
                     ds: root.designSystem
                     id: notificationButton
+                    implicitWidth: root.width <= 1200 ? 44 : 36
+                    implicitHeight: implicitWidth
                     objectName: "notificationButton"
                     iconName: "Bell"
                     tip: "通知中心（无未读）"
@@ -440,6 +492,7 @@ Rectangle {
 
                 // .desktop-local — 本机工作空间
                 Rectangle {
+                    visible: root.width > 1200
                     implicitWidth: localRow.implicitWidth + ds.s20
                     implicitHeight: 28
                     radius: ds.radiusSm
@@ -470,6 +523,8 @@ Rectangle {
                 IconButton {
                     ds: root.designSystem
                     id: settingsButton
+                    implicitWidth: root.width <= 1200 ? 44 : 36
+                    implicitHeight: implicitWidth
                     objectName: "settingsButton"
                     iconName: "Settings"
                     tip: "账户与设置"
@@ -493,19 +548,19 @@ Rectangle {
                     }
                     Keys.onReturnPressed: toggleMenu()
                     Keys.onSpacePressed: toggleMenu()
-                    implicitWidth: 34
-                    implicitHeight: 34
-                    radius: ds.radius
-                    color: ds.accent
-                    border.color: ds.accentEdge
+                    implicitWidth: root.width <= 1200 ? 44 : 34
+                    implicitHeight: implicitWidth
+                    radius: root.width <= 1200 ? width / 2 : ds.radius
+                    color: root.width <= 1200 ? "transparent" : ds.accent
+                    border.color: root.width <= 1200 ? ds.accentRing : ds.accentEdge
                     border.width: 1
                     Layout.alignment: Qt.AlignVCenter
                     Text {
                         anchors.centerIn: parent
                         text: uiShell.hasActiveAccount && uiShell.accountName.length > 0
                               ? uiShell.accountName.charAt(0) : "?"
-                        color: ds.inkOnAccent
-                        font.family: ds.ui
+                        color: root.width <= 1200 ? ds.accent : ds.inkOnAccent
+                        font.family: ds.shellUi
                         font.pixelSize: 13
                         font.weight: Font.Bold
                     }
@@ -714,8 +769,8 @@ Rectangle {
                 id: accountActionsColumn
                 anchors.fill: parent
                 spacing: ds.s6
-                Text { text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
-                Text { objectName: "accountContactLabel"; Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.accountContact || uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.faint; font.family: ds.mono; font.pixelSize: 12; elide: Text.ElideRight }
+                Text { objectName: "accountNameLabel"; text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; lineHeight: 1.2; font.weight: Font.Bold }
+                Text { objectName: "accountContactLabel"; Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.accountContact || uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13; lineHeight: 1.2; elide: Text.ElideRight }
                 Rectangle { Layout.fillWidth: true; Layout.bottomMargin: ds.s4; height: 1; color: ds.line }
                 ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "UserRound"; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
                 ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "ShieldCheck"; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
@@ -727,8 +782,22 @@ Rectangle {
 
     // ── Sidebar ─────────────────────────────────────────────────────────────
     Rectangle {
+        objectName: "compactSidebarBrand"
+        visible: root.width <= 1200 && !root.workspaceCodeMode
+        width: ds.sidebarW; height: 64
+        color: ds.sidebarBg
+        z: 16
+        Row {
+            anchors.left: parent.left; anchors.leftMargin: ds.s24
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: ds.s10
+            LucideIcon { name: "CodeXml"; size: 28; color: ds.accent }
+            Text { text: "codecanvas"; color: ds.ink; font.family: ds.shellUi; font.pixelSize: 16; font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
+        }
+    }
+    Rectangle {
         id: sidebar
-        anchors { top: topbar.bottom; left: parent.left; bottom: parent.bottom }
+        anchors { top: root.width <= 1200 ? parent.top : topbar.bottom; left: parent.left; bottom: parent.bottom }
         visible: !root.workspaceCodeMode
         width: visible ? ds.sidebarW : 0
         color: ds.sidebarBg
@@ -741,7 +810,7 @@ Rectangle {
         }
 
         ColumnLayout {
-            anchors.topMargin: ds.s20
+            anchors.topMargin: root.width <= 1200 ? ds.s84 : ds.s20
             anchors.leftMargin: ds.s12
             anchors.rightMargin: ds.s12
             anchors.bottomMargin: ds.s14
@@ -1218,6 +1287,8 @@ Rectangle {
             id: settingsScroll
             objectName: "settingsScroll"
             clip: true
+            // Keep the settings controls aligned with the Web modal's trailing inset.
+            rightPadding: root.designSystem.s10 + 1
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             SettingsContent {
                 width: settingsScroll.availableWidth
@@ -1271,7 +1342,7 @@ Rectangle {
                                 text: modelData.title
                                 color: ds.ink
                                 font.family: ds.ui
-                                font.pixelSize: 16
+                                font.pixelSize: 14
                                 font.weight: Font.DemiBold
                                 wrapMode: Text.WrapAnywhere
                             }

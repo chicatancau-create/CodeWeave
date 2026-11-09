@@ -39,7 +39,8 @@ Dialog {
             border.width: 1
             border.color: closeHover.hovered ? dialog.ds.lineStrong : dialog.ds.line
             HoverHandler { id: closeHover }
-            anchors.right: parent.right; anchors.rightMargin: dialog.ds.modalPadding
+            anchors.right: parent.right
+            anchors.rightMargin: dialog.ds.modalPadding + dialog.ds.s10 + 1
             anchors.top: parent.top; anchors.topMargin: dialog.ds.modalPadding
             iconName: "X"; tip: "关闭" + dialog.title
             onClicked: dialog.close()
@@ -70,6 +71,7 @@ Dialog {
             objectName: dialog.objectName + "PrimaryClose"
             visible: dialog.referenceStyle && dialog.primaryClose
             ds: dialog.ds
+            implicitHeight: 39
             anchors.left: parent.left; anchors.right: parent.right
             anchors.leftMargin: dialog.ds.modalPadding; anchors.rightMargin: dialog.ds.modalPadding
             anchors.bottom: parent.bottom; anchors.bottomMargin: dialog.ds.modalPadding
