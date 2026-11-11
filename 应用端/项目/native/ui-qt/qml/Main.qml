@@ -1281,6 +1281,8 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(560, root.width - ds.s32)
         height: Math.min(root.height * 0.86, root.height - ds.s32)
+        // Match the Web settings rows without reserving a second full bottom inset.
+        bottomPadding: ds.s8
         onOpened: root.settingsOpen = true
         onClosed: { root.settingsOpen = false; root.returnDialogFocus(); }
         contentItem: ScrollView {

@@ -1,0 +1,87 @@
+{
+    "checks": [
+        {
+            "name": "qt-learning",
+            "passed": true
+        },
+        {
+            "name": "qt-review",
+            "passed": true
+        },
+        {
+            "name": "qt-challenge",
+            "passed": true
+        },
+        {
+            "name": "qt-workbench",
+            "passed": true
+        },
+        {
+            "name": "workspace-code-mode-default-and-full-width",
+            "passed": true
+        },
+        {
+            "name": "workspace-reading-mode-restores-shell-and-reader",
+            "passed": true
+        },
+        {
+            "name": "workspace-guide-current-course-and-scrollable-dialog",
+            "passed": true
+        },
+        {
+            "name": "workspace-guide-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "workspace-help-opens-from-page",
+            "passed": true
+        },
+        {
+            "name": "workspace-help-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "workspace-mode-toggle-preserves-code-and-trace",
+            "passed": true
+        },
+        {
+            "name": "workspace-back-restores-learning-shell",
+            "passed": true
+        },
+        {
+            "name": "workspace-new-course-resets-mode-and-closes-guide",
+            "passed": true
+        },
+        {
+            "name": "workspace-code-edit-preserves-selected-reading-mode",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "devicePixelRatio": 1,
+    "height": 900,
+    "isolatedData": true,
+    "mode": "qt-isolated-visual-comparison",
+    "passed": true,
+    "qmlWarnings": [
+    ],
+    "screenshots": [
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-learning.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-review.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-challenge.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-workbench.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-workbench-reading.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-workbench-guide.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-workbench-help.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-visual-retest-20261111/qt-workspace/qt-workbench-code-restored.png"
+    ],
+    "width": 1440,
+    "workspaceReference": {
+        "documentId": "python-loop-sum",
+        "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f",
+        "state": "not-run"
+    }
+}

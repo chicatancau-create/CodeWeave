@@ -1,0 +1,652 @@
+{
+    "accountContact": "",
+    "accountName": "",
+    "diagnostic": "All eight settings rows must fit the initial 1440x900 viewport",
+    "filteredLessonIds": [
+    ],
+    "geometry": [
+    ],
+    "lessonCount": 0,
+    "lessonIds": [
+    ],
+    "popupGeometry": [
+    ],
+    "preferenceStorageReady": true,
+    "preferenceStorageUnavailableSmoke": false,
+    "qmlWarnings": [
+    ],
+    "referenceAccount": false,
+    "referenceSubject": "",
+    "screenshots": [
+    ],
+    "selectedLesson": {
+    },
+    "settingsInitialViewport": [
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 44
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 116
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 2,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 188
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 260
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 332
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 93,
+            "index": 5,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 404
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 6,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 497
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": false,
+            "height": 72,
+            "index": 7,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 569
+        }
+    ],
+    "settingsRows": [
+    ],
+    "settingsText": [
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 143
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 0,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 126
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 182
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 1,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 168
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 195
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 2,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 140
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 208
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 3,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 56
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 156
+                },
+                "truncated": false,
+                "width": 396,
+                "x": 0,
+                "y": 39
+            },
+            "index": 4,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 70
+                },
+                "truncated": false,
+                "width": 396,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 41.6
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 42,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 41.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 41.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 403
+                },
+                "truncated": false,
+                "width": 405,
+                "x": 0,
+                "y": 39
+            },
+            "index": 5,
+            "passed": true,
+            "rowHeight": 93,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 182
+                },
+                "truncated": false,
+                "width": 405,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 299
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 6,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 154
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 286
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 7,
+            "passed": true,
+            "rowHeight": 72,
+            "rowWidth": 493,
+            "storageReady": true,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 56
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1440x900",
+            "windowHeight": 900,
+            "windowWidth": 1440
+        }
+    ],
+    "topbarGeometry": [
+        {
+            "height": 32,
+            "name": "topbarBrand",
+            "width": 307,
+            "x": 24,
+            "y": 18
+        },
+        {
+            "height": 44,
+            "name": "topbarAreas",
+            "width": 193,
+            "x": 351,
+            "y": 12
+        },
+        {
+            "height": 41,
+            "name": "globalSearchBox",
+            "width": 550,
+            "x": 572,
+            "y": 14
+        },
+        {
+            "height": 36,
+            "name": "topbarActions",
+            "width": 272,
+            "x": 1144,
+            "y": 16
+        }
+    ]
+}

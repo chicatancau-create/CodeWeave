@@ -9,6 +9,7 @@ ColumnLayout {
     spacing: 0
     RowLayout {
         Layout.fillWidth: true
+        Layout.bottomMargin: settings.ds.s14
         Text { Layout.fillWidth: true; text: "学习体验"; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13 }
         QuietButton {
             ds: settings.ds
@@ -60,7 +61,8 @@ ColumnLayout {
                         color: settings.ds.ink
                         font.family: settings.ds.ui
                         font.pixelSize: 14
-                        lineHeight: 1.6
+                        lineHeight: font.pixelSize * 1.6
+                        lineHeightMode: Text.FixedHeight
                         wrapMode: Text.WrapAnywhere
                     }
                     Text {
@@ -68,7 +70,9 @@ ColumnLayout {
                         Layout.fillWidth: true
                         text: modelData.description
                             + (preferenceRow.supported && !uiShell.preferenceStorageReady ? "（本机配置不可用）" : "")
-                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13; lineHeight: 1.6
+                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13
+                        lineHeight: font.pixelSize * 1.6
+                        lineHeightMode: Text.FixedHeight
                         wrapMode: Text.WrapAnywhere
                     }
                 }

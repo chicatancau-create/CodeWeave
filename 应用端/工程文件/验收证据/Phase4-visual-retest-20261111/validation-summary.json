@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-11-11T13:02:38.362908+00:00",
+  "reports": [
+    {
+      "file": "qt-topbar-final/qml-window-report.json",
+      "passed": true,
+      "screenshots": 11,
+      "settingsTextPassed": 16,
+      "initialViewportFullyVisible": 8
+    },
+    {
+      "file": "qt-settings-unavailable-final/qml-window-report.json",
+      "passed": true,
+      "screenshots": 6,
+      "settingsTextPassed": 16,
+      "initialViewportFullyVisible": 8
+    }
+  ],
+  "images": [
+    {
+      "file": "qt-topbar-final/topbar-account.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "50699ffd6478f5f96884751e7d10cd5bf297fa6c14b3f2320ddfab5506288566"
+    },
+    {
+      "file": "qt-topbar-final/topbar-shell.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "6b70c36475529f62f194a642c51681b012d776fbcc19b19a861e5b209d51f25c"
+    },
+    {
+      "file": "qt-topbar-final/topbar-quick.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9334cefc7818a2a2dd522ec7fad3a8cd1764dbb7e536423aa671ffcce39a7205"
+    },
+    {
+      "file": "qt-topbar-final/topbar-notifications.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4cb81dcc842d4de4e4074c2c7da7971ab71544419eb84466473ea7b96b26119c"
+    },
+    {
+      "file": "qt-topbar-final/topbar-settings.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "28a29fe1699ac70b8d902ca643acd990e3caddf030c37e0ceccab270aaddb193"
+    },
+    {
+      "file": "qt-topbar-final/topbar-settings-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "f4920199b18902877a6db479755f3beb54e9faa6503a8b69b7aa7927472ede4f"
+    },
+    {
+      "file": "qt-topbar-final/topbar-settings-middle-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "b32bb5cee5ef6576b77360fbb79a0dd0641bca9b3833bf795e730abaa1cc5840"
+    },
+    {
+      "file": "qt-topbar-final/topbar-settings-bottom-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "869f6b2fb7ecc3538acc9058007849007b4940b507d700d94fd315bd9aae6231"
+    },
+    {
+      "file": "qt-topbar-final/topbar-shell-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "0c1583a112c2ec26a3d5c76e360fb0b9d5e4d4452433472d8df6ed7b99da8b15"
+    },
+    {
+      "file": "qt-topbar-final/topbar-help.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "472ff1702c29c8d48a9f6bcea92cd83c3683d092843864636694963a8692276d"
+    },
+    {
+      "file": "qt-topbar-final/topbar-search.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "398854568f1038b1e79bb003bf23ddd672f90e4c5aee01bb3b4f933616acf0a0"
+    },
+    {
+      "file": "qt-settings-unavailable-final/topbar-account.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e2a3cc3fbe84e40e4f7237a03064c30b86633a08c24b9f35aa09d7852d4e302d"
+    },
+    {
+      "file": "qt-settings-unavailable-final/topbar-shell.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "38b2dfd66925d3fb56f903389f98f0ce4d039aa5d74bd032707fc2502472e585"
+    },
+    {
+      "file": "qt-settings-unavailable-final/topbar-quick.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "af8e9b77fc054cf07fdedb7db7de5cb9b9ed52e192a7eae1b1712b39b4ce6e30"
+    },
+    {
+      "file": "qt-settings-unavailable-final/topbar-notifications.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "1965b744a356abf8bb62a8f5a5ca7709886488cde1c4a9351ead635f4e2044f7"
+    },
+    {
+      "file": "qt-settings-unavailable-final/topbar-settings.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "ebf477c21abec952c9c59f4d19047d8a7189b32e738d4223dd89b7952ae0a8ca"
+    },
+    {
+      "file": "qt-settings-unavailable-final/topbar-settings-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "5601f776b35e8df81367e2fec459ab2cb9eb3fb77abf6b180936df6bd18f607a"
+    }
+  ]
+}

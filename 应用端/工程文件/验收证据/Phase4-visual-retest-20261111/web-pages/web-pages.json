@@ -1,0 +1,71 @@
+{
+  "startedAt": "2026-11-11T11:30:46.951Z",
+  "status": "passed",
+  "isolatedApi": true,
+  "referenceAccount": {
+    "name": "Reference",
+    "email": "topbar@example.test"
+  },
+  "subject": "Python",
+  "selectedLessonId": "python-loop-sum",
+  "state": "not-run",
+  "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f",
+  "sourceState": "Web isolated API returns 503 for non-auth APIs; learning page uses local fallback.",
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "deviceScaleFactor": 1
+  },
+  "screenshots": [
+    {
+      "page": "learning",
+      "file": "web-learning.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "headings": [
+        "你的学习路径",
+        "循环是怎么工作的？",
+        "课程单元 6",
+        "代码速览Python",
+        "今日计划"
+      ]
+    },
+    {
+      "page": "review",
+      "file": "web-review.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "headings": [
+        "延迟复测"
+      ]
+    },
+    {
+      "page": "challenge",
+      "file": "web-challenge.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "headings": [
+        "挑战关卡"
+      ]
+    },
+    {
+      "page": "workbench-code",
+      "file": "web-workbench-code.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "headings": [
+        "01 · 循环是怎么工作的？"
+      ]
+    }
+  ],
+  "errors": [],
+  "completedAt": "2026-11-11T11:30:49.535Z"
+}

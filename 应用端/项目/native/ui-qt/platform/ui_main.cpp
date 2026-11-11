@@ -350,6 +350,7 @@ int main(int argc, char* argv[]) {
   QJsonArray smoke_popup_geometry;
   QJsonArray smoke_settings_rows;
   QJsonArray smoke_settings_text;
+  QJsonArray smoke_settings_initial_viewport;
   QJsonArray smoke_topbar_geometry;
   bool smoke_reference_ready = false;
   bool smoke_reference_registration_started = false;
@@ -364,6 +365,8 @@ int main(int argc, char* argv[]) {
       report.insert(QStringLiteral("popupGeometry"), smoke_popup_geometry);
       report.insert(QStringLiteral("settingsRows"), smoke_settings_rows);
       report.insert(QStringLiteral("settingsText"), smoke_settings_text);
+      report.insert(QStringLiteral("settingsInitialViewport"), smoke_settings_initial_viewport);
+      report.insert(QStringLiteral("platformName"), QGuiApplication::platformName());
       report.insert(QStringLiteral("topbarGeometry"), smoke_topbar_geometry);
       report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
       report.insert(QStringLiteral("preferenceStorageReady"), shell.preferenceStorageReady());
@@ -842,6 +845,38 @@ int main(int argc, char* argv[]) {
             write_smoke_report();
             application.exit(1);
             return;
+          }
+          {
+            auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
+            bool all_visible = flick && view.size() == QSize(1440, 900) &&
+                std::abs(flick->property("contentY").toReal()) < 0.01;
+            for (int index = 0; index < 8; ++index) {
+              auto* row = u3_find_item(settings_scroll,
+                  QStringLiteral("settingsPreferenceRow%1").arg(index));
+              const auto origin = row && flick ? row->mapToItem(flick, QPointF()) : QPointF(-1, -1);
+              const bool fully_visible = row && flick && row->isVisible() &&
+                  row->width() > 0 && row->height() > 0 && origin.x() >= -1 && origin.y() >= -1 &&
+                  origin.x() + row->width() <= flick->width() + 1 &&
+                  origin.y() + row->height() <= flick->height() + 1;
+              smoke_settings_initial_viewport.append(QJsonObject{{"index", index},
+                  {"windowWidth", view.width()}, {"windowHeight", view.height()},
+                  {"storageReady", shell.preferenceStorageReady()}, {"x", origin.x()}, {"y", origin.y()},
+                  {"width", row ? row->width() : -1}, {"height", row ? row->height() : -1},
+                  {"viewportWidth", flick ? flick->width() : -1},
+                  {"viewportHeight", flick ? flick->height() : -1},
+                  {"contentY", flick ? flick->property("contentY").toReal() : -1},
+                  {"fullyVisible", fully_visible}});
+              all_visible = all_visible && fully_visible;
+            }
+            // Offscreen uses fallback font metrics; compare the initial viewport only in a real window.
+            // Storage errors may wrap status text; all text is still checked after scrolling below.
+            if (QGuiApplication::platformName() != QStringLiteral("offscreen") &&
+                !smoke_preference_storage_unavailable && !all_visible) {
+              diagnostic = QStringLiteral("All eight settings rows must fit the initial 1440x900 viewport");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
           }
           if (smoke_preference_storage_unavailable) {
             for (const int index : {3, 4, 7}) {

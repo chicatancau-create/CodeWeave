@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "account": "Reference",
+  "lessonCount": 61,
+  "pythonLessonCount": 6,
+  "selectedLesson": "python-loop-sum",
+  "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f"
+}

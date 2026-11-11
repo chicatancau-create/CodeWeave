@@ -1,0 +1,475 @@
+{
+  "generatedAt": "2026-11-11T11:31:45.716669+00:00",
+  "method": "Pillow RGB exact pixel comparison; no scaling or crop",
+  "pairs": [
+    {
+      "name": "topbar-shell",
+      "qt": "qt-topbar/topbar-shell.png",
+      "web": "web-topbar/topbar-shell.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 959463,
+      "differentPixelPercent": 74.0326,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.256,
+        "16": 21.765,
+        "32": 10.9484
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.4483,
+        14.8587,
+        16.551
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "df622a465eec5fa2cd6a64837766034bb0f191511ea2bde8a624e777074b3d45",
+      "webSha256": "0bd4f60a0ba8efff622a46abf49ae51b3c5ca170d9bdbda343b492e6fe613da1"
+    },
+    {
+      "name": "topbar-account",
+      "qt": "qt-topbar/topbar-account.png",
+      "web": "web-topbar/topbar-account.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 921461,
+      "differentPixelPercent": 71.1004,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 42.524,
+        "16": 20.8407,
+        "32": 10.97
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.1508,
+        14.536,
+        16.2036
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "250ee01b3dcbe58d6b61075f85a71a61b319c4c075201e63b29e9252ec650512",
+      "webSha256": "9207fa57e4ed3ea4f46f80b1b456456ba4afd152c8d95ca07b354840db278421"
+    },
+    {
+      "name": "topbar-quick",
+      "qt": "qt-topbar/topbar-quick.png",
+      "web": "web-topbar/topbar-quick.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 954302,
+      "differentPixelPercent": 73.6344,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 45.7885,
+        "16": 22.1699,
+        "32": 11.358
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.8989,
+        15.3392,
+        17.0563
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "47ecd54f879c3fbdc303a3395ab5c798090165bf08abde86e843b4b7abad61da",
+      "webSha256": "c37686e24c67b0da11a6c7f0ae56d65d7494fcb6633b6a1361e836cc60543b0b"
+    },
+    {
+      "name": "topbar-notifications",
+      "qt": "qt-topbar/topbar-notifications.png",
+      "web": "web-topbar/topbar-notifications.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 948399,
+      "differentPixelPercent": 73.1789,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.2761,
+        "16": 21.8849,
+        "32": 11.2771
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.7227,
+        15.1321,
+        16.8153
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "7611cad5e3a7df38004c358ce269eb173f2fcab5de5c5b1b29ab9da03cca0a5f",
+      "webSha256": "c805c05da8901fa0bcd2ed5f45722c899e44f0709823af709ea49ebf15d220de"
+    },
+    {
+      "name": "topbar-search",
+      "qt": "qt-topbar/topbar-search.png",
+      "web": "web-topbar/topbar-search.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 936914,
+      "differentPixelPercent": 72.2927,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 43.4431,
+        "16": 21.3734,
+        "32": 11.1331
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.6675,
+        15.1823,
+        16.9423
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "0b05c3c7a02c7bf71c583af2f1858e9fa6fb17e2c9522de804a5713937e99fd4",
+      "webSha256": "916d5a76e6cddb5dfb8662e9c9cad9be20b34f76260ab263d19a3dd15a97c714"
+    },
+    {
+      "name": "topbar-settings",
+      "qt": "qt-topbar/topbar-settings.png",
+      "web": "web-topbar/topbar-settings.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1291100,
+      "differentPixelPercent": 99.6219,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 70.2146,
+        "16": 29.7411,
+        "32": 6.141
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.2739,
+        12.8263,
+        16.5294
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "9e6c4be7643e6afc1eb2a11c0ac39136d5797507ab0628d70cf09b5784b3b58d",
+      "webSha256": "80aca3f7fa4c282960baca95c37a7b645c9469c5e56d92947b5b782ab4c7732a"
+    },
+    {
+      "name": "topbar-help",
+      "qt": "qt-topbar/topbar-help.png",
+      "web": "web-topbar/topbar-help.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1280795,
+      "differentPixelPercent": 98.8268,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 84.4158,
+        "16": 40.086,
+        "32": 6.2106
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.6395,
+        13.7005,
+        18.0941
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "c6b7ba99a0d4fb26de2b0bc10cc28bf209b0f957cfc033e27ef0352728d9f311",
+      "webSha256": "18d8f0770e50003f0b7d9275d8ef4f1050185fa2c2ed36413f355e4dd990fef2"
+    },
+    {
+      "name": "topbar-shell-1100",
+      "qt": "qt-topbar/topbar-shell-small.png",
+      "web": "web-topbar/topbar-shell-small.png",
+      "status": "measured",
+      "width": 1100,
+      "height": 720,
+      "pixels": 792000,
+      "differentPixels": 754661,
+      "differentPixelPercent": 95.2855,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 61.89,
+        "16": 36.1242,
+        "32": 16.3581
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        15.5308,
+        19.832,
+        22.7613
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1100,
+        720
+      ],
+      "qtSha256": "a476cf97385fff94595380daf8744d2e1d2d020bd34259822fbd2ef0a1d3f0e7",
+      "webSha256": "38f498ee3ce3f6670c73f399a98d0e0a4d1d67f99dc20d887f98d5dc8e2e378b"
+    },
+    {
+      "name": "topbar-settings-1100",
+      "qt": "qt-topbar/topbar-settings-small.png",
+      "web": "web-topbar/topbar-settings-small.png",
+      "status": "measured",
+      "width": 1100,
+      "height": 720,
+      "pixels": 792000,
+      "differentPixels": 787822,
+      "differentPixelPercent": 99.4725,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 60.8625,
+        "16": 27.7655,
+        "32": 5.5961
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        9.606,
+        12.2267,
+        15.6926
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1100,
+        720
+      ],
+      "qtSha256": "705c601ff2f4a65cc70d38c6bf111c8f5f1126e5388733e02835dd3b3e0b5d3a",
+      "webSha256": "b642fac6293031b6b239dcaf14439b3f126405990bd31081e471eaf380f65123"
+    },
+    {
+      "name": "learning",
+      "qt": "qt-workspace/qt-learning.png",
+      "web": "web-pages/web-learning.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 959263,
+      "differentPixelPercent": 74.0172,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.2981,
+        "16": 21.6789,
+        "32": 11.2069
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.6205,
+        15.0148,
+        16.6924
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "bc5af4811fa105a8a0e3608c2cb0214965c21156c47087f5ab215b9810390c57",
+      "webSha256": "571e90e0f9b54692f106e90b3f35b303134283b19cf7280802bf7688b931752c"
+    },
+    {
+      "name": "review",
+      "qt": "qt-workspace/qt-review.png",
+      "web": "web-pages/web-review.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 491800,
+      "differentPixelPercent": 37.9475,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 24.2083,
+        "16": 16.0272,
+        "32": 8.8393
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        8.5566,
+        9.3075,
+        10.9816
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "b96d12c0afc799a17f75573f2d16ac211f053dfed4d18164d5e31e6aebe024ba",
+      "webSha256": "1320f60914f251ed8409b5a5d74a58dfae0f4f15d8902f5c1e6454050d084a64"
+    },
+    {
+      "name": "challenge",
+      "qt": "qt-workspace/qt-challenge.png",
+      "web": "web-pages/web-challenge.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 685598,
+      "differentPixelPercent": 52.9011,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 28.0201,
+        "16": 17.6834,
+        "32": 12.1959
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        14.6408,
+        15.4236,
+        15.9805
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "c7948c3cadca6116ff97f62cd55d3d298bca2167458f45343ec9210d20ff1d61",
+      "webSha256": "355d29e3726c4f9fe6f7e35e248d075da04496b86090e5e145d602ed1c9d840b"
+    },
+    {
+      "name": "workbench-code",
+      "qt": "qt-workspace/qt-workbench.png",
+      "web": "web-pages/web-workbench-code.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 678017,
+      "differentPixelPercent": 52.3161,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 40.1576,
+        "16": 16.2152,
+        "32": 4.0312
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        6.1275,
+        7.6171,
+        10.5649
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "a6b0ab903b5053d043eae1f5892bef479511004e6958519d198222ca19cea898",
+      "webSha256": "67055ca623a30c9989cfc78fc95e17d5bba3ed75c27e38f5dccadb7c83894bf4"
+    },
+    {
+      "name": "workbench-reading",
+      "qt": "qt-workspace/qt-workbench-reading.png",
+      "web": "web-workspace/web-workbench-reading.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 622167,
+      "differentPixelPercent": 48.0067,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 37.0946,
+        "16": 17.5043,
+        "32": 6.6117
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        9.456,
+        10.8318,
+        12.7198
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "84283ce241e78d5a24658c071cdbe7aa66535d3fa9640848992db482d10fa669",
+      "webSha256": "587d2d6fdd68d5e4aa1ffaadcf3c91a46cd6df7287939c7d9082942cd6a77c33"
+    },
+    {
+      "name": "workbench-guide",
+      "qt": "qt-workspace/qt-workbench-guide.png",
+      "web": "web-workspace/web-workbench-guide.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1295999,
+      "differentPixelPercent": 99.9999,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 99.4069,
+        "16": 61.7353,
+        "32": 9.6804
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        17.3955,
+        20.9707,
+        25.6243
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "98d9099eb53b642a407e07f3ca169f81ab3dd3fffa4524a66cdbd6baea792c11",
+      "webSha256": "a17305a6f927d768be67741f25176c09efc5fcfb96817deb302fcf1fd4a41d94"
+    },
+    {
+      "name": "workbench-help",
+      "qt": "qt-workspace/qt-workbench-help.png",
+      "web": "web-workspace/web-workbench-help.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1280797,
+      "differentPixelPercent": 98.8269,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 84.6731,
+        "16": 24.634,
+        "32": 6.1147
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.4778,
+        13.2083,
+        17.5567
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "f69724d1591b36a7a64ac65323456a30fe0ee584e52bf59d48253e12f6eb58b0",
+      "webSha256": "5ed7d49cea1141f61746ab81b1941e4373aba25eba09b7cc14abbdde52906595"
+    }
+  ],
+  "limitations": [
+    "Metrics describe RGB pixel difference only and are not a visual acceptance threshold.",
+    "Font rasterization, platform-native controls, data-source status, and independently rendered content affect results.",
+    "Only same-viewport pairs are compared; the full viewport screenshot includes surrounding content and modal backdrop."
+  ]
+}

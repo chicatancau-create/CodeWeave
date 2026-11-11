@@ -1,0 +1,254 @@
+{
+  "generatedAt": "2026-11-11T13:02:38.362908+00:00",
+  "method": "Pillow RGB exact pixel comparison; full viewport; no scaling or crop",
+  "pairs": [
+    {
+      "name": "topbar-shell",
+      "qt": "qt-topbar-final/topbar-shell.png",
+      "web": "web-topbar/topbar-shell.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 959462,
+      "differentPixelPercent": 74.0326,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.2561,
+        "16": 21.765,
+        "32": 10.9486
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.4483,
+        14.8586,
+        16.551
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "6b70c36475529f62f194a642c51681b012d776fbcc19b19a861e5b209d51f25c",
+      "webSha256": "0bd4f60a0ba8efff622a46abf49ae51b3c5ca170d9bdbda343b492e6fe613da1"
+    },
+    {
+      "name": "topbar-quick",
+      "qt": "qt-topbar-final/topbar-quick.png",
+      "web": "web-topbar/topbar-quick.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 954215,
+      "differentPixelPercent": 73.6277,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 45.9246,
+        "16": 22.3072,
+        "32": 11.3271
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.8559,
+        15.288,
+        16.9924
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "9334cefc7818a2a2dd522ec7fad3a8cd1764dbb7e536423aa671ffcce39a7205",
+      "webSha256": "c37686e24c67b0da11a6c7f0ae56d65d7494fcb6633b6a1361e836cc60543b0b"
+    },
+    {
+      "name": "topbar-notifications",
+      "qt": "qt-topbar-final/topbar-notifications.png",
+      "web": "web-topbar/topbar-notifications.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 948371,
+      "differentPixelPercent": 73.1768,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.4942,
+        "16": 22.0995,
+        "32": 11.2467
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.6843,
+        15.0917,
+        16.7684
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "4cb81dcc842d4de4e4074c2c7da7971ab71544419eb84466473ea7b96b26119c",
+      "webSha256": "c805c05da8901fa0bcd2ed5f45722c899e44f0709823af709ea49ebf15d220de"
+    },
+    {
+      "name": "topbar-account",
+      "qt": "qt-topbar-final/topbar-account.png",
+      "web": "web-topbar/topbar-account.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 921461,
+      "differentPixelPercent": 71.1004,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 42.5241,
+        "16": 20.8405,
+        "32": 10.9703
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.1508,
+        14.536,
+        16.2036
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "50699ffd6478f5f96884751e7d10cd5bf297fa6c14b3f2320ddfab5506288566",
+      "webSha256": "9207fa57e4ed3ea4f46f80b1b456456ba4afd152c8d95ca07b354840db278421"
+    },
+    {
+      "name": "topbar-search",
+      "qt": "qt-topbar-final/topbar-search.png",
+      "web": "web-topbar/topbar-search.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 936914,
+      "differentPixelPercent": 72.2927,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 43.443,
+        "16": 21.3733,
+        "32": 11.1333
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.6675,
+        15.1823,
+        16.9423
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "398854568f1038b1e79bb003bf23ddd672f90e4c5aee01bb3b4f933616acf0a0",
+      "webSha256": "916d5a76e6cddb5dfb8662e9c9cad9be20b34f76260ab263d19a3dd15a97c714"
+    },
+    {
+      "name": "topbar-settings",
+      "qt": "qt-topbar-final/topbar-settings.png",
+      "web": "web-topbar/topbar-settings.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 1286012,
+      "differentPixelPercent": 99.2293,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 69.3235,
+        "16": 28.976,
+        "32": 5.4747
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        9.1965,
+        11.7983,
+        15.4996
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "28a29fe1699ac70b8d902ca643acd990e3caddf030c37e0ceccab270aaddb193",
+      "webSha256": "80aca3f7fa4c282960baca95c37a7b645c9469c5e56d92947b5b782ab4c7732a"
+    },
+    {
+      "name": "topbar-settings-small",
+      "qt": "qt-topbar-final/topbar-settings-small.png",
+      "web": "web-topbar/topbar-settings-small.png",
+      "width": 1100,
+      "height": 720,
+      "differentPixels": 783162,
+      "differentPixelPercent": 98.8841,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 60.0309,
+        "16": 27.1299,
+        "32": 5.1617
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        8.6481,
+        11.3171,
+        14.7756
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1100,
+        720
+      ],
+      "qtSha256": "f4920199b18902877a6db479755f3beb54e9faa6503a8b69b7aa7927472ede4f",
+      "webSha256": "b642fac6293031b6b239dcaf14439b3f126405990bd31081e471eaf380f65123"
+    },
+    {
+      "name": "topbar-shell-small",
+      "qt": "qt-topbar-final/topbar-shell-small.png",
+      "web": "web-topbar/topbar-shell-small.png",
+      "width": 1100,
+      "height": 720,
+      "differentPixels": 754661,
+      "differentPixelPercent": 95.2855,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 61.8902,
+        "16": 36.1241,
+        "32": 16.3578
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        15.5309,
+        19.832,
+        22.7614
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1100,
+        720
+      ],
+      "qtSha256": "0c1583a112c2ec26a3d5c76e360fb0b9d5e4d4452433472d8df6ed7b99da8b15",
+      "webSha256": "38f498ee3ce3f6670c73f399a98d0e0a4d1d67f99dc20d887f98d5dc8e2e378b"
+    },
+    {
+      "name": "topbar-help",
+      "qt": "qt-topbar-final/topbar-help.png",
+      "web": "web-topbar/topbar-help.png",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 1280795,
+      "differentPixelPercent": 98.8268,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 84.4157,
+        "16": 40.0864,
+        "32": 6.2111
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.6394,
+        13.7004,
+        18.0942
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "472ff1702c29c8d48a9f6bcea92cd83c3683d092843864636694963a8692276d",
+      "webSha256": "18d8f0770e50003f0b7d9275d8ef4f1050185fa2c2ed36413f355e4dd990fef2"
+    }
+  ],
+  "limitations": [
+    "Descriptive metrics only; the task defines no pixel-difference acceptance threshold.",
+    "Surrounding pages, data-source state, native fonts, controls, and focus state differ.",
+    "Manual component review determines acceptance; the full pages are not visually equivalent."
+  ]
+}
