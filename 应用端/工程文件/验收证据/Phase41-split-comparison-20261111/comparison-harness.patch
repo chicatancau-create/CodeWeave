@@ -1,0 +1,168 @@
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp"
+index cf2c478..6899a11 100644
+--- "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp"
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp"
+@@ -5,6 +5,9 @@
+ #include <QGuiApplication>
+ #include <QDir>
+ #include <QQmlContext>
++#include <QQmlEngine>
++#include <QQmlError>
++#include <QCryptographicHash>
+ #include <QQuickView>
+ #include <QCloseEvent>
+ #include <QClipboard>
+@@ -134,19 +137,26 @@ void send_editor_shortcut(QQuickView& view, int key, Qt::KeyboardModifiers modif
+ }
+ 
+ int main(int argc, char* argv[]) {
++  for (int index = 1; index < argc; ++index) {
++    if (std::string_view(argv[index]) == "--split-comparison-json")
++      QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Floor);
++  }
+   const double entered = probe_clock();
+   MeasuredApplication application(argc, argv);
+   const auto arguments = application.arguments();
+   const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
+   if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
++  const auto comparison = arguments.indexOf(QStringLiteral("--split-comparison-json"));
++  if (comparison >= 0 && (comparison + 1 >= arguments.size() || benchmark >= 0)) return 2;
++  const bool isolated_window = comparison >= 0 || arguments.contains(QStringLiteral("--u3-matrix-json"));
+   const auto matrix = arguments.indexOf(QStringLiteral("--u3-matrix-json"));
+   if (matrix >= 0 && matrix + 1 >= arguments.size()) return 2;
+   std::unique_ptr<QTemporaryDir> benchmark_data;
+   if (benchmark >= 0) benchmark_data = std::make_unique<QTemporaryDir>();
+   std::unique_ptr<U3MatrixContext> matrix_context;
+-  if (matrix >= 0) {
++  if (isolated_window) {
+     matrix_context = std::make_unique<U3MatrixContext>();
+-    matrix_context->output = arguments.at(matrix + 1);
++    matrix_context->output = arguments.at((comparison >= 0 ? comparison : matrix) + 1);
+     matrix_context->screenshot_dir = QFileInfo(matrix_context->output).absolutePath();
+     if (!matrix_context->data.isValid() || matrix_context->screenshot_dir.isEmpty()) return 2;
+     QDir().mkpath(matrix_context->screenshot_dir);
+@@ -164,9 +174,9 @@ int main(int argc, char* argv[]) {
+       QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+   if (benchmark >= 0 && !benchmark_data->isValid()) return 2;
+   const auto nativeData = benchmark >= 0 ? benchmark_data->path() :
+-      (matrix >= 0 ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
++      (isolated_window ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
+       QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
+-  const auto effectiveWorkspace = matrix >= 0 ? matrix_context->data.path() : workspace;
++  const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() : workspace;
+   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
+   const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
+   for (const auto language : {std::string_view("cpp"), std::string_view("java"),
+@@ -211,12 +221,112 @@ int main(int argc, char* argv[]) {
+     view.resize(qMin(1440, static_cast<int>(available.width() * 0.92)),
+         qMin(900, static_cast<int>(available.height() * 0.92)));
+   }
++  if (comparison >= 0) {
++    view.setFlags(Qt::Window | Qt::FramelessWindowHint);
++    view.setMinimumSize(QSize(1440, 900));
++    view.setMaximumSize(QSize(1440, 900));
++    view.resize(1440, 900);
++  }
+   view.setTitle(shell.appTitle());
+   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
+   view.setResizeMode(QQuickView::SizeRootObjectToView);
++  QStringList comparison_warnings;
++  if (comparison >= 0) {
++    QObject::connect(view.engine(), &QQmlEngine::warnings, &application,
++        [&](const QList<QQmlError>& warnings) {
++          for (const auto& warning : warnings) comparison_warnings.append(warning.toString());
++        });
++  }
+   view.loadFromModule(QStringLiteral("CodeWeave.Ui"), QStringLiteral("Main"));
+   if (view.status() == QQuickView::Error) return 1;
+   view.show();
++  QTimer comparison_timer;
++  QJsonArray comparison_states;
++  if (comparison >= 0) {
++    QObject::connect(&comparison_timer, &QTimer::timeout, &application, [&, context = matrix_context.get()] {
++      if (++context->ticks > 160) {
++        u3_record(*context, QStringLiteral("comparison-timeout"), false);
++        u3_write_result(*context);
++        application.exit(3);
++        return;
++      }
++      if (shell.contentBusy() || shell.operationBusy() || !view.isExposed()) return;
++      if (context->step == 0) {
++        const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
++        if (index < 0) { application.exit(3); return; }
++        shell.openPublishedContent(index);
++        ++context->step;
++        return;
++      }
++      if (context->step == 1) {
++        if (!shell.hasSelectedContent()) return;
++        shell.loadStarterCode();
++        ++context->step;
++        return;
++      }
++      const QStringList pages{QStringLiteral("学习"), QStringLiteral("复习与进度"),
++          QStringLiteral("挑战"), QStringLiteral("编辑器"), QStringLiteral("草稿"),
++          QStringLiteral("分析"), QStringLiteral("账户")};
++      const QStringList names{QStringLiteral("learning"), QStringLiteral("review"),
++          QStringLiteral("challenge"), QStringLiteral("editor"), QStringLiteral("drafts"),
++          QStringLiteral("analytics"), QStringLiteral("account")};
++      const auto page_index = (context->step - 2) / 4;
++      if (page_index >= pages.size()) {
++        u3_record(*context, QStringLiteral("qml-no-warnings"), comparison_warnings.isEmpty());
++        QJsonObject result;
++        result.insert(QStringLiteral("mode"), QStringLiteral("phase41-isolated-historical-comparison"));
++        result.insert(QStringLiteral("isolatedData"), true);
++        result.insert(QStringLiteral("platform"), QGuiApplication::platformName());
++        result.insert(QStringLiteral("width"), view.width());
++        result.insert(QStringLiteral("height"), view.height());
++        result.insert(QStringLiteral("devicePixelRatio"), view.devicePixelRatio());
++        result.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(comparison_warnings));
++        result.insert(QStringLiteral("checks"), context->checks);
++        result.insert(QStringLiteral("states"), comparison_states);
++        result.insert(QStringLiteral("screenshots"), context->screenshots);
++        result.insert(QStringLiteral("passed"), u3_all_passed(*context));
++        QFile output(context->output);
++        if (!output.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
++            output.write(QJsonDocument(result).toJson(QJsonDocument::Indented)) < 0 || !output.flush()) {
++          application.exit(3); return;
++        }
++        application.exit(u3_all_passed(*context) ? 0 : 3);
++        comparison_timer.stop();
++        return;
++      }
++      const auto phase = (context->step - 2) % 4;
++      if (phase == 0) shell.selectPage(pages.at(page_index));
++      if (phase == 3) {
++        const auto image = view.grabWindow();
++        const auto filename = names.at(page_index) + QStringLiteral(".png");
++        const bool saved = image.size() == QSize(1440, 900) &&
++            image.save(QDir(context->screenshot_dir).filePath(filename));
++        if (saved) context->screenshots.append(filename);
++        u3_record(*context, names.at(page_index), saved && shell.currentPage() == pages.at(page_index) &&
++            view.size() == QSize(1440, 900) && view.devicePixelRatio() == 1 &&
++            !shell.hasActiveAccount() && !shell.executionBusy());
++        QJsonObject state;
++        state.insert(QStringLiteral("page"), shell.currentPage());
++        state.insert(QStringLiteral("filename"), filename);
++        state.insert(QStringLiteral("documentId"), shell.documentId());
++        state.insert(QStringLiteral("publishedIds"), QJsonArray::fromStringList(shell.publishedIds()));
++        state.insert(QStringLiteral("language"), shell.starterLanguage());
++        state.insert(QStringLiteral("codeSha256"), QString::fromLatin1(QCryptographicHash::hash(
++            shell.draftCode().toUtf8(), QCryptographicHash::Sha256).toHex()));
++        state.insert(QStringLiteral("bodySha256"), QString::fromLatin1(QCryptographicHash::hash(
++            shell.selectedContentBody().toUtf8(), QCryptographicHash::Sha256).toHex()));
++        state.insert(QStringLiteral("hasActiveAccount"), shell.hasActiveAccount());
++        state.insert(QStringLiteral("executionOutput"), shell.executionOutput());
++        state.insert(QStringLiteral("progressSummary"), shell.progressSummary());
++        state.insert(QStringLiteral("reviewSummary"), shell.reviewSummary());
++        state.insert(QStringLiteral("reviewItems"), QJsonArray::fromVariantList(shell.reviewItems()));
++        state.insert(QStringLiteral("analysisSnapshot"), QJsonObject::fromVariantMap(shell.analysisSnapshot()));
++        comparison_states.append(state);
++      }
++      ++context->step;
++    });
++    comparison_timer.start(250);
++  }
+   // Read-only, real-window smoke. Never creates an account or a data root.
+   const auto smoke = arguments.indexOf(QStringLiteral("--smoke-screenshot"));
+   std::unique_ptr<WindowProbe> probe;

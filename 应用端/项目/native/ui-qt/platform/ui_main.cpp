@@ -472,7 +472,7 @@ int main(int argc, char* argv[]) {
   if (qml_smoke) {
     QObject::connect(&qml_smoke_timer, &QTimer::timeout, &application, [&] {
       if (++qml_smoke_ticks > 200) {
-        diagnostic = QStringLiteral("QML smoke timed out while waiting for its viewport");
+        diagnostic = QStringLiteral("QML smoke timed out while waiting for its viewport or popup transition at step %1").arg(qml_smoke_page);
         write_smoke_report();
         application.exit(1);
         return;
@@ -696,14 +696,22 @@ int main(int argc, char* argv[]) {
       }
       // Packaged content can enable Continue; the minimal CTest host has no selected lesson.
       first = first->property("enabled").toBool() ? first : review;
+      // opened is false during both transitions; wait for the visual/focus handoff
+      // before the next input. The smoke timer still enforces its bounded timeout.
+      for (auto* popup : {quick, account, notifications, search}) {
+        if (popup->property("visible").toBool() && !popup->property("opened").toBool()) return;
+      }
       const auto require_focus = [&](QQuickItem* item) {
         if (item->hasActiveFocus()) return true;
         const auto* active = view.activeFocusItem();
-        diagnostic = QStringLiteral("Menu focus assertion failed at step %1: quickOpened=%2 accountOpened=%3 windowActive=%4 target=%5 active=%6")
+        diagnostic = QStringLiteral("Menu focus assertion failed at step %1: quickOpened=%2 accountOpened=%3 windowActive=%4 target=%5 active=%6 notificationVisible=%7 notificationOpened=%8 notificationRestore=%9")
             .arg(qml_smoke_page).arg(quick->property("opened").toBool())
             .arg(account->property("opened").toBool()).arg(view.isActive())
             .arg(QString::fromUtf8(item->objectName().toUtf8()))
-            .arg(active ? QString::fromUtf8(active->objectName().toUtf8()) : QStringLiteral("<none>"));
+            .arg(active ? QString::fromUtf8(active->objectName().toUtf8()) : QStringLiteral("<none>"))
+            .arg(notifications->property("visible").toBool())
+            .arg(notifications->property("opened").toBool())
+            .arg(notifications->property("restoreFocusOnClose").toBool());
         write_smoke_report();
         qWarning("QML smoke: incorrect menu focus");
         application.exit(1);
@@ -907,6 +915,8 @@ int main(int argc, char* argv[]) {
           {
             auto* toggle = u3_find_item(settings_scroll, QStringLiteral("settingsReducedMotionToggle"));
             auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+            auto* popup_enter = quick ? quick->findChild<QObject*>(QStringLiteral("popupEnterAnimation")) : nullptr;
+            auto* popup_exit = quick ? quick->findChild<QObject*>(QStringLiteral("popupExitAnimation")) : nullptr;
             auto* busy_indicator = u3_find_item(view.rootObject(), QStringLiteral("topbarBusyIndicator"));
             auto* restore = u3_find_item(settings_scroll, QStringLiteral("settingsRestoreDefaults"));
             auto* font_size = u3_find_item(settings_scroll, QStringLiteral("settingsEditorFontSize"));
@@ -931,7 +941,9 @@ int main(int argc, char* argv[]) {
                 ? u3_find_item(busy_indicator, QStringLiteral("motionStaticRing")) : nullptr;
             auto* static_dot = busy_indicator
                 ? u3_find_item(busy_indicator, QStringLiteral("motionStaticDot")) : nullptr;
-            if (!toggle || !design_system || !busy_indicator || !spinner || !static_ring || !static_dot || !restore ||
+            if (!toggle || !design_system || !popup_enter || !popup_exit ||
+                popup_enter->property("duration").toInt() != 150 || popup_exit->property("duration").toInt() != 150 ||
+                !busy_indicator || !spinner || !static_ring || !static_dot || !restore ||
                 !font_size || !line_toggle || !font_size->property("enabled").toBool() ||
                 !line_toggle->property("enabled").toBool() || shell.editorFontSize() != 13 ||
                 !shell.editorLineNumbers() || font_size->property("currentIndex").toInt() != 1 ||
@@ -966,7 +978,8 @@ int main(int argc, char* argv[]) {
             QCoreApplication::processEvents();
             if (!require_toggle_thumb(toggle)) return;
             if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
-                design_system->property("durQuick").toInt() != 0 || spinner->isVisible() ||
+                design_system->property("durQuick").toInt() != 0 ||
+                popup_enter->property("duration").toInt() != 0 || popup_exit->property("duration").toInt() != 0 || spinner->isVisible() ||
                 spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
               diagnostic = QStringLiteral("Reduced-motion toggle did not disable transitions and spinner motion");
               write_smoke_report();

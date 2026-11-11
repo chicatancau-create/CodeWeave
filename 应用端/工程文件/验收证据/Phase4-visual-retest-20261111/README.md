@@ -9,6 +9,10 @@
 - [通过] 两种状态各在 1440×900 与 1100×720 检查 8 行设置标题/说明边界，均为 16/16；初始视口 8/8 行完整可见，滚动后底部内容可读。
 - [通过] 最终 17 张 PNG 已用 Pillow 检查，尺寸为 1440×900 或 1100×720；SHA-256 与文件清单见 `validation-summary.json`。
 - [通过] Web 参考截图、账户/课程/源码核对和 6 项 Escape/焦点归还检查见 `web-topbar/` 与 `reference-compare-final.json`。
+- [先失败，修复后通过] 弹层动画后首次真实窗口 smoke 在通知退场期间提前检查归焦，失败报告保留于 `qt-popup-motion-final/` 和 `qt-popup-motion-focus-diagnostic/`。运行器现等待可见 Popup 完成转场，再执行原焦点断言；200 tick 超时不变。
+- [通过] 最终弹层动画真实 Windows smoke：`qt-popup-motion-verified/report.json` 为 `diagnostic=passed`、QML warnings 0、11 张截图；包含通知关闭后的焦点归还和减少动效断言。截图为 1440×900 或 1100×720。
+- [通过] 存储不可用状态的弹层动画复测：`qt-popup-motion-preferences-unavailable/report.json` 为 `diagnostic=passed`、QML warnings 0、6 张截图；设置文本边界 16/16、初始视口 8/8。
+- [记录] 四次弹层复测的报告和图片 SHA-256 清单见 `popup-motion-sha256.json`；失败诊断不计入通过。
 - [记录] `pixel-diff-final.json` 是全视口 RGB 描述性指标，无任务定义的通过率阈值；由于数据状态、字体、控件和焦点不同，差异百分比不能作为失败判据。
 
 ## 修复证据链
@@ -64,3 +68,4 @@ corepack pnpm verify
 - [已清理] 本轮创建的临时 Qt 部署目录：`C:\Users\Admin\AppData\Local\Temp\CodeWeave-Phase4-visual-retest-20261111-b14d5db5ba0f47858525ddb4ffe25047`。删除前再次确认目录无 ReparsePoint、无运行中的 Qt 进程；删除后路径不存在。
 - [已清理] 本轮启动的 Vite 进程链及 `127.0.0.1:5174` 监听；未触碰 Codex/ChatGPT 祖先进程。
 - [保留] 本目录中的截图、日志和 JSON 是正式验收证据，不清理。
+- [保留] `qt-popup-motion-final/`、`qt-popup-motion-focus-diagnostic/` 是失败诊断证据；`qt-popup-motion-verified/` 与 `qt-popup-motion-preferences-unavailable/` 是两态最终通过证据。

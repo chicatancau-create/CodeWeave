@@ -3,7 +3,7 @@ import QtQuick.Controls.Basic
 
 Popup {
     id: shellPopup
-    property QtObject ds
+    required property QtObject ds
     property Item returnFocusItem
     property Item anchorItem
     property bool alignRight: true
@@ -40,12 +40,19 @@ Popup {
         items[next].forceActiveFocus(Qt.TabFocusReason);
     }
 
-    padding: ds ? ds.s12 : 12
+    padding: ds.s12
     modal: false
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     contentItem: Item {}
+
+    enter: Transition {
+        NumberAnimation { objectName: "popupEnterAnimation"; property: "opacity"; from: 0; to: 1; duration: ds.durQuick; easing.type: ds.easingType }
+    }
+    exit: Transition {
+        NumberAnimation { objectName: "popupExitAnimation"; property: "opacity"; from: 1; to: 0; duration: ds.durQuick; easing.type: ds.easingType }
+    }
 
     Shortcut {
         sequence: "Down"
@@ -73,10 +80,10 @@ Popup {
     }
 
     background: Rectangle {
-        color: ds ? ds.overlay : "#141b25"
-        border.color: ds ? ds.lineStrong : "#576578"
+        color: ds.overlay
+        border.color: ds.lineStrong
         border.width: 1
-        radius: ds ? ds.radius : 8
+        radius: ds.radius
     }
 
     onOpened: {

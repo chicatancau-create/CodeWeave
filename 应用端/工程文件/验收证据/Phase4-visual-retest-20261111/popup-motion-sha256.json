@@ -1,0 +1,150 @@
+{
+  "algorithm": "SHA-256",
+  "files": [
+    {
+      "path": "qt-popup-motion-final/report.json",
+      "bytes": 9228,
+      "sha256": "0ab6cb7417632ce050e98c4a251c8f72c58c664b59c770bcc250a1e6370a0d19"
+    },
+    {
+      "path": "qt-popup-motion-final/topbar-account.png",
+      "bytes": 248714,
+      "sha256": "2f2de529524e0cab87b09cc049320f3190af82ab9929f7079f3870de03319af8"
+    },
+    {
+      "path": "qt-popup-motion-final/topbar-notifications.png",
+      "bytes": 252049,
+      "sha256": "fb54b64aa9a9cf0fe76b5b8e0de4b94f51afe8369107a2cb5d2086a091ae8839"
+    },
+    {
+      "path": "qt-popup-motion-final/topbar-quick.png",
+      "bytes": 261054,
+      "sha256": "a6888a116655ac693263b5a6f2c54e897aa51e8afc3c80a6a055f7dbfec501bd"
+    },
+    {
+      "path": "qt-popup-motion-final/topbar-shell.png",
+      "bytes": 244829,
+      "sha256": "9b5f8501700d6e200a44ddd570289ca456b4096178c179b4df456f25c741abd3"
+    },
+    {
+      "path": "qt-popup-motion-focus-diagnostic/report.json",
+      "bytes": 9337,
+      "sha256": "cafe224145daa5f88d1e20ed67b75440035541eab284acf33d7fad4a05e3cea8"
+    },
+    {
+      "path": "qt-popup-motion-focus-diagnostic/topbar-account.png",
+      "bytes": 248670,
+      "sha256": "a363df94cbdd662b9e2ad8e009d6c0290d3c57282106706ebd880906a75a9045"
+    },
+    {
+      "path": "qt-popup-motion-focus-diagnostic/topbar-notifications.png",
+      "bytes": 252076,
+      "sha256": "43acb9dfdc8ee47964bbbc8e829a9d58e8c1cb0acdf1c1feba7a3fe88a8b20d2"
+    },
+    {
+      "path": "qt-popup-motion-focus-diagnostic/topbar-quick.png",
+      "bytes": 261012,
+      "sha256": "aa8505de162622939eab9ff74387533af5fdae8a2212668057ec63ee0e0f463f"
+    },
+    {
+      "path": "qt-popup-motion-focus-diagnostic/topbar-shell.png",
+      "bytes": 244816,
+      "sha256": "2a9b8f70655879a29deb6e26a28cabc8fcd11462faba16cc0835e78369146d12"
+    },
+    {
+      "path": "qt-popup-motion-verified/report.json",
+      "bytes": 60661,
+      "sha256": "7d5b90d017cd1695341f608af4b24899159403beb31b7753ea34c13fccb8f2fe"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-account.png",
+      "bytes": 248755,
+      "sha256": "693ef432ba0df5788177f499138469e766103fe8dacb44dfdae234d8390445a3"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-help.png",
+      "bytes": 262097,
+      "sha256": "8b81361c3ebddf97527442a113071aba247e965cc397308a4701cea13a7ccd4d"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-notifications.png",
+      "bytes": 252086,
+      "sha256": "3e91fdac6d0012849e792743a3083b6250999b5a47fb99bdc4992cc22ac545d4"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-quick.png",
+      "bytes": 261073,
+      "sha256": "ef5cf0d6eba2cf23573c6174e67dbdf92b5d5a4a22f883497f6fb8d2644b72a1"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-search.png",
+      "bytes": 244701,
+      "sha256": "8017fdeb6c149e28ba315cb339c3324cbfc5249b1c0cac47fb46b378a6414811"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-settings-bottom-small.png",
+      "bytes": 173984,
+      "sha256": "edfc8ca51af4bc85d2d490d0ef47ae3cf8152ca6179cf4cb9fa941e75921f3ea"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-settings-middle-small.png",
+      "bytes": 172880,
+      "sha256": "749ae4955516f9a7a5e9143500b8f529519271e914af374277714b853a3a1285"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-settings-small.png",
+      "bytes": 163556,
+      "sha256": "e32e594b8e96aa10e96499bf0a8d51e87ecb82dd19d5b67a39571f00b6b69219"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-settings.png",
+      "bytes": 260640,
+      "sha256": "9d6214ed99c06fbce8172b88918cc9b007a502bd0d6f92c3b3cda23e27c5265b"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-shell-small.png",
+      "bytes": 195494,
+      "sha256": "9e14f5fe66f93c33d61f01eae48ff76ccc74fb057dc208cdfe858e03adf751d0"
+    },
+    {
+      "path": "qt-popup-motion-verified/topbar-shell.png",
+      "bytes": 244863,
+      "sha256": "43a917fe9637a2a8dfbd68b41e56b86045b96c9c3fd8288cf3fe3cccd450e35d"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/report.json",
+      "bytes": 41491,
+      "sha256": "84a962885c6b68b7e413789219c32293e1e6d482fb5cdd2bc6f8e772688821e9"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/topbar-account.png",
+      "bytes": 248716,
+      "sha256": "8836622dedc8a408994127db2efcaf1ece7feaf248206897160ef219094b421c"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/topbar-notifications.png",
+      "bytes": 252076,
+      "sha256": "af014a037a84b89cba929f39ce9ef62be7b2589ef4f98182310d0a654cca4b6f"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/topbar-quick.png",
+      "bytes": 261067,
+      "sha256": "be56e918c17b370fd2c27839b34cdb02fd76150527588766749c7e4be2248ffc"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/topbar-settings-small.png",
+      "bytes": 169376,
+      "sha256": "cd582a408d3a45b9acd84af01040dcb585d8399c03bca7dc586f8881259b1574"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/topbar-settings.png",
+      "bytes": 268017,
+      "sha256": "35e8529b92af5508859f660551c23851add4e96e52e910c5bc3577db5cdf73cd"
+    },
+    {
+      "path": "qt-popup-motion-preferences-unavailable/topbar-shell.png",
+      "bytes": 244873,
+      "sha256": "51ae0bfec0e85f5f816751709db4f53608845fbe2b023746f76b2cbae516d19a"
+    }
+  ]
+}
