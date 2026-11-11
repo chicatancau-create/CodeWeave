@@ -40,7 +40,8 @@ ColumnLayout {
                 || modelData.title === "编辑器字号" || modelData.title === "显示行号"
             objectName: "settingsPreferenceRow" + index
             Layout.fillWidth: true
-            implicitHeight: Math.max(72, row.implicitHeight)
+            implicitHeight: Math.max(72, row.implicitHeight,
+                preferenceTextColumn.implicitHeight + settings.ds.s12 * 2)
             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: settings.ds.line }
             RowLayout {
                 id: row
@@ -49,9 +50,11 @@ ColumnLayout {
                 anchors.bottomMargin: settings.ds.s12
                 spacing: settings.ds.s16
                 ColumnLayout {
+                    id: preferenceTextColumn
                     Layout.fillWidth: true
                     spacing: settings.ds.s4
                     Text {
+                        objectName: "settingsPreferenceTitle" + index
                         Layout.fillWidth: true
                         text: modelData.title + (preferenceRow.supported ? "" : "（待接入）")
                         color: settings.ds.ink
@@ -61,6 +64,7 @@ ColumnLayout {
                         wrapMode: Text.WrapAnywhere
                     }
                     Text {
+                        objectName: "settingsPreferenceDescription" + index
                         Layout.fillWidth: true
                         text: modelData.description
                             + (preferenceRow.supported && !uiShell.preferenceStorageReady ? "（本机配置不可用）" : "")

@@ -1,0 +1,39 @@
+{
+    "accountContact": "",
+    "accountName": "",
+    "diagnostic": "Account popup contact does not match the active account",
+    "filteredLessonIds": [
+    ],
+    "geometry": [
+    ],
+    "lessonCount": 0,
+    "lessonIds": [
+    ],
+    "popupGeometry": [
+        {
+            "anchorBottom": 51,
+            "anchorEdge": 1416,
+            "height": 295,
+            "name": "topbar-account",
+            "width": 196,
+            "x": 1220,
+            "y": 57
+        }
+    ],
+    "preferenceStorageReady": true,
+    "preferenceStorageUnavailableSmoke": false,
+    "qmlWarnings": [
+    ],
+    "referenceAccount": false,
+    "referenceSubject": "",
+    "screenshots": [
+    ],
+    "selectedLesson": {
+    },
+    "settingsRows": [
+    ],
+    "settingsText": [
+    ],
+    "topbarGeometry": [
+    ]
+}

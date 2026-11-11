@@ -210,6 +210,8 @@ int main(int argc, char* argv[]) {
   const auto arguments = application.arguments();
   const bool qml_smoke = arguments.contains(QStringLiteral("--qml-load-smoke"));
   const auto qml_smoke_arg = arguments.indexOf(QStringLiteral("--qml-load-smoke"));
+  const bool smoke_preference_storage_unavailable =
+      arguments.contains(QStringLiteral("--qml-load-smoke-preferences-unavailable"));
   const auto topbar_reference = arguments.indexOf(QStringLiteral("--topbar-reference-content"));
   if (topbar_reference >= 0 && (!qml_smoke || topbar_reference + 1 >= arguments.size())) return 2;
   const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
@@ -220,6 +222,7 @@ int main(int argc, char* argv[]) {
   if (comparison >= 0 && (comparison + 1 >= arguments.size() || matrix >= 0 || benchmark >= 0)) return 2;
   if (qml_smoke && (matrix >= 0 || comparison >= 0 || benchmark >= 0)) return 2;
   if (qml_smoke && (qml_smoke_arg + 1 >= arguments.size())) return 2;
+  if (smoke_preference_storage_unavailable && !qml_smoke) return 2;
   const bool isolated_window = matrix >= 0 || comparison >= 0;
   std::unique_ptr<QTemporaryDir> benchmark_data;
   if (benchmark >= 0 || qml_smoke) benchmark_data = std::make_unique<QTemporaryDir>();
@@ -248,7 +251,8 @@ int main(int argc, char* argv[]) {
       QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
   const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() :
       (qml_smoke ? benchmark_data->path() : workspace);
-  shell.configurePreferenceStorage(std::filesystem::path(nativeData.toStdWString()));
+  if (!smoke_preference_storage_unavailable)
+    shell.configurePreferenceStorage(std::filesystem::path(nativeData.toStdWString()));
   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
   if (!isolated_window && !qml_smoke && benchmark < 0) {
     QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
@@ -345,6 +349,7 @@ int main(int argc, char* argv[]) {
   QJsonArray smoke_geometry;
   QJsonArray smoke_popup_geometry;
   QJsonArray smoke_settings_rows;
+  QJsonArray smoke_settings_text;
   QJsonArray smoke_topbar_geometry;
   bool smoke_reference_ready = false;
   bool smoke_reference_registration_started = false;
@@ -358,8 +363,12 @@ int main(int argc, char* argv[]) {
       report.insert(QStringLiteral("geometry"), smoke_geometry);
       report.insert(QStringLiteral("popupGeometry"), smoke_popup_geometry);
       report.insert(QStringLiteral("settingsRows"), smoke_settings_rows);
+      report.insert(QStringLiteral("settingsText"), smoke_settings_text);
       report.insert(QStringLiteral("topbarGeometry"), smoke_topbar_geometry);
       report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
+      report.insert(QStringLiteral("preferenceStorageReady"), shell.preferenceStorageReady());
+      report.insert(QStringLiteral("preferenceStorageUnavailableSmoke"),
+          smoke_preference_storage_unavailable);
       report.insert(QStringLiteral("referenceSubject"), topbar_reference >= 0 ? QStringLiteral("Python") : QString());
       report.insert(QStringLiteral("accountName"), shell.accountName());
       report.insert(QStringLiteral("accountContact"), shell.accountContact());
@@ -585,6 +594,64 @@ int main(int argc, char* argv[]) {
         application.exit(1);
         return;
       }
+      const auto inspect_settings_text = [&](const QString& viewport) {
+        for (int index = 0; index < 8; ++index) {
+          auto* row = u3_find_item(settings_scroll,
+              QStringLiteral("settingsPreferenceRow%1").arg(index));
+          auto* title = row ? u3_find_item(row,
+              QStringLiteral("settingsPreferenceTitle%1").arg(index)) : nullptr;
+          auto* description = row ? u3_find_item(row,
+              QStringLiteral("settingsPreferenceDescription%1").arg(index)) : nullptr;
+          const auto text_metrics = [&](QQuickItem* item) {
+            if (!item) return QJsonObject{{"found", false}, {"fitsRow", false}};
+            const auto metric = [item](const char* name) {
+              bool valid = false;
+              const auto value = item->property(name).toDouble(&valid);
+              return QJsonObject{{"valid", valid}, {"value", value}};
+            };
+            const auto origin = item->mapToItem(row, QPointF());
+            const auto implicit_height = metric("implicitHeight");
+            const auto painted_width = metric("paintedWidth");
+            const auto painted_height = metric("paintedHeight");
+            const auto content_height = metric("contentHeight");
+            const auto within = [&](const QJsonObject& value, double limit) {
+              const auto number = value.value("value").toDouble();
+              return value.value("valid").toBool() && std::isfinite(number) && number <= limit + 1;
+            };
+            const bool fits_row = row && item->isVisible() && !item->property("truncated").toBool() &&
+                item->width() > 0 && item->height() > 0 && origin.x() >= -1 && origin.y() >= -1 &&
+                origin.x() + item->width() <= row->width() + 1 &&
+                origin.y() + item->height() <= row->height() + 1 &&
+                within(implicit_height, item->height()) && within(content_height, item->height()) &&
+                within(painted_width, item->width()) && within(painted_height, item->height());
+            return QJsonObject{{"found", true}, {"fitsRow", fits_row},
+                {"x", origin.x()}, {"y", origin.y()}, {"width", item->width()},
+                {"height", item->height()}, {"implicitHeight", implicit_height},
+                {"contentHeight", content_height}, {"paintedWidth", painted_width},
+                {"paintedHeight", painted_height},
+                {"truncated", item->property("truncated").toBool()}};
+          };
+          const auto title_metrics = text_metrics(title);
+          const auto description_metrics = text_metrics(description);
+          const bool passed = row && row->isVisible() && title_metrics.value("fitsRow").toBool() &&
+              description_metrics.value("fitsRow").toBool() &&
+              view.size() == (viewport == QStringLiteral("1440x900")
+                  ? QSize(1440, 900) : QSize(1100, 720));
+          QJsonObject result{{"viewport", viewport}, {"windowWidth", view.width()},
+              {"windowHeight", view.height()}, {"storageReady", shell.preferenceStorageReady()},
+              {"index", index}, {"rowWidth", row ? row->width() : -1},
+              {"rowHeight", row ? row->height() : -1}, {"title", title_metrics},
+              {"description", description_metrics}, {"passed", passed}};
+          smoke_settings_text.append(result);
+          if (!passed) {
+            diagnostic = QStringLiteral("Settings text geometry failed at %1 row %2: %3")
+                .arg(viewport).arg(index)
+                .arg(QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact)));
+            return false;
+          }
+        }
+        return true;
+      };
       const auto require_reference_close_style = [&](QObject* dialog) {
         auto* tokens = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
         auto* close = dialog->findChild<QQuickItem*>(QStringLiteral("shellDialogHeaderClose"));
@@ -771,6 +838,37 @@ int main(int argc, char* argv[]) {
             return;
           }
           if (!require_reference_close_style(settings)) return;
+          if (!inspect_settings_text(QStringLiteral("1440x900"))) {
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (smoke_preference_storage_unavailable) {
+            for (const int index : {3, 4, 7}) {
+              const auto row_name = QStringLiteral("settingsPreferenceRow%1").arg(index);
+              auto* row = u3_find_item(settings_scroll, row_name);
+              const auto control_name = index == 3 ? QStringLiteral("settingsReducedMotionToggle") :
+                  index == 4 ? QStringLiteral("settingsEditorFontSize") :
+                  QStringLiteral("settingsEditorLineNumbersToggle");
+              auto* control = row ? u3_find_item(row, control_name) : nullptr;
+              auto* description = row ? u3_find_item(row,
+                  QStringLiteral("settingsPreferenceDescription%1").arg(index)) : nullptr;
+              if (!control || control->property("enabled").toBool() || !description ||
+                  !description->property("text").toString().endsWith(QStringLiteral("（本机配置不可用）"))) {
+                diagnostic = QStringLiteral("Unavailable preference storage state is missing at row %1").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+            }
+            if (!capture_topbar(QStringLiteral("topbar-settings"))) { application.exit(1); return; }
+            smoke_expected_size = QSize(1100, 720);
+            view.setMinimumSize(QSize(1100, 720));
+            view.setMaximumSize(QSize(1100, 720));
+            view.setWindowState(Qt::WindowNoState);
+            view.resize(1100, 720);
+            break;
+          }
           {
             auto* toggle = u3_find_item(settings_scroll, QStringLiteral("settingsReducedMotionToggle"));
             auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
@@ -990,7 +1088,80 @@ int main(int argc, char* argv[]) {
               return;
             }
           }
+          if (!inspect_settings_text(QStringLiteral("1100x720"))) {
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
           if (!capture_topbar(QStringLiteral("topbar-settings-small"))) { application.exit(1); return; }
+          if (smoke_preference_storage_unavailable) {
+            auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
+            const auto content_height = flick ? flick->property("contentHeight").toReal() : 0;
+            for (int index = 0; index < 8; ++index) {
+              auto* row = u3_find_item(settings_scroll,
+                  QStringLiteral("settingsPreferenceRow%1").arg(index));
+              if (!flick || !row || content_height <= flick->height()) {
+                diagnostic = QStringLiteral("Unavailable preference settings content is incomplete");
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              flick->setProperty("contentY", 0);
+              QCoreApplication::processEvents();
+              const auto initial = row->mapToItem(flick, QPointF());
+              flick->setProperty("contentY", std::clamp(
+                  initial.y() + row->height() / 2 - flick->height() / 2,
+                  0.0, content_height - flick->height()));
+              QCoreApplication::processEvents();
+              const auto supported = index == 3 || index == 4 || index == 7;
+              const auto control_name = index == 3 ? QStringLiteral("settingsReducedMotionToggle") :
+                  index == 4 ? QStringLiteral("settingsEditorFontSize") :
+                  index == 7 ? QStringLiteral("settingsEditorLineNumbersToggle") :
+                  QStringLiteral("settingsPreference%1%2").arg(index == 5 ? "Select" : "Toggle").arg(index);
+              auto* control = u3_find_item(row, control_name);
+              auto* title = u3_find_item(row, QStringLiteral("settingsPreferenceTitle%1").arg(index));
+              auto* description = u3_find_item(row,
+                  QStringLiteral("settingsPreferenceDescription%1").arg(index));
+              const auto text_fits_row = [&](QQuickItem* item) {
+                if (!item || !item->isVisible() || item->property("truncated").toBool() ||
+                    item->width() <= 0 || item->height() <= 0) return false;
+                const auto origin = item->mapToItem(row, QPointF());
+                const auto implicit_height = item->property("implicitHeight");
+                const auto content_height_value = item->property("contentHeight");
+                const auto painted_width = item->property("paintedWidth");
+                const auto painted_height = item->property("paintedHeight");
+                bool implicit_valid = false, content_valid = false, painted_width_valid = false,
+                    painted_height_valid = false;
+                const auto implicit = implicit_height.toDouble(&implicit_valid);
+                const auto content = content_height_value.toDouble(&content_valid);
+                const auto painted_w = painted_width.toDouble(&painted_width_valid);
+                const auto painted_h = painted_height.toDouble(&painted_height_valid);
+                return origin.x() >= -1 && origin.y() >= -1 &&
+                    origin.x() + item->width() <= row->width() + 1 &&
+                    origin.y() + item->height() <= row->height() + 1 &&
+                    implicit_valid && content_valid && painted_width_valid && painted_height_valid &&
+                    implicit <= item->height() + 1 && content <= item->height() + 1 &&
+                    painted_w <= item->width() + 1 && painted_h <= item->height() + 1;
+              };
+              const auto status_suffix = QStringLiteral("（本机配置不可用）");
+              const bool row_valid = row->isVisible() && control && !control->property("enabled").toBool() &&
+                  title && description && text_fits_row(title) && text_fits_row(description) &&
+                  (!supported || description->property("text").toString().endsWith(status_suffix));
+              if (!row_valid) {
+                diagnostic = QStringLiteral("Unavailable preference text or control is invalid at row %1: title=%2x%3 description=%4x%5 row=%6x%7")
+                    .arg(index).arg(title ? title->width() : -1).arg(title ? title->height() : -1)
+                    .arg(description ? description->width() : -1).arg(description ? description->height() : -1)
+                    .arg(row->width()).arg(row->height());
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+            }
+            diagnostic = QStringLiteral("passed");
+            write_smoke_report();
+            application.exit(0);
+            return;
+          }
           {
             auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
             auto* export_data = u3_find_item(settings_scroll, QStringLiteral("settingsDataExportAction"));
@@ -1058,6 +1229,58 @@ int main(int argc, char* argv[]) {
                 application.exit(1);
                 return;
               }
+              auto* title_text = u3_find_item(row,
+                  QStringLiteral("settingsPreferenceTitle%1").arg(index));
+              auto* description_text = u3_find_item(row,
+                  QStringLiteral("settingsPreferenceDescription%1").arg(index));
+              const auto text_metrics = [&](QQuickItem* item) {
+                if (!item) return QJsonObject{{"found", false}};
+                const auto metric = [item](const char* name) {
+                  bool valid = false;
+                  const auto value = item->property(name).toDouble(&valid);
+                  return QJsonObject{{"valid", valid}, {"value", value}};
+                };
+                const auto origin = item->mapToItem(row, QPointF());
+                return QJsonObject{{"found", true}, {"visible", item->isVisible()},
+                    {"x", origin.x()}, {"y", origin.y()}, {"width", item->width()},
+                    {"height", item->height()}, {"implicitHeight", metric("implicitHeight")},
+                    {"contentHeight", metric("contentHeight")},
+                    {"paintedWidth", metric("paintedWidth")},
+                    {"paintedHeight", metric("paintedHeight")},
+                    {"truncated", item->property("truncated").toBool()}};
+              };
+              const auto title_metrics = text_metrics(title_text);
+              const auto description_metrics = text_metrics(description_text);
+              const auto text_fits_row = [&](QQuickItem* item, const QJsonObject& metrics) {
+                if (!item || !metrics.value("visible").toBool() ||
+                    metrics.value("truncated").toBool() || item->width() <= 0 || item->height() <= 0)
+                  return false;
+                const auto metric_fits = [&](const QString& property, double limit) {
+                  const auto value = metrics.value(property).toObject();
+                  const auto number = value.value("value").toDouble();
+                  return value.value("valid").toBool() && std::isfinite(number) && number <= limit + 1;
+                };
+                const auto x = metrics.value("x").toDouble();
+                const auto y = metrics.value("y").toDouble();
+                return x >= -1 && y >= -1 && x + item->width() <= row->width() + 1 &&
+                    y + item->height() <= row->height() + 1 &&
+                    metric_fits(QStringLiteral("implicitHeight"), item->height()) &&
+                    metric_fits(QStringLiteral("contentHeight"), item->height()) &&
+                    metric_fits(QStringLiteral("paintedWidth"), item->width()) &&
+                    metric_fits(QStringLiteral("paintedHeight"), item->height());
+              };
+              const auto title_fits = text_fits_row(title_text, title_metrics);
+              const auto description_fits = text_fits_row(description_text, description_metrics);
+              if (!title_fits || !description_fits) {
+                diagnostic = QStringLiteral("Settings preference text is clipped at 1100x720: row=%1 title=%2 description=%3 rowSize=%4x%5")
+                    .arg(index)
+                    .arg(QString::fromUtf8(QJsonDocument(title_metrics).toJson(QJsonDocument::Compact)))
+                    .arg(QString::fromUtf8(QJsonDocument(description_metrics).toJson(QJsonDocument::Compact)))
+                    .arg(row->width()).arg(row->height());
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
               auto* select_text = u3_find_item(row, control_name + QStringLiteral("Text"));
               if ((index == 4 || index == 5) &&
                   (std::abs(control->width() - (index == 4 ? 81 : 72)) > 0.01 ||
@@ -1085,7 +1308,12 @@ int main(int argc, char* argv[]) {
                   {"controlEnabled", control->property("enabled").toBool()},
                   {"controlX", control->mapToItem(row, QPointF()).x()},
                   {"controlWidth", control->width()}, {"controlHeight", control->height()},
-                  {"textTruncated", select_text && select_text->property("truncated").toBool()}});
+                  {"textTruncated", select_text && select_text->property("truncated").toBool()},
+                  {"titleTextTruncated", title_text && title_text->property("truncated").toBool()},
+                  {"descriptionTextTruncated", description_text && description_text->property("truncated").toBool()},
+                  {"titleTextMetrics", title_metrics}, {"descriptionTextMetrics", description_metrics},
+                  {"titleText", title_text ? title_text->property("text").toString() : QString()},
+                  {"descriptionText", description_text ? description_text->property("text").toString() : QString()}});
             }
             auto* middle_row = u3_find_item(settings_scroll, QStringLiteral("settingsPreferenceRow4"));
             const auto middle_origin = middle_row->mapToItem(flick, QPointF());
