@@ -140,6 +140,7 @@ describe('R6 帮助弹窗', () => {
     render(<HelpModal onClose={vi.fn()} />)
     expect(screen.getByRole('dialog', { name: '如何学习' })).toBeTruthy()
     expect(screen.getByText('可视化执行')).toBeTruthy()
+    expect(screen.getByText('运行后，流程图和变量面板会根据当前运行器实际提供的数据展示；未采集到的事件或变量不会补造。')).toBeTruthy()
     expect(screen.getByText('真实与模拟的边界')).toBeTruthy()
   })
 

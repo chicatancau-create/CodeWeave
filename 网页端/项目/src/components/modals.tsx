@@ -250,7 +250,7 @@ export function HelpModal({ onClose }: HelpModalProps) {
             <Lightbulb size={16} />
             <div>
               <h3>可视化执行</h3>
-              <p>点击运行按钮，观察程序的每一步执行过程。流程图会高亮当前步骤，变量面板实时显示数据变化。</p>
+              <p>运行后，流程图和变量面板会根据当前运行器实际提供的数据展示；未采集到的事件或变量不会补造。</p>
             </div>
           </div>
 
