@@ -87,7 +87,7 @@ Item {
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowBlur: 0.6
-                    shadowColor: Qt.rgba(34/255, 211/255, 238/255, 0.55)
+                    shadowColor: ds.navIconGlow
                     shadowOpacity: 1.0
                 }
 

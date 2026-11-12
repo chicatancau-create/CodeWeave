@@ -9,7 +9,7 @@
 - [通过] 最终 U3 真实窗口矩阵：222/222 项、59 张截图、隔离数据开启、QML warnings 为空。普通选中课程 `python-loop-sum` 的两位课程编号和辅助技术名称通过；挑战文档 `stage-d` 的标题从发布清单读取，按非首页课程语义显示文档 ID、不编造课程序号，且可访问名称与可见路径一致。最终报告与截图位于 `u3/pass-20261109-190906/`。
 - [通过] Qt 可见窗口报告 `qt/qml-window-report-final.json`：`diagnostic=passed`，QML warnings 为空，共 11 张 DPR 1 截图，其中 7 张为 1440×900、4 张为 1100×720。8 个设置行均完整可见且文字未截断；开关为 48×28、右内距 3px，两个选择器分别为 81×44 和 72×44、右内距 0px。三项已接入设置启用，其余保持禁用。
 - [通过] Web 参考报告 `web/web-topbar.json`：9 张当前参考截图，6 项浮层 Escape 关闭及焦点归还检查通过，浏览器错误为空。隔离 API 只提供参考账户；学习目录 API 保持不可用回退态。
-- [通过] `node 应用端/项目/native/ui-qt/tests/compare_topbar_reference.mjs 应用端/工程文件/验收证据/Phase4-topbar-final-20261108/qt/qml-window-report-final.json 应用端/工程文件/验收证据/Phase4-topbar-final-20261108/web/web-topbar.json`：同一 Reference 账户、61 个课程 ID、6 个 Python 课程 ID、所选课程 `python-loop-sum` 及源码 SHA-256 一致。该脚本核对数据标识与代码，不核对布局或像素。
+- [通过] 历史报告中的 61 个 ID 是 Qt UI curriculum 与 Web runtime 两组各 61 个课程 ID 的相等集合，另有 6 个 Python 课程 ID、所选课程 `python-loop-sum` 及源码 SHA-256 一致；这不是 native catalog 行数。当前比较器还解码 `catalog.v1.tsv` 并输出 catalog 74 条 published rows、Qt/Web 各 61 门 UI 课程、交集 61 及两组 UI ID 的 catalog 成员数。该脚本不核对布局或像素。
 - [通过] 人工查看两端设置弹窗截图，并核对窄窗滚动末段。逐行完整可见性以 Qt smoke 断言为准；截图仅用于视觉复核。
 - [通过] 最终 U3 矩阵检查数据与隐私、分析、1100×720 窄窗、普通课程和挑战文档工作台面包屑的可见文本及 `QAccessible::Name`；普通选课态只显示一次课程编号并播报标题。
 - [通过] `node 工程文件/工具/check-layout.mjs`：目录规则通过。

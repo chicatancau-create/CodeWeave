@@ -34,7 +34,7 @@
 | Qt facade | `应用端/项目/native/ui-qt/facade/` | 4 个 .cpp：385 / 242 / 480 / 142 | 4 |
 | Qt 界面 | `应用端/项目/native/ui-qt/qml/Main.qml` | **4,705** | 1（未拆分） |
 | 网页端（**功能规格的唯一来源，不再改动**） | `网页端/项目/src/` | 43,372 TS/TSX + 17,207 CSS | 199 |
-| 内容包 | `content/` | 61 课程 / 13 挑战 / 13 阶段 / 4 语言工具 | — |
+| 内容包 | `content/` | `curriculum.v1.json`：61 课程 / 13 挑战 / 13 阶段；`catalog.v1.tsv`：74 条已发布记录；4 语言工具 | — |
 | 测试断言 | native 435（61 个测试函数）· content-delivery 11 · facade 82 | — | — |
 
 ### 1.2 后端 31 模块 × 是否被 facade 暴露

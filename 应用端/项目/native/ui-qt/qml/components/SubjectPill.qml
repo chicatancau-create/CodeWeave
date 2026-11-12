@@ -37,7 +37,7 @@ Rectangle {
                 implicitWidth: 21
                 implicitHeight: 21
                 radius: 4
-                color: "#141b23"
+                color: ds.subjectSymbolBg
                 Layout.alignment: Qt.AlignVCenter
                 Text {
                     anchors.centerIn: parent

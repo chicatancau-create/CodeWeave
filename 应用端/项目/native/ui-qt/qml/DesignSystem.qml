@@ -45,6 +45,29 @@ QtObject {
     readonly property color trackBg:    "#263140"
     readonly property color lineAccent: Qt.rgba(34/255, 211/255, 238/255, 0.38)  // web --line-accent
 
+    // Component-specific colors retained from the existing QML appearance.
+    readonly property color topbarAreaBg: "#090d14"
+    readonly property color stageMetaInk: "#a3d6df"
+    readonly property color challengeFiltersBg: "#12161d"
+    readonly property color challengePendingBg: "#241f0d"
+    readonly property color runnerLabelInk: "#7a828f"
+    readonly property color disabledControlFill: Qt.rgba(220/255, 233/255, 251/255, 0.014)
+    readonly property color disabledControlInk: Qt.rgba(141/255, 155/255, 172/255, 0.4)
+    readonly property color disabledControlBorder: Qt.rgba(32/255, 36/255, 43/255, 0.5)
+    readonly property color fieldHoverBorder: Qt.rgba(200/255, 224/255, 248/255, 0.5)
+    readonly property color fieldInnerHighlight: "#ffffff"
+    readonly property color subjectSymbolBg: "#141b23"
+    readonly property color heroGradientStart: "#17232f"
+    readonly property color heroGradientEnd: "#102331"
+    readonly property color heroCoreBg: "#16283a"
+    readonly property color heroTagBg: "#0b1b27"
+    readonly property color heroTagInk: "#8aa6ba"
+    readonly property color lessonTileFill: Qt.rgba(220/255, 233/255, 251/255, 0.028)
+    readonly property color lessonTileHoverFill: Qt.rgba(220/255, 233/255, 251/255, 0.055)
+    readonly property color lessonTileHighlight: Qt.rgba(180/255, 215/255, 255/255, 0.07)
+    readonly property color terminalDot: "#4c5b70"
+    readonly property color navIconGlow: Qt.rgba(34/255, 211/255, 238/255, 0.55)
+
     // Text
     readonly property color ink:        "#e2e7ef"
     readonly property color inkStrong:  "#e2e7ef"   // web --ink-strong (same as ink in this theme)

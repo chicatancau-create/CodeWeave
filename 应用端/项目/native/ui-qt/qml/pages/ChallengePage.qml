@@ -197,7 +197,7 @@ Item {
                 Layout.bottomMargin: ds.s20
                 implicitHeight: filterRow.implicitHeight + (challengePage.moreFiltersOpen ? 72 : 0) + ds.s32
                 radius: ds.radius
-                color: "#12161d"
+                color: ds.challengeFiltersBg
                 border.color: ds.line
                 border.width: 1
 
@@ -431,7 +431,7 @@ Item {
                                 bottomMargin: ds.s20
                             }
                             radius: ds.radius
-                            color: chHover.hovered ? "#161c24" : "transparent"
+                            color: chHover.hovered ? ds.scrim : "transparent"
                             border.width: challengeCard.activeFocus ? 1 : 0
                             border.color: ds.accent
 
@@ -507,7 +507,7 @@ Item {
                                         implicitHeight: 22
                                         radius: 0
                                         color: chStatus(modelData) === "external-pending"
-                                               ? "#241f0d" : "transparent"
+                                               ? ds.challengePendingBg : "transparent"
                                         border.color: chStatus(modelData) === "external-pending"
                                                       ? ds.warning : ds.lineRaised
                                         border.width: 1
@@ -566,7 +566,7 @@ Item {
                                     Text {   // .stage-runner
                                         text: modelData.runner === "external"
                                               ? "外部环境实验" : "教学运行器"
-                                        color: "#7a828f"
+                                        color: ds.runnerLabelInk
                                         font.family: ds.mono
                                         font.pixelSize: 13
                                         Layout.alignment: Qt.AlignVCenter

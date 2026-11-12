@@ -1,5 +1,7 @@
 # Phase4 设置逐行滚动与弹窗关闭按钮补验（2026-11-08）
 
+本文保留的是当时比较器与报告版本；当前 `compare_topbar_reference.mjs` 还要求 Qt 报告包含 1100×720 `sidebarGeometry` 断言。复跑当前版本需使用 `../Phase4-qml-responsive-audit-20261112/post-colors-retry/report.json` 替换本文示例中的旧 Qt 报告。
+
 ## 结果
 
 - [通过] 本批最终 `cmd /c 工程文件\工具\构建当前Qt.cmd`：Qt Release 构建成功，CTest 11/11（134.94 秒），包含关闭按钮静止/悬停状态和逐行断言。编译无新增警告；配置仍提示缺少可选 Vulkan headers。
@@ -9,7 +11,7 @@
 - [通过] 设置/帮助关闭按钮均检查 44×44、直角和 1px 描边；鼠标移入后使用 `ds.lineStrong`，移出恢复 `ds.line`。这是原生令牌下的状态收敛，不代表 Web/Qt 颜色逐像素相等。
 - [通过] 1100×720 下逐项滚动 8 个偏好行，检查完整行及控件均在视口内、控件在行内且非零尺寸。报告新增 `settingsRows` 8 条记录，只有减弱动画、字号和行号为可用。保留首屏与底部图，补充 `qt/topbar-settings-middle-small.png`；没有为每行单独生成截图，也未把几何断言作为文案校对。
 - [通过] 既有开关初始值、Space、辅助技术 toggleAction、恢复默认、字号和行号行为断言继续通过；轨道 48×28、滑块 16×16。底部导出/清除按钮完整可见且禁用。
-- [通过] 本批 Web Playwright 重新生成 `web/web-topbar.json` 与 8 张图片，`passed=true`、页面错误 0。全部 `/api/` 请求拦截，未连接正式服务。跨端脚本确认隔离账户名/邮箱、61 个课程 ID、6 个 Python 筛选 ID、当前 `python-loop-sum` 及源码 SHA-256 一致，不证明全部元数据相同。
+- [通过] 本批 Web Playwright 重新生成 `web/web-topbar.json` 与 8 张图片，`passed=true`、页面错误 0。全部 `/api/` 请求拦截，未连接正式服务。历史跨端脚本确认隔离账户名/邮箱、Qt UI curriculum 与 Web runtime 各 61 个课程 ID、6 个 Python 筛选 ID、当前 `python-loop-sum` 及源码 SHA-256 一致，不证明全部元数据相同；native catalog 共 74 条已发布记录，当前比较器单独输出该行数和 UI ID 交集。
 - [通过] 人工查看设置大窗及窄窗首屏/中段/底部、帮助截图；当前检查区域无行内重叠，滚动边缘外的其它行可按滚动到达。逐区块结论见下表。
 
 ## 同尺寸人工对照
@@ -46,7 +48,7 @@ git diff --check
 Web 参考使用 `应用端/项目/native/ui-qt/tests/capture_topbar_reference.mjs`，参数为外部 Playwright 目录、Chrome 路径、Vite 地址、本目录的 `web` 绝对路径；可按 `Phase4-topbar-spacing-20261108/README.md` 的命令执行。跨端核对：
 
 ```powershell
-node 应用端/项目/native/ui-qt/tests/compare_topbar_reference.mjs 应用端/工程文件/验收证据/Phase4-next-step-20261108/qt/qml-window-report.json 应用端/工程文件/验收证据/Phase4-next-step-20261108/web/web-topbar.json
+node 应用端/项目/native/ui-qt/tests/compare_topbar_reference.mjs 应用端/工程文件/验收证据/Phase4-qml-responsive-audit-20261112/post-colors-retry/report.json 应用端/工程文件/验收证据/Phase4-next-step-20261108/web/web-topbar.json
 ```
 
 ## 未完成项

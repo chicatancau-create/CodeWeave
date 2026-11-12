@@ -2,6 +2,8 @@
 
 本目录保存本轮 Qt/Web 顶栏、设置、帮助和工作台参考的最终复测证据。它用于关闭原始任务 4.2 的可比组件验收，并记录仍需继续跟踪的整页视觉差异；不能据此宣称四个页面已经像素级或整页等价。
 
+本目录中 `QML warnings 为 0` 指 smoke 连接的 `QQmlEngine::warnings` 创建/加载期信号为空；当时没有安装全局 Qt 消息处理器，因此不覆盖 resize 后所有动态绑定警告。2026-11-12 A1 窄窗分支由独立 1100×720 几何断言验证，详见 `../Phase4-qml-responsive-audit-20261112/README.md`。
+
 ## 结果
 
 - [通过] Qt 标准 Release 构建与 CTest 11/11。构建日志：`qt-build-final.log`。

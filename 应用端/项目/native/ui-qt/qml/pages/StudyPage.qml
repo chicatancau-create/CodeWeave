@@ -370,8 +370,8 @@ Item {
                                     y1: hero.height * 0.5 - hero.height * 0.2115
                                     x2: hero.width * 0.5 + hero.width * 0.453
                                     y2: hero.height * 0.5 + hero.height * 0.2115
-                                    GradientStop { position: 0.0; color: "#17232f" }
-                                    GradientStop { position: 1.0; color: "#102331" }
+                                    GradientStop { position: 0.0; color: ds.heroGradientStart }
+                                    GradientStop { position: 1.0; color: ds.heroGradientEnd }
                                 }
                                 startX: 0
                                 startY: 0
@@ -422,7 +422,7 @@ Item {
                                 width: 87
                                 height: 92
                                 radius: 16
-                                color: "#16283a"
+                                color: ds.heroCoreBg
                                 border.color: ds.accentRing
                                 border.width: 1
                                 rotation: -8
@@ -440,7 +440,7 @@ Item {
                                 implicitWidth: tagTop.implicitWidth + ds.s16
                                 implicitHeight: 22
                                 radius: 4
-                                color: "#0b1b27"
+                                color: ds.heroTagBg
                                 border.color: ds.heroBadgeEd
                                 border.width: 1
                                 Text {
@@ -458,14 +458,14 @@ Item {
                                 implicitWidth: tagBottom.implicitWidth + ds.s16
                                 implicitHeight: 22
                                 radius: 4
-                                color: "#0b1b27"
+                                color: ds.heroTagBg
                                 border.color: ds.heroBadgeEd
                                 border.width: 1
                                 Text {
                                     id: tagBottom
                                     anchors.centerIn: parent
                                     text: "build. understand."
-                                    color: "#8aa6ba"
+                                    color: ds.heroTagInk
                                     font.family: ds.mono
                                     font.pixelSize: 10
                                 }
@@ -703,8 +703,7 @@ Item {
                                     radius: ds.radius
                                     // 静止态: 遮光层底色 rgba(220, 233, 251, 0.028)
                                     // 悬停态: 遮光层二档 rgba(220, 233, 251, 0.055)
-                                    color: unitHover.hovered ? Qt.rgba(220/255, 233/255, 251/255, 0.055)
-                                                             : Qt.rgba(220/255, 233/255, 251/255, 0.028)
+                                    color: unitHover.hovered ? ds.lessonTileHoverFill : ds.lessonTileFill
                                     border.color: activeFocus ? ds.accent : modelData.originalIndex === hostRoot.selectedLessonIndex
                                                   ? ds.accentRing
                                                   : (unitHover.hovered ? ds.lineRaised : ds.line)
@@ -722,7 +721,7 @@ Item {
                                     Rectangle {
                                         anchors { top: parent.top; left: parent.left; right: parent.right }
                                         height: 1
-                                        color: Qt.rgba(180/255, 215/255, 255/255, 0.07)
+                                        color: ds.lessonTileHighlight
                                         opacity: unitHover.hovered ? 1.0 : 0
                                         Behavior on opacity {
                                             NumberAnimation { duration: ds.durBase; easing.type: Easing.Linear }
@@ -736,7 +735,7 @@ Item {
                                         shadowBlur: 1.0
                                         shadowHorizontalOffset: 0
                                         shadowVerticalOffset: 8
-                                        shadowColor: Qt.rgba(0, 0, 0, 0.55)
+                                        shadowColor: ds.glowPanelColor
                                         shadowOpacity: 1.0
                                     }
 
@@ -938,7 +937,7 @@ Item {
                                                     implicitWidth: 5
                                                     implicitHeight: 5
                                                     radius: 3
-                                                    color: "#4c5b70"
+                                                    color: ds.terminalDot
                                                     Layout.alignment: Qt.AlignVCenter
                                                 }
                                             }

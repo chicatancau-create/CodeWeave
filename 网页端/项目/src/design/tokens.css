@@ -29,6 +29,7 @@
   --ds-canvas-deep: #03050a;
   --ds-canvas-raised: #0a0e18;                    /* 面板/卡片抬升一档的表面色 */
   --ds-canvas-overlay: #070a12;                   /* 弹层/遮罩层表面色 */
+  --ds-content-source-surface: #111923;             /* desktop course source banner */
   --ds-text-primary: #e8eef7;                     /* 冷白，非纯白（保留暖白的可读感） */
   --ds-text-secondary: rgba(224, 234, 248, 0.6);  /* 次级（正文/眉标） */
   --ds-text-tertiary: rgba(224, 234, 248, 0.36);  /* 三级 —— 仅限装饰，见 §7 */

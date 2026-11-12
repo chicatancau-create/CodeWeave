@@ -1,5 +1,7 @@
 # Phase 4 设置文本边界复测（2026-11-11）
 
+本报告中的 `QML warnings 为 0` 仅指 `QQmlEngine::warnings` 创建/加载期采集为空；不覆盖 resize 后所有动态绑定警告。2026-11-12 侧栏窄窗几何另由 `../Phase4-qml-responsive-audit-20261112/README.md` 中的真实窗口断言覆盖。
+
 ## 结果
 
 - [通过] 正常偏好存储状态：`normal/qml-window-report.json` 标记 `diagnostic=passed`，16/16 条设置标题/说明边界断言通过，QML warnings 为 0，生成 11 张可见窗口截图。

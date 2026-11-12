@@ -17,7 +17,7 @@ Rectangle {
     implicitWidth: 36
     implicitHeight: 36
     radius: 8
-    color: !ibtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
+    color: !ibtn.enabled ? ds.disabledControlFill
                          : (ibtn.active || ibHover.hovered ? ds.accentSoft : "transparent")
     opacity: ibtn.enabled ? 1.0 : 0.5
 
@@ -33,7 +33,7 @@ Rectangle {
         visible: ibtn.iconName === ""
         anchors.centerIn: parent
         text: ibtn.glyph
-        color: !ibtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
+        color: !ibtn.enabled ? ds.disabledControlInk
                              : (ibtn.active || ibHover.hovered ? ds.accentHi : ds.muted)
         font.family: ds.ui
         font.pixelSize: 15

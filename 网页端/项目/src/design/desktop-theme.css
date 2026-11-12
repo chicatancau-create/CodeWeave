@@ -103,7 +103,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .app-shell.is-account .sidebar { display: none; }
 .app-shell.is-account .main-content { margin-left: 0; }
 .app-shell.is-account .content-wrap { padding: var(--ds-space-20) var(--ds-space-32); }
-.app-shell .content-source-banner.cw-source { flex: 0 0 auto; margin-bottom: var(--ds-space-8); min-height: 32px; padding: var(--ds-space-6) var(--ds-space-12); font: 12px var(--font-ui); border: 1px solid var(--line); background: #111923; border-radius: 5px; }
+.app-shell .content-source-banner.cw-source { flex: 0 0 auto; margin-bottom: var(--ds-space-8); min-height: 32px; padding: var(--ds-space-6) var(--ds-space-12); font: 12px var(--font-ui); border: 1px solid var(--line); background: var(--ds-content-source-surface); border-radius: 5px; }
 .app-shell .content-source-banner.cw-source .cs-banner-lead { font-size: 12px; }
 .desktop-vault-settings { margin-bottom: var(--ds-space-14); color: var(--muted); font-size: 11px; }
 .desktop-vault-settings > summary { cursor: pointer; width: fit-content; padding: var(--ds-space-2) 0; }

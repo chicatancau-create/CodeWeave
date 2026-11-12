@@ -5,8 +5,8 @@
 - [通过] `应用端/项目/native/ui-qt/qml/Main.qml` 的 `searchBox` 使用现有 `ds.s2` 作为左右布局边距。Qt 搜索浮层为 `(463, 61, 659×93)`，Web 为 `(463.53, 59.69, 658.47×92.80)`；位置和尺寸差均小于 1 px。
 - [通过] Qt Release 构建及 CTest 11/11；Qt 顶栏 smoke `diagnostic=passed`，QML 警告为空。8 张截图的实际像素为 1440×900，窄窗设置截图为 1100×720，DPR 1。
 - [通过] Web Playwright 顶栏 smoke `passed=true`，浏览器错误为空；8 张截图含 1440×900 和 1100×720 设置场景。
-- [通过] `compare_topbar_reference.mjs` 通过：隔离账户名、邮箱、61 个课程 ID、6 个 Python 筛选 ID、当前课程 `python-loop-sum` 与源码 SHA-256 一致。SHA-256 为 `62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f`。
-- [保留] 搜索位置和尺寸已收敛；快捷动作位置仍约差 2 px，账户/通知面板高度差小于 2 px。来源提示、设置项可用性、帮助正文和 Qt 文本图符与 Web 图标仍有可见差异。Web 使用隔离 API 失败回退课程，Qt 使用本机发布课程；相同课程 ID 与源码不证明所有课程元数据或运行行为逐字段相同，因此 4.2 整体视觉验收仍未关闭。
+- [通过] `compare_topbar_reference.mjs` 历史报告核对隔离账户名、邮箱、Qt UI curriculum 与 Web runtime 各 61 个课程 ID、6 个 Python 筛选 ID、当前课程 `python-loop-sum` 与源码 SHA-256。SHA-256 为 `62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f`；当前比较器另输出 74 条 native catalog rows 与两端 UI ID 交集/成员关系。
+- [保留] 搜索位置和尺寸已收敛；快捷动作位置仍约差 2 px，账户/通知面板高度差小于 2 px。来源提示、设置项可用性、帮助正文和 Qt 文本图符与 Web 图标仍有可见差异。Web 使用隔离 API 失败回退课程，Qt UI 使用本机 `curriculum.v1.json` 的课程；相同课程 ID 与源码不证明所有课程元数据或运行行为逐字段相同，因此 4.2 整体视觉验收仍未关闭。
 
 ## 报告与截图
 
@@ -40,11 +40,13 @@ node 'G:\CodeWeave\应用端\项目\native\ui-qt\tests\capture_topbar_reference.
   'http://127.0.0.1:5174' `
   'G:\CodeWeave\应用端\工程文件\验收证据\Phase4-topbar-spacing-20261108\web'
 node 'G:\CodeWeave\应用端\项目\native\ui-qt\tests\compare_topbar_reference.mjs' `
-  'G:\CodeWeave\应用端\工程文件\验收证据\Phase4-topbar-spacing-20261108\qt\qt-topbar-spacing.json' `
+  'G:\CodeWeave\应用端\工程文件\验收证据\Phase4-qml-responsive-audit-20261112\post-colors-retry\report.json' `
   'G:\CodeWeave\应用端\工程文件\验收证据\Phase4-topbar-spacing-20261108\web\web-topbar.json'
 ```
 
 ## 验证与限制
+
+本文命令中的 Qt 报告生成于比较器加入 1100×720 `sidebarGeometry` 判据之前。当前比较器会拒绝缺少该字段的历史报告；复跑时改用 `../Phase4-qml-responsive-audit-20261112/post-colors-retry/report.json`，再配合本文的 Web Reference 报告。
 
 - [通过] `cmd /c 工程文件\工具\构建当前Qt.cmd`：Release 构建，CTest 11/11。
 - [通过] `corepack pnpm verify`：87 个测试文件、1296 项通过；类型、Lint、覆盖率、构建和服务语法检查通过。

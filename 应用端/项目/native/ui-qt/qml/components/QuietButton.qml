@@ -16,9 +16,9 @@ Rectangle {
         implicitHeight: 36
         radius: ds.radiusSm
         // 禁用态: 遮光层一档 opacity 0.5
-        color: !qbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
+        color: !qbtn.enabled ? ds.disabledControlFill
                              : (qbtnHover.hovered ? ds.accentSoft : "transparent")
-        border.color: !qbtn.enabled ? Qt.rgba(32/255, 36/255, 43/255, 0.5)
+        border.color: !qbtn.enabled ? ds.disabledControlBorder
                                     : (qbtnHover.hovered || qbtn.activeFocus ? ds.accent : ds.lineStrong)
         border.width: 1
         opacity: qbtn.enabled ? 1.0 : 0.5
@@ -39,7 +39,7 @@ Rectangle {
             anchors.centerIn: parent
             text: qbtn.label
             // 禁用态: faint 色 opacity 0.4
-            color: !qbtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
+            color: !qbtn.enabled ? ds.disabledControlInk
                                  : (qbtnHover.hovered ? ds.accentHi : ds.ink)
             font.family: ds.ui
             font.pixelSize: 13

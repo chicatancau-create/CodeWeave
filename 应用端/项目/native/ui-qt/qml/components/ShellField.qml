@@ -15,14 +15,14 @@ TextField {
         radius: ds.radius
         color: ds.inset
         border.color: sf.activeFocus ? ds.accent
-                      : (sfHover.hovered ? Qt.rgba(200/255, 224/255, 248/255, 0.5) : ds.lineStrong)
+                      : (sfHover.hovered ? ds.fieldHoverBorder : ds.lineStrong)
         border.width: 1
 
         // Inner highlight layer
         Rectangle {
             anchors { top: parent.top; left: parent.left; right: parent.right }
             height: 1
-            color: "#ffffff"
+            color: ds.fieldInnerHighlight
             opacity: sf.activeFocus ? 0.15 : (sfHover.hovered ? 0.08 : 0.05)
             Behavior on opacity {
                 NumberAnimation { duration: ds.durQuick; easing.type: ds.easingType }

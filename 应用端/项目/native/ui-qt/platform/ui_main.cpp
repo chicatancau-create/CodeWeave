@@ -352,6 +352,7 @@ int main(int argc, char* argv[]) {
   QJsonArray smoke_settings_text;
   QJsonArray smoke_settings_initial_viewport;
   QJsonArray smoke_topbar_geometry;
+  QJsonObject smoke_sidebar_geometry;
   bool smoke_reference_ready = false;
   bool smoke_reference_registration_started = false;
   QString smoke_preference_draft;
@@ -368,6 +369,7 @@ int main(int argc, char* argv[]) {
       report.insert(QStringLiteral("settingsInitialViewport"), smoke_settings_initial_viewport);
       report.insert(QStringLiteral("platformName"), QGuiApplication::platformName());
       report.insert(QStringLiteral("topbarGeometry"), smoke_topbar_geometry);
+      report.insert(QStringLiteral("sidebarGeometry"), smoke_sidebar_geometry);
       report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
       report.insert(QStringLiteral("preferenceStorageReady"), shell.preferenceStorageReady());
       report.insert(QStringLiteral("preferenceStorageUnavailableSmoke"),
@@ -408,7 +410,6 @@ int main(int argc, char* argv[]) {
             {"y", origin.y()}, {"width", item->width()}, {"height", item->height()}});
       }
     }
-    if (QGuiApplication::platformName() == QStringLiteral("offscreen")) return true;
     const auto expected = name.endsWith(QStringLiteral("small")) ? QSize(1100, 720) : QSize(1440, 900);
     if (view.size() != expected) {
       diagnostic = QStringLiteral("Capture %1 expected %2x%3, got %4x%5")
@@ -416,6 +417,23 @@ int main(int argc, char* argv[]) {
       write_smoke_report();
       return false;
     }
+    if (name == QStringLiteral("topbar-shell-small")) {
+      auto* sidebar = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("sidebar"));
+      auto* contents = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("sidebarContents"));
+      const auto origin = contents ? contents->mapToItem(view.rootObject(), QPointF()) : QPointF(-1, -1);
+      const bool passed = sidebar && sidebar->isVisible() && contents && contents->isVisible() &&
+          std::abs(origin.y() - 84.0) <= 0.5;
+      smoke_sidebar_geometry = QJsonObject{{"viewport", "1100x720"}, {"windowWidth", view.width()},
+          {"windowHeight", view.height()}, {"sidebarVisible", sidebar && sidebar->isVisible()},
+          {"contentY", origin.y()}, {"expectedTopMargin", 84}, {"passed", passed}};
+      if (!passed) {
+        diagnostic = QStringLiteral("Compact sidebar top margin mismatch: ") +
+            QString::fromUtf8(QJsonDocument(smoke_sidebar_geometry).toJson(QJsonDocument::Compact));
+        write_smoke_report();
+        return false;
+      }
+    }
+    if (QGuiApplication::platformName() == QStringLiteral("offscreen")) return true;
     const auto popup_name = name == QStringLiteral("topbar-search") ? "searchPopup" :
         name == QStringLiteral("topbar-quick") ? "quickPopup" :
         name == QStringLiteral("topbar-notifications") ? "notificationPopup" :

@@ -263,7 +263,7 @@ Rectangle {
                 implicitWidth: areaRow.implicitWidth + ds.s8
                 implicitHeight: 44
                 radius: ds.radius
-                color: "#090d14"
+                color: ds.topbarAreaBg
                 border.color: ds.line
                 border.width: 1
                 RowLayout {
@@ -797,6 +797,7 @@ Rectangle {
     }
     Rectangle {
         id: sidebar
+        objectName: "sidebar"
         anchors { top: root.width <= 1200 ? parent.top : topbar.bottom; left: parent.left; bottom: parent.bottom }
         visible: !root.workspaceCodeMode
         width: visible ? ds.sidebarW : 0
@@ -810,7 +811,8 @@ Rectangle {
         }
 
         ColumnLayout {
-            anchors.topMargin: root.width <= 1200 ? ds.s84 : ds.s20
+            objectName: "sidebarContents"
+            anchors.topMargin: root.width <= 1200 ? ds.topbarH + ds.s16 : ds.s20
             anchors.leftMargin: ds.s12
             anchors.rightMargin: ds.s12
             anchors.bottomMargin: ds.s14
@@ -855,7 +857,7 @@ Rectangle {
                     Text {
                         Layout.fillWidth: true
                         text: "全栈冲刺 · " + root.stageCount + " 阶段"
-                        color: "#a3d6df"
+                        color: ds.stageMetaInk
                         font.family: ds.ui
                         font.pixelSize: 11
                         elide: Text.ElideRight
