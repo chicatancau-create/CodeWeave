@@ -1,0 +1,25 @@
+{
+  "node": "v24.15.0",
+  "repeats": 3,
+  "measurement": "function lookahead guard only; not overall editor speed",
+  "samples": [
+    {
+      "emptyLines": 1000,
+      "characters": 1009,
+      "beforeMedianMs": 0.8667999999999978,
+      "afterMedianMs": 0.0030999999999998806
+    },
+    {
+      "emptyLines": 4000,
+      "characters": 4009,
+      "beforeMedianMs": 14.546000000000003,
+      "afterMedianMs": 0.01470000000000482
+    },
+    {
+      "emptyLines": 12000,
+      "characters": 12009,
+      "beforeMedianMs": 105.6432,
+      "afterMedianMs": 0.015600000000006276
+    }
+  ]
+}

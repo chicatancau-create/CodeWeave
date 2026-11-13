@@ -1883,6 +1883,15 @@ int main(int argc, char* argv[]) {
         application.exit(3);
         return;
       }
+      // Popup focus is handed back by onClosed after the exit transition.
+      // Keep the original assertions and timeout, but send the next input only
+      // after the same transition boundary used by the QML smoke.
+      for (const auto* name : {"quickPopup", "accountPopup", "notificationPopup",
+                              "searchPopup", "checkinCalendarDialog"}) {
+        const auto* popup = view.rootObject()->findChild<QObject*>(QString::fromLatin1(name));
+        if (popup && popup->property("visible").toBool() &&
+            !popup->property("opened").toBool()) return;
+      }
       switch (context->step) {
         case 0:
           if (shell.contentBusy() || shell.publishedIds().isEmpty()) return;
@@ -2984,9 +2993,11 @@ int main(int argc, char* argv[]) {
           return;
         }
         case 15:
-          if (shell.accountBusy() || shell.contentBusy()) return;
+          if (shell.accountBusy() || shell.contentBusy() || shell.draftSaving() || shell.operationBusy()) return;
           u3_record(*context, QStringLiteral("account-login"), shell.hasActiveAccount());
           if (!shell.hasActiveAccount()) { context->step = 99; return; }
+          shell.discardDraftChanges();
+          u3_record(*context, QStringLiteral("account-login-keeps-saved-draft-clean"), !shell.draftDirty());
           {
             const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
             if (index < 0) { u3_record(*context, QStringLiteral("draft-course-selection"), false); context->step = 99; return; }
@@ -2996,7 +3007,11 @@ int main(int argc, char* argv[]) {
           return;
         case 16:
           if (shell.contentBusy()) return;
-          u3_record(*context, QStringLiteral("draft-course-selection"), shell.hasSelectedContent());
+          u3_record(*context, QStringLiteral("draft-course-selection"),
+              shell.hasSelectedContent() && shell.documentId() == QStringLiteral("python-loop-sum"),
+              QStringLiteral("selected=%1 document=%2 status=%3 dirty=%4")
+                  .arg(shell.hasSelectedContent()).arg(shell.documentId(), shell.contentStatus())
+                  .arg(shell.draftDirty()));
           shell.loadStarterCode();
           context->step++;
           return;
@@ -3443,6 +3458,32 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("review-three-groups-match-real-schedules"), grouped);
           u3_record(*context, QStringLiteral("review-nonempty-screenshot"),
               u3_screenshot(*context, view, QStringLiteral("u3-review-nonempty")));
+          auto* review_row = view.rootObject()->findChild<QQuickItem*>(
+              QStringLiteral("review-row-python-condition"));
+          const auto review_row_rect = review_row
+              ? review_row->mapRectToScene(review_row->boundingRect()) : QRectF();
+          if (review_row) {
+            const auto point = review_row->mapToScene(
+                QPointF(review_row->width() / 2, review_row->height() / 2));
+            QMouseEvent move(QEvent::MouseMove, point, point,
+                view.mapToGlobal(point.toPoint()), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&view, &move);
+            QCoreApplication::processEvents();
+          }
+          const bool review_hover_entered = review_row && review_row->property("hovered").toBool() &&
+              review_row->mapRectToScene(review_row->boundingRect()) == review_row_rect;
+          u3_record(*context, QStringLiteral("review-row-hover-enters-without-layout-shift"),
+              review_hover_entered);
+          u3_record(*context, QStringLiteral("review-row-hover-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-review-hovered")));
+          const QPointF outside(1, 1);
+          QMouseEvent leave(QEvent::MouseMove, outside, outside, view.mapToGlobal(outside.toPoint()),
+              Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+          QCoreApplication::sendEvent(&view, &leave);
+          QCoreApplication::processEvents();
+          u3_record(*context, QStringLiteral("review-row-hover-clears-on-pointer-leave"),
+              review_row && !review_row->property("hovered").toBool() &&
+                  review_row->mapRectToScene(review_row->boundingRect()) == review_row_rect);
           auto* pass = u3_find_item(view.rootObject(), QStringLiteral("reviewPass-python-loop-sum"));
           u3_record(*context, QStringLiteral("review-pass-row-action"), pass && pass->property("enabled").toBool() &&
               QMetaObject::invokeMethod(pass, "clicked", Qt::DirectConnection));

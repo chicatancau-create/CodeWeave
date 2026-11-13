@@ -1,0 +1,58 @@
+{
+  "source": "Phase41-split-comparison-20261111",
+  "readmeHashRefreshed": true,
+  "manifestEntries": 65,
+  "statesMatch": true,
+  "controlledHistoricalStateOnly": true,
+  "pages": [
+    {
+      "page": "learning",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 2649,
+      "maxChannelDifference": 1
+    },
+    {
+      "page": "review",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 1820,
+      "maxChannelDifference": 1
+    },
+    {
+      "page": "challenge",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 3658,
+      "maxChannelDifference": 1
+    },
+    {
+      "page": "editor",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 1155,
+      "maxChannelDifference": 1
+    },
+    {
+      "page": "drafts",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 1446,
+      "maxChannelDifference": 1
+    },
+    {
+      "page": "analytics",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 3265,
+      "maxChannelDifference": 1
+    },
+    {
+      "page": "account",
+      "width": 1440,
+      "height": 900,
+      "differentPixels": 1127,
+      "maxChannelDifference": 1
+    }
+  ]
+}

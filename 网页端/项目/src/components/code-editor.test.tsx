@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodeEditor, indentBlock } from './code-editor'
+import * as cachedTokenizer from '../engine/cached-syntax-tokenizer'
 
 /**
  * EDIT-01「编辑器输入与辅助能力」的行为契约。
@@ -29,6 +30,27 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+})
+
+describe('高亮缓存与编辑器实例', () => {
+  it('每个编辑器各有一个缓存，编辑和语言切换仍正确更新高亮', () => {
+    const factory = vi.spyOn(cachedTokenizer, 'createCachedTokenizer')
+    const { rerender } = render(<>
+      <CodeEditor {...baseProps} code={'let first = 1\nprint(first)'} />
+      <CodeEditor {...baseProps} code="let second = 2" />
+    </>)
+    expect(factory).toHaveBeenCalledTimes(2)
+    rerender(<>
+      <CodeEditor {...baseProps} code={'let first = 3\nprint(first)'} language="python" />
+      <CodeEditor {...baseProps} code="let second = 2" />
+    </>)
+    expect(factory).toHaveBeenCalledTimes(2)
+    const highlighted = document.querySelectorAll('.code-tokens')
+    expect(highlighted[0]?.textContent).toBe('let first = 3\nprint(first)\n')
+    expect(highlighted[0]?.querySelector('.tok-keyword')).toBeNull()
+    expect(highlighted[1]?.textContent).toBe('let second = 2\n')
+    expect(highlighted[1]?.querySelector('.tok-keyword')?.textContent).toBe('let')
+  })
 })
 
 describe('indentBlock（纯函数：选区与缩进）', () => {

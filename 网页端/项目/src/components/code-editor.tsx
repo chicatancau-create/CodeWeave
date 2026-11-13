@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, Save } from 'lucide-react'
-import { tokenizeCode } from '../engine/syntax-tokenizer'
+import { createCachedTokenizer } from '../engine/cached-syntax-tokenizer'
+import type { Token } from '../engine/syntax-tokenizer'
 import type { LanguageId } from '../types/lesson'
 import './code-editor.css'
 
@@ -110,7 +111,7 @@ const CodeTokensLayer = memo(function CodeTokensLayer({
   tabSize,
   wordWrap,
 }: {
-  tokens: ReturnType<typeof tokenizeCode>
+  tokens: Token[]
   left: number
   top: number
   tabSize: number
@@ -132,7 +133,7 @@ const CodeTokensLayer = memo(function CodeTokensLayer({
   )
 })
 
-const CodeTokenContent = memo(function CodeTokenContent({ tokens }: { tokens: ReturnType<typeof tokenizeCode> }) {
+const CodeTokenContent = memo(function CodeTokenContent({ tokens }: { tokens: Token[] }) {
   return tokens.map((token, index) => token.type === 'plain'
     ? token.text
     : <span key={index} className={`tok-${token.type}`}>{token.text}</span>)
@@ -152,7 +153,8 @@ export function CodeEditor({ code, language, languageLabel, runtime, activeLine,
   /** 复制只报**真实发生过**的结果：await 之后才定性，失败就说失败并给出手动回退。 */
   const [copyResult, setCopyResult] = useState<'idle' | 'ok' | 'fail'>('idle')
   const lines = useMemo(() => code.split('\n'), [code])
-  const tokens = useMemo(() => tokenizeCode(code, language), [code, language])
+  const tokenize = useMemo(() => createCachedTokenizer(), [])
+  const tokens = useMemo(() => tokenize(code, language), [code, language, tokenize])
 
   useEffect(() => () => {
     if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)

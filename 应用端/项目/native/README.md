@@ -6,8 +6,9 @@
 
 ```powershell
 cmd /c 工程文件\工具\构建当前Qt.cmd
-ctest --test-dir .local/qt/current --output-on-failure
 ```
+
+该入口在本次 Qt 环境内执行配置、构建和 CTest；退出时释放临时 SDK 盘符。需要复跑测试时重新运行此入口，避免脱离 Qt 环境单独执行 CTest 导致 DLL 路径失效。
 
 发布构建使用 `BUILD_TESTING=OFF`，再由 `scripts/package-native.mjs` 将 EXE、`native/content`、配置标记、许可证和 manifest 放入独立目录。启动应用不需要 Node、网页端或服务器；运行学习代码需要对应语言工具。用户选择的语言工具必须通过绝对路径白名单或“选择语言工具”设置。
 

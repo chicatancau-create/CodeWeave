@@ -1,0 +1,81 @@
+{
+  "startedAt": "2026-11-12T06:46:42.588Z",
+  "status": "passed",
+  "isolatedData": true,
+  "http": [
+    {
+      "path": "/api/health",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "DENY",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      }
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "DENY",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      }
+    },
+    {
+      "path": "/api/auth/me",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+        "x-frame-options": "DENY",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      }
+    }
+  ],
+  "pages": [
+    {
+      "page": "learning",
+      "width": 1440,
+      "height": 900,
+      "screenshot": "web-learning.png",
+      "headings": [
+        "你的学习路径",
+        "Java 的第一个循环",
+        "课程单元 10",
+        "代码速览Java",
+        "今日计划"
+      ]
+    },
+    {
+      "page": "review",
+      "width": 1440,
+      "height": 900,
+      "screenshot": "web-review.png",
+      "headings": [
+        "延迟复测"
+      ]
+    },
+    {
+      "page": "challenge",
+      "width": 1440,
+      "height": 900,
+      "screenshot": "web-challenge.png",
+      "headings": [
+        "挑战关卡"
+      ]
+    },
+    {
+      "page": "workbench",
+      "width": 1440,
+      "height": 900,
+      "screenshot": "web-workbench.png",
+      "headings": [
+        "01 · Java 的第一个循环"
+      ]
+    }
+  ],
+  "errors": [],
+  "completedAt": "2026-11-12T06:46:49.110Z"
+}

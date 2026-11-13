@@ -294,73 +294,91 @@ Item {
                                     spacing: ds.s6
 
                                     Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
-                                    RowLayout {
+                                    Item {
+                                        id: reviewRow
+                                        objectName: "review-row-" + modelData.itemId
                                         Layout.fillWidth: true
-                                        Layout.topMargin: ds.s8
-                                        Layout.bottomMargin: ds.s8
-                                        spacing: ds.s10
-                                        Text {
-                                            Layout.fillWidth: true
-                                            Layout.preferredWidth: 260
-                                            text: reviewPage.lessonTitle(modelData.contentId)
-                                                  + " / " + modelData.exerciseId
-                                            color: ds.ink
-                                            font.family: ds.ui
-                                            font.pixelSize: 13
-                                            elide: Text.ElideRight
+                                        implicitHeight: reviewRowContent.implicitHeight + ds.s16
+                                        readonly property bool hovered: rowHover.hovered
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            color: reviewRow.hovered ? ds.lessonTileHoverFill : "transparent"
+                                            Behavior on color {
+                                                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                            }
                                         }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            Layout.preferredWidth: 110
-                                            text: modelData.dueKey || "—"
-                                            color: ds.muted
-                                            font.family: ds.mono
-                                            font.pixelSize: 12
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            Layout.preferredWidth: 110
-                                            text: "第 " + (modelData.nextNodeIndex + 1) + " 次"
-                                            color: ds.muted
-                                            font.family: ds.ui
-                                            font.pixelSize: 12
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            Layout.preferredWidth: 90
-                                            text: "等级 " + modelData.masteryLevel
-                                            color: ds.muted
-                                            font.family: ds.ui
-                                            font.pixelSize: 12
-                                        }
+                                        HoverHandler { id: rowHover }
+
                                         RowLayout {
-                                            Layout.fillWidth: true
-                                            Layout.preferredWidth: 310
-                                            spacing: ds.s4
-                                            QuietButton {
-                                ds: reviewPage.ds
-                                                objectName: "reviewPass-" + modelData.itemId
-                                                implicitHeight: 36
-                                                label: "通过"
-                                                enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
-                                                onClicked: uiShell.reviewItem(modelData.itemId, true, "")
+                                            id: reviewRowContent
+                                            anchors.fill: parent
+                                            anchors.topMargin: ds.s8
+                                            anchors.bottomMargin: ds.s8
+                                            spacing: ds.s10
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 260
+                                                text: reviewPage.lessonTitle(modelData.contentId)
+                                                      + " / " + modelData.exerciseId
+                                                color: ds.ink
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                elide: Text.ElideRight
                                             }
-                                            QuietButton {
-                                ds: reviewPage.ds
-                                                objectName: "reviewSnooze-" + modelData.itemId
-                                                implicitHeight: 36
-                                                label: "稍后提醒"
-                                                enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
-                                                onClicked: uiShell.snoozeReview(modelData.itemId)
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 110
+                                                text: modelData.dueKey || "—"
+                                                color: ds.muted
+                                                font.family: ds.mono
+                                                font.pixelSize: 12
                                             }
-                                            QuietButton {
-                                ds: reviewPage.ds
-                                                objectName: "reviewOpen-" + modelData.itemId
-                                                implicitHeight: 36
-                                                label: "查看课程"
-                                                enabled: uiShell.publishedIds.indexOf(modelData.contentId) >= 0
-                                                onClicked: uiShell.openPublishedContent(
-                                                    uiShell.publishedIds.indexOf(modelData.contentId))
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 110
+                                                text: "第 " + (modelData.nextNodeIndex + 1) + " 次"
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 12
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 90
+                                                text: "等级 " + modelData.masteryLevel
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 12
+                                            }
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 310
+                                                spacing: ds.s4
+                                                QuietButton {
+                                                    ds: reviewPage.ds
+                                                    objectName: "reviewPass-" + modelData.itemId
+                                                    implicitHeight: 36
+                                                    label: "通过"
+                                                    enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
+                                                    onClicked: uiShell.reviewItem(modelData.itemId, true, "")
+                                                }
+                                                QuietButton {
+                                                    ds: reviewPage.ds
+                                                    objectName: "reviewSnooze-" + modelData.itemId
+                                                    implicitHeight: 36
+                                                    label: "稍后提醒"
+                                                    enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
+                                                    onClicked: uiShell.snoozeReview(modelData.itemId)
+                                                }
+                                                QuietButton {
+                                                    ds: reviewPage.ds
+                                                    objectName: "reviewOpen-" + modelData.itemId
+                                                    implicitHeight: 36
+                                                    label: "查看课程"
+                                                    enabled: uiShell.publishedIds.indexOf(modelData.contentId) >= 0
+                                                    onClicked: uiShell.openPublishedContent(
+                                                        uiShell.publishedIds.indexOf(modelData.contentId))
+                                                }
                                             }
                                         }
                                     }
