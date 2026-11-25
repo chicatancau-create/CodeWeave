@@ -14,10 +14,13 @@ import { join } from 'node:path'
 
 export const OWNER_SCHEMA_VERSION = 1
 
-export function createOwnerStore({ dataRoot }) {
+export function createOwnerStore({ dataRoot, database }) {
   const filePath = join(dataRoot, 'vault-owner.json')
 
   async function read() {
+    const db = database?.()
+    const saved = db?.prepare('SELECT record_json FROM vault_owner WHERE singleton = 1').get()
+    if (saved) return JSON.parse(saved.record_json)
     if (!existsSync(filePath)) {
       return { schemaVersion: OWNER_SCHEMA_VERSION, vaultId: null, ownerUserId: null, boundAt: null, publicContent: false }
     }
@@ -40,6 +43,12 @@ export function createOwnerStore({ dataRoot }) {
   }
 
   async function write(record) {
+    const db = database?.()
+    if (db) {
+      db.prepare('INSERT INTO vault_owner VALUES (1, ?) ON CONFLICT(singleton) DO UPDATE SET record_json = excluded.record_json')
+        .run(JSON.stringify(record))
+      return record
+    }
     await mkdir(dataRoot, { recursive: true })
     const temp = `${filePath}.${process.pid}.tmp`
     await writeFile(temp, `${JSON.stringify(record, null, 2)}\n`, 'utf8')
@@ -56,6 +65,9 @@ export function createOwnerStore({ dataRoot }) {
     if (!userId) throw Object.assign(new Error('缺少账户标识'), { code: 'invalid_owner' })
     if (!vaultId) throw Object.assign(new Error('资料库尚未连接，无法绑定拥有者'), { code: 'vault_unavailable' })
     const current = await read()
+    if (current.corrupt || (current.ownerUserId && current.vaultId !== vaultId)) {
+      throw Object.assign(new Error('拥有者绑定无法用于当前资料库'), { code: 'owner_vault_mismatch' })
+    }
     if (current.ownerUserId && current.ownerUserId !== userId) {
       throw Object.assign(new Error('资料库已有拥有者；更换拥有者需要先解绑'), { code: 'owner_taken' })
     }

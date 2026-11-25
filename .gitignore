@@ -83,4 +83,5 @@ Thumbs.db
 /应用端/项目/workspace/
 /应用端/项目/config/*.local.json
 /网页端/项目/server/data/
+/网页端/项目/server/config/codeweave.local.json
 *.tsbuildinfo

@@ -23,6 +23,7 @@
 import { useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
 import { MarkdownBodyContext, MAX_MARKDOWN_DEPTH, type MarkdownRenderer } from './markdown-body'
+import { useOptionalContent } from './provider'
 import { WikiLink } from './wiki-link'
 import { resolveImageAttachment } from './wikilink'
 
@@ -37,7 +38,7 @@ type Block =
 /** 宿主可接管双链跳转（例如在工作台里打开该课）；不接管时就地展开已发布原文。 */
 export type MarkdownNavigateHandler = (target: { contentId: string; title: string }) => void
 
-type LinkOptions = { depth: number; onNavigate?: MarkdownNavigateHandler }
+type LinkOptions = { depth: number; onNavigate?: MarkdownNavigateHandler; bundleId?: string }
 
 const HEADING = /^(#{1,6})\s+(.+?)\s*$/
 const UNORDERED = /^\s*[-*]\s+(.+)$/
@@ -260,12 +261,13 @@ function MarkdownImage({ src, alt, relPath }: { src: string; alt: string; relPat
  * 把一个 `![说明](目标)` 令牌渲染成图片，或按今天的方式退回纯文本。
  * 判定完全交给 `wikilink.ts`（`rejectReasonFor` + 位图白名单），这里不重复路径规则。
  */
-function renderImageToken(token: string, key: string): ReactNode {
+function renderImageToken(token: string, key: string, bundleId?: string): ReactNode {
   const parsed = IMAGE_TOKEN.exec(token)
   if (!parsed) return token
   const decision = resolveImageAttachment(parsed[2] ?? '')
   if (decision.kind !== 'image') return token
-  return <MarkdownImage key={key} src={decision.src} alt={parsed[1] ?? ''} relPath={decision.relPath} />
+  const src = bundleId ? decision.src + '&bundleId=' + encodeURIComponent(bundleId) : decision.src
+  return <MarkdownImage key={src + ':' + key} src={src} alt={parsed[1] ?? ''} relPath={decision.relPath} />
 }
 
 /** 行内格式：`code`、**bold**、![说明](白名单图片)、[[双链]]。其余（含 HTML 片段与链接语法）按纯文本输出。 */
@@ -283,7 +285,7 @@ function renderInline(text: string, keyPrefix: string, links: LinkOptions): Reac
     if (token.startsWith('`')) nodes.push(<code key={key}>{token.slice(1, -1)}</code>)
     else if (token.startsWith('**')) nodes.push(<strong key={key}>{token.slice(2, -2)}</strong>)
     // 图片：库根相对路径 + 位图白名单才给同源 src；其余保持纯文本（见 README-attachments.md §4）
-    else if (token.startsWith('!')) nodes.push(renderImageToken(token, key))
+    else if (token.startsWith('!')) nodes.push(renderImageToken(token, key, links.bundleId))
     // 双链：已发布才可跳转；未发布/危险目标只作为文本 + 明确提示（见 wiki-link.tsx）
     else nodes.push(<WikiLink key={key} raw={token.slice(2, -2)} depth={links.depth} onNavigate={links.onNavigate} />)
     last = match.index + token.length
@@ -355,6 +357,7 @@ function renderBlocks(markdown: string, links: LinkOptions): ReactNode[] {
 
 /** 一棵可被双链面板复用的正文渲染树：`depth` 逐级 +1，用于限制嵌套展开。 */
 function MarkdownTree({ markdown, depth, onNavigate }: { markdown: string; depth: number; onNavigate?: MarkdownNavigateHandler }) {
+  const bundleId = useOptionalContent()?.pinnedBundleId
   const renderBody = useCallback<MarkdownRenderer>(
     (inner) =>
       depth >= MAX_MARKDOWN_DEPTH ? (
@@ -364,7 +367,7 @@ function MarkdownTree({ markdown, depth, onNavigate }: { markdown: string; depth
       ),
     [depth, onNavigate],
   )
-  return <MarkdownBodyContext.Provider value={renderBody}>{renderBlocks(markdown, { depth, onNavigate })}</MarkdownBodyContext.Provider>
+  return <MarkdownBodyContext.Provider value={renderBody}>{renderBlocks(markdown, { depth, onNavigate, bundleId })}</MarkdownBodyContext.Provider>
 }
 
 export function MarkdownView({

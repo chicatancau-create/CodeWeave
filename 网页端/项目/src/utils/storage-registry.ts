@@ -72,6 +72,13 @@ export const STORAGE_REGISTRY: readonly StorageDescriptor[] = [
     versionNote: '读取版本化信封的 savedAt',
   },
   {
+    baseKey: STORAGE_KEYS.UNIFIED_CHECKIN,
+    scope: 'account',
+    label: '打卡同步状态与待同步记录',
+    exportPolicy: 'include',
+    versionNote: '读取版本化信封的 savedAt',
+  },
+  {
     baseKey: STORAGE_KEYS.MASTERY,
     scope: 'account',
     label: '掌握度与复测计划',

@@ -8,6 +8,7 @@ $aliases = @{
     app = '应用端/项目'
     prep = '应用端/开发环境/CodeWeave-prep'
     qt = '应用端/构建产物/qt'
+    mobile = '移动端/项目'
 }
 foreach ($name in $aliases.Keys) {
     $target = Join-Path $root $aliases[$name]
@@ -32,13 +33,14 @@ $mobile.TargetPath = Join-Path $PSHOME 'powershell.exe'
 if (-not (Test-Path -LiteralPath $mobile.TargetPath)) { $mobile.TargetPath = (Get-Command powershell.exe).Source }
 $mobile.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $root '移动端/项目/scripts/launch-mobile.ps1') + '"'
 $mobile.WorkingDirectory = Join-Path $root '移动端/项目'
-$mobile.Description = '打开 CodeWeave 移动端 Android 工程（无 APK 时明确提示）'
+$mobile.Description = '启动 CodeWeave Android 模拟器客户端'
 $mobile.Save()
 $appExe = Join-Path $env:LOCALAPPDATA 'Programs/CodeWeave/CodeWeaveQtShell.exe'
 if (Test-Path -LiteralPath $appExe) {
     $app = $shell.CreateShortcut((Join-Path $root '应用端/启动应用端.lnk'))
-    $app.TargetPath = $appExe
-    $app.WorkingDirectory = Split-Path $appExe
+    $app.TargetPath = $mobile.TargetPath
+    $app.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $root '应用端/项目/scripts/launch-app.ps1') + '"'
+    $app.WorkingDirectory = Join-Path $root '应用端/项目'
     $app.Description = '启动当前已安装的 CodeWeave 应用端'
     $app.Save()
 } else {

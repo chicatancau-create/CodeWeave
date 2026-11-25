@@ -1,3 +1,4 @@
+import { sha256 } from './markdown.mjs'
 /**
  * 来源登记一致性（DATA-04）。
  *
@@ -49,6 +50,7 @@ export function parseSourceCard(text, path) {
 export async function loadSourceCards(root, sourceRoot, { skipDirs = [] } = {}) {
   const files = await listMarkdownFiles(root, sourceRoot, { skipDirs })
   const cards = new Map()
+  const fileHashes = {}
   const problems = []
   for (const path of files) {
     let text
@@ -58,6 +60,7 @@ export async function loadSourceCards(root, sourceRoot, { skipDirs = [] } = {}) 
       problems.push({ code: 'source_card_unreadable', path, message: `来源卡不可读取：${error.message}` })
       continue
     }
+    fileHashes[path] = sha256(text)
     let card
     try {
       card = parseSourceCard(text, path)
@@ -76,7 +79,7 @@ export async function loadSourceCards(root, sourceRoot, { skipDirs = [] } = {}) 
     }
     cards.set(card.sourceId, { path, sourceId: card.sourceId, verificationStatus: card.verificationStatus })
   }
-  return { cards, pages: new Set(files), problems }
+  return { cards, pages: new Set(files), problems, fileHashes }
 }
 
 /**

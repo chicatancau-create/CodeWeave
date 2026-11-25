@@ -11,7 +11,8 @@
  * 4. 校验规则投影的来源 hash；源标准变化时规则置 stale，不覆盖上次有效规则。
  * 5. 产出候选包 + 差异/缺口报告。
  */
-import { readFile } from 'node:fs/promises'
+import { collectPublishedAssets } from './asset-objects.mjs'
+import { compileLegacyAliases } from './identity.mjs'
 import {
   ContentError,
   findSection,
@@ -66,11 +67,16 @@ function whitelistOf(manifest) {
   }
 }
 
-async function readJsonIfExists(root, relPath) {
+async function readJsonIfExists(root, relPath, fingerprints) {
   try {
-    return JSON.parse(normalizeText(await readFile(`${root}/${relPath}`, 'utf8')))
+    const text = await readVaultText(root, relPath)
+    fingerprints[relPath] = sha256(text)
+    return JSON.parse(text)
   } catch (error) {
-    if (error?.code === 'ENOENT') return null
+    if (error?.code === 'source_not_found') {
+      fingerprints[relPath] = null
+      return null
+    }
     if (error instanceof SyntaxError) {
       throw new ContentError('invalid_manifest', `${relPath}: JSON 解析失败 ${error.message}`)
     }
@@ -842,7 +848,8 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
   const scan = await scanVolumes(root, manifest)
   const scannedTopics = scan.topics
 
-  const idMapRaw = await readJsonIfExists(root, wl.topicIdMapPath)
+  const inputFileHashes = {}
+  const idMapRaw = await readJsonIfExists(root, wl.topicIdMapPath, inputFileHashes)
   if (idMapRaw && (idMapRaw.schemaVersion ?? 1) > ID_MAP_SCHEMA_VERSION) {
     return {
       ok: false,
@@ -868,8 +875,8 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
 
   const { units, problems: unitProblems } = await loadTeachingUnits(root, manifest)
   const { exercises, problems: exerciseProblems } = await loadExercises(root, manifest)
-  const rules = await readJsonIfExists(root, wl.rulesPath)
-  const legacyMap = await readJsonIfExists(root, wl.legacyMapPath)
+  const rules = await readJsonIfExists(root, wl.rulesPath, inputFileHashes)
+  const legacyMap = await readJsonIfExists(root, wl.legacyMapPath, inputFileHashes)
 
   const ruleSources = await loadRuleSources(root, rules)
   const rulesCheck = checkRules(rules, ruleSources)
@@ -987,7 +994,13 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
     }
   })
 
+  const attachments = await collectPublishedAssets(root, lessons)
+  const aliases = compileLegacyAliases(legacyMap, lessons)
+  blockingAll.push(...attachments.problems, ...aliases.problems)
   const core = {
+    assets: attachments.assets,
+    legacyAliases: aliases.legacyAliases,
+    aliasVersion: aliases.aliasVersion,
     schemaVersion: BUNDLE_SCHEMA_VERSION,
     compilerVersion: COMPILER_VERSION,
     vaultId: manifest.vaultId,
@@ -995,6 +1008,7 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
     // 迁移表也是发布契约的一部分：映射改了，快照版本必须跟着变。
     mapVersion: legacyMap?.mapVersion ?? null,
     legacyMapHash: sha256(stableStringify(legacyMap?.entries ?? [])),
+    topicIdMapHash: sha256(stableStringify(idMapRaw)),
     rules: rulesPublished,
     stages: rulesPublished.stages ?? [],
     topics: topicsOut,
@@ -1035,6 +1049,7 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
   let indexText
   try {
     indexText = normalizeText(await readVaultText(root, wl.topicIndexPath))
+    inputFileHashes[wl.topicIndexPath] = sha256(indexText)
   } catch {
     indexText = null
   }
@@ -1090,7 +1105,7 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
   }
 
   // 源文件 hash 台账：扫描前记录、发布前复核，期间被改则整包重扫（§5.3 第 1 条）。
-  const sourceHashes = {}
+  const sourceHashes = { ...inputFileHashes, ...sourceCards.fileHashes }
   for (const volume of scan.volumes) sourceHashes[volume.path] = volume.fileHash
   for (const unit of units) sourceHashes[unit.path] = unit.sourceHash
   for (const exercise of exercises) sourceHashes[exercise.path] = exercise.sourceHash
@@ -1100,6 +1115,7 @@ export async function compileContent({ manifest, rootOverride, previousBundle = 
     ok: true,
     bundle,
     nextManifest,
+    assetObjects: attachments.objects,
     report: {
       generatedAt: bundle.buildTime,
       bundleId,

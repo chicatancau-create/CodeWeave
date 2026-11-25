@@ -11,7 +11,7 @@
  */
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { readFile, readdir } from 'node:fs/promises'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { runtimeConfig } from '../config.mjs'
 import { ContentError, normalizeText } from './markdown.mjs'
 
@@ -99,7 +99,19 @@ export function resolveWritablePath(root, relPath) {
   if (inside.startsWith('..') || isAbsolute(inside)) {
     throw new ContentError('path_escape', `路径越出资料库根：${relPath}`)
   }
-  if (!existsSync(target)) return { rel, abs: target, existed: false }
+  if (!existsSync(target)) {
+    let parent = dirname(target)
+    while (!existsSync(parent)) {
+      const ancestor = dirname(parent)
+      if (ancestor === parent) throw new ContentError('source_not_found', '目标文件的父目录不存在')
+      parent = ancestor
+    }
+    const parentInside = relative(root, realpathSync(parent))
+    if (parentInside.startsWith('..') || isAbsolute(parentInside)) {
+      throw new ContentError('path_escape', '目标文件的父目录越出资料库根')
+    }
+    return { rel, abs: target, existed: false }
+  }
   let real
   try {
     real = realpathSync(target)

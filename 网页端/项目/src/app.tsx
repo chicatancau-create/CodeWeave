@@ -411,7 +411,10 @@ function WorkspaceShell({
   const { verifySubmission, rejectSubmission } = challengeProgress
   const mastery = useReviewSchedule(scope, now)
   const projects = useProjects(scope)
-  const checkin = useCheckin(scope, now)
+  const checkin = useCheckin(scope, now, content.capabilities?.includes('learningSync') &&
+    content.learningStatus?.isOwner && content.serviceInstance && content.vaultId
+    ? { accountId: scope, serviceInstance: content.serviceInstance, vaultId: content.vaultId }
+    : null)
 
   const debouncedCode = useDebounce(code, 600)
   /**
@@ -1319,7 +1322,7 @@ function Sidebar({
             </div>
             <div>
               <strong>{checkin.checkedIn ? `已打卡 · 连续 ${checkin.streak} 天` : `连续打卡 ${checkin.streak} 天`}</strong>
-              <span>{checkin.checkedIn ? '明天继续保持' : '点击卡片完成今日打卡'}</span>
+          <span>{checkin.syncError ?? (checkin.pendingCount ? '已记录，待同步' : checkin.checkedIn ? '明天继续保持' : '点击卡片完成今日打卡')}</span>
             </div>
           </button>
           <button className="streak-more" onClick={onToggleCalendar} aria-label="查看打卡日历" aria-expanded={calendarOpen}>

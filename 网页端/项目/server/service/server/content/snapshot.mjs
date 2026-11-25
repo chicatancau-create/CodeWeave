@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createAssetObjects } from './asset-objects.mjs'
 import { stableStringify } from './markdown.mjs'
 
 export const STATUS = {
@@ -35,6 +36,8 @@ export function createSnapshotStore({ dataRoot }) {
   const baseDir = join(dataRoot, 'content')
   const snapshotsDir = join(baseDir, 'snapshots')
   const currentPath = join(baseDir, 'current.json')
+  const publishedDir = join(baseDir, 'published')
+  const assets = createAssetObjects(dataRoot)
   /** 同步任务：同一时刻只允许一个；重复点击返回同一 job。 */
   let activeJob = null
 
@@ -46,32 +49,84 @@ export function createSnapshotStore({ dataRoot }) {
     return join(snapshotsDir, `${bundleId}.json`)
   }
 
-  /** 读取 current 指针；不存在或损坏时返回 null（不抛错，由上层决定状态词）。 */
-  async function readPointer() {
+  async function readOptionalJson(path) {
     try {
-      return JSON.parse(await readFile(currentPath, 'utf8'))
-    } catch {
-      return null
+      return JSON.parse(await readFile(path, 'utf8'))
+    } catch (error) {
+      if (error?.code === 'ENOENT') return null
+      throw error
     }
   }
 
-  /**
-   * 读取当前生效快照。载荷 hash 校验失败视为 invalid，绝不返回半损坏内容。
-   */
-  async function readCurrent() {
-    const pointer = await readPointer()
-    if (!pointer?.bundleId) return { status: STATUS.UNCONFIGURED, bundle: null, pointer: null }
-    let raw
-    try {
-      raw = JSON.parse(await readFile(snapshotPath(pointer.bundleId), 'utf8'))
-    } catch {
-      return { status: STATUS.INVALID, bundle: null, pointer, reason: 'current 指针指向的快照文件不可读' }
+  /** 不存在和损坏是两种不同状态，损坏时禁止发布对账继续写入。 */
+  async function readPointer() {
+    const pointer = await readOptionalJson(currentPath)
+    if (pointer !== null && (!validBundleId(pointer.bundleId) || !/^[a-f0-9]{64}$/.test(pointer.payloadHash ?? ''))) {
+      throw new Error('current 指针格式无效')
+    }
+    return pointer
+  }
+
+  function validBundleId(id) {
+    return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(id)
+  }
+
+  async function readVerifiedBundle(pointer) {
+    if (!validBundleId(pointer?.bundleId)) throw new Error('无效的快照标识')
+    const raw = await readRecord(pointer.bundleId)
+    if (!raw || raw.bundleId !== pointer.bundleId || raw.bundle?.bundleId !== pointer.bundleId) {
+      throw new Error('快照标识与指针不一致')
     }
     const actual = hashPayload(raw.bundle)
     if (actual !== raw.payloadHash || actual !== pointer.payloadHash) {
-      return { status: STATUS.INVALID, bundle: null, pointer, reason: '快照载荷校验失败，禁止使用' }
+      throw new Error('快照载荷校验失败')
     }
-    return { status: STATUS.READY, bundle: raw.bundle, pointer }
+    return raw.bundle
+  }
+
+  async function readCurrent() {
+    let pointer = null
+    try {
+      pointer = await readPointer()
+      if (!pointer) return { status: STATUS.UNCONFIGURED, bundle: null, pointer }
+      const bundle = await readVerifiedBundle(pointer)
+      return { status: STATUS.READY, bundle, pointer }
+    } catch {
+      return { status: STATUS.INVALID, bundle: null, pointer, reason: '当前快照校验失败，禁止使用' }
+    }
+  }
+
+  function markerPath(bundleId) {
+    if (!validBundleId(bundleId)) throw new Error('无效的快照标识')
+    return join(publishedDir, `${bundleId}.json`)
+  }
+
+  async function markPublished(pointer) {
+    await mkdir(publishedDir, { recursive: true })
+    const path = markerPath(pointer.bundleId)
+    const temporary = `${path}.${process.pid}.tmp`
+    await writeFile(temporary, JSON.stringify(pointer), { encoding: 'utf8', flush: true })
+    await rename(temporary, path)
+  }
+
+  async function readBundle(bundleId, vaultId) {
+    const authorize = (result) => {
+      if (result.bundle && vaultId !== undefined && result.bundle.vaultId !== vaultId) {
+        return { status: 'content_bundle_retired', bundle: null }
+      }
+      return result
+    }
+    if (bundleId === null || bundleId === undefined) return authorize(await readCurrent())
+    if (!validBundleId(bundleId)) return { status: 'invalid_bundle_id', bundle: null }
+    try {
+      const current = await readPointer()
+      const pointer = current?.bundleId === bundleId ? current : await readOptionalJson(markerPath(bundleId))
+      if (!pointer) return { status: 'content_bundle_retired', bundle: null }
+      if (pointer.bundleId !== bundleId) throw new Error('已发布快照标识不匹配')
+      return authorize({ status: STATUS.READY, bundle: await readVerifiedBundle(pointer), pointer })
+    } catch {
+      return { status: STATUS.INVALID, bundle: null }
+    }
   }
 
   /** 读快照记录里的发布时间；读不到（损坏或手写）记为空串，按最旧处理。 */
@@ -109,17 +164,9 @@ export function createSnapshotStore({ dataRoot }) {
     return a < b ? 1 : a > b ? -1 : 0
   }
 
-  /**
-   * 退役超出保留窗口的快照，返回本次被删掉的 id（新→旧）。
-   * keepBundleId 必须在窗口内，所以只保留其余最近 KEEP_SNAPSHOTS-1 代。
-   */
-  async function retireOldSnapshots(keepBundleId) {
-    const ids = await listSnapshots()
-    const stale = ids.filter((id) => id !== keepBundleId).slice(KEEP_SNAPSHOTS - 1)
-    for (const id of stale) {
-      await rm(snapshotPath(id), { force: true }).catch(() => {})
-    }
-    return stale
+  /** 离线引用可跨进程存在。没有完整的引用清单前，保留磁盘快照和 CAS。 */
+  async function retireOldSnapshots() {
+    return []
   }
 
   /**
@@ -134,10 +181,19 @@ export function createSnapshotStore({ dataRoot }) {
     const payloadHash = hashPayload(normalized)
     const record = { bundleId: normalized.bundleId, publishedAt: new Date().toISOString(), payloadHash, bundle: normalized }
     const finalPath = snapshotPath(normalized.bundleId)
+    if (!validBundleId(normalized.bundleId)) throw new Error('无效的候选快照标识')
+    const existing = await readOptionalJson(finalPath)
+    if (existing !== null) {
+      const verified = await readVerifiedBundle({ bundleId: normalized.bundleId, payloadHash: existing.payloadHash })
+      const { buildTime: _previousBuildTime, ...previous } = verified
+      const { buildTime: _newBuildTime, ...next } = normalized
+      if (hashPayload(previous) !== hashPayload(next)) throw new Error('相同快照标识对应不同载荷')
+      return { bundle: verified, payloadHash: existing.payloadHash, publishedAt: existing.publishedAt, created: false }
+    }
     const tempPath = `${finalPath}.${process.pid}.tmp`
     await writeFile(tempPath, JSON.stringify(record), 'utf8')
     await rename(tempPath, finalPath)
-    return { bundle: normalized, payloadHash, publishedAt: record.publishedAt }
+    return { bundle: normalized, payloadHash, publishedAt: record.publishedAt, created: true }
   }
 
   async function readRecord(bundleId) {
@@ -147,6 +203,11 @@ export function createSnapshotStore({ dataRoot }) {
   /** 阶段 2：切换活动指针。 */
   async function flipPointer(bundleId, payloadHash, { schemaVersion = null, publishedAt = null } = {}) {
     await ensureDirs()
+    const previous = await readPointer()
+    if (previous && previous.bundleId !== bundleId) {
+      await readVerifiedBundle(previous)
+      await markPublished(previous)
+    }
     const pointer = { bundleId, publishedAt: publishedAt ?? new Date().toISOString(), payloadHash, schemaVersion }
     const temp = `${currentPath}.${process.pid}.tmp`
     await writeFile(temp, JSON.stringify(pointer), 'utf8')
@@ -167,7 +228,10 @@ export function createSnapshotStore({ dataRoot }) {
   }
 
   async function discardCandidate(bundleId) {
-    if (!bundleId) return
+    if (!validBundleId(bundleId)) throw new Error('无效的候选快照标识')
+    if ((await readPointer())?.bundleId === bundleId || await readOptionalJson(markerPath(bundleId))) {
+      throw new Error('禁止删除已发布快照')
+    }
     await rm(snapshotPath(bundleId), { force: true })
   }
 
@@ -175,11 +239,7 @@ export function createSnapshotStore({ dataRoot }) {
   const journalPath = join(baseDir, 'publish-journal.json')
 
   async function readJournal() {
-    try {
-      return JSON.parse(await readFile(journalPath, 'utf8'))
-    } catch {
-      return null
-    }
+    return readOptionalJson(journalPath)
   }
 
   async function writeJournal(journal) {
@@ -249,6 +309,9 @@ export function createSnapshotStore({ dataRoot }) {
     clearJournal,
     retireOldSnapshots,
     currentPath,
+    readVerifiedBundle,
+    readBundle,
+    assets,
     readCurrent,
     readPointer,
     listSnapshots,

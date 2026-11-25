@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-find_package(Qt6 6.8.3 REQUIRED COMPONENTS Quick Qml QuickControls2)
+find_package(Qt6 6.8.3 REQUIRED COMPONENTS Quick Qml QuickControls2 Network)
 qt_policy(SET QTP0001 NEW)
 qt_policy(SET QTP0004 NEW)
 
@@ -37,6 +37,8 @@ qt_add_executable(codeweave-qt
   facade/checkin_store.cpp
   facade/challenge_submission_store.cpp
   facade/ui_shell.hpp
+  facade/unified_content_source.hpp
+  facade/unified_content_source.cpp
 )
 qt_add_resources(codeweave-qt challenge_runtime_resource PREFIX "/challenge"
   BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES "${CHALLENGE_TEACHING_RUNTIME}")
@@ -100,6 +102,7 @@ qt_add_qml_module(codeweave-qt
     qml/components/ShellDialog.qml
     qml/components/ShellMenuItem.qml
     qml/components/SettingsContent.qml
+    qml/components/UnifiedContentPanel.qml
     qml/components/PreferenceToggle.qml
     qml/components/MotionAwareBusyIndicator.qml
     qml/components/SubjectPill.qml
@@ -126,9 +129,9 @@ qt_add_qml_module(codeweave-qt
 )
 
 target_include_directories(codeweave-qt PRIVATE facade)
-target_link_libraries(codeweave-qt PRIVATE Qt6::Quick Qt6::Qml Qt6::QuickControls2 codeweave-content-qt)
+target_link_libraries(codeweave-qt PRIVATE Qt6::Quick Qt6::Qml Qt6::QuickControls2 Qt6::Network codeweave-content-qt)
 if (WIN32)
-  target_link_libraries(codeweave-qt PRIVATE ole32 shell32 uuid)
+  target_link_libraries(codeweave-qt PRIVATE ole32 shell32 uuid crypt32)
 endif()
 if (MSVC)
   target_compile_options(codeweave-qt PRIVATE /W4 /permissive- /EHsc /utf-8)

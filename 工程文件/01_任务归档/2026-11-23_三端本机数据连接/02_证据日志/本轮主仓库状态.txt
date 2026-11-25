@@ -1,0 +1,92 @@
+## codex/project-layout-20261106...origin/codex/project-layout-20261106 [ahead 2]
+ M .gitignore
+ M 工程文件/工具/初始化本机入口.ps1
+ M 应用端/项目/native/ui-qt/CMakeLists.txt
+ M 应用端/项目/native/ui-qt/facade/ui_shell_writeback.cpp
+ M 应用端/项目/native/ui-qt/platform/ui_main.cpp
+ M 应用端/项目/native/ui-qt/qml/Main.qml
+ M 应用端/项目/scripts/launch-app.ps1
+ M 移动端/项目/mobile-app/build.gradle.kts
+ M 移动端/项目/mobile-app/src/main/AndroidManifest.xml
+ M 移动端/项目/mobile-app/src/main/java/com/codeweave/mobile/MainActivity.kt
+ M 移动端/项目/mobile-app/src/main/res/values-night/styles.xml
+ M 移动端/项目/mobile-app/src/main/res/values/styles.xml
+ M 移动端/项目/scripts/launch-mobile.ps1
+ M 网页端/项目/package.json
+ M 网页端/项目/scripts/launch-web.cmd
+ M 网页端/项目/server/config/codeweave.config.example.json
+ M 网页端/项目/server/service/server.mjs
+ M 网页端/项目/server/service/server/config.mjs
+ M 网页端/项目/server/service/server/content/asset.mjs
+ M 网页端/项目/server/service/server/content/compiler.mjs
+ M 网页端/项目/server/service/server/content/index.mjs
+ M 网页端/项目/server/service/server/content/snapshot.mjs
+ M 网页端/项目/server/service/server/content/sources.mjs
+ M 网页端/项目/server/service/server/content/vault-paths.mjs
+ M 网页端/项目/server/service/server/learning/index.mjs
+ M 网页端/项目/server/service/server/learning/owner.mjs
+ M 网页端/项目/server/service/server/learning/writeback.mjs
+ M 网页端/项目/src/app.tsx
+ M 网页端/项目/src/content/adapter.ts
+ M 网页端/项目/src/content/api.ts
+ M 网页端/项目/src/content/markdown.tsx
+ M 网页端/项目/src/content/provider.tsx
+ M 网页端/项目/src/content/types.ts
+ M 网页端/项目/src/hooks/use-checkin.ts
+ M 网页端/项目/src/utils/constants.ts
+ M 网页端/项目/src/utils/storage-registry.ts
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/Qt启动入口.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/Qt安装版会话构建校验.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/Qt安装版同步构建校验.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/Qt安装版离屏校验.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/Qt安装版离线构建校验.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/Qt安装版窗口校验.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/SQLite升级前恢复验证.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/SQLite现行恢复验证.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/U01-dry-run.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/U01正文激活前后校验.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/发布中断验证.jsonl
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/开工基线.txt
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/本机初始化演练.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/正式U01激活.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/正式写回回滚验证.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/正式切换前备份.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/正式服务健康.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/正式服务重启.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/登录启动任务.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/02_证据日志/离线包服务部署.json
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/03_工具脚本/SQLite运行备份.mjs
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/03_工具脚本/发布中断验证.mjs
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/03_工具脚本/备份与恢复演练.mjs
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/03_工具脚本/本机初始化演练.mjs
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/03_工具脚本/正式写回回滚验证.mjs
+?? 工程文件/01_任务归档/2026-11-23_三端本机数据连接/03_工具脚本/隔离服务联调.mjs
+?? 工程文件/01_任务归档/2026-11-23_修缮收尾/02_证据日志/已清理空日志.txt
+?? 工程文件/01_任务归档/2026-11-23_修缮收尾/04_产物/归档交接.md
+?? 工程文件/数据接入审查-20261122/01_项目检查报告.md
+?? 工程文件/数据接入审查-20261122/02_三端数据连接方案.md
+?? 应用端/项目/native/ui-qt/facade/unified_content_source.cpp
+?? 应用端/项目/native/ui-qt/facade/unified_content_source.hpp
+?? 应用端/项目/native/ui-qt/qml/components/UnifiedContentPanel.qml
+?? 移动端/项目/mobile-app/src/main/java/com/codeweave/mobile/LocalServiceOrigin.kt
+?? 移动端/项目/mobile-app/src/main/java/com/codeweave/mobile/UnifiedContent.kt
+?? 移动端/项目/mobile-app/src/main/java/com/codeweave/mobile/UnifiedService.kt
+?? 移动端/项目/mobile-app/src/main/res/values-night-v27/styles.xml
+?? 移动端/项目/mobile-app/src/main/res/values-v27/styles.xml
+?? 移动端/项目/mobile-app/src/main/res/xml/network_security_config.xml
+?? 移动端/项目/mobile-app/src/test/java/com/codeweave/mobile/LocalServiceOriginTest.kt
+?? 网页端/项目/scripts/content-dry-run.mjs
+?? 网页端/项目/scripts/ensure-local-service.mjs
+?? 网页端/项目/server/contracts/legacy-course-ids.json
+?? 网页端/项目/server/service/server/accounts.mjs
+?? 网页端/项目/server/service/server/content/asset-objects.mjs
+?? 网页端/项目/server/service/server/content/identity.mjs
+?? 网页端/项目/server/service/server/content/publish-jobs.mjs
+?? 网页端/项目/server/service/server/learning/sync.mjs
+?? 网页端/项目/src/hooks/use-unified-checkin.test.tsx
+?? 网页端/项目/src/hooks/use-unified-checkin.ts
+?? 网页端/项目/tests/asset-objects.test.mjs
+?? 网页端/项目/tests/learning-sync.test.mjs
+?? 网页端/项目/tests/progress-board-writeback.test.mjs
+?? 网页端/项目/tests/publish-jobs.test.mjs
+?? 网页端/项目/tests/publish-recovery.test.mjs

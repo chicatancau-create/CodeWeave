@@ -23,7 +23,8 @@
     "contract:check": "node scripts/sync-contract.mjs --check",
     "audit:boundary": "node scripts/audit-boundary.mjs",
     "server:check": "node --check server/service/server.mjs && node --check server/service/server/config.mjs",
-    "server:start": "node server/service/server.mjs"
+    "server:start": "node server/service/server.mjs",
+    "content:dry-run": "node scripts/content-dry-run.mjs"
   },
   "dependencies": {
     "lucide-react": "1.33.0",

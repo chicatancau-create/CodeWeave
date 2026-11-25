@@ -1,4 +1,5 @@
 #include "ui_shell.hpp"
+#include "unified_content_source.hpp"
 #include "performance_probe.hpp"
 #include "native_dialogs.hpp"
 #include "challenge_runtime.hpp"
@@ -210,6 +211,9 @@ int main(int argc, char* argv[]) {
   const auto arguments = application.arguments();
   const bool qml_smoke = arguments.contains(QStringLiteral("--qml-load-smoke"));
   const auto qml_smoke_arg = arguments.indexOf(QStringLiteral("--qml-load-smoke"));
+  const auto unified_smoke_arg = arguments.indexOf(QStringLiteral("--unified-content-smoke"));
+  const bool unified_smoke = unified_smoke_arg >= 0;
+  if (unified_smoke && (unified_smoke_arg + 1 >= arguments.size() || qml_smoke)) return 2;
   const bool smoke_preference_storage_unavailable =
       arguments.contains(QStringLiteral("--qml-load-smoke-preferences-unavailable"));
   const auto topbar_reference = arguments.indexOf(QStringLiteral("--topbar-reference-content"));
@@ -225,7 +229,7 @@ int main(int argc, char* argv[]) {
   if (smoke_preference_storage_unavailable && !qml_smoke) return 2;
   const bool isolated_window = matrix >= 0 || comparison >= 0;
   std::unique_ptr<QTemporaryDir> benchmark_data;
-  if (benchmark >= 0 || qml_smoke) benchmark_data = std::make_unique<QTemporaryDir>();
+  if (benchmark >= 0 || qml_smoke || unified_smoke) benchmark_data = std::make_unique<QTemporaryDir>();
   std::unique_ptr<U3MatrixContext> matrix_context;
   if (isolated_window) {
     matrix_context = std::make_unique<U3MatrixContext>();
@@ -241,20 +245,29 @@ int main(int argc, char* argv[]) {
     workspace_marker.close();
   }
   UiShell shell;
+  UnifiedContentSource unifiedContent;
   const auto workspace = QProcessEnvironment::systemEnvironment().value(
       QStringLiteral("CODEWEAVE_NATIVE_WORKSPACE"), QCoreApplication::applicationDirPath());
   const auto localAppData = QProcessEnvironment::systemEnvironment().value(
       QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-  if ((benchmark >= 0 || qml_smoke) && !benchmark_data->isValid()) return 2;
-  const auto nativeData = benchmark >= 0 || qml_smoke ? benchmark_data->path() :
+  if ((benchmark >= 0 || qml_smoke || unified_smoke) && !benchmark_data->isValid()) return 2;
+  const auto nativeData = benchmark >= 0 || qml_smoke || unified_smoke ? benchmark_data->path() :
       (isolated_window ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
       QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
+  unifiedContent.configureCache(QDir(nativeData).filePath(QStringLiteral("unified-cache")));
+  if (unified_smoke) {
+    const auto fixture = QDir(qEnvironmentVariable("CODEWEAVE_SMOKE_CACHE")).canonicalPath();
+    const auto scratch = QDir(QDir::tempPath()).canonicalPath() + '/';
+    if (fixture.startsWith(scratch + QStringLiteral("codeweave-unified-smoke-"))) {
+      unifiedContent.configureCache(QDir(fixture).filePath(QStringLiteral("qt-cache")));
+    }
+  }
   const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() :
-      (qml_smoke ? benchmark_data->path() : workspace);
+      (qml_smoke || unified_smoke ? benchmark_data->path() : workspace);
   if (!smoke_preference_storage_unavailable)
     shell.configurePreferenceStorage(std::filesystem::path(nativeData.toStdWString()));
   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
-  if (!isolated_window && !qml_smoke && benchmark < 0) {
+  if (!isolated_window && !qml_smoke && !unified_smoke && benchmark < 0) {
     QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
     const auto vault = settings.value(QStringLiteral("vault/root")).toString();
     if (!vault.isEmpty()) shell.configureVaultRoot(vault.toStdWString());
@@ -274,7 +287,7 @@ int main(int argc, char* argv[]) {
         L"选择资料库根目录（仅连接，确认提交前不修改资料库）", true);
     if (!path.empty()) {
       shell.configureVaultRoot(path);
-      if (!isolated_window && !qml_smoke && benchmark < 0) {
+      if (!isolated_window && !qml_smoke && !unified_smoke && benchmark < 0) {
         QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
         settings.setValue(QStringLiteral("vault/root"), QString::fromStdWString(path.wstring()));
       }
@@ -328,9 +341,10 @@ int main(int argc, char* argv[]) {
   }
   view.setTitle(shell.appTitle());
   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
+  view.rootContext()->setContextProperty(QStringLiteral("unifiedContent"), &unifiedContent);
   view.setResizeMode(QQuickView::SizeRootObjectToView);
   QStringList qml_warnings;
-  if (qml_smoke || isolated_window) {
+  if (qml_smoke || unified_smoke || isolated_window) {
     QObject::connect(view.engine(), &QQmlEngine::warnings, &application,
         [&](const QList<QQmlError>& warnings) {
           for (const auto& warning : warnings) qml_warnings.append(warning.toString());
@@ -339,6 +353,112 @@ int main(int argc, char* argv[]) {
   view.loadFromModule(QStringLiteral("CodeWeave.Ui"), QStringLiteral("Main"));
   if (view.status() == QQuickView::Error) return 1;
   view.show();
+  if (!qml_smoke && !unified_smoke && !isolated_window && benchmark < 0) unifiedContent.restoreAccount();
+  if (unified_smoke) {
+    auto* dialog = view.rootObject()->findChild<QObject*>(QStringLiteral("unifiedContentDialog"));
+    if (!dialog || !QMetaObject::invokeMethod(dialog, "open")) return 1;
+    const auto requestedId = qEnvironmentVariable("CODEWEAVE_SMOKE_CONTENT_ID");
+    const auto expectedCheckin = qEnvironmentVariable("CODEWEAVE_SMOKE_CHECKIN");
+    const auto report = arguments.at(unified_smoke_arg + 1);
+    const auto login = qEnvironmentVariable("CODEWEAVE_SMOKE_LOGIN");
+    const auto password = qEnvironmentVariable("CODEWEAVE_SMOKE_PASSWORD");
+    const auto disconnectMarker = qEnvironmentVariable("CODEWEAVE_SMOKE_DISCONNECT");
+    const bool outboxTest = qEnvironmentVariableIsSet("CODEWEAVE_SMOKE_OUTBOX") && !disconnectMarker.isEmpty();
+    const bool restoreRequested = arguments.contains(QStringLiteral("--restore-unified-session"));
+    if (requestedId.isEmpty() || (!restoreRequested && (login.isEmpty() || password.isEmpty()))) return 2;
+    QTimer timer;
+    int ticks = 0;
+    bool requested = false;
+    bool downloading = false;
+    bool offlineRequested = false;
+    bool queued = false;
+    bool reconnectionRequested = false;
+    QObject::connect(&timer, &QTimer::timeout, &application, [&] {
+      if (!requested && !unifiedContent.catalog().isEmpty() && !unifiedContent.busy()) {
+        requested = true;
+        unifiedContent.openLesson(requestedId);
+      }
+      const auto page = unifiedContent.page();
+      const auto lesson = page.value("lesson").toMap();
+      auto* body = dialog->findChild<QObject*>(QStringLiteral("unifiedLessonBody"));
+      auto* checkin = dialog->findChild<QObject*>(QStringLiteral("unifiedCheckinDates"));
+      const bool shown = body && body->property("visible").toBool() && !body->property("text").toString().isEmpty();
+      const bool synchronized = expectedCheckin.isEmpty() ||
+          (checkin && checkin->property("visible").toBool() && unifiedContent.checkinDates().count(expectedCheckin) == 1);
+      const bool ready = shown && synchronized && !unifiedContent.busy() && qml_warnings.isEmpty();
+      bool syncedOutbox = !outboxTest;
+      if (ready && outboxTest && offlineRequested && unifiedContent.status() == QStringLiteral("离线只读")) {
+        if (!queued) {
+          queued = true;
+          unifiedContent.recordCheckin();
+        } else if (!reconnectionRequested && unifiedContent.syncStatus() == QStringLiteral("待同步打卡已保留")) {
+          if (QFile::exists(disconnectMarker + QStringLiteral(".online"))) {
+            reconnectionRequested = true;
+            unifiedContent.refreshLearningFacts();
+          } else {
+            QFile saved(disconnectMarker + QStringLiteral(".queued"));
+            if (!saved.exists() && saved.open(QIODevice::WriteOnly)) saved.write("pending");
+          }
+        }
+        const auto today = QDate::currentDate().toString(Qt::ISODate);
+        syncedOutbox = reconnectionRequested && unifiedContent.checkinDates().count(today) == 1;
+      }
+      if (ready && !disconnectMarker.isEmpty() && !offlineRequested) {
+        if (!downloading) {
+          downloading = true;
+          unifiedContent.saveOfflineBundle();
+        } else if (unifiedContent.offlineStatus() == QStringLiteral("离线课程已校验")) {
+          if (QFile::exists(disconnectMarker)) {
+            offlineRequested = true;
+            requested = false;
+            unifiedContent.loadCatalog();
+          } else {
+            QFile downloaded(disconnectMarker + QStringLiteral(".ready"));
+            if (!downloaded.exists() && downloaded.open(QIODevice::WriteOnly)) downloaded.write("verified");
+          }
+        }
+      } else if (ready && syncedOutbox && (disconnectMarker.isEmpty() || unifiedContent.status() == QStringLiteral("离线只读"))) {
+        const auto catalog = unifiedContent.catalog();
+        QJsonObject result{
+          {"contentId", lesson.value("contentId").toString()},
+          {"bundleId", catalog.value("bundleId").toString()},
+          {"manifestHash", catalog.value("manifestHash").toString()},
+          {"vaultId", catalog.value("vaultId").toString()},
+          {"serviceInstance", catalog.value("serviceInstance").toString()},
+          {"checkinCount", static_cast<int>(unifiedContent.checkinDates().count(expectedCheckin))},
+          {"exerciseCount", static_cast<int>(page.value("exercises").toList().size())},
+          {"offlineOpened", offlineRequested},
+          {"restoredSession", restoreRequested},
+          {"offline", unifiedContent.status() == QStringLiteral("离线只读")},
+          {"outboxSynced", outboxTest && syncedOutbox},
+        };
+        QFile output(report);
+        const bool written = output.open(QIODevice::WriteOnly) && output.write(QJsonDocument(result).toJson()) > 0;
+        application.exit(written ? 0 : 1);
+        return;
+      }
+      if (++ticks >= 180) {
+        QFile output(report);
+        if (output.open(QIODevice::WriteOnly)) {
+          output.write(QJsonDocument(QJsonObject{
+            {"connected", unifiedContent.connected()},
+            {"courseShown", shown},
+            {"syncStatus", unifiedContent.syncStatus()},
+            {"offlineStatus", unifiedContent.offlineStatus()},
+            {"queued", queued},
+            {"askedToReconnect", reconnectionRequested},
+            {"onlineMarker", QFile::exists(disconnectMarker + QStringLiteral(".online"))},
+            {"warnings", QJsonArray::fromStringList(qml_warnings)},
+          }).toJson());
+        }
+        application.exit(1);
+      }
+    });
+    timer.start(200);
+    if (restoreRequested) unifiedContent.restoreAccount();
+    else unifiedContent.connectAccount(unifiedContent.defaultOrigin(), login, password);
+    return application.exec();
+  }
   QTimer qml_smoke_timer;
   int qml_smoke_page = 0;
   int qml_smoke_ticks = 0;

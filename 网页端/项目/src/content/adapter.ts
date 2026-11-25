@@ -361,7 +361,10 @@ export function adaptCatalog(snapshot: ContentSnapshot): AdaptedContent {
   // 顺手记下发布规则里的默认复测节点（排期标准的唯一读取口，见上面的注释）。
   publishedReviewOffsetsDays = readPublishedOffsets(snapshot)
   return {
-    lessons: [...lessons.map(snapshotSummaryToLesson), ...legacyLessonsWithFlag()],
+    lessons: [
+      ...lessons.map(snapshotSummaryToLesson),
+      ...legacyLessonsWithFlag().filter((lesson) => !Object.hasOwn(snapshot.legacyAliases ?? {}, lesson.id)),
+    ],
     stages: stages.map(stageToCurriculum),
     legacyStages: legacyStages,
   }

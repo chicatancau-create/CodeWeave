@@ -1,0 +1,12 @@
+G:\CodeWeave\工程文件\验收证据\修缮收口-20261115\qt-build-final-stderr.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix\runtime.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-hidden-failure\stderr.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-hidden-failure\stdout.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-software\stderr.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-software\stdout.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-software-sdk\stderr.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-software-sdk\stdout.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-verified\stderr.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-verified\stdout.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-windows-final\stderr.log
+G:\CodeWeave\应用端\工程文件\验收证据\修缮收口-20261115\qt-matrix-windows-final\stdout.log

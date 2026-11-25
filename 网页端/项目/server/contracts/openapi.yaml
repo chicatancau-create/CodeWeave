@@ -1,8 +1,7 @@
 # CodeWeave 后端数据服务 · 唯一 API 契约来源
 #
 # 分离方案 §6.1：契约先行，两端由此生成类型或薄客户端；§5：这是唯一允许跨边界共享的内容。
-# 本文件由 `workspace/tools/acceptance/contract-check.mjs` 与 `server.mjs` 的路由分发对照，
-# 少一条路由或多一条路由都会让门禁红，不允许「文档写着、代码没有」。
+# 网页端使用 contract:sync 生成独立部署副本，contract:check 核对内容。
 #
 # 逐接口写明：用途、认证要求、请求 schema、响应 schema、错误码、幂等性、分页、超时、敏感字段处理
 # （后四项放在 `x-` 扩展里，因为 OpenAPI 3.1 没有原生字段）。
@@ -13,7 +12,7 @@
 #   - 请求体上限 100,000 字节；超限 413 `body_too_large`。
 #   - 所有非 GET 请求先过同源校验（`Sec-Fetch-Site` / `Origin` vs `Host`）与 `application/json` 检查。
 #   - 登录限流：账号与来源 IP 双维度，默认 10 次 / 15 分钟窗口。
-#   - 响应体统一错误形状 `{ error, message }`，可带 `details`；成功响应是各自 schema 的对象。
+#   - JSON 响应使用 `{ error, code }` 或 `{ data }`，写回冲突可带 `details`。
 openapi: 3.1.0
 info:
   title: CodeWeave 后端数据服务 API
@@ -25,8 +24,6 @@ info:
 servers:
   - url: http://127.0.0.1:4173
     description: 本机服务（端口由后端配置解析器决定，端侧一律从 API_ORIGIN 取，不写死）
-  - url: http://127.0.0.1:4273
-    description: 迁移期新后端实例（与本文件同批建立，故意与仍在使用的旧入口错开端口）
 
 tags:
   - { name: health, description: 健康与实例身份 }
@@ -34,6 +31,7 @@ tags:
   - { name: profile, description: 个人资料 }
   - { name: content, description: 课程目录、教材正文、附件、快照同步 }
   - { name: learning, description: 拥有者绑定、正式学习事实、确认式写回 }
+  - { name: sync, description: 学习事件、增量拉取与冲突 }
 
 x-conventions:
   authentication:
@@ -72,13 +70,28 @@ components:
       required: true
       description: 写回事务标识（URL 编码后传输）
       schema: { type: string, maxLength: 200 }
+    bundleQuery:
+      name: bundleId
+      in: query
+      required: false
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,80}$' }
+    bundlePath:
+      name: bundleId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,80}$' }
+    ifNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      schema: { type: string }
   schemas:
     Error:
       type: object
-      required: [error, message]
+      required: [error, code]
       properties:
-        error: { type: string, description: 稳定错误码，见 contracts/errors.yaml }
-        message: { type: string, description: 给人看的中文说明，客户端不得解析它做分支 }
+        code: { type: string, description: 稳定错误码 }
+        error: { type: string, description: 面向用户的说明 }
         details: { description: 冲突/事务明细，仅在写回链出现 }
       additionalProperties: true
     User:
@@ -110,6 +123,38 @@ components:
         status: { type: string }
         targets: { type: array, items: { type: object, additionalProperties: true } }
       additionalProperties: true
+    LearningChange:
+      type: object
+      required: [schemaVersion, changeId, deviceId, kind, occurredAt, payload]
+      additionalProperties: false
+      properties:
+        schemaVersion: { const: 1 }
+        changeId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$' }
+        deviceId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$' }
+        kind:
+          enum: [learning.evidence.recorded, learning.completion.recorded, learning.checkin.recorded, learning.challenge.recorded, learning.review.recorded, learning.workspace.selected, learning.position.updated, learning.bookmark.updated, learning.bookmark.deleted, learning.draft.updated, learning.draft.deleted]
+        occurredAt: { type: string, format: date-time }
+        localDate: { type: string, format: date }
+        timeZone: { type: string, description: IANA 时区 }
+        contentRef:
+          type: [object, 'null']
+          required: [vaultId, contentId]
+          properties:
+            vaultId: { type: string }
+            contentId: { type: string }
+            bundleId: { type: string }
+            aliasVersion: { type: string }
+          description: 旧课程标识必须携带来源 bundleId 和 aliasVersion
+        baseRevision: { type: [integer, 'null'], minimum: 1 }
+        payload: { type: object }
+    BundleIdentity:
+      type: object
+      required: [serviceInstance, vaultId, bundleId, manifestHash]
+      properties:
+        serviceInstance: { type: string }
+        vaultId: { type: string }
+        bundleId: { type: string }
+        manifestHash: { type: string, pattern: '^[a-f0-9]{64}$' }
 
 security: []
 
@@ -316,19 +361,29 @@ paths:
     get:
       tags: [content]
       summary: 课程目录（阶段 / 单元 / 练习索引）
-      description: 带强 ETag，客户端应带 If-None-Match 复用；命中时服务端不开文件。
+      description: 目录固定到快照，认证通过后支持条件请求。返回快照身份、最低客户端版本、能力和别名。
       security: [{ sessionCookie: [] }]
       x-idempotency: 幂等
       x-pagination: 整个快照一次返回，不分页
       x-timeout: 读 10s
       x-sensitive-fields: 目录级元数据，不含学习答案
       parameters:
-        - { name: If-None-Match, in: header, required: false, schema: { type: string } }
+        - { $ref: '#/components/parameters/bundleQuery' }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
       responses:
         '200':
           headers:
             ETag: { schema: { type: string } }
-          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/BundleIdentity' }
+                      - { type: object, required: [contractVersion, minimumClientVersion, capabilities, legacyAliases, lessons] }
         '304': { description: 客户端缓存仍然有效 }
         '401': { description: unauthorized }
         '403': { description: vault_private }
@@ -343,7 +398,7 @@ paths:
       x-pagination: 不分页；超长正文按 topic_too_large 直接拒
       x-timeout: 读 10s
       x-sensitive-fields: 返回体带 X-Content-Bundle（快照标识），不含资料库路径
-      parameters: [ { $ref: '#/components/parameters/contentId' } ]
+      parameters: [ { $ref: '#/components/parameters/contentId' }, { $ref: '#/components/parameters/bundleQuery' }, { $ref: '#/components/parameters/ifNoneMatch' } ]
       responses:
         '200':
           headers:
@@ -363,7 +418,7 @@ paths:
       x-pagination: 不分页
       x-timeout: 读 10s
       x-sensitive-fields: 同上
-      parameters: [ { $ref: '#/components/parameters/contentId' } ]
+      parameters: [ { $ref: '#/components/parameters/contentId' }, { $ref: '#/components/parameters/bundleQuery' }, { $ref: '#/components/parameters/ifNoneMatch' } ]
       responses:
         '200':
           headers: { X-Content-Bundle: { schema: { type: string } } }
@@ -377,9 +432,7 @@ paths:
       tags: [content]
       summary: 按白名单读取发布包内的附件
       description: >-
-        只接受单一查询参数 `path`，且路径必须落在**已发布快照**的资产目录内；越界、绝对路径、
-        `..` 一律拒。条件请求命中 304 的判定排在全部权限门禁之后，所以 304 不向后越权者泄露信息。
-        被拒绝的读取按独立维度计数限流（探测面）。
+        兼容读取已发布快照内登记的附件，支持 bundleId 固定。读取前校验授权和 CAS 字节。
       security: [{ sessionCookie: [] }]
       x-idempotency: 幂等
       x-pagination: 不分页；单文件上限由 asset.mjs 的 ASSET_MAX_BYTES（5 MiB）决定
@@ -387,6 +440,7 @@ paths:
       x-sensitive-fields: 只提供白名单内、已发布、非私人的文件；类型不在白名单一律 403
       parameters:
         - { name: path, in: query, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/bundleQuery' }
         - { name: If-None-Match, in: header, required: false, schema: { type: string } }
       responses:
         '200': { description: 文件流，Content-Type 由白名单给出 }
@@ -398,26 +452,89 @@ paths:
         '429': { description: asset_rate_limited }
         '503': { description: vault_unavailable }
 
+  /api/content/assets/{assetId}:
+    get:
+      tags: [content]
+      summary: 通过不透明标识读取固定版本附件
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: assetId, in: path, required: true, schema: { type: string, pattern: '^asset-[a-f0-9]{32}$' } }
+        - { name: bundleId, in: query, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200': { description: 校验后的附件字节，含完整 SHA-256 ETag }
+        '304': { description: 授权通过且缓存仍有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_vault_mismatch }
+        '404': { description: asset_not_found }
+        '410': { description: content_bundle_retired }
+        '503': { description: asset_integrity_failed }
+
+  /api/content/bundles/{bundleId}/manifest:
+    get:
+      tags: [content]
+      summary: 固定快照的离线包清单与 SHA-256
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/bundlePath' }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200':
+          description: 含快照身份、content.json 和附件对象清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/BundleIdentity' }
+                      - { type: object, required: [schemaVersion, files, assets] }
+        '304': { description: 授权通过且缓存仍有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_vault_mismatch }
+        '410': { description: content_bundle_retired }
+
+  /api/content/bundles/{bundleId}/payload:
+    get:
+      tags: [content]
+      summary: 固定快照原始 JSON 字节
+      description: 客户端按清单校验完整 SHA-256 后再激活本机离线包。
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/bundlePath' }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200': { description: 原始 UTF-8 JSON 字节，SHA-256 与 manifestHash 一致 }
+        '304': { description: 授权通过且缓存仍有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_vault_mismatch }
+        '410': { description: content_bundle_retired }
+
   /api/content/sync:
     post:
       tags: [content]
       summary: 请求重建内容快照（异步作业）
       description: >-
-        默认分支是**真实同步**而非 dry-run，所以坏请求体不许退化成 `{}`——那会让一个畸形请求触发一次真写。
-        dryRun 必须由客户端显式传 `dryRun: true`。
+        需要 publisher 或 owner 权限。dryRun 必须显式传入，真实发布必须引用已完成的 dry-run 作业。
       security: [{ sessionCookie: [] }]
-      x-idempotency: "同一时刻只保一个当前作业；重复提交可返回同一 jobId（reused: true）"
+      x-idempotency: "同一账户、资料库、幂等键和请求复用原作业。相同键用于不同请求返回 409。"
       x-pagination: 不适用
       x-timeout: 写 10s（只负责排队，不同步等待结果）
       x-sensitive-fields: 不返回资料库路径；作业结果只含计数与缺口统计
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 12, maxLength: 128 } }
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [dryRun]
               properties:
-                dryRun: { type: boolean, default: false }
+                dryRun: { type: boolean }
+                approvalJobId: { type: string }
       responses:
         '202':
           description: 已排队
@@ -432,6 +549,8 @@ paths:
                   status: { type: string }
                   dryRun: { type: boolean }
         '400': { description: invalid_json }
+        '403': { description: publisher_required }
+        '409': { description: idempotency_conflict / approval_required / publish_busy }
         '413': { description: body_too_large }
         '429': { description: sync_rate_limited }
         '503': { description: vault_unavailable }
@@ -442,7 +561,7 @@ paths:
       summary: 查询同步作业状态
       security: [{ sessionCookie: [] }]
       x-idempotency: 幂等
-      x-pagination: 不分页；只保留当前作业，历史作业返回 404
+      x-pagination: 不分页；作业终态持久保存
       x-timeout: 读 10s
       x-sensitive-fields: summary 只含计数与阻断条数
       parameters:
@@ -461,7 +580,11 @@ paths:
                   startedAt: { type: [string, 'null'] }
                   finishedAt: { type: [string, 'null'] }
                   published: { type: boolean }
-                  error: { type: [string, 'null'] }
+                  error:
+                    type: [object, 'null']
+                    properties:
+                      code: { type: string }
+                      message: { type: string }
                   summary:
                     description: 报告未生成时为 null
                     type: [object, 'null']
@@ -479,6 +602,58 @@ paths:
         '404': { description: job_not_found }
 
   # =========================================================================
+  /api/sync/state:
+    get:
+      tags: [sync]
+      summary: 查询本账户同步范围、日志代次和冲突计数
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: 包含 serviceInstance、vaultId、accountId、syncEpoch、cursor、conflicts }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+
+  /api/sync/pull:
+    get:
+      tags: [sync]
+      summary: 按服务端序号拉取本账户的日志或增量
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 250, default: 100 } }
+      responses:
+        '200': { description: 包含 events、cursor、hasMore、syncEpoch }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+        '409': { description: sync_cursor_expired }
+
+  /api/sync/push:
+    post:
+      tags: [sync]
+      summary: 幂等推送单事件
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string }, description: 与 changeId 一致 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LearningChange' }
+      responses:
+        '200': { description: accepted 与 sequence，或 conflict 与 conflictId }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+        '409': { description: idempotency_conflict / unsupported_sync_schema / unsupported_sync_fields }
+
+  /api/sync/conflicts:
+    get:
+      tags: [sync]
+      summary: 读取本账户保留的冲突双方
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: 本账户的冲突记录 }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+
   /api/learning/status:
     get:
       tags: [learning]

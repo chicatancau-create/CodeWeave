@@ -20,6 +20,7 @@ import {
   fetchLearningStatus,
   fetchLesson,
   fetchStatus,
+  fetchSyncJob,
   fetchVaultProgress,
   previewWriteback,
   removeEvidence as removeEvidenceRequest,
@@ -69,6 +70,11 @@ export type ContentContextValue = {
   state: ContentState
   /** 当前快照版本；切换课程时用它固定同一份内容 */
   bundleId: string | null
+  pinnedBundleId?: string
+  serviceInstance?: string
+  vaultId?: string
+  manifestHash?: string
+  capabilities?: string[]
   buildTime: string | null
   counts: Record<string, number> | null
   status: ContentStatusResponse | null
@@ -147,6 +153,13 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
   /** 重新加载令牌：refresh() 只推进令牌，真正的加载在 effect 里执行并带取消保护。 */
   const [reloadToken, setReloadToken] = useState(0)
   const detailCache = useRef(new Map<string, Lesson>())
+  const lifetime = useRef<AbortController | null>(null)
+  const pendingJob = useRef<{ id: string; dryRun: boolean } | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    lifetime.current = controller
+    return () => controller.abort()
+  }, [])
   const progressCache = useRef<VaultProgress | null>(null)
 
   /**
@@ -217,31 +230,72 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
     return adapted.lessons.length > 0 ? 'legacy-fallback' : 'none'
   }, [snapshot, adapted.lessons.length])
 
+  const pinnedBundleId = snapshot?.capabilities?.includes('pinnedContent') ? snapshot.bundleId : undefined
   const loadLessonDetail = useCallback(
     async (contentId: string): Promise<LessonDetailResult> => {
-      const cached = detailCache.current.get(contentId)
+      const key = `${snapshot?.serviceInstance ?? ''}/${snapshot?.vaultId ?? ''}/${pinnedBundleId ?? ''}/${contentId}`
+      const cached = detailCache.current.get(key)
       if (cached) return { ok: true, lesson: cached }
-      const result = await fetchLesson(contentId)
+      const signal = lifetime.current?.signal
+      const result = await fetchLesson(contentId, pinnedBundleId, signal)
+      if (signal?.aborted) return { ok: false, message: '账户已切换', status: 0 }
       if (!result.ok) {
         // 原因按次交回调用方，不再塞进全局 error：单课读取失败不等于整个教材包坏了。
         return { ok: false, message: result.message, status: result.status }
       }
       const lesson = snapshotDetailToLesson(result.data.lesson, result.data.exercises)
-      detailCache.current.set(contentId, lesson)
+      detailCache.current.set(key, lesson)
       return { ok: true, lesson }
     },
-    [],
+    [pinnedBundleId, snapshot?.serviceInstance, snapshot?.vaultId],
   )
 
   const sync = useCallback(
     async (options?: { dryRun?: boolean }) => {
-      const result = await triggerSync(options)
-      if (!result.ok) return { ok: false, message: result.message }
-      await refresh()
-      return {
-        ok: true,
-        message: result.data.reused ? '已有同步任务在进行，已复用同一个任务' : options?.dryRun ? '校验通过（未发布）' : '同步任务已提交',
+      const signal = lifetime.current?.signal
+      if (!signal || signal.aborted) return { ok: false, message: '账户已切换' }
+      async function finishJob(dryRun: boolean, approvalJobId?: string) {
+        if (!pendingJob.current) {
+          const submitted = await triggerSync({ dryRun, approvalJobId }, signal)
+          if (!submitted.ok) return submitted
+          pendingJob.current = { id: submitted.data.jobId, dryRun }
+        }
+        const job = pendingJob.current
+        for (let i = 0; i < 120 && !signal?.aborted; i += 1) {
+          const response = await fetchSyncJob(job.id, signal)
+          if (signal?.aborted) break
+          if (response.ok && response.data.status !== 'scanning' && response.data.status !== 'validating') {
+            pendingJob.current = null
+            return response
+          }
+          if (!response.ok && response.status !== 0 && response.status < 500) {
+            pendingJob.current = null
+            return response
+          }
+          await new Promise<void>((resolve) => setTimeout(resolve, 500))
+        }
+        return { ok: false as const, message: signal?.aborted ? '已停止查询发布任务' : '作业仍在运行，可继续查询原作业' }
       }
+      const requestedDryRun = options?.dryRun === true
+      if (pendingJob.current?.dryRun !== false) {
+        const validation = await finishJob(true)
+        if (!validation.ok) return { ok: false, message: validation.message }
+        if (validation.data.status !== 'ready') return { ok: false, message: validation.data.error?.message ?? '候选校验失败' }
+        if (requestedDryRun) return { ok: true, message: '候选校验通过' }
+        const publication = await finishJob(false, validation.data.jobId)
+        if (!publication.ok) return { ok: false, message: publication.message }
+        if (publication.data.status !== 'ready' || !publication.data.published) {
+          return { ok: false, message: publication.data.error?.message ?? '发布未完成' }
+        }
+      } else {
+        const publication = await finishJob(false)
+        if (!publication.ok) return { ok: false, message: publication.message }
+        if (publication.data.status !== 'ready' || !publication.data.published) {
+          return { ok: false, message: publication.data.error?.message ?? '发布未完成' }
+        }
+      }
+      if (!signal.aborted) await refresh()
+      return { ok: true, message: '内容快照已发布' }
     },
     [refresh],
   )
@@ -345,6 +399,11 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
       sourceKind,
       state,
       bundleId: snapshot?.bundleId ?? null,
+      pinnedBundleId,
+      serviceInstance: snapshot?.serviceInstance,
+      vaultId: snapshot?.vaultId,
+      manifestHash: snapshot?.manifestHash,
+      capabilities: snapshot?.capabilities,
       buildTime: snapshot?.buildTime ?? null,
       counts: snapshot?.counts ?? null,
       status,
@@ -374,6 +433,7 @@ export function ContentProvider({ enabled, children }: { enabled: boolean; child
       sourceKind,
       state,
       snapshot,
+      pinnedBundleId,
       status,
       adapted,
       subjects,

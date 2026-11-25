@@ -1,12 +1,18 @@
 import { createServer as createHttpServer } from 'node:http'
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
-import { copyFile, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
-import { existsSync, createReadStream, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { existsSync, createReadStream, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { extname, join, normalize, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { pathToFileURL } from 'node:url'
+import { DatabaseSync } from 'node:sqlite'
 import { createContentService } from './server/content/index.mjs'
-import { resolveContentAsset } from './server/content/asset.mjs'
+import { ifNoneMatchHits, publicAssetId, resolveContentAsset } from './server/content/asset.mjs'
+import { sha256, stableStringify } from './server/content/markdown.mjs'
+import { openPublicationJobs } from './server/content/publish-jobs.mjs'
+import { createAccountStore } from './server/accounts.mjs'
+import { createContentReferenceResolver } from './server/content/identity.mjs'
+import { createLearningSync } from './server/learning/sync.mjs'
 import { createLearningService } from './server/learning/index.mjs'
 import { resolveRuntimePaths } from './server/config.mjs'
 import { instanceIdentity } from './server/instance.mjs'
@@ -24,9 +30,31 @@ const dataRoot = runtime.dataDir
 const usersPath = join(dataRoot, 'users.json')
 
 // 内容联动服务：教材快照是派生数据，落在应用数据目录，不从资料库根直接对外提供。
-const contentService = createContentService({ dataRoot })
+let accounts
+let learningSync
+let publicationJobs
+let initialization
+const contentService = createContentService({
+  dataRoot, vaultRoot: runtime.vaultRoot,
+  configFingerprint: sha256(stableStringify({ vaultRoot: runtime.vaultRoot, dataRoot, staticDir: distRoot, port: runtime.port })),
+  recordCommitted: ({ jobId, attempt, result }) => publicationJobs.complete(jobId, attempt, result),
+})
+
+function initialize() {
+  initialization ??= (async () => {
+    publicationJobs = openPublicationJobs(dataRoot)
+    accounts = createAccountStore(publicationJobs.database)
+    learningSync = createLearningSync(publicationJobs.database, {
+      serviceInstance: instanceIdentity({ dataDir: dataRoot, distDir: distRoot }).instanceId,
+      resolveContent: createContentReferenceResolver(contentService.snapshotStore),
+    })
+    await contentService.initialize()
+    publicationJobs.recoverInterrupted()
+  })()
+  return initialization
+}
 // 学习事实服务（LINK-08）：拥有者绑定 + 正式进度只读投影；同样只落在应用数据目录。
-const learningService = createLearningService({ dataRoot })
+const learningService = createLearningService({ dataRoot, vaultRoot: runtime.vaultRoot, database: () => publicationJobs.database })
 // 同步是重操作：单独限流，避免被当作低成本接口反复触发。
 const CONTENT_SYNC_MAX = Number(process.env.CODE_CANVAS_CONTENT_SYNC_MAX ?? 30)
 
@@ -53,8 +81,6 @@ const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }
 /** 哈希格式版本前缀：v1 = scrypt。未来更换算法时可据此并行迁移。 */
 const HASH_PREFIX = 'scrypt$v1$'
 
-/** 内存会话表：sessionId -> { userId, createdAt }。重启后需重新登录（启动日志会提示）。 */
-const sessions = new Map()
 
 // ---------------------------------------------------------------------------
 // R3 限流：滑动窗口计数，键数量有硬上限，攻击输入不会造成内存无界增长。
@@ -155,118 +181,113 @@ export function cleanupTempFiles(dir = dataRoot) {
   }
 }
 
-/** 单实例锁：data/.server.lock 写入 pid；持有者存活时拒绝第二个实例。 */
-const lockPath = join(dataRoot, '.server.lock')
+/** 独立 SQLite 锁文件持有系统文件锁。异常退出时操作系统释放锁。 */
+const lockPath = join(dataRoot, '.instance.sqlite')
+let instanceLock
 export function acquireLock() {
+  if (instanceLock) return { ok: false, holder: process.pid }
+  let connection
   try {
-    if (existsSync(lockPath)) {
-      const holder = Number(readFileSync(lockPath, 'utf8').trim())
-      if (Number.isFinite(holder)) {
-        try {
-          process.kill(holder, 0) // 探活：能发信号说明进程存在
-          return { ok: false, holder }
-        } catch {
-          // 持有者已死，锁文件为残留
-        }
-      }
-    }
     mkdirSync(dataRoot, { recursive: true })
-    writeFileSync(lockPath, String(process.pid))
+    connection = new DatabaseSync(lockPath)
+    connection.exec('PRAGMA busy_timeout = 0; BEGIN EXCLUSIVE;')
+    instanceLock = connection
     return { ok: true }
   } catch (error) {
+    connection?.close()
     return { ok: false, holder: null, error }
   }
 }
+
 function releaseLock() {
+  if (!instanceLock) return
+  instanceLock.close()
+  instanceLock = undefined
+}
+
+/** 本机部署命令。Windows 用户以本机文件权限运行，整个过程不开放 HTTP 入口。 */
+async function initializeLocal(legacyUsersPath) {
+  if (!legacyUsersPath || !runtime.configFile || runtime.sources.dataDir !== 'config' ||
+      runtime.sources.vaultRoot !== 'config' || runtime.conflicts.length || process.env.CODEWEAVE_ALLOW_REGISTRATION === '1') {
+    throw new Error('本机初始化需要明确的本机配置、已备份的旧账户文件和关闭注册的服务配置')
+  }
+  const legacyUsers = JSON.parse((await readFile(legacyUsersPath, 'utf8')).replace(/^\uFEFF/, ''))
+  if (!validateUsers(legacyUsers).valid) throw new Error('旧账户备份结构无效')
+  if (!acquireLock().ok) throw new Error('该运行根正在使用，无法离线初始化')
   try {
-    if (existsSync(lockPath) && readFileSync(lockPath, 'utf8').trim() === String(process.pid)) {
-      rmSync(lockPath, { force: true })
+    await initialize()
+    const vaultId = await contentService.vaultId()
+    const binding = await learningService.ownerStore.read()
+    if (binding.corrupt || (binding.ownerUserId && binding.vaultId !== vaultId)) {
+      throw new Error('拥有者绑定无法用于当前资料库')
     }
-  } catch {
-    // 忽略释放失败
+    const existing = accounts.imported() ? accounts.users() : legacyUsers
+    const owner = binding.ownerUserId
+      ? existing.find((entry) => entry.id === binding.ownerUserId)
+      : existing.length === 1 ? existing[0] : null
+    if (!owner) throw new Error('无法唯一确认既有本机拥有者')
+
+    const scope = { vaultId, accountId: owner.id, isOwner: true }
+    const active = await contentService.catalog()
+    if (active.ok) {
+      if (active.data.vaultId !== vaultId || binding.ownerUserId !== owner.id) {
+        throw new Error('生效快照与本机拥有者绑定不一致')
+      }
+      return { ...active.data, initialized: false, accountCount: accounts.users().length }
+    }
+
+    const run = async (key, dryRun, requestHash, fingerprint) => {
+      const reservation = publicationJobs.reserve({ ...scope, key, dryRun, requestHash })
+      if (reservation.code) throw new Error(reservation.code)
+      if (!reservation.reused) await executePublication(reservation, fingerprint)
+      return publicationJobs.get(reservation.job.jobId, scope)
+    }
+    const operation = randomBytes(16).toString('hex')
+    const dryRun = await run('local-check-' + operation, true, sha256(operation + ':validate'))
+    if (dryRun?.status !== 'ready' || dryRun.summary?.blockingCount !== 0 || !dryRun.approvalFingerprint) {
+      throw new Error('本机候选校验未通过：' + (dryRun?.error?.code ?? 'missing_result'))
+    }
+    if (!accounts.imported()) accounts.importLegacy([owner])
+    await learningService.bind(owner.id)
+    const published = await run('local-publish-' + operation, false, sha256(operation + ':publish'), dryRun.approvalFingerprint)
+    if (published?.status !== 'ready' || !published.published || published.summary?.bundleId !== dryRun.summary.bundleId) {
+      throw new Error('本机候选未激活：' + (published?.error?.code ?? 'missing_result'))
+    }
+    const current = await contentService.catalog()
+    if (!current.ok || current.data.bundleId !== published.summary.bundleId) throw new Error('本机激活结果无法对账')
+    return {
+      initialized: true, accountCount: accounts.users().length, vaultId, bundleId: current.data.bundleId,
+      manifestHash: current.data.manifestHash, lessonCount: current.data.lessons.length,
+      approvalJobId: dryRun.jobId, publishJobId: published.jobId,
+    }
+  } finally {
+    publicationJobs?.close()
+    releaseLock()
   }
 }
 
 /** 进程退出时释放单实例锁（仅当锁归属当前进程）。 */
-export let writeQueue = Promise.resolve()
-let cachedUsers = null
-
-/**
- * 读取用户文件（R1 状态机）：
- * - 文件不存在 → 首次初始化，返回空数组（合法）。
- * - 文件存在但 JSON 损坏或校验失败 → 进入 corrupt 只读保护：返回空表但 dataState=corrupt，
- *   所有写接口拒绝（禁止以空数据覆盖原文件）；用户修复文件后无需重启即可自动恢复。
- */
+/** 首次启动只读导入已验证的本机旧账户。随后 SQLite 是唯一账户权威。 */
 async function readUsers() {
-  if (cachedUsers) return cachedUsers
-  let raw
+  if (accounts.imported()) return accounts.users()
+  let users = []
   try {
-    raw = await readFile(usersPath, 'utf8')
+    const raw = await readFile(usersPath, 'utf8')
+    users = JSON.parse(raw.replace(/^\uFEFF/, ''))
+    if (!validateUsers(users).valid) throw new Error('账户结构无效')
   } catch (error) {
-    if (error?.code === 'ENOENT') {
-      cachedUsers = []
-      dataState = 'ok'
-      return cachedUsers
-    }
-    dataState = 'corrupt'
-    dataStateReason = `读取失败：${error?.message ?? error}`
-    console.error('[code-canvas] 用户数据文件不可读，服务进入只读保护状态：', dataStateReason)
-    return []
-  }
-  try {
-    const parsed = JSON.parse(raw)
-    const validation = validateUsers(parsed)
-    if (!validation.valid) {
+    if (error?.code !== 'ENOENT') {
       dataState = 'corrupt'
-      dataStateReason = validation.errors.join('; ')
-      console.error('[code-canvas] 用户数据文件校验失败，服务进入只读保护状态：', validation.errors)
+      dataStateReason = '旧账户数据不可读或结构无效'
       return []
     }
-    cachedUsers = parsed
-    dataState = 'ok'
-    return parsed
-  } catch (error) {
-    dataState = 'corrupt'
-    dataStateReason = `JSON 解析失败：${error?.message ?? error}`
-    console.error('[code-canvas] 用户数据文件解析失败，服务进入只读保护状态：', dataStateReason)
-    return []
   }
+  accounts.importLegacy(users)
+  dataState = 'ok'
+  dataStateReason = ''
+  return accounts.users()
 }
 
-function writeUsers(users) {
-  // 数据损坏状态下拒绝一切写入（R1：禁止以空数据覆盖原文件）。
-  if (dataState === 'corrupt') {
-    return Promise.reject(Object.assign(new Error('用户文件已损坏，写入被拒绝'), { code: 'storage_corrupt' }))
-  }
-  // 串行化：任何时刻只有一个写操作；写入临时文件后原子替换。
-  const task = writeQueue.then(async () => {
-    await mkdir(dataRoot, { recursive: true })
-    const tempPath = `${usersPath}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`
-    try {
-      await writeFile(tempPath, `${JSON.stringify(users, null, 2)}\n`, 'utf8')
-      await rename(tempPath, usersPath)
-      cachedUsers = users
-      // 写后备份：3 槽轮转（backup.1 最新 → backup.3 最旧）；失败记录结构化日志但不掩盖主写入结果。
-      const oldest = `${usersPath}.backup.3.json`
-      if (existsSync(oldest)) rmSync(oldest, { force: true })
-      if (existsSync(`${usersPath}.backup.2.json`)) await rename(`${usersPath}.backup.2.json`, oldest)
-      if (existsSync(`${usersPath}.backup.1.json`)) await rename(`${usersPath}.backup.1.json`, `${usersPath}.backup.2.json`)
-      await copyFile(usersPath, `${usersPath}.backup.1.json`).catch((backupError) => {
-        console.error(JSON.stringify({ event: 'users_backup_failed', message: backupError?.message ?? String(backupError) }))
-      })
-    } catch (error) {
-      await unlink(tempPath).catch(() => {})
-      throw error
-    }
-  })
-  // 队列吞掉错误供调用方处理，但保证后续任务继续。
-  writeQueue = task.catch(() => {})
-  return task
-}
-
-// ---------------------------------------------------------------------------
-// 密码与会话
-// ---------------------------------------------------------------------------
 async function hashPassword(password) {
   const salt = randomBytes(16).toString('hex')
   const derived = await scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS)
@@ -294,66 +315,46 @@ function isSessionExpired(session, now = Date.now()) {
   return now - (session.lastSeenAt ?? session.createdAt) > SESSION_TTL_MS
 }
 
-/** 标记会话为「最近使用」：删除后重新插入，使 Map 保持使用序（LRU）。 */
-function touchSession(sessionId, session) {
-  sessions.delete(sessionId)
-  sessions.set(sessionId, session)
-}
-
 function createSession(userId) {
-  // 登录时顺带清理过期会话，避免长期运行后无界增长。
   pruneSessions()
   const sessionId = randomBytes(24).toString('hex')
-  sessions.set(sessionId, { userId, createdAt: Date.now(), lastSeenAt: Date.now() })
-  if (sessions.size > MAX_SESSIONS) {
-    // 淘汰最久未使用的会话（Map 保持使用序，第一个 key 即最久未用）。
-    const oldest = sessions.keys().next().value
-    if (oldest !== undefined) sessions.delete(oldest)
-  }
+  const now = Date.now()
+  accounts.sessions.set(sessionId, { userId, createdAt: now, lastSeenAt: now })
+  accounts.sessions.trim(MAX_SESSIONS)
   return sessionId
 }
 
-/** 清理过期会话，返回清理数量；now 参数供测试注入。 */
 export function pruneSessions(now = Date.now()) {
-  let pruned = 0
-  for (const [sessionId, session] of sessions) {
-    if (isSessionExpired(session, now)) {
-      sessions.delete(sessionId)
-      pruned += 1
-    }
-  }
-  return pruned
+  return accounts?.sessions.expire(now - SESSION_TTL_MS) ?? 0
 }
 
 function destroySession(sessionId) {
-  if (sessionId) sessions.delete(sessionId)
+  if (sessionId) accounts.sessions.delete(sessionId)
 }
 
-/** 供测试观测会话表内部状态（不暴露 sessionId 本身）。 */
 export function sessionCount() {
-  return sessions.size
+  return accounts?.sessions.count() ?? 0
 }
 
-/** 供测试注入会话时间戳，用于验证过期与淘汰语义。 */
 export function debugSetSessionTimestamps(cookieValue, { createdAt, lastSeenAt }) {
-  const session = sessions.get(cookieValue)
+  const session = accounts?.sessions.get(cookieValue)
   if (!session) return false
   if (typeof createdAt === 'number') session.createdAt = createdAt
   if (typeof lastSeenAt === 'number') session.lastSeenAt = lastSeenAt
+  accounts.sessions.set(cookieValue, session)
   return true
 }
 
 function sessionUser(request, users) {
   const sessionId = parseCookies(request)[SESSION_COOKIE]
-  const session = sessionId ? sessions.get(sessionId) : undefined
+  const session = accounts.sessions.get(sessionId)
   if (!session) return undefined
   if (isSessionExpired(session)) {
-    sessions.delete(sessionId)
+    accounts.sessions.delete(sessionId)
     return undefined
   }
-  // 活跃会话刷新为最近使用：长期在用的用户不会因新登录而被淘汰。
   session.lastSeenAt = Date.now()
-  touchSession(sessionId, session)
+  accounts.sessions.set(sessionId, session)
   return users.find((user) => user.id === session.userId)
 }
 
@@ -453,8 +454,30 @@ function contentErrorStatus(code) {
   if (code === 'vault_unavailable') return 503
   if (code === 'invalid_manifest' || code === 'source_changed' || code === 'publish_failed') return 409
   if (code === 'not_found') return 404
+  if (code === 'content_bundle_retired') return 410
+  if (code === 'invalid') return 503
   if (code === 'sync_rate_limited') return 429
   return 400
+}
+
+function contentHeaders(bundleId, manifestHash, etag) {
+  return {
+    'X-Content-Bundle': bundleId,
+    'X-Content-Manifest': manifestHash,
+    'Cache-Control': 'private, no-cache',
+    Vary: 'Cookie, Authorization',
+    ETag: `"${etag}"`,
+  }
+}
+
+function sendContentJson(request, response, result) {
+  if (!result.ok) return sendJson(response, contentErrorStatus(result.code), result.message, result.code)
+  const headers = contentHeaders(result.bundleId, result.manifestHash, sha256(stableStringify(result.data)))
+  if (ifNoneMatchHits(request.headers['if-none-match'], headers.ETag)) {
+    response.writeHead(304, { ...headers, ...securityHeaders() })
+    return response.end()
+  }
+  return sendJson(response, 200, result.data, undefined, headers)
 }
 
 /** 内容接口统一入口：必须是已登录会话；资料库默认私人。 */
@@ -464,6 +487,7 @@ async function handleContentRequest(request, response, url, users) {
 
   // LINK-08：教材准入由拥有者绑定决定；未绑定时保持对已登录账户开放。
   const access = await learningService.contentAccess(user.id)
+  if (access.reason === 'owner_vault_mismatch') return sendJson(response, 403, '拥有者绑定属于其他资料库', access.reason)
   if (!access.allowed) {
     return sendJson(
       response,
@@ -482,33 +506,69 @@ async function handleContentRequest(request, response, url, users) {
   }
 
   if (url.pathname === '/api/content/catalog' && request.method === 'GET') {
-    const result = await contentService.catalog()
+    const result = await contentService.catalog(url.searchParams.get('bundleId'), await learningService.readVaultId())
     if (!result.ok) return sendJson(response, contentErrorStatus(result.code), result.message, result.code)
-    return sendJson(response, 200, result.data, undefined, { ETag: `"${result.etag}"` })
+    const identity = instanceIdentity({ dataDir: dataRoot, distDir: distRoot })
+    const catalog = {
+      ...result.data, serviceInstance: identity.instanceId, contractVersion: 1, minimumClientVersion: 1,
+      capabilities: ['pinnedContent', 'assetCas', 'offlineBundle', 'publicationJobs', 'learningSync'],
+    }
+    return sendContentJson(request, response, { ok: true, bundleId: catalog.bundleId, manifestHash: catalog.manifestHash, data: catalog })
   }
 
   const lessonMatch = /^\/api\/content\/lessons\/([^/]+)$/.exec(url.pathname)
   if (lessonMatch && request.method === 'GET') {
     const id = safeContentId(lessonMatch[1])
     if (!id) return sendJson(response, 400, '内容 ID 格式非法', 'invalid_content_id')
-    const result = await contentService.lesson(id)
-    if (!result.ok) return sendJson(response, contentErrorStatus(result.code), result.message, result.code)
-    return sendJson(response, 200, result.data, undefined, { 'X-Content-Bundle': result.bundleId })
+    const result = await contentService.lesson(id, url.searchParams.get('bundleId'), await learningService.readVaultId())
+    return sendContentJson(request, response, result)
   }
 
   const exerciseMatch = /^\/api\/content\/exercises\/([^/]+)$/.exec(url.pathname)
   if (exerciseMatch && request.method === 'GET') {
     const id = safeContentId(exerciseMatch[1])
     if (!id) return sendJson(response, 400, '练习 ID 格式非法', 'invalid_content_id')
-    const result = await contentService.exercise(id)
-    if (!result.ok) return sendJson(response, contentErrorStatus(result.code), result.message, result.code)
-    return sendJson(response, 200, result.data, undefined, { 'X-Content-Bundle': result.bundleId })
+    const result = await contentService.exercise(id, url.searchParams.get('bundleId'), await learningService.readVaultId())
+    return sendContentJson(request, response, result)
+  }
+
+  const bundleMatch = /^\/api\/content\/bundles\/([^/]+)\/(manifest|payload)$/.exec(url.pathname)
+  if (bundleMatch && request.method === 'GET') {
+    const vaultId = await learningService.readVaultId()
+    const current = await contentService.snapshotStore.readBundle(bundleMatch[1], vaultId)
+    if (!current.bundle) return sendJson(response, contentErrorStatus(current.status), '请求的内容快照不可读', current.status)
+    const { bundle } = current
+    const manifestHash = current.pointer.payloadHash
+    const payload = Buffer.from(stableStringify(bundle))
+    if (bundleMatch[2] === 'manifest') {
+      const data = {
+        schemaVersion: 1,
+        serviceInstance: instanceIdentity({ dataDir: dataRoot, distDir: distRoot }).instanceId,
+        vaultId, bundleId: bundle.bundleId, manifestHash,
+        files: [{ path: 'content.json', sha256: manifestHash, size: payload.length }],
+        assets: (bundle.assets ?? []).map((asset) => ({
+          assetId: publicAssetId(asset), path: 'objects/' + asset.sha256, sha256: asset.sha256,
+          size: asset.size, contentType: asset.contentType,
+        })),
+      }
+      return sendContentJson(request, response, { ok: true, bundleId: bundle.bundleId, manifestHash, data })
+    }
+    const headers = contentHeaders(bundle.bundleId, manifestHash, manifestHash)
+    if (ifNoneMatchHits(request.headers['if-none-match'], headers.ETag)) {
+      response.writeHead(304, { ...headers, ...securityHeaders() })
+      return response.end()
+    }
+    response.writeHead(200, {
+      ...headers, ...securityHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': payload.length,
+    })
+    return response.end(payload)
   }
 
   // DATA-10 §4：附件与图片按白名单访问（契约见 src/content/README-attachments.md）。
   // 这里只新增这一条分支：401 unauthorized → 403 vault_private/owner_record_corrupt →
   // 既有错误码口径全部沿用上面的链路，全局 /api/content/ 前缀判定与限流不动。
-  if (url.pathname === '/api/content/asset' && request.method === 'GET') {
+  const opaqueAsset = /^\/api\/content\/assets\/([^/]+)$/.exec(url.pathname)
+  if ((url.pathname === '/api/content/asset' || opaqueAsset) && request.method === 'GET') {
     // 附件接口是「试探面」：被拒绝的读取按 R3 同一套滑动窗口计数（独立维度，不影响登录与同步）。
     const probeKey = `content:asset:${user.id}`
     if (isRateLimited(probeKey)) {
@@ -516,6 +576,8 @@ async function handleContentRequest(request, response, url, users) {
     }
     const asset = await resolveContentAsset({
       url,
+      assetId: opaqueAsset?.[1],
+      vaultId: await learningService.readVaultId(),
       snapshotStore: contentService.snapshotStore,
       ifNoneMatch: request.headers['if-none-match'],
     })
@@ -523,79 +585,122 @@ async function handleContentRequest(request, response, url, users) {
       if (asset.denied) recordFailure(probeKey)
       return sendJson(response, asset.status, asset.message, asset.code)
     }
-    // 条件请求命中：只回头，不开文件、不流正文。判定在 asset.mjs 里排在全部门禁之后，
-    // 所以这一条 304 蕴含「这个请求本来就该拿到 200」，它不给任何没权限的人新信息。
-    if (asset.notModified) {
-      response.writeHead(304, { ...asset.headers, ...securityHeaders() })
-      return response.end()
-    }
-    // 固定文案 + 白名单 MIME 由 asset.mjs 给出；这里只负责流式发送与统一安全头。
-    response.writeHead(200, { ...asset.headers, ...securityHeaders() })
-    const stream = createReadStream(asset.abs)
-    stream.on('error', () => response.destroy())
-    return stream.pipe(response)
+    response.writeHead(asset.notModified ? 304 : 200, { ...asset.headers, ...securityHeaders() })
+    return response.end(asset.notModified ? undefined : asset.bytes)
   }
 
   if (url.pathname === '/api/content/sync' && request.method === 'POST') {
+    const vaultId = await learningService.readVaultId()
+    const isOwner = access.reason === 'owner'
+    if (!isOwner && (!vaultId || !publicationJobs.canPublish(vaultId, user.id))) {
+      return sendJson(response, 403, '该账户没有发布权限', 'publisher_required')
+    }
+    if (!vaultId) return sendJson(response, 503, '资料库不可用', 'vault_unavailable')
+    const key = request.headers['idempotency-key']
+    if (typeof key !== 'string' || !/^[a-zA-Z0-9_-]{12,128}$/.test(key)) {
+      return sendJson(response, 400, '缺少有效的 Idempotency-Key', 'invalid_idempotency_key')
+    }
+    const body = await requestBody(request)
+    if (typeof body?.dryRun !== 'boolean' || (!body.dryRun && (typeof body.approvalJobId !== 'string' || !safeContentId(body.approvalJobId)))) {
+      return sendJson(response, 400, '发送 dryRun 或提供已完成的候选校验编号', 'approval_required')
+    }
+    const approvalJobId = body.dryRun ? null : body.approvalJobId
+    const requestHash = sha256(stableStringify({ dryRun: body.dryRun, approvalJobId }))
+    const scope = { vaultId, accountId: user.id, isOwner }
+    const approval = approvalJobId ? publicationJobs.get(approvalJobId, scope) : null
+    if (!body.dryRun && (approval?.status !== 'ready' || !approval.dryRun || !approval.approvalFingerprint)) {
+      return sendJson(response, 409, '候选校验尚未完成或不可用', 'approval_required')
+    }
     const limitKey = `content:sync:${user.id}`
-    if ((rateLimitCount(limitKey, CONTENT_SYNC_MAX))) {
-      return sendJson(response, 429, '同步过于频繁，请稍后再试', 'sync_rate_limited')
+    const change = publicationJobs.reserve({ ...scope, key, requestHash, dryRun: body.dryRun, rateLimited: rateLimitCount(limitKey, CONTENT_SYNC_MAX), active: Boolean(contentService.snapshotStore.currentJob()) })
+    if (change.code === 'sync_rate_limited') return sendJson(response, 429, '同步过于频繁，请稍后再试', change.code)
+    if (change.code) return sendJson(response, 409, '发布请求冲突或已有任务正在运行', change.code)
+    if (!change.reused) {
+      recordFailure(limitKey)
+      void executePublication(change, approval?.approvalFingerprint).catch((error) => {
+        console.error(JSON.stringify({ event: 'publish_job_storage_failed', code: error.code ?? 'storage_error' }))
+      })
     }
-    recordFailure(limitKey)
-    // 坏请求体**不能**退化成 {}：本端点的默认分支是真实同步而不是 dry-run，
-    // 吞掉解析失败等于让一个畸形请求触发一次真写（其余端点的 {} 兜底后面都有字段校验兜着，这里没有）。
-    let body
-    try {
-      body = await requestBody(request)
-    } catch (error) {
-      const tooLarge = error?.code === 'body_too_large'
-      return sendJson(response, tooLarge ? 413 : 400, tooLarge ? '请求体过大' : '请求体不是合法 JSON', error?.code ?? 'invalid_json')
-    }
-    const { reused, job } = await contentService.sync({ dryRun: body?.dryRun === true })
-    return sendJson(response, 202, {
-      jobId: job.jobId,
-      reused,
-      status: job.status,
-      dryRun: body?.dryRun === true,
-    })
+    return sendJson(response, 202, { ...change.job, reused: change.reused })
   }
-
   const jobMatch = /^\/api\/content\/sync\/([^/]+)$/.exec(url.pathname)
   if (jobMatch && request.method === 'GET') {
-    const job = contentService.snapshotStore.currentJob()
-    if (!job || job.jobId !== safeContentId(jobMatch[1])) {
-      return sendJson(response, 404, '同步任务不存在或已结束', 'job_not_found')
-    }
-    return sendJson(response, 200, {
-      jobId: job.jobId,
-      status: job.status,
-      startedAt: job.startedAt,
-      finishedAt: job.finishedAt,
-      published: job.published,
-      error: job.error,
-      summary: job.report
-        ? {
-            bundleId: job.report.bundleId,
-            counts: job.report.counts,
-            blockingCount: job.report.blocking.length,
-            gaps: {
-              emptyTopics: job.report.gaps.emptyTopics.length,
-              uncoveredTopics: job.report.gaps.uncoveredTopics.length,
-              publishedWithoutExercise: job.report.gaps.publishedWithoutExercise.length,
-              unmappedLegacy: job.report.gaps.unmappedLegacy.length,
-            },
-          }
-        : null,
-    })
+    const vaultId = await learningService.readVaultId()
+    const job = publicationJobs.get(safeContentId(jobMatch[1]) ?? '', { vaultId, accountId: user.id, isOwner: access.reason === 'owner' })
+    if (!job) return sendJson(response, 404, '同步任务不存在', 'job_not_found')
+    return sendJson(response, 200, job)
   }
 
   return sendJson(response, 404, '接口不存在', 'not_found')
+}
+
+async function executePublication({ job, attempt }, approvedFingerprint) {
+  function terminal(active, committed = false) {
+    const status = committed ? 'ready' : active.status
+    return {
+      ...job, status, finishedAt: new Date().toISOString(), published: committed,
+      approvalFingerprint: job.dryRun && status === 'ready' ? active.approvalFingerprint : null,
+      error: active.error ? { code: active.error.code, message: active.error.code === 'approval_stale' ? '请重新校验候选内容' : '发布任务未通过，请查看本机诊断' } : null,
+      summary: active.report ? { bundleId: active.report.bundleId, counts: active.report.counts, blockingCount: active.report.blocking.length } : null,
+    }
+  }
+  let receipt
+  try {
+    const started = await contentService.sync({
+      dryRun: job.dryRun, approvedFingerprint,
+      receiptFor: (active) => {
+        receipt = terminal(active, true)
+        return { jobId: job.jobId, attempt, result: receipt }
+      },
+    })
+    if (started.reused) throw new Error('发布作业重复执行')
+    await started.job.promise
+    if (!receipt) publicationJobs.complete(job.jobId, attempt, terminal(started.job))
+  } catch {
+    if (!receipt) {
+      publicationJobs.complete(job.jobId, attempt, terminal({ status: 'unavailable', error: { code: 'publish_failed' } }))
+    }
+  }
+}
+
+async function handleLearningSync(request, response, url, users) {
+  const user = sessionUser(request, users)
+  if (!user) return sendJson(response, 401, '学习同步需要登录', 'unauthorized')
+  const access = await learningService.contentAccess(user.id)
+  if (access.reason !== 'owner') {
+    return sendJson(response, 403, '该账户未获同步授权', access.reason === 'owner_vault_mismatch' ? access.reason : 'sync_forbidden')
+  }
+  const scope = { accountId: user.id, vaultId: await learningService.readVaultId() }
+  if (!scope.vaultId) return sendJson(response, 503, '资料库不可用', 'vault_unavailable')
+  try {
+    if (request.method === 'GET') {
+      switch (url.pathname) {
+        case '/api/sync/state': return sendJson(response, 200, learningSync.state(scope))
+        case '/api/sync/pull': return sendJson(response, 200, learningSync.pull(scope, url.searchParams.get('cursor'), Number(url.searchParams.get('limit') ?? 100)))
+        case '/api/sync/conflicts': return sendJson(response, 200, learningSync.conflicts(scope))
+      }
+    }
+    if (url.pathname === '/api/sync/push' && request.method === 'POST') {
+      const input = await requestBody(request)
+      if (request.headers['idempotency-key'] !== input?.changeId || typeof input?.changeId !== 'string') {
+        return sendJson(response, 400, 'Idempotency-Key 必须与 changeId 一致', 'invalid_idempotency_key')
+      }
+      const result = await learningSync.push(scope, input)
+      return sendJson(response, 200, result)
+    }
+    return sendJson(response, 404, '接口不存在', 'not_found')
+  } catch (error) {
+    if (error.status && error.code) return sendJson(response, error.status, error.message, error.code)
+    throw error
+  }
 }
 
 /** 学习事实接口（LINK-08）：绑定状态、拥有者绑定、教材可见范围、正式进度只读投影。 */
 async function handleLearningRequest(request, response, url, users) {
   const user = sessionUser(request, users)
   if (!user) return sendJson(response, 401, '学习事实需要登录后访问', 'unauthorized')
+  const vaultAccess = await learningService.contentAccess(user.id)
+  if (vaultAccess.reason === 'owner_vault_mismatch') return sendJson(response, 403, '拥有者绑定属于其他资料库', vaultAccess.reason)
 
   if (url.pathname === '/api/learning/status' && request.method === 'GET') {
     return sendJson(response, 200, await learningService.status(user.id))
@@ -786,7 +891,7 @@ function parseCookies(request) {
       .filter(Boolean)
       .map((item) => {
         const [key, ...value] = item.trim().split('=')
-        return [key, decodeURIComponent(value.join('='))]
+        return [key, decodeURIComponentSafe(value.join('='))]
       }),
   )
 }
@@ -837,7 +942,7 @@ async function handleApi(request, response, url) {
     })
   }
 
-  // R1：cachedUsers 为空时重读文件——损坏状态下用户修复文件后可自动恢复，无需重启。
+  // 首次导入前校验旧账户格式。
   const users = await readUsers()
   if (dataState === 'corrupt') {
     return sendJson(response, 503, '用户数据文件已损坏，服务进入只读保护状态；请按 README 恢复数据后重启', 'storage_corrupt')
@@ -861,6 +966,7 @@ async function handleApi(request, response, url) {
     }
 
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
+      if (process.env.CODEWEAVE_ALLOW_REGISTRATION !== '1') return sendJson(response, 403, '本机实例已关闭普通注册', 'registration_closed')
       const body = await requestBody(request)
       return await handleRegister(body, request, response, users)
     }
@@ -896,15 +1002,13 @@ async function handleApi(request, response, url) {
       }
       user.passwordHash = await hashPassword(newPassword)
       try {
-        await writeUsers(users)
+        accounts.put(user)
       } catch {
         return sendJson(response, 500, '修改失败：无法写入用户数据', 'storage_error')
       }
       // 安全惯例：改密后使该用户的其余会话全部失效，仅保留发起修改的当前会话。
       const currentSessionId = parseCookies(request)[SESSION_COOKIE]
-      for (const [sessionId, session] of sessions) {
-        if (session.userId === user.id && sessionId !== currentSessionId) sessions.delete(sessionId)
-      }
+      accounts.sessions.deleteOthers(user.id, currentSessionId)
       return sendJson(response, 200, null)
     }
 
@@ -914,6 +1018,7 @@ async function handleApi(request, response, url) {
     }
 
     // LINK-08：学习事实接口（拥有者绑定与正式进度只读投影）。
+    if (url.pathname.startsWith('/api/sync/')) return await handleLearningSync(request, response, url, users)
     if (url.pathname.startsWith('/api/learning/')) {
       return await handleLearningRequest(request, response, url, users)
     }
@@ -967,7 +1072,7 @@ async function handleRegister(body, request, response, users) {
   }
   users.push(user)
   try {
-    await writeUsers(users)
+    accounts.put(user)
   } catch {
     return sendJson(response, 500, '注册失败：无法保存用户数据', 'storage_error')
   }
@@ -1027,7 +1132,7 @@ async function handleProfileUpdate(body, request, response, users) {
   user.name = name
   user.bio = bio
   try {
-    await writeUsers(users)
+    accounts.put(user)
   } catch {
     return sendJson(response, 500, '保存失败：无法写入用户数据', 'storage_error')
   }
@@ -1100,6 +1205,7 @@ export function createCodeCanvasServer() {
   const server = createHttpServer(async (request, response) => {
     const startedAt = Date.now()
     try {
+      await initialize()
       // 以固定 origin 解析：request.url 只可能是路径+查询串。
       // 若直接 new URL(request.url, ...)，形如 "//package.json" 会被当作协议相对 URL，
       // 导致 host 被劫持为 "package.json"、pathname 退化为 "/"，从而错误地返回首页。
@@ -1167,11 +1273,18 @@ async function start() {
     process.exit(2)
   }
   // R1：单实例锁 + 遗留临时文件清理。
-  cleanupTempFiles()
   const lock = acquireLock()
   if (!lock.ok) {
     console.error(`[code-canvas] 检测到另一个实例已在运行（PID ${lock.holder ?? '未知'}，锁文件 ${lockPath}），本实例拒绝启动。`)
     process.exit(1)
+  }
+  try {
+    cleanupTempFiles()
+    await initialize()
+  } catch (error) {
++
++    server.close(() => process.exit(0))
+    throw error
   }
   const server = createCodeCanvasServer()
   // R3：端口只由服务端决定。被占用时明确失败并给出可读提示，
@@ -1185,7 +1298,8 @@ async function start() {
   } catch (error) {
     if (error?.code === 'EADDRINUSE') {
       console.error(`[code-canvas] 端口 ${port} 已被占用，本实例拒绝启动。请设置 PORT 环境变量改用其他端口，或关闭占用该端口的进程。`)
-      releaseLock()
+  +
++    server.close(() => process.exit(0))
       process.exit(1)
     }
     throw error
@@ -1195,12 +1309,13 @@ async function start() {
   sweepTimer.unref?.()
   const url = `http://127.0.0.1:${port}/`
   console.log(`Code Canvas is running at ${url}`)
-  console.log(`用户数据目录：${dataRoot}（每次写入自动轮转 3 槽备份 users.json.backup.1-3.json）`)
-  console.log('注意：登录会话保存在内存中，进程重启后需要重新登录。')
+  console.log(`SQLite 数据目录：${dataRoot}`)
+  console.log('会话由 SQLite 持久保存。')
   // 优雅关闭：释放单实例锁，避免残留锁文件阻塞下次启动。
   const shutdown = () => {
     clearInterval(sweepTimer)
-    releaseLock()
++
++    server.close(() => process.exit(0))
     server.close(() => process.exit(0))
     // 兜底：连接未及时释放时强制退出。
     setTimeout(() => process.exit(0), 3000).unref?.()
@@ -1216,7 +1331,16 @@ async function start() {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  start().catch((error) => {
+  const operation = process.argv[2] === '--initialize-local'
+    ? initializeLocal(process.argv[3]).then((result) => {
+        const { initialized, accountCount, vaultId, bundleId, manifestHash, lessonCount, approvalJobId, publishJobId } = result
+        console.log(JSON.stringify({
+          initialized, accountCount, vaultId, bundleId, manifestHash, lessonCount: lessonCount ?? result.lessons.length,
+          approvalJobId, publishJobId,
+        }))
+      })
+    : start()
+  operation.catch((error) => {
     console.error(error)
     process.exit(1)
   })

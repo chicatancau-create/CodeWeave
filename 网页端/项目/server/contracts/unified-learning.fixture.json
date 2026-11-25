@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "checkin": {
+    "schemaVersion": 1,
+    "changeId": "synthetic-checkin-20261125",
+    "deviceId": "synthetic-device-a",
+    "kind": "learning.checkin.recorded",
+    "occurredAt": "2026-11-25T01:00:00.000Z",
+    "localDate": "2026-11-25",
+    "timeZone": "Asia/Shanghai",
+    "payload": {}
+  },
+  "sourceBoundDraft": {
+    "schemaVersion": 1,
+    "changeId": "synthetic-draft-1",
+    "deviceId": "synthetic-device-a",
+    "kind": "learning.draft.updated",
+    "occurredAt": "2026-11-25T01:10:00.000Z",
+    "baseRevision": null,
+    "contentRef": {
+      "vaultId": "fixture-vault",
+      "contentId": "python-function",
+      "bundleId": "11111111111111111111111111111111",
+      "aliasVersion": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "payload": {
+      "entityId": "python-function",
+      "body": "synthetic draft"
+    }
+  }
+}

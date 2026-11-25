@@ -12,6 +12,7 @@ android { namespace = "com.codeweave.mobile"; compileSdk = 35
 kotlin { jvmToolchain(17) }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.compose.ui:ui:1.8.2")
     implementation("androidx.compose.material3:material3:1.3.2")

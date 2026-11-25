@@ -24,8 +24,8 @@ function localToday(now = new Date()) {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
-export function createLearningService({ dataRoot, vaultRoot } = {}) {
-  const ownerStore = createOwnerStore({ dataRoot })
+export function createLearningService({ dataRoot, vaultRoot, database } = {}) {
+  const ownerStore = createOwnerStore({ dataRoot, database })
   const evidenceStore = createEvidenceStore({ dataRoot })
   const writeback = createWritebackService({ dataRoot, vaultRoot, evidenceStore, ownerStore })
   /** 按文件 hash 缓存解析结果：内容没变就不重复解析，变了立即失效。 */
@@ -70,7 +70,7 @@ export function createLearningService({ dataRoot, vaultRoot } = {}) {
   async function status(userId) {
     const record = await ownerStore.read()
     const vaultId = await readVaultId()
-    const access = ownerStore.contentAccess(record, userId)
+    const access = await contentAccess(userId, record)
     const isOwner = Boolean(userId) && record.ownerUserId === userId
     return {
       bound: Boolean(record.ownerUserId),
@@ -131,9 +131,10 @@ export function createLearningService({ dataRoot, vaultRoot } = {}) {
   }
 
   /** 内容接口的准入判定（未绑定=开放；已绑定=仅拥有者或公开教材）。 */
-  async function contentAccess(userId) {
-    const record = await ownerStore.read()
-    return ownerStore.contentAccess(record, userId)
+  async function contentAccess(userId, record) {
+    const owner = record ?? await ownerStore.read()
+    if (owner.ownerUserId && owner.vaultId !== await readVaultId()) return { allowed: false, reason: 'owner_vault_mismatch' }
+    return ownerStore.contentAccess(owner, userId)
   }
 
   // -------------------------------------------------------------------------
@@ -143,6 +144,9 @@ export function createLearningService({ dataRoot, vaultRoot } = {}) {
   /** 只对拥有者开放的写回操作统一鉴权。 */
   async function requireOwner(userId) {
     const record = await ownerStore.read()
+    if (record.ownerUserId && record.vaultId !== await readVaultId()) {
+      return { ok: false, code: 'owner_vault_mismatch', message: '拥有者绑定属于其他资料库' }
+    }
     if (!record.ownerUserId) {
       return { ok: false, code: 'owner_unbound', message: '写回未开放：资料库拥有者尚未绑定' }
     }
@@ -260,6 +264,7 @@ export function createLearningService({ dataRoot, vaultRoot } = {}) {
     setVisibility,
     vaultProgress,
     contentAccess,
+    readVaultId,
     loadProgress,
     ownerStore,
     stageEvidence,

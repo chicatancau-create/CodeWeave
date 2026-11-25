@@ -25,6 +25,7 @@ import { EVIDENCE_STATE, hasOperationMarker, logPathOf, mergeEvidenceIntoLog, re
 import { PROGRESS_PATH, plainText } from './progress.mjs'
 
 export const PLAN_PATH = '全栈工程师学习计划/全栈竞赛长期冲刺总计划.md'
+export const PROGRESS_BOARD_PATH = '03-执行计划/进度看板.md'
 export const WRITEBACK_SCHEMA_VERSION = 1
 
 export const WRITEBACK_STATE = {
@@ -63,6 +64,32 @@ export const TRANSACTION_LIST_CAP = 20
 
 /** 提交与展示共用的写入顺序（日志 → 进度追踪 → 总计划日志索引）。 */
 const WRITE_ORDER = ['log', 'progress', 'index']
+
+function evidenceBoardPatch(text, entries) {
+  const lines = text.split('\n')
+  const heading = lines.findIndex((line) => line.trim() === '## 本周记录')
+  const header = lines.findIndex((line, index) => index > heading && line.trim() !== '')
+  if (heading < 0 || header < 0 || lines[header].trim() !== '| 日期 | 投入时间 | 主要产出 | 验证证据 | 明日最小步骤 |' ||
+      !/^\|(?:\s*:?-+:?\s*\|){5}\s*$/.test(lines[header + 1] ?? '')) {
+    throw new WritebackError('structure_unsupported', '进度看板的本周记录表结构已变化')
+  }
+  let end = header + 2
+  while (lines[end]?.startsWith('|')) end += 1
+  const existing = lines.slice(header + 2, end).join('\n')
+  const rows = entries.filter(({ link }) => !existing.includes(link))
+    .map(({ date, link }) => `| ${date} |  | 学习证据 | ${link} |  |`)
+  lines.splice(end, 0, ...rows)
+  return { text: lines.join('\n'), rows }
+}
+
+function boardLogPath(at, topic) {
+  return logPathOf(at, topic).replace(/^全栈工程师学习计划\//, '03-执行计划/')
+}
+
+function boardLogLink(path) {
+  const encode = (part) => encodeURIComponent(part).replaceAll('(', '%28').replaceAll(')', '%29')
+  return '[学习日志](' + path.split('/').slice(1).map(encode).join('/') + ')'
+}
 
 /** 按真实写入顺序排一遍（不改动传入数组）；未知 kind 留在最前，与提交时的排序口径一致。 */
 function stepsInWriteOrder(targets) {
@@ -258,6 +285,13 @@ export function promotableEvidence(record) {
 export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, ownerStore }) {
   const txDir = join(dataRoot, 'learning', 'writeback')
   const backupDir = join(txDir, 'backups')
+  let writeQueue = Promise.resolve()
+
+  function serialize(operation) {
+    const result = writeQueue.then(operation)
+    writeQueue = result.catch(() => {})
+    return result
+  }
 
   function resolveRoot() {
     return resolveVaultRoot(vaultRoot ?? process.env.CODEWEAVE_VAULT_ROOT)
@@ -273,6 +307,9 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     const record = await ownerStore.read()
     if (!record.ownerUserId) throw new WritebackError('owner_unbound', '正式进度与写回未开放：资料库拥有者尚未绑定')
     if (record.ownerUserId !== userId) throw new WritebackError('forbidden', '只有资料库拥有者才能写回正式记录')
+    const root = requireRoot()
+    const active = JSON.parse(await readVaultText(root, 'CodeWeave/content-manifest.json'))
+    if (active.vaultId !== record.vaultId) throw new WritebackError('owner_vault_mismatch', '拥有者绑定属于其他资料库')
     return record
   }
 
@@ -333,7 +370,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     const { abs } = resolveWritablePath(root, relPath)
     await mkdir(dirname(abs), { recursive: true })
     const temp = `${abs}.${process.pid}.${randomBytes(3).toString('hex')}.tmp`
-    await writeFile(temp, normalizeText(text), 'utf8')
+    await writeFile(temp, Buffer.isBuffer(text) ? text : normalizeText(text), { encoding: 'utf8', flush: true })
     try {
       await rename(temp, abs)
     } catch (error) {
@@ -363,6 +400,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
    * @returns {{ targets: object[], evidenceIds: string[], masteryBlocked: object[] }}
    */
   async function buildPlan(root, records, masteryUpdates) {
+    const board = await readTarget(root, PROGRESS_BOARD_PATH)
     // 证据按「日期 + 主题」分组：同一天同一主题合并到同一份日志，不同主题各写各的。
     const groups = new Map()
     for (const record of records) {
@@ -379,7 +417,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     const targets = []
     for (const group of groups.values()) {
       const first = group[0]
-      const path = logPathOf(first.at, first.topic)
+      const path = board.text !== null ? boardLogPath(first.at, first.topic) : logPathOf(first.at, first.topic)
       const current = await readTarget(root, path)
       targets.push({
         path,
@@ -399,6 +437,22 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
         }),
         groupEvidenceIds: group.map((record) => record.evidenceId),
       })
+    }
+
+    if (board.text !== null) {
+      const boardEntries = targets.map((target) => ({
+        date: target.path.split('/').at(-1).slice(0, 10), link: boardLogLink(target.path),
+      }))
+      const patch = evidenceBoardPatch(board.text, boardEntries)
+      const masteryBlocked = (Array.isArray(masteryUpdates) ? masteryUpdates : []).map(({ skill, level }) => ({
+        skill, level, reason: '进度看板的能力评估由学习者填写',
+      }))
+      targets.push({
+        path: PROGRESS_BOARD_PATH, kind: 'progress', exists: true, expectedHash: board.hash,
+        before: { edits: [], masteryEdits: [], boardEntries },
+        preview: { edits: patch.rows.map((row) => ({ field: '本周记录', before: '', after: row })), masteryBlocked },
+      })
+      return { targets, masteryBlocked, at: maxDate(...records.map((record) => record.at)), topic: records[0].topic }
     }
 
     // 进度追踪：只做列出的定向编辑。
@@ -638,6 +692,10 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     }
     if (step.kind === 'progress') {
       if (current.text === null) throw new WritebackError('source_not_found', `目标文件不存在：${step.path}`)
+      if (step.path === PROGRESS_BOARD_PATH && step.before.boardEntries) {
+        const { text } = evidenceBoardPatch(current.text, step.before.boardEntries)
+        return { text, changed: text !== current.text, current }
+      }
       let text = current.text
       for (const edit of step.before.edits ?? []) {
         const next = edit.kind === 'evidence-date'
@@ -713,6 +771,12 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     const planned = []
     for (const step of steps) {
       const current = await readTarget(root, step.path)
+      if (!step.applied && step.intendedHash && step.intendedHash === current.hash) {
+        step.applied = true
+        step.postHash = step.intendedHash
+        step.appliedAt = new Date().toISOString()
+        await writeTransaction(transaction)
+      }
       // 已应用的步骤（断线重试/恢复）直接跳过，不重复追加。
       if (step.applied && step.postHash === current.hash) {
         planned.push({ step, mode: 'applied', current, desired: null })
@@ -780,6 +844,9 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
       const index = transaction.targets.indexOf(step)
       try {
         step.backupPath = await backupFile(root, step.path, operationId, index)
+        step.preHash = item.current.hash
+        step.intendedHash = sha256(normalizeText(item.desired.text))
+        await writeTransaction(transaction)
         await writeVaultFile(root, step.path, item.desired.text)
       } catch (error) {
         transaction.state = logSaved ? WRITEBACK_STATE.PARTIAL : WRITEBACK_STATE.FAILED
@@ -799,7 +866,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
 
       step.applied = true
       step.preHash = item.current.hash
-      step.postHash = sha256(normalizeText(item.desired.text))
+      step.postHash = step.intendedHash
       step.appliedAt = new Date().toISOString()
       if (step.kind === 'log') logSaved = true
       await writeTransaction(transaction)
@@ -808,7 +875,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     // 全部成功：才标 synced，并回写应用侧证据状态。
     transaction.state = WRITEBACK_STATE.SYNCED
     transaction.syncedAt = new Date().toISOString()
-    transaction.result = { logSaved: true, message: '日志、进度与索引均已写入并复核' }
+    transaction.result = { logSaved: true, message: '本次写回目标均已处理并复核' }
     await writeTransaction(transaction)
     await evidenceStore.updateRecords(userId, transaction.evidenceIds, {
       state: EVIDENCE_STATE.SYNCED,
@@ -841,7 +908,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
 
     const blockers = []
     for (const step of transaction.targets) {
-      if (!step.applied) continue
+      if (!step.applied || step.skipped) continue
       const current = await readTarget(root, step.path)
       if (step.postHash !== current.hash) {
         blockers.push({ path: step.path, kind: step.kind, reason: '第三方新改动', currentHash: current.hash, postHash: step.postHash })
@@ -857,7 +924,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
 
     const restored = []
     for (const step of [...transaction.targets].reverse()) {
-      if (!step.applied) continue
+      if (!step.applied || step.skipped) continue
       if (step.expectedHash === null) {
         // 本次新建的文件：回滚 = 移除（用 rename 到备份目录，保留可追溯副本）。
         const { abs } = resolveWritablePath(root, step.path)
@@ -870,7 +937,7 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
         continue
       }
       if (!step.backupPath) continue
-      await writeVaultFile(root, step.path, await readFile(step.backupPath, 'utf8'))
+      await writeVaultFile(root, step.path, await readFile(step.backupPath))
       restored.push({ path: step.path, kind: step.kind, action: 'restored' })
     }
 
@@ -990,5 +1057,9 @@ export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, own
     }
   }
 
-  return { preview, commit, rollback, exportMarkdown, transactionStatus, listTransactions, readTransaction, txDir }
+  return {
+    preview, exportMarkdown, transactionStatus, listTransactions, readTransaction, txDir,
+    commit: (input) => serialize(() => commit(input)),
+    rollback: (input) => serialize(() => rollback(input)),
+  }
 }

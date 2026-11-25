@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   PROJECTS: 'code-canvas.projects.v1',
   CHALLENGES: 'code-canvas.challenge-progress.v2',
   CHECKIN: 'code-canvas.checkin.v1',
+  UNIFIED_CHECKIN: 'code-canvas.unified-checkin.v1',
   SETTINGS: 'code-canvas.settings.v1',
   MASTERY: 'code-canvas.mastery.v1',
   CODE_DRAFTS: 'code-canvas.challenge-drafts.v1',

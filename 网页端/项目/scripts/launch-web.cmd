@@ -19,8 +19,11 @@ if not defined NODE_EXE (
 )
 set "CODEWEAVE_PROJECT_ROOT=%PROJECT_ROOT%"
 set "CODEWEAVE_STATIC_DIR=%STATIC_DIR%"
-if not defined CODE_CANVAS_NO_OPEN set "CODE_CANVAS_NO_OPEN=0"
-"%NODE_EXE%" "%PROJECT_ROOT%\service\server.mjs" %*
+if "%CODE_CANVAS_NO_OPEN%"=="1" (
+  "%NODE_EXE%" "%~dp0ensure-local-service.mjs"
+) else (
+  "%NODE_EXE%" "%~dp0ensure-local-service.mjs" --open
+)
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" pause
 exit /b %RC%

@@ -3,6 +3,7 @@
 
 #include <QMetaObject>
 #include <QFileInfo>
+#include <QtGlobal>
 
 QVariantMap UiShell::vaultWriteback() const {
   auto state = vault_writeback_;
@@ -40,6 +41,11 @@ void UiShell::performVaultTask(const QString& action,
   if (closing_ || vault_busy_ || operation_busy_ || execution_busy_ || account_busy_ ||
       draft_saving_ || !hasActiveAccount()) return;
   const bool write = action != "read";
+  if (write && qEnvironmentVariableIsSet("CODEWEAVE_UNIFIED_ORIGIN")) {
+    vault_status_ = QStringLiteral("资料库写回由统一服务处理");
+    emit vaultWritebackChanged();
+    return;
+  }
   if (vault_root_.empty() && action != "read") return;
   const auto account = active_account_id_;
   const auto generation = account_generation_;

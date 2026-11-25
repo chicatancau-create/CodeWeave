@@ -1294,10 +1294,37 @@ Rectangle {
             // Keep the settings controls aligned with the Web modal's trailing inset.
             rightPadding: root.designSystem.s10 + 1
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            SettingsContent {
+            ColumnLayout {
                 width: settingsScroll.availableWidth
+                SettingsContent {
+                    Layout.fillWidth: true
+                    ds: root.designSystem
+                    onOpenPrivacy: { settingsDialog.close(); uiShell.selectPage("数据与隐私"); }
+                }
+                Button {
+                    objectName: "unifiedContentButton"
+                    text: "本机统一课程"
+                    onClicked: { settingsDialog.close(); unifiedDialog.open(); }
+                }
+            }
+        }
+    }
+
+    ShellDialog {
+        id: unifiedDialog
+        objectName: "unifiedContentDialog"
+        ds: root.designSystem
+        closeLabel: "关闭"
+        title: "本机统一课程"
+        anchors.centerIn: parent
+        width: Math.min(880, root.width - 80)
+        height: Math.min(720, root.height - 80)
+        contentItem: ScrollView {
+            id: unifiedScroll
+            clip: true
+            UnifiedContentPanel {
                 ds: root.designSystem
-                onOpenPrivacy: { settingsDialog.close(); uiShell.selectPage("数据与隐私"); }
+                width: unifiedScroll.availableWidth
             }
         }
     }

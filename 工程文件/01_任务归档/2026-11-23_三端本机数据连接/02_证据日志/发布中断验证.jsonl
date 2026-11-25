@@ -1,0 +1,7 @@
+{"fault":"candidate","exitCode":86,"recovered":true,"state":"unavailable"}
+{"fault":"pointer_switched","exitCode":86,"recovered":true,"state":"ready"}
+{"fault":"pointer_logged","exitCode":86,"recovered":true,"state":"ready"}
+{"fault":"manifest_written","exitCode":86,"recovered":true,"state":"ready"}
+{"fault":"manifest_logged","exitCode":86,"recovered":true,"state":"ready"}
+{"fault":"sync_log_written","exitCode":86,"recovered":true,"state":"ready"}
+{"fault":"job_committed","exitCode":86,"recovered":true,"state":"ready"}

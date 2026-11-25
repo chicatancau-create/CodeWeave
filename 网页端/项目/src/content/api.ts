@@ -172,25 +172,35 @@ export async function fetchCatalog(signal?: AbortSignal): Promise<ApiResult<Cont
 }
 
 export function fetchLesson(
-  contentId: string,
+  contentId: string, bundleId?: string, signal?: AbortSignal,
 ): Promise<ApiResult<{ lesson: SnapshotLesson; exercises: SnapshotExercise[]; stages: unknown[] }>> {
-  return request(`/api/content/lessons/${encodeURIComponent(contentId)}`)
+  const query = bundleId ? `?bundleId=${encodeURIComponent(bundleId)}` : ''
+  return request(`/api/content/lessons/${encodeURIComponent(contentId)}${query}`, { signal })
 }
 
-export function fetchExercise(exerciseId: string): Promise<ApiResult<SnapshotExercise>> {
-  return request<SnapshotExercise>(`/api/content/exercises/${encodeURIComponent(exerciseId)}`)
+export function fetchExercise(exerciseId: string, bundleId?: string): Promise<ApiResult<SnapshotExercise>> {
+  const query = bundleId ? `?bundleId=${encodeURIComponent(bundleId)}` : ''
+  return request<SnapshotExercise>(`/api/content/exercises/${encodeURIComponent(exerciseId)}${query}`)
 }
 
-export function triggerSync(options?: { dryRun?: boolean }): Promise<ApiResult<{ jobId: string; reused: boolean; status: string; dryRun: boolean }>> {
+export type PublicationJob = {
+  jobId: string
+  status: 'scanning' | 'validating' | 'ready' | 'invalid' | 'unavailable'
+  dryRun: boolean
+  published: boolean
+  error?: { code: string; message: string } | null
+}
+
+export function triggerSync(options: { dryRun: boolean; approvalJobId?: string }, signal?: AbortSignal): Promise<ApiResult<PublicationJob>> {
   return request('/api/content/sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dryRun: options?.dryRun === true }),
+    method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+    body: JSON.stringify(options),
   })
 }
 
-export function fetchSyncJob(jobId: string): Promise<ApiResult<Record<string, unknown>>> {
-  return request(`/api/content/sync/${encodeURIComponent(jobId)}`)
+export function fetchSyncJob(jobId: string, signal?: AbortSignal): Promise<ApiResult<PublicationJob>> {
+  return request(`/api/content/sync/${encodeURIComponent(jobId)}`, { signal, cache: 'no-store' })
 }
 
 // ---------------------------------------------------------------------------

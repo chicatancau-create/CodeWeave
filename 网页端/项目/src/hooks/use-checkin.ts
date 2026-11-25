@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { countStreak, getLocalDateKey, shiftDateKey } from '../utils/date-helpers'
 import { scopedKey, STORAGE_KEYS } from '../utils/constants'
 import { useLocalStorage } from './use-local-storage'
+import { type CheckinScope, useUnifiedCheckin } from './use-unified-checkin'
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
@@ -14,12 +15,17 @@ function validateDates(value: unknown): string[] | undefined {
  * 每日打卡：按本地系统日期记录，跨午夜由外部传入的 now 触发重算；
  * 数据按账户作用域隔离。
  */
-export function useCheckin(scope: string | undefined, now: Date) {
-  const [checkinDates, setCheckinDates] = useLocalStorage<string[]>(
+export function useCheckin(scope: string | undefined, now: Date, domain: CheckinScope | null = null) {
+  const [legacyDates, setLegacyDates] = useLocalStorage<string[]>(
     scopedKey(STORAGE_KEYS.CHECKIN, scope),
     [],
     { validate: validateDates },
   )
+  const unified = useUnifiedCheckin(scope, domain)
+  const { active, record } = unified
+  const checkinDates = useMemo(() => unified.active
+    ? [...new Set([...legacyDates, ...unified.dates])]
+    : legacyDates, [legacyDates, unified.active, unified.dates])
 
   const todayKey = getLocalDateKey(now)
   const checkedIn = useMemo(() => checkinDates.includes(todayKey), [checkinDates, todayKey])
@@ -32,8 +38,9 @@ export function useCheckin(scope: string | undefined, now: Date) {
 
   const handleCheckin = useCallback(() => {
     if (checkinDates.includes(todayKey)) return
-    setCheckinDates((current) => [...current.filter((item) => DATE_KEY_PATTERN.test(item)), todayKey].sort())
-  }, [checkinDates, todayKey, setCheckinDates])
+    if (active) record(todayKey, now)
+    else setLegacyDates((current) => [...current.filter((item) => DATE_KEY_PATTERN.test(item)), todayKey].sort())
+  }, [active, checkinDates, now, record, todayKey, setLegacyDates])
 
   return {
     checkinDates: [...checkinDates].sort(),
@@ -41,6 +48,8 @@ export function useCheckin(scope: string | undefined, now: Date) {
     checkedIn,
     streak,
     streakAtRisk,
+    pendingCount: unified.pendingCount,
+    syncError: unified.error,
     handleCheckin,
   }
 }

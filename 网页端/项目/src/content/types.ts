@@ -110,6 +110,12 @@ export type SnapshotRules = {
 
 export type ContentSnapshot = {
   bundleId: string
+  vaultId?: string
+  serviceInstance?: string
+  manifestHash?: string
+  contractVersion?: number
+  capabilities?: string[]
+  legacyAliases?: Record<string, string>
   schemaVersion: number
   buildTime: string
   rules: SnapshotRules

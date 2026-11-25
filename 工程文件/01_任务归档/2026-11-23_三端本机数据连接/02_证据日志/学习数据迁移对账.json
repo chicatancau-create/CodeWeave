@@ -1,0 +1,101 @@
+{
+  "audited": true,
+  "primaryAccountCount": 1,
+  "separatelyPreservedAccountCount": 1,
+  "browserOriginProfilesChecked": 8,
+  "webKeys": 0,
+  "qtLedgerFiles": 0,
+  "currentConflicts": 0,
+  "rows": [
+    {
+      "category": "当前选课",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "最后位置",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "书签",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "草稿",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "挑战",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "打卡",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "掌握证据",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "复测",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "外部证据",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    },
+    {
+      "category": "待同步记录",
+      "importedFromLegacy": 0,
+      "before": 0,
+      "currentEvents": 0,
+      "duplicates": 0,
+      "conflicts": 0,
+      "skipped": 0
+    }
+  ]
+}

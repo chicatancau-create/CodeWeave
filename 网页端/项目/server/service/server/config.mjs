@@ -2,7 +2,7 @@
  * 运行时路径与端口解析（03 号方案 §3 启动器和路径规则）。
  *
  * 优先级：调用方显式参数（CLI）> 环境变量 > `config/codeweave.local.json` > 工程相对默认。
- * 工程相对默认指向三层布局（`data/knowledge/vault`、`data/runtime/data`）：生产代码里不再写死
+ * 工程相对默认指向三层布局（`data/vault`、`data/runtime`）：生产代码里不再写死
  * 迁移前那台机器上的资料库绝对路径，本机真实位置只存在于本机配置。
  * 配置里的相对路径一律以工程根为基准解析；绝对路径原样接受。
  */
@@ -198,7 +198,7 @@ export function resolveRuntimePaths({
   if (sources.dataDir !== 'env' && sources.dataDir !== 'cli') {
     const legacyDir = join(projectRoot, 'data')
     const legacyHasAccounts = existsSync(join(legacyDir, 'users.json'))
-    const targetHasAccounts = existsSync(join(resolvedDataDir, 'users.json'))
+    const targetHasAccounts = existsSync(join(resolvedDataDir, 'users.json')) || existsSync(join(resolvedDataDir, 'unified.sqlite'))
     if (legacyHasAccounts && !targetHasAccounts && relative(legacyDir, resolvedDataDir) !== '') {
       result.conflicts.push({
         code: 'data_dir_has_predecessor',
