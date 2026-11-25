@@ -1,0 +1,765 @@
+{
+  "date": "2026-11-15",
+  "scope": "Original repair stages 0-7, 37 numbered tasks",
+  "qt": {
+    "checks": 226,
+    "screenshots": 60,
+    "platform": "windows",
+    "backend": "software",
+    "ctest": {
+      "passed": 11,
+      "total": 11,
+      "seconds": 124.78
+    },
+    "warningsScope": "QQmlEngine creation/load warnings only, not a global runtime warning collector"
+  },
+  "web": {
+    "testFiles": 88,
+    "tests": 1323,
+    "coverage": [
+      89.83,
+      83.07,
+      87.49,
+      92.83
+    ],
+    "viewports": [
+      375,
+      768,
+      1280,
+      1440
+    ],
+    "keyboardChecks": 12,
+    "pageScreenshots": 4,
+    "browserErrors": []
+  },
+  "historical": {
+    "status": "passed",
+    "manifestEntries": 65,
+    "matchingStates": true,
+    "checksPerReport": 8,
+    "pages": [
+      {
+        "page": "learning",
+        "differentPixels": 2649,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "review",
+        "differentPixels": 1820,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "challenge",
+        "differentPixels": 3658,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "editor",
+        "differentPixels": 1155,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "drafts",
+        "differentPixels": 1446,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "analytics",
+        "differentPixels": 3265,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "account",
+        "differentPixels": 1127,
+        "maxChannelDifference": 1
+      }
+    ],
+    "scope": "controlled historical split only; no claim of pixel identity or all states"
+  },
+  "attempts": [
+    {
+      "directory": "qt-matrix",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": [
+        {
+          "name": "execution-stage-cancelled-terminal-visible-without-success",
+          "passed": false
+        },
+        {
+          "name": "challenge-detail-escape-restores-list-and-focus",
+          "passed": false
+        },
+        {
+          "name": "checkin-calendar-end-focus",
+          "passed": false
+        },
+        {
+          "name": "checkin-calendar-next-month",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-diagnostic",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": [
+        {
+          "detail": "events=218 index=0 count=218 follow=1 sequence=187 active=1",
+          "name": "execution-stage-cancelled-terminal-visible-without-success",
+          "passed": false
+        },
+        {
+          "detail": "found=1 focused=0 active=0 focus=checkinPreviousMonth",
+          "name": "checkin-calendar-end-focus",
+          "passed": false
+        },
+        {
+          "name": "checkin-calendar-next-month",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-final",
+      "passed": false,
+      "checks": 50,
+      "screenshots": 13,
+      "failures": [
+        {
+          "detail": "验收步骤超过 50 秒",
+          "name": "matrix-timeout",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-hidden-failure",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 0,
+      "failures": [
+        {
+          "name": "selected-course-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-stage-current-node-and-pointer-fit-viewport",
+          "passed": false
+        },
+        {
+          "name": "execution-trace-narrow-framed",
+          "passed": false
+        },
+        {
+          "name": "java-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-module-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "cpp-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-live-paused-screenshot",
+          "passed": false
+        },
+        {
+          "name": "challenge-detail-window-matrix",
+          "passed": false
+        },
+        {
+          "name": "account-login-intro-visible-for-guest",
+          "passed": false
+        },
+        {
+          "name": "learning-empty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-completed-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-preserves-header-and-vertical-statistics",
+          "passed": false
+        },
+        {
+          "name": "learning-details-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-small-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-selected-unit-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-nonempty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-row-hover-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-updated-screenshot",
+          "passed": false
+        },
+        {
+          "name": "lesson-workspace-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "workspace-save-error-screenshot",
+          "passed": false
+        },
+        {
+          "name": "analytics-values-screenshot",
+          "passed": false
+        },
+        {
+          "name": "checkin-narrow-calendar-framed",
+          "passed": false
+        },
+        {
+          "name": "vault-narrow-ledger-screenshot",
+          "passed": false
+        },
+        {
+          "detail": "0",
+          "name": "page-challenge-lesson-evidence-execution-trace-and-vault-screenshots",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-offscreen",
+      "result": "no-report"
+    },
+    {
+      "directory": "qt-matrix-software",
+      "result": "no-report"
+    },
+    {
+      "directory": "qt-matrix-software-sdk",
+      "passed": false,
+      "checks": 50,
+      "screenshots": 13,
+      "failures": [
+        {
+          "detail": "验收步骤超过 50 秒",
+          "name": "matrix-timeout",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-verified",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": [
+        {
+          "name": "learning-details-resolves-windows-ui-font",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-windows-final",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 0,
+      "failures": [
+        {
+          "name": "selected-course-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-stage-current-node-and-pointer-fit-viewport",
+          "passed": false
+        },
+        {
+          "name": "execution-trace-narrow-framed",
+          "passed": false
+        },
+        {
+          "name": "java-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-module-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "cpp-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-live-paused-screenshot",
+          "passed": false
+        },
+        {
+          "name": "challenge-detail-window-matrix",
+          "passed": false
+        },
+        {
+          "name": "account-login-intro-visible-for-guest",
+          "passed": false
+        },
+        {
+          "name": "learning-empty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-completed-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-preserves-header-and-vertical-statistics",
+          "passed": false
+        },
+        {
+          "name": "learning-details-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-small-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-selected-unit-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-nonempty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-row-hover-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-updated-screenshot",
+          "passed": false
+        },
+        {
+          "name": "lesson-workspace-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "workspace-save-error-screenshot",
+          "passed": false
+        },
+        {
+          "name": "analytics-values-screenshot",
+          "passed": false
+        },
+        {
+          "name": "checkin-narrow-calendar-framed",
+          "passed": false
+        },
+        {
+          "name": "vault-narrow-ledger-screenshot",
+          "passed": false
+        },
+        {
+          "detail": "0",
+          "name": "page-challenge-lesson-evidence-execution-trace-and-vault-screenshots",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-windows-visible",
+      "passed": true,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": []
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "f34009e59bfa29f80bca17339e7d0ff359e86df371ff36555a083c5d16d065ac"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-course.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "034b5525f11d6f6546d622840b7d04f6d5a56a60983d998e17876f24979ad28a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-editor.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5bd5f3264a6812d666ef8b520f46bcbc788b5cc50fa4032c1a101e9d5bcaf52d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-workspace-breadcrumb-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "09c00ab07b9243f5ad1e0281f703b0fdb4c06eead488302246b5255d269a70da"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-completed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e3fbac40c36dbffabcd3211cb4ac9b076a594165e17946bc7aa14277adf323a7"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "37e95c599112240597de050814e1308282d7629952856b4feed0f8c7790068b7"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-stale.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "9a88c5e2b54c7a1c4bf55563d5b2a93545e2b65046357d66265565f66560e9f6"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-java-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "21d63d6314c6bb688e3f76d850c1a94e1a161fd0eda6fef9b87e4c3472a021fc"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-javascript-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "71df95f12ea89fac493b8e9ae636237ff06d4920a16823a4313102b96b901aca"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-javascript-module-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "2a93307b54dcc111c30e8d7d3f3da54e35e379bf558424eb05ea3f317545df05"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-cpp-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e0110b191cc071a3859378696822a64f912254f30747e7d31e8307ade1103ea4"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-live.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "bb573284a9ad162987c9004458146431951aaf01ff00fb7b4ddc3d68f01c1396"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-cancelled.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "72985ca8da2516e9905f80949ec8badce0369cbe28b86e431b9c8aea1119be70"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-failed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "b20d972194057d8b13c5465ff9f7453099ec1c5eb5c40d3ede05351f34954187"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "50202cfb84537e19017c7abb8fb35df61de4ddfce7b27e462a03dfc157918844"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-detail.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e9f50e100c531c22af817bf08768eb6c94e09cb07a86c9d56b916b36e5eeeeca"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-detail-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "aa7198c5744c125f56df0ac096e1ed0b774380f83e61023c218989ef3b491fae"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5cdbeb19836b27c4a9ff64876ce1044cf78c0743bcce8d5014f976eb602a84fd"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-judgement-passed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "1f96da2fc31f2b1c354f3cbdd5ce344b67020fb6df799538fa3c369d3f7323fe"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-judgement-failed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "59e9a48fc31900d95ecd6509270336eab13fc003b758f71ebbcde859381eddd9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-submitted.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "10356c6ade6aaa6219c8b1d31994791340d36c42c163210b3e3b2434c4874042"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-submitted-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "e7ae6bad46d33645bba746ba6fa0228816f479acc35189c70a55767dfeda10c9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-pending-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "4f1e911ba60bfdea35abeb37ee84cf7348f4ba05298b6f04731c3e9fd811cb7c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-verified-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "444c276e50bb906fa4a259517e09a88b8ce69ea92876237b5f7fc502305acb57"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-review-history.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "338ac7a55e28dac10b01d4505fa6aba33ab30a689dba8365571f5e2528196233"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-profile.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "fd56b0dc1ff9e9aadabf15fa7bed42ac13de27bdf2dbf062fc848f68129db795"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-security.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "d0dd70f14ef0ae25a0bb81520277fd9dd6dd00d9ce5decf0aaa54b27dccbb2a9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-privacy.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "82759130f4cf3a9a98f00a525462e8c8375cb04b3c50442b2e13cfa48f7d357f"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-login-intro.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "f34e302f3471ca6a2b98f3164296626bb00f6bbab02987aee39e6e20915584f1"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-drafts.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4a070eaded3211bdfdbe9f3ae5ad483c008b3f4b47f8899a3de4cc76ec2cde7d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-drafts-save-error.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "2a495b07fa7b2d57a6126d1607650bd9c35d1562a11537a2f9b4be6a37c18a0d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-drafts-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "3e2572f5e7cf591e973481ce1228953ba5600562ad001aac04c7af1a92799f4e"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-empty.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "7e30832af3f83a6619cc640a3e8867fe024d82f1ae04d8f3bb09a9ba20d0fe40"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-completed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9a65cb715dc180335da460274495a23a0b1bb051a7db07694440157832c0ef95"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-details.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e76b8cd3d74794e4fe0c5684e2bf2dbc388873497d676477b1226f4ac2620d7c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-details-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "e58280df56f01dbcdb4af5722ef9a52aeff990f8fbd79cef36ae82fca27dbb59"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-details-selected.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "b54a11e7e5da4e29eebac738c9c3f46a36befdaaffe2417fedf09f184f814ca6"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review-nonempty.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "2484f57a7759ed5aa30dac54d9fc333876bd13c6116926e319e0f1673964676b"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review-hovered.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9006731e124b6303fd9d7f3e3f5d0e261882a0562d342505887d7e48a36c44a4"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review-updated.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "6a17f40854bad9907402796f3cf85ee905fc6f372d782dce1c0ced6f89e8270a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-workspace-breadcrumb-unlisted-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "2dd1a7e13041e4cf7b60b69e1bfd187d6820908f472c6d51f55c1b90dd3d0e2f"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-read.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9ddcea8937c52d9a8f3c45fae7e7e83c7b56a99cee1d76cf4491cf5d029afc3a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-missed-cases.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "cafd7f558b2025cbd90b5b106d72923d862146739cf54410ae730f2409451767"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-verified.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5dbdb95e22e149d3834a243a1b5b1317f4bb0a60331f90e5d8456469a309196c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-external-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "e9bd9c2b7f54d98793f49cfa71854893f58821cc30fc17435eb9c638afa20801"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-external-states-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "7f800f7aa12bc0dc04d9aef5faf3d375fba05690bed32dbaecb1ea127c2761f0"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-workspace-save-error.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "972f7712fb08210f35035d3511480f2d70294ccc76340227f1ae24632985a9df"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis-empty.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "a90320bf5c36ec5b85981f29fa02154531fcbe1c4a74a367bdc342c70d1954f2"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis-values.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "ff9c64f16f92b0f1df25cd676718a4089efc97276ee07cab6a93bb27ade3e4f7"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis-review-rate.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "a8559850657f9150198036f9bf0cd649319dbed5d4c96ae6c6139c44323a2f6c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-sidebar.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "14526f6020dd4f0bc637a26ae02e9de87b3ca6301d335b2848bf593116d34b4a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-calendar.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "b2ddfeb74ebae093b351431f96a428cb0a9f3973fb07ad57c83d1571bce0b2e9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-error.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4d8927d30c3d8f4be4d21f8dac3eb4aabbae02dac12451ecf5335924af5282c8"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "47e25f02ab368c36caa5f2879af509d9d52420796835908b0be979a1bc9d13f4"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-connected-name.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "1f9139c9c8e2b02f1440bd0a2c93c0277db0cd5da85ce88a671063905a241c0b"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-evidence-preview.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "d244cc6b3c730556e8b6a0e69fed8a632b42352540cee35330328bc2aad1c84d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-confirmation.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4ec9e24aa60c2183ac0a98ee5472d40993395b6bda6e69eab06d046e55618ca9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-ledger-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "c0c6985a80ee39d62792022f65bf311852333db6fde62fdbee183592b360ed9c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-rolled-back.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "312986f9a79116815902f4c62451bce81a7eea66b4dd92ed005dad74d256380a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5c99eb09e1f568010e1b6496a1db492e1179c24c0393fcbcf6dd45eac6a670a4"
+    }
+  ],
+  "limitations": [
+    "Android APK/Lint/device not executed: SDK unavailable",
+    "No production account or real workspace data accessed",
+    "No claim of whole-page pixel identity"
+  ]
+}

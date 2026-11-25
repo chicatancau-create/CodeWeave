@@ -11,7 +11,19 @@ for /f "tokens=2 delims=:" %%C in ('chcp') do set "ORIGINAL_CP=%%C"
 chcp 65001 >nul
 set "CONFIGURE_ARGS="
 if "%~1"=="--fresh" set "CONFIGURE_ARGS=--fresh"
-call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul
+set "VCVARS=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+if exist "%VCVARS%" goto vs_ready
+set "VCVARS="
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" goto vs_ready
+for /f "delims=" %%V in ('call "%VSWHERE%" -latest -products * -version "[17.0,18.0)" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find VC\Auxiliary\Build\vcvars64.bat') do set "VCVARS=%%V"
+:vs_ready
+if not defined VCVARS (
+  echo [Qt] Visual Studio 2022 C++ build tools were not found.
+  set "RESULT=90"
+  goto cleanup
+)
+call "%VCVARS%" >nul
 if errorlevel 1 (
   set "RESULT=90"
   goto cleanup

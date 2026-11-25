@@ -1,0 +1,10 @@
+{
+  "status": "outer-timeout",
+  "processId": 41672,
+  "executable": "C:\\Users\\Admin\\AppData\\Local\\Temp\\CodeWeave-repair-20261115-708d121928524a04a4df099b127db393\\CodeWeaveQtShell.exe",
+  "elapsedSeconds": 179.6996893,
+  "cpuSeconds": 0.109375,
+  "screenshotCount": 0,
+  "reportCreated": false,
+  "stoppedOwnedProcess": true
+}

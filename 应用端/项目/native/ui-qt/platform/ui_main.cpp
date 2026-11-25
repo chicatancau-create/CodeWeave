@@ -1883,6 +1883,13 @@ int main(int argc, char* argv[]) {
         application.exit(3);
         return;
       }
+      // WindowShortcut actions require an active window. Re-establish the
+      // test precondition after Windows resize/activation events, within the
+      // existing matrix timeout, before dispatching the next keyboard input.
+      if (!view.isActive()) {
+        view.requestActivate();
+        return;
+      }
       // Popup focus is handed back by onClosed after the exit transition.
       // Keep the original assertions and timeout, but send the next input only
       // after the same transition boundary used by the QML smoke.
@@ -2409,6 +2416,11 @@ int main(int argc, char* argv[]) {
           return;
         case 63:
           if (shell.executionBusy()) return;
+          // The trace ListView restores its selection with Qt.callLater after
+          // a model reset. Check the terminal frame on the next event turn.
+          context->step = 631;
+          return;
+        case 631:
           u3_record(*context, QStringLiteral("execution-cancel"),
               shell.executionOutput().contains(QStringLiteral("取消")), shell.executionOutput());
           {
@@ -2422,14 +2434,21 @@ int main(int argc, char* argv[]) {
               resumed = resumed || event.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("resumed");
             }
             u3_record(*context, QStringLiteral("execution-trace-pause-resume-events"), paused && resumed);
+            auto* panel = u3_find_item(view.rootObject(), QStringLiteral("executionTracePanel"));
+            auto* event_list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
             u3_record(*context, QStringLiteral("execution-stage-cancelled-terminal-visible-without-success"),
-                !events.isEmpty() && u3_stage_terminal_visible(view.rootObject(), events.last().toMap(), false));
+                !events.isEmpty() && u3_stage_terminal_visible(view.rootObject(), events.last().toMap(), false),
+                QStringLiteral("events=%1 index=%2 count=%3 follow=%4 sequence=%5 active=%6")
+                    .arg(events.size()).arg(event_list ? event_list->property("currentIndex").toInt() : -1)
+                    .arg(event_list ? event_list->property("count").toInt() : -1)
+                    .arg(panel && panel->property("followLatest").toBool())
+                    .arg(panel ? panel->property("viewedSequence").toInt() : -1).arg(view.isActive()));
             u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-cancelled"));
           }
           shell.setExecutionTimeout(100);
           shell.updateDraftCode(QStringLiteral("import time\ntime.sleep(2)\n"));
           shell.runCode();
-          context->step++;
+          context->step = 64;
           return;
         case 64:
           if (shell.executionBusy()) return;
@@ -2704,7 +2723,11 @@ int main(int argc, char* argv[]) {
               QStringLiteral("challengeCard-") + sample.value(QStringLiteral("id")).toString());
           auto* list = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeListRoot"));
           u3_record(*context, QStringLiteral("challenge-detail-escape-restores-list-and-focus"),
-              !shell.challengeDetailOpen() && list && list->isVisible() && card && card->hasActiveFocus());
+              !shell.challengeDetailOpen() && list && list->isVisible() && card && card->hasActiveFocus(),
+              QStringLiteral("open=%1 list=%2 card=%3 focused=%4 active=%5 focus=%6")
+                  .arg(shell.challengeDetailOpen()).arg(list && list->isVisible()).arg(card != nullptr)
+                  .arg(card && card->hasActiveFocus()).arg(view.isActive())
+                  .arg(view.activeFocusItem() ? view.activeFocusItem()->objectName() : QString{}));
           u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
           shell.openChallenge(QStringLiteral("stage-d"));
           context->step = 211;
@@ -3458,7 +3481,7 @@ int main(int argc, char* argv[]) {
           u3_record(*context, QStringLiteral("review-three-groups-match-real-schedules"), grouped);
           u3_record(*context, QStringLiteral("review-nonempty-screenshot"),
               u3_screenshot(*context, view, QStringLiteral("u3-review-nonempty")));
-          auto* review_row = view.rootObject()->findChild<QQuickItem*>(
+          auto* review_row = u3_find_item(view.rootObject(),
               QStringLiteral("review-row-python-condition"));
           const auto review_row_rect = review_row
               ? review_row->mapRectToScene(review_row->boundingRect()) : QRectF();
@@ -3473,7 +3496,12 @@ int main(int argc, char* argv[]) {
           const bool review_hover_entered = review_row && review_row->property("hovered").toBool() &&
               review_row->mapRectToScene(review_row->boundingRect()) == review_row_rect;
           u3_record(*context, QStringLiteral("review-row-hover-enters-without-layout-shift"),
-              review_hover_entered);
+              review_hover_entered,
+              QStringLiteral("found=%1 visible=%2 hovered=%3 rect=%4,%5 %6x%7")
+                  .arg(review_row != nullptr).arg(review_row && review_row->isVisible())
+                  .arg(review_row && review_row->property("hovered").toBool())
+                  .arg(review_row_rect.x()).arg(review_row_rect.y())
+                  .arg(review_row_rect.width()).arg(review_row_rect.height()));
           u3_record(*context, QStringLiteral("review-row-hover-screenshot"),
               u3_screenshot(*context, view, QStringLiteral("u3-review-hovered")));
           const QPointF outside(1, 1);
@@ -3978,7 +4006,10 @@ int main(int argc, char* argv[]) {
               cell && cell->isVisible() && shell.checkinSummary().value("totalDays").toInt() == 1);
           send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
           auto* next = u3_find_item(view.contentItem(), QStringLiteral("checkinNextMonth"));
-          u3_record(*context, QStringLiteral("checkin-calendar-end-focus"), next && next->hasActiveFocus());
+          u3_record(*context, QStringLiteral("checkin-calendar-end-focus"), next && next->hasActiveFocus(),
+              QStringLiteral("found=%1 focused=%2 active=%3 focus=%4")
+                  .arg(next != nullptr).arg(next && next->hasActiveFocus()).arg(view.isActive())
+                  .arg(view.activeFocusItem() ? view.activeFocusItem()->objectName() : QString{}));
           send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
           context->step++;
           return;
@@ -4200,7 +4231,8 @@ int main(int argc, char* argv[]) {
         }
         case 23:
           u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
-          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 59,
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 60 &&
+              context->screenshots.contains(QDir(context->screenshot_dir).filePath(QStringLiteral("u3-review-hovered.png"))),
               QString::number(context->screenshots.size()));
           u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
           if (!u3_write_result(*context)) { application.exit(3); return; }
