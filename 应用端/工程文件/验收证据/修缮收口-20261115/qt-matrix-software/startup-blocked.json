@@ -1,7 +1,0 @@
-{
-  "status": "environment-startup-blocked",
-  "reason": "isolated deployment contains qwindows.dll only; offscreen plugin absent",
-  "processId": 40012,
-  "processNowAbsent": true,
-  "reportCreated": false
-}
