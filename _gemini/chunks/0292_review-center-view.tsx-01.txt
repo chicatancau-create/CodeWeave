@@ -1,0 +1,140 @@
+import { useState } from 'react'
+import { CalendarClock, BookOpen, AlarmClock, Check, X } from 'lucide-react'
+import type { MasteryRecord } from '../data/mastery'
+import {
+  MAX_MASTERY_LEVEL,
+  describeReviewPlan,
+  masteryLevelName,
+  reviewPlanCadence,
+  snoozeTargetKey,
+  type ReviewPlan,
+} from '../data/mastery'
+import { useReviewPlanResolver } from '../hooks/use-review-schedule'
+import { useOptionalContent } from '../content/provider'
+import './review-center-view.css'
+
+/**
+ * F1 复习中心（独立页）：逾期 / 今日到期 / 未来 7 天三组，
+ * 每项支持 开始复测（通过/未通过）、稍后提醒（顺延明天）、查看原课程。
+ * 空状态说明下一次复测日期。数据全部来自 useReviewSchedule 的真实记录。
+ *
+ * M4 全站统一（01 号方案 §3.4 复习页 + geometry.md §2「复习与分析」）：
+ * - 三组一律用模板 `.ledger` 的**细线表格**表达（真 `<table>` + `<caption>` +
+ *   `th[scope]`），层次靠编号 01/02/03 与 1px 发丝线，不靠卡片、不靠颜色；
+ * - 到期分组、复测计划节点、掌握等级各自成列，语义状态「固定字符徽记 + 文字」
+ *   双通道（§5.1 末段）；边框样式（点线/实线/虚线）承担第三重非颜色区分；
+ * - #33 之后本页**不再自带任何节点数字面量**：节奏文案一律由 `useReviewPlanResolver()`
+ *   解析出的生效计划派生（本单元覆盖 → 资料库发布规则 → 本机兜底），分母就是那一行的
+ *   节点数。改版前这里写死过一份五档节点表，另附一句「两套口径各自表述、界面不做合并」的
+ *   免责说明——口径统一到发布规则之后，那种说明已无凭据，删除。
+ */
+
+type Tone = 'overdue' | 'today' | 'upcoming'
+
+type ReviewCenterViewProps = {
+  groups: {
+    overdue: MasteryRecord[]
+    today: MasteryRecord[]
+    upcoming: MasteryRecord[]
+    next: { dateKey: string; record: MasteryRecord } | null
+  }
+  titles: Record<string, string>
+  /**
+   * 现在真实存在的课程单元 id。**「这是不是一门课」只能由数据判定**：
+   * 改版前用 `tone !== 'overdue' && !refId.startsWith('stage-')` 猜，
+   * 于是逾期一组的每一条都拿不到「查看原课程」（REVIEW-01 第 2 条）。
+   */
+  lessonIds: readonly string[]
+  /** 本机今天（dateKey）。稍后提醒要把**实际落到的那一天**写出来，不能只说「明天」。 */
+  todayKey: string
+  onReview: (record: MasteryRecord, passed: boolean) => void
+  onSnooze: (refId: string) => void
+  onOpenLesson: (lessonId: string) => void
+}
+
+/**
+ * 三组的编号、名称与语义标识。**文案与改版前逐字一致**，只是换成分组表格的骨架。
+ * `glyph` 是固定字符徽记（读屏隐藏），`label` 是承载信息的文字通道。
+ * `hint` 由生效计划派生（#33）：分组说明里的节奏与分母不许再手写一遍。
+ */
+const TONE_META: Record<Tone, { idx: string; title: string; hint: (plan: ReviewPlan) => string; glyph: string; label: string }> = {
+  overdue: {
+    idx: '01',
+    title: '逾期',
+    hint: () => '超过计划日期仍未复测，优先处理',
+    glyph: '逾',
+    label: '已逾期',
+  },
+  today: {
+    idx: '02',
+    title: '今日到期',
+    hint: (plan) => `按 ${reviewPlanCadence(plan)}计划今天应复测`,
+    glyph: '今',
+    label: '今日到期',
+  },
+  upcoming: {
+    idx: '03',
+    title: '未来 7 天',
+    hint: () => '即将到期的复测',
+    glyph: '未',
+    label: '未来 7 天内',
+  },
+}
+
+/** 语义状态：固定字符徽记 + 文字，双通道，不依赖颜色（§5.1 末段）。 */
+function StatusMark({ tone }: { tone: Tone }) {
+  const meta = TONE_META[tone]
+  return (
+    <span className={`rv-mark rv-mark--${tone}`} data-rv-mark={tone}>
+      <span className="rv-mark-glyph" aria-hidden>
+        {meta.glyph}
+      </span>
+      <span className="rv-mark-text">{meta.label}</span>
+    </span>
+  )
+}
+
+function ReviewRow({
+  record,
+  title,
+  tone,
+  order,
+  isLesson,
+  snoozeToKey,
+  plan,
+  defaultPlan,
+  onReview,
+  onSnooze,
+  onOpenLesson,
+}: {
+  record: MasteryRecord
+  title: string
+  tone: Tone
+  order: number
+  isLesson: boolean
+  snoozeToKey: string
+  /** 这一行**实际按哪一份计划**排期（分母 = plan.offsets.length，#33 裁定 4） */
+  plan: ReviewPlan
+  /** 页面级默认计划：本单元覆盖时要把默认也说出来，不许悄悄换掉节奏 */
+  defaultPlan: ReviewPlan
+  onReview: (record: MasteryRecord, passed: boolean) => void
+  onSnooze: (refId: string) => void
+  onOpenLesson: (lessonId: string) => void
+}) {
+  const [testing, setTesting] = useState(false)
+  const dueLabel = record.reviewDueKey ?? ''
+  const nodeTotal = plan.offsets.length
+  const nodeNow = Math.min(record.reviewStep + 1, nodeTotal)
+  const overrideNote =
+    plan.source === 'unit' && defaultPlan.offsets.join('/') !== plan.offsets.join('/')
+      ? `（默认是${reviewPlanCadence(defaultPlan)}，共 ${defaultPlan.offsets.length} 个节点）`
+      : ''
+
+  const finishReview = (passed: boolean) => {
+    onReview(record, passed)
+    // 记完就退出答题态：留在 通过/未通过 两枚按钮上，人已经不在「正在答」这件事里了。
+    setTesting(false)
+  }
+
+  return (
+    <tr className="rv-row" data-tone={tone} data-ref-id={record.refId}>

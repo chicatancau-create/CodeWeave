@@ -1,0 +1,63 @@
+  if (!committed.ok) std::cerr << "commit failed: " << committed.message << '\n';
+  assert(committed.ok && result.value("synced").toBool());
+  const auto written = read_file(log);
+  assert(written.contains("fixture.log") && written.contains("await manual review"));
+  assert(written.contains("`````"));
+  write_file(log, written + "third-party edit\n");
+  const auto modified = read_file(log);
+  assert(!store.commit(operation, hashes(preview), result).ok && read_file(log) == modified);
+  write_file(log, written);
+  assert(store.commit(operation, hashes(preview), result).ok && result.value("idempotent").toBool());
+  assert(read_file(log) == written);
+  QVariantList pending, synced;
+  assert(store.readEvidence(pending, synced).ok && pending.isEmpty() && synced.size() == 1);
+  assert(!store.preview({"first"}, result).ok);
+  assert(read_file(QDir(fixture.vault).filePath(progress_path)).contains(QStringLiteral("0—1 级").toUtf8()));
+  assert(store.rollback(operation, result).ok);
+  assert(!QFile::exists(log));
+  assert(read_file(QDir(fixture.vault).filePath(progress_path)) == fixture.progress);
+  assert(read_file(QDir(fixture.vault).filePath(index_path)) == fixture.index);
+  assert(store.readEvidence(pending, synced).ok && pending.size() == 1 && synced.isEmpty());
+  assert(store.rollback(operation, result).ok && result.value("idempotent").toBool());
+  assert(!store.commit(operation, hashes(preview), result).ok);
+}
+
+void test_conflicts_corruption_and_cross_account() {
+  Fixture fixture; auto store = fixture.store(); fixture.evidence();
+  assert(store.bindOwner().ok);
+  QVariantMap preview, result; assert(store.preview({"first"}, preview).ok);
+  const auto operation = preview.value("operationId").toString();
+  const auto path = QDir(fixture.vault).filePath(progress_path);
+  write_file(path, fixture.progress + "third-party edit\n");
+  assert(!store.commit(operation, hashes(preview), result).ok);
+  assert(read_file(QDir(fixture.vault).filePath(index_path)) == fixture.index);
+  write_file(path, fixture.progress);
+  assert(store.commit(operation, hashes(preview), result).ok);
+  write_file(path, read_file(path) + "third-party edit\n");
+  const auto modified = read_file(path);
+  assert(!store.rollback(operation, result).ok && read_file(path) == modified);
+  assert(!fixture.store("other-account").commit(operation, hashes(preview), result).ok);
+  const auto tx_path = QDir(fixture.account).filePath("learning/writeback/" + operation + ".json");
+  auto tx = QJsonDocument::fromJson(read_file(tx_path)).object();
+  auto targets = tx.value("targets").toArray(); auto first = targets[0].toObject();
+  first["path"] = "../../outside.md"; targets[0] = first; tx["targets"] = targets;
+  write_file(tx_path, QJsonDocument(tx).toJson());
+  assert(!store.commit(operation, hashes(preview), result).ok);
+  QVariantList ledger;
+  assert(!store.transactions(ledger).ok);
+  write_file(tx_path, "broken"); assert(!store.transactions(ledger).ok);
+  const auto owner_path = QDir(fixture.owner).filePath("learning/vault-owner.v1.json");
+  write_file(owner_path, "broken"); assert(!store.bindOwner().ok);
+  assert(read_file(owner_path) == "broken");
+}
+
+void test_multi_group_recovery_and_lock() {
+  Fixture fixture; auto store = fixture.store(); fixture.evidence(); fixture.evidence("second", "2026-11-07", "lesson-b");
+  assert(store.bindOwner().ok);
+  QVariantMap preview, result; assert(store.preview({"first", "second"}, preview).ok);
+  const auto operation = preview.value("operationId").toString();
+  const auto targets = preview.value("targets").toList(); assert(targets.size() == 4);
+  QLockFile lock(QDir(fixture.owner).filePath("learning/vault-writeback.lock")); assert(lock.tryLock(0));
+  assert(!store.commit(operation, hashes(preview), result).ok); lock.unlock();
+  // Simulate a crash after the first replacement but before its applied flag was saved.
+  const auto tx_path = QDir(fixture.account).filePath("learning/writeback/" + operation + ".json");

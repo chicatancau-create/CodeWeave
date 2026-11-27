@@ -1,0 +1,102 @@
+    expect(screen.queryByRole('button', { name: '未通过' })).toBeNull()
+  })
+
+  it('上次未通过原因与计划日期逐条保留（原有语义文案未被吃掉）', () => {
+    renderView({ overdue: [record({ lastFailReason: '忘记参数顺序' })] })
+    expect(screen.getByText('上次未通过：忘记参数顺序')).toBeTruthy()
+    expect(screen.getByText('计划复测 2026-09-17')).toBeTruthy()
+    // 「已逾期」在分组标题与每一行各出现一次（标题与行都是双通道标识）
+    expect(document.querySelector('.rv-row .rv-mark-text')?.textContent).toBe('已逾期')
+    expect(screen.getAllByText('已逾期')).toHaveLength(2)
+  })
+})
+
+describe('M4 复习中心 · 空状态与真实分母', () => {
+  it('完全没有安排时保留原有空态说明，不显示任何表格', () => {
+    renderView()
+    expect(screen.getByText('当前没有任何计划的复测。完成课程单元后会自动按计划安排。')).toBeTruthy()
+    expect(document.querySelectorAll('table.rv-ledger')).toHaveLength(0)
+    expect(document.querySelector('.rv-footnote')).toBeNull()
+  })
+
+  /**
+   * REVIEW-01 第 3 条：远期任务不许被说成不存在。
+   * 改版前的判据是「7 天窗口里没条目 + 今天没到期」就写「当前没有任何计划的复测」，
+   * 而 `groups.next` 看的是**任何**晚于今天的排期——排在第 14 天的复测就这样被抹掉了。
+   */
+  it('排在 7 天窗口之外时，说的是下一次日期而不是「没有任何计划」', () => {
+    const far = record({ refId: 'lesson-s2-3', reviewDueKey: '2026-10-04' })
+    renderView({ next: { dateKey: '2026-10-04', record: far } })
+    expect(screen.getByText(/今天没有到期的复测。下一次：2026-10-04（并发模型）/)).toBeTruthy()
+    expect(screen.queryByText('当前没有任何计划的复测。完成课程单元后会自动按计划安排。')).toBeNull()
+  })
+
+  it('今日无到期时说明下一次日期与标题（原文案语义保留）', () => {
+    const upcoming = record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })
+    renderView({ upcoming: [upcoming], next: { dateKey: '2026-09-24', record: upcoming } })
+    expect(screen.getByText(/今天没有到期的复测。下一次：2026-09-24（并发模型）/)).toBeTruthy()
+  })
+
+  it('页脚只把「已安排复测」的记录计入分母，未安排的不冒充样本', () => {
+    renderView({
+      overdue: [record()],
+      today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })],
+      upcoming: [record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })],
+    })
+    const foot = document.querySelector('.rv-footnote')?.textContent ?? ''
+    expect(foot).toContain('逾期 1 项')
+    expect(foot).toContain('今日 1 项')
+    expect(foot).toContain('未来 7 天 1 项')
+    expect(foot).toContain('合计 3 项')
+    expect(foot).toContain('没有到期安排的记录不计入任何分母')
+    expect(screen.getByText('待复测 2 项 · 未来 7 天 1 项')).toBeTruthy()
+  })
+
+  it('复测节点分母取本机排期数组长度，并显式标注是本机口径', () => {
+    renderView({ overdue: [record({ reviewStep: 2 })] })
+    const plan = document.querySelector('.rv-cell-plan')?.textContent ?? ''
+    expect(plan).toContain(`复测节点 3 / ${REVIEW_OFFSET_DAYS.length}`)
+    expect(plan).toContain('按本机排期：学完后第 1、3、7、14、30 天各一次')
+  })
+
+  it('掌握等级带 0—6 的真实上限与证据条数', () => {
+    renderView({ overdue: [record({ level: 4 })] })
+    expect(screen.getByText('能教别人')).toBeTruthy()
+    expect(screen.getByText('等级 4 / 6 · 证据 1 条')).toBeTruthy()
+  })
+})
+
+describe('M4 复习中心 · §4 状态矩阵的 loading / error 两档（排期口径的来源）', () => {
+  /**
+   * 本页的复测节点表有三个来源（本单元覆盖 → 资料库发布规则 → 本机兜底），
+   * 中间那一档要等教材目录读回来才有：改版前这一段既没有 loading 也没有 error，
+   * 「正在读」与「读失败」都说成「按本机排期」，用户既看不出是临时的也找不到重试。
+   * Provider 缺席（上面所有用例）时这一块整体不出现——不造空转的骨架。
+   */
+  function renderWithContent(content: Partial<ContentContextValue>) {
+    const value = { loading: false, error: null, refresh: vi.fn(async () => {}), lessons: [] } as unknown as ContentContextValue
+    const stub = { ...value, ...content }
+    const result = render(
+      <ContentProviderHost.Provider value={stub}>
+        <ReviewCenterView
+          groups={{ overdue: [], today: [], upcoming: [], next: null }}
+          titles={titles}
+          lessonIds={['lesson-s0-1']}
+          todayKey="2026-09-20"
+          onReview={vi.fn()}
+          onSnooze={vi.fn()}
+          onOpenLesson={vi.fn()}
+        />
+      </ContentProviderHost.Provider>,
+    )
+    return { ...result, stub }
+  }
+
+  it('Provider 缺席时不渲染这一块（现有用例跑的是无内容服务的形态）', () => {
+    renderView()
+    expect(document.querySelector('[data-rv-async]')).toBeNull()
+  })
+
+  it('loading：读取中如实说是临时的，并挂同形占位', () => {
+    const { container } = renderWithContent({ loading: true })
+    const block = container.querySelector('[data-rv-async="loading"]')

@@ -1,0 +1,91 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import "ExecutionStage.js" as Stage
+
+Item {
+    id: diagram
+    required property QtObject ds
+    required property var frame
+    property string emptyText: "暂无执行事件"
+    readonly property var drawing: Stage.layout(frame, width)
+    readonly property int nodeCount: frame.nodes.length
+    readonly property int edgeCount: frame.edges.length
+    readonly property string currentNodeId: frame.currentId
+    readonly property bool currentNodeVisible: {
+        for (const laid of drawing.nodes) {
+            if (laid.node.id === frame.currentId)
+                return laid.y - 27 >= viewport.contentY && laid.y + 112 <= viewport.contentY + viewport.height
+                    && laid.x >= viewport.contentX && laid.x + 156 <= viewport.contentX + viewport.width;
+        }
+        return false;
+    }
+    signal nodeSelected(int eventIndex)
+    implicitHeight: 208
+    clip: true
+
+    function revealCurrent() {
+        for (const laid of drawing.nodes) {
+            if (laid.node.id !== frame.currentId) continue;
+            viewport.contentY = Math.max(0, Math.min(laid.y - 32, drawing.height - viewport.height));
+            viewport.contentX = Math.max(0, Math.min(laid.x - 20, drawing.width - viewport.width));
+            return;
+        }
+        viewport.contentX = 0;
+        viewport.contentY = 0;
+    }
+    onDrawingChanged: {
+        paths.requestPaint();
+        revealCurrent();
+        Qt.callLater(revealCurrent);
+    }
+    onHeightChanged: revealCurrent()
+
+    Flickable {
+        id: viewport
+        anchors.fill: parent
+        contentWidth: diagram.drawing.width
+        contentHeight: diagram.drawing.height
+        onContentHeightChanged: diagram.revealCurrent()
+        boundsBehavior: Flickable.StopAtBounds
+        onContentXChanged: paths.requestPaint()
+        onContentYChanged: paths.requestPaint()
+        ScrollBar.vertical: ScrollBar { }
+        ScrollBar.horizontal: ScrollBar { }
+
+        Canvas {
+            id: paths
+            x: viewport.contentX
+            y: viewport.contentY
+            width: viewport.width
+            height: viewport.height
+            onPaint: {
+                const ctx = getContext("2d");
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, width, height);
+                ctx.translate(-viewport.contentX, -viewport.contentY);
+                ctx.strokeStyle = diagram.ds.line;
+                ctx.lineWidth = 1;
+                const left = viewport.contentX, top = viewport.contentY;
+                for (let x = Math.floor(left / 20) * 20; x < left + width; x += 20) {
+                    ctx.beginPath(); ctx.moveTo(x + 0.5, top); ctx.lineTo(x + 0.5, top + height); ctx.stroke();
+                }
+                for (let y = Math.floor(top / 20) * 20; y < top + height; y += 20) {
+                    ctx.beginPath(); ctx.moveTo(left, y + 0.5); ctx.lineTo(left + width, y + 0.5); ctx.stroke();
+                }
+                function arrow(x, y, dx, dy) {
+                    ctx.beginPath(); ctx.moveTo(x, y);
+                    ctx.lineTo(x - dx * 7 + dy * 4, y - dy * 7 - dx * 4);
+                    ctx.lineTo(x - dx * 7 - dy * 4, y - dy * 7 + dx * 4);
+                    ctx.closePath(); ctx.fill();
+                }
+                for (const edge of diagram.frame.edges) {
+                    const from = diagram.drawing.nodes[edge.from];
+                    const to = diagram.drawing.nodes[edge.to];
+                    ctx.strokeStyle = edge.state === "active" ? diagram.ds.accent : diagram.ds.lineStrong;
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.lineWidth = edge.state === "active" ? 2 : 1;
+                    ctx.setLineDash(edge.state === "idle" ? [4, 4] : []);
+                    ctx.beginPath();
+                    if (!edge.back && from.y === to.y) {
+                        ctx.moveTo(from.x + 156, from.y + 56);
+                        ctx.lineTo(to.x - 7, to.y + 56);

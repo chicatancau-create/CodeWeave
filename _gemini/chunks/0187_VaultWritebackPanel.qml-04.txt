@@ -1,0 +1,66 @@
+                required property var modelData
+                Layout.fillWidth: true
+                Text { text: modelData.id; textFormat: Text.PlainText; color: panel.ds.accent; font.family: panel.ds.mono; font.pixelSize: 12 }
+                Text { Layout.fillWidth: true; text: modelData.name; textFormat: Text.PlainText; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WrapAnywhere }
+                Text { Layout.preferredWidth: 150; text: modelData.status; textFormat: Text.PlainText; color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WrapAnywhere }
+            }
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: panel.viewIndex === 2
+        spacing: ds.s10
+        Text {
+            Layout.fillWidth: true
+            visible: !panel.state.transactions || panel.state.transactions.length === 0
+            text: panel.state.isOwner ? "暂无写回事务" : "事务记录仅对资料库拥有者开放"
+            color: ds.muted; font.family: ds.ui; font.pixelSize: 13
+        }
+        Repeater {
+            model: panel.state.transactions || []
+            ColumnLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: panel.ds.s6
+                Text { Layout.fillWidth: true; text: modelData.at + " · " + modelData.topic + " · " + modelData.state; textFormat: Text.PlainText; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
+                Text { Layout.fillWidth: true; text: modelData.operationId; textFormat: Text.PlainText; color: panel.ds.faint; font.family: panel.ds.mono; font.pixelSize: 11; wrapMode: Text.WrapAnywhere }
+                Repeater {
+                    model: modelData.targets || []
+                    Text {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: (modelData.restored ? "已恢复 · " : modelData.applied ? "已写入 · " : "待处理 · ") + modelData.path
+                        textFormat: Text.PlainText; color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 11; wrapMode: Text.WrapAnywhere
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    VaultCheckBox {
+                        id: resumeConsent
+                        text: "确认继续写入"
+                        enabled: !panel.state.busy && ["preview", "writing", "partial", "failed"].indexOf(modelData.state) >= 0
+                    }
+                    QuietButton {
+                        ds: panel.ds
+                        label: "继续提交"
+                        enabled: resumeConsent.checked && resumeConsent.enabled
+                        onClicked: {
+                            resumeConsent.checked = false;
+                            uiShell.commitVaultWriteback(modelData.operationId, panel.hashes(modelData.targets));
+                        }
+                    }
+                    QuietButton {
+                        ds: panel.ds
+                        label: "回滚"
+                        enabled: !panel.state.busy && ["synced", "writing", "partial", "rolling_back"].indexOf(modelData.state) >= 0
+                        onClicked: panel.rollbackId = modelData.operationId
+                    }
+                    Text { Layout.fillWidth: true; text: panel.rollbackId === modelData.operationId ? "确认恢复本事务前的文件？" : ""; color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                    PrimaryButton {
+                        ds: panel.ds
+                        label: "确认回滚"
+                        visible: panel.rollbackId === modelData.operationId
+                        enabled: !panel.state.busy
+                        onClicked: { panel.rollbackId = ""; uiShell.rollbackVaultWriteback(modelData.operationId); }
+                    }

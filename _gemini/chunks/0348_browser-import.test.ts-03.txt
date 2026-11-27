@@ -1,0 +1,57 @@
+    const before = storage.getItem(WORKSPACE)
+
+    const forced = applyImport(payload, 'user-other', { [WORKSPACE]: 'import', [DRAFTS]: 'import' })
+    expect(forced.applied).toEqual([])
+    expect(forced.skipped).toEqual(expect.arrayContaining([WORKSPACE, DRAFTS]))
+    expect(storage.getItem(WORKSPACE)).toBe(before)
+  })
+})
+
+describe('DATA-09 部分失败可恢复', () => {
+  /** 让指定键的写入抛错，模拟配额耗尽。 */
+  function failWritesFor(keys: Set<string>): void {
+    const original = MemoryStorage.prototype.setItem
+    storage.setItem = function (this: MemoryStorage, key: string, value: string) {
+      if (keys.has(key)) throw new Error('QuotaExceededError')
+      original.call(this, key, value)
+    }
+  }
+
+  it('写入中途配额失败：已写入的键回滚，整体不宣称成功', () => {
+    const payload = buildExportPayload(ACCOUNT)
+    const keptWorkspace = JSON.stringify({ savedAt: '本机旧值', data: {} })
+    const keptDrafts = JSON.stringify({ savedAt: '本机旧值', data: {} })
+    storage.setItem(WORKSPACE, keptWorkspace)
+    storage.setItem(DRAFTS, keptDrafts)
+    failWritesFor(new Set([DRAFTS]))
+
+    const result = applyImport(payload, ACCOUNT, { [WORKSPACE]: 'import', [DRAFTS]: 'import' })
+    expect(result.failed).toEqual([DRAFTS])
+    expect(result.rolledBack).toBe(true)
+    expect(result.applied).toEqual([])
+    expect(result.unresolved).toEqual([])
+    // 已经写入的那个键恢复成本机原值，不留半套数据
+    expect(storage.getItem(WORKSPACE)).toBe(keptWorkspace)
+    expect(storage.getItem(DRAFTS)).toBe(keptDrafts)
+  })
+
+  it('回滚本身失败时如实列进 unresolved，不静默', () => {
+    const payload = buildExportPayload(ACCOUNT)
+    storage.setItem(WORKSPACE, JSON.stringify({ savedAt: '本机旧值', data: {} }))
+    storage.setItem(DRAFTS, JSON.stringify({ savedAt: '本机旧值', data: {} }))
+    let writes = 0
+    const original = MemoryStorage.prototype.setItem
+    storage.setItem = function (this: MemoryStorage, key: string, value: string) {
+      writes += 1
+      // 第 1 次写入成功；第 2 次失败触发回滚；回滚阶段的写入同样失败。
+      if (writes > 1) throw new Error('QuotaExceededError')
+      original.call(this, key, value)
+    }
+
+    const result = applyImport(payload, ACCOUNT, { [WORKSPACE]: 'import', [DRAFTS]: 'import' })
+    expect(result.applied).toEqual([WORKSPACE])
+    expect(result.failed).toEqual([DRAFTS])
+    expect(result.rolledBack).toBe(false)
+    expect(result.unresolved).toEqual([{ key: WORKSPACE, reason: expect.stringContaining('回滚失败') }])
+  })
+})

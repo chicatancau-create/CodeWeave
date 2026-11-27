@@ -1,0 +1,87 @@
+        data: { transactions: [ledgerRow({ state: 'partial', targets: ledgerRow().targets.map((step) => ({ ...step, applied: false })) })], total: 1, unreadable: 0, capped: 20 },
+      }),
+    })
+    await ledgerLoaded()
+    const row = document.querySelector('.ewb-tx-item')
+    // 服务端把「检测到冲突、一步没写」也记成 partial：界面照实给「冲突」档，不说成写了一半。
+    expect(text(row?.querySelector('.ewb-mark-text') ?? null)).toContain('冲突')
+    expect(text(row)).not.toContain('部分成功')
+  })
+
+  it('被上限截断与读不出来的记录都要出声，不把这一列当全部历史', async () => {
+    renderPanel({
+      ledger: json({
+        data: { transactions: Array.from({ length: 20 }, (_, i) => ledgerRow({ operationId: `op-batch${i}-aaaa11` })), total: 26, unreadable: 3, capped: 20 },
+      }),
+    })
+    const zone = await ledgerLoaded()
+    const body = text(zone.closest('[aria-label="写回事务账本"]'))
+    expect(body).toContain('另有 6 笔更早的事务没有列在这里')
+    expect(body).toContain('另有 3 条事务记录读不出来')
+  })
+
+  it('空态与「读不到」是两件事：读不到时不显示「还没有写回事务」', async () => {
+    renderPanel({ ledger: json({ error: '写回事务记录读取失败', code: 'transactions_unreadable' }, 503) })
+    await ledgerLoaded()
+    const zone = ledgerZone()
+    expect(zone?.querySelector('[aria-label="事务账本读取失败"]')).toBeTruthy()
+    expect(text(zone)).toContain('读不到不等于一笔都没有')
+    expect(text(zone)).not.toContain('还没有留下这笔账户的写回事务记录')
+    expect(text(zone)).toContain('条数未定：这一次没读回来')
+  })
+
+  it('确实一笔都没有时才给空态文案', async () => {
+    renderPanel({ ledger: json({ data: { transactions: [], total: 0, unreadable: 0, capped: 20 } }) })
+    await ledgerLoaded()
+    expect(text(ledgerZone())).toContain('还没有留下这笔账户的写回事务记录')
+    expect(ledgerZone()?.querySelector('[aria-label="事务账本读取失败"]')).toBeNull()
+  })
+
+  it('06 区不动 01/03 两区的行类名与行数（取证闸门数的是 .ewb-row--synced）', async () => {
+    renderPanel({
+      queue: { pending: [stagedRecord()], synced: [stagedRecord({ evidenceId: 'ev-9', state: 'synced' })] },
+      ledger: json({ data: { transactions: [ledgerRow(), ledgerRow({ operationId: 'op-two-aaaa11' }), ledgerRow({ operationId: 'op-three-aaaa11' })], total: 3, unreadable: 0, capped: 20 } }),
+    })
+    await ledgerLoaded()
+    const syncedZone = document.querySelector('[aria-label="已同步记录"]')
+    expect(syncedZone?.querySelectorAll('.ewb-row--synced').length).toBe(1)
+    expect(ledgerZone()?.querySelectorAll('.ewb-row--synced').length).toBe(0)
+    expect(ledgerZone()?.querySelectorAll('.ewb-tx-item').length).toBe(3)
+  })
+})
+
+describe('挂账 #35 · 逐步明细与刷新后的横幅', () => {
+  it('展开一笔 → 读回明细，三种「实际做了什么」与三种回滚处置各说各的', async () => {
+    const { calls } = renderPanel({
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+    })
+    await ledgerLoaded()
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    await screen.findByLabelText('写回事务 op-partial-aaaa11 的逐步明细')
+    expect(calls.some((call) => call.path === '/api/learning/evidence-transaction/op-partial-aaaa11')).toBe(true)
+
+    const body = text(document.querySelector('[aria-label="写回事务 op-partial-aaaa11 的逐步明细"]'))
+    expect(body).toContain('部分写入，还在等补齐')
+    expect(body).toContain('已写入')
+    expect(body).toContain('无需改动（内容已一致，没有重复写）')
+    expect(body).toContain('未写入（这一步没有落盘）')
+    expect(body).toContain('本次新建的文件，回滚会把它移出资料库')
+    expect(body).toContain('用写入前的备份覆盖回来')
+    expect(body).toContain('不涉及：没写过，没有要还原的东西')
+    expect(body).toContain('—（没落盘就没有时间）')
+    // 明细表本身就是台账：三步按写入顺序排，且带列标题（不是把文字堆成一坨）。
+    const table = document.querySelector('.ewb-table--steps')
+    expect(Array.from(table?.querySelectorAll('thead th') ?? []).map((th) => th.textContent)).toEqual([
+      '写入顺序',
+      '步骤',
+      '文件（库内相对路径）',
+      '实际做了什么',
+      '落盘时间',
+      '回滚怎么处置这一步',
+    ])
+    expect(Array.from(table?.querySelectorAll('tbody tr td:first-child') ?? []).map((td) => td.textContent)).toEqual(['01', '02', '03'])
+  })
+
+  it('明细读不回时只坏这一块，不假装「没有步骤」', async () => {
+    renderPanel({
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),

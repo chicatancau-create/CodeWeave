@@ -1,0 +1,117 @@
+  if (lesson.contentId) return { kind: 'vault', glyph: '库', text: '资料库正式内容' }
+  if (lesson.legacy) return { kind: 'legacy', glyph: '旧', text: '旧内置课程 · 未迁入资料库' }
+  return { kind: 'unknown', glyph: '未', text: '来源未标注' }
+}
+
+/** 阅读与运行环境标识（现有字段，不推断）。 */
+function runtimeMarksOf(lesson: Lesson): Mark[] {
+  const marks: Mark[] = []
+  if (lesson.reading) marks.push({ kind: 'reading', glyph: '读', text: '阅读单元 · 主题原文可读' })
+  else if (lesson.level === '阅读') marks.push({ kind: 'reading', glyph: '读', text: '阅读单元 · 原文在主题页' })
+  if (lesson.executable === false) {
+    marks.push({ kind: 'external', glyph: '外', text: '本页不可自动执行 · 需外部环境与人工证据' })
+  }
+  return marks
+}
+
+/**
+ * 缺口标识：只登记现有字段能证实的缺失，且文案唯一可辨（不并列同类歧义措辞）。
+ * 空先备清单不算缺口（首单元本就无先备），阶段名称缺失在页脚统一说明。
+ */
+function gapMarksOf(lesson: Lesson, numbered: boolean): Mark[] {
+  const marks: Mark[] = []
+  if (lesson.contentId && !lesson.source?.path) marks.push({ kind: 'gap', glyph: '缺', text: '来源未定位（缺 sourcePath）' })
+  if (lesson.source?.path && !lesson.source.verificationStatus) {
+    marks.push({ kind: 'gap', glyph: '缺', text: '核验状态未记录' })
+  }
+  if (lesson.contentId && !lesson.exercise) marks.push({ kind: 'gap', glyph: '缺', text: '无练习契约（已登记于同步报告）' })
+  if (!numbered) marks.push({ kind: 'gap', glyph: '缺', text: '未并入 S0—S9 编号阶段' })
+  return marks
+}
+
+/** 缺口单元计数：与逐条标识同一口径，来源未标注也计入，避免页眉数字与清单不一致。 */
+function hasAnyGap(lesson: Lesson): boolean {
+  if (sourceMarkOf(lesson).kind === 'unknown') return true
+  return gapMarksOf(lesson, isNumberedStage(stageKeyOf(lesson))).length > 0
+}
+
+function marksOf(lesson: Lesson, numbered: boolean): Mark[] {
+  return [sourceMarkOf(lesson), ...runtimeMarksOf(lesson), ...gapMarksOf(lesson, numbered)]
+}
+
+/** 进度只有 0/100 两个事实值（app.tsx 由个人证据派生），文案如实、不插值。 */
+function progressLabel(progress: number): string {
+  if (progress >= 100) return '已完成'
+  if (progress > 0) return '进行中'
+  return '未开始'
+}
+
+function clampedProgress(progress: number): number {
+  if (typeof progress !== 'number' || Number.isNaN(progress)) return 0
+  return Math.max(0, Math.min(100, Math.round(progress)))
+}
+
+function ordinalOf(index: number): string {
+  return String(index + 1).padStart(2, '0')
+}
+
+/**
+ * 学习状态标识（LEARN-01 第 4 条）：只登记记录里已经成立的状态，一条都不自行推断。
+ * 「已阅读 / 已练习」不是完成——完成由右侧状态列（有没有通过证据）单独说，两者不互相顶替。
+ */
+function stateMarksOf(states: LessonEvidenceStates | undefined): Mark[] {
+  if (!states) return []
+  return heldLessonStates(states).map((item) => ({ kind: 'signal', glyph: '✓', text: item.label }))
+}
+
+function MarkList({ marks, className = 'lp-marks' }: { marks: Mark[]; className?: string }) {
+  return (
+    <span className={className}>
+      {marks.map((mark) => (
+        <span key={`${mark.kind}-${mark.text}`} className={`lp-mark lp-mark--${mark.kind}`} data-lp-mark={mark.kind}>
+          <span className="lp-mark-glyph" aria-hidden="true">
+            {mark.glyph}
+          </span>
+          <span className="lp-mark-text">{mark.text}</span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** 来源定位行：原文路径 + 标题路径 + 核验状态，全部为现有字段。 */
+function SourceLine({ lesson }: { lesson: Lesson }) {
+  const source = lesson.source
+  if (!source?.path) return null
+  const heading = source.headingPath.length > 0 ? source.headingPath.join(' > ') : ''
+  return (
+    <span className="lp-row-source">
+      <span className="lp-row-source-key">原文位置</span>
+      <span className="lp-row-source-path">{source.path}</span>
+      {heading ? <span className="lp-row-source-heading">{` › ${heading}`}</span> : null}
+      {source.verificationStatus ? (
+        <span className="lp-row-source-status">{` · 核验：${source.verificationStatus}`}</span>
+      ) : null}
+    </span>
+  )
+}
+
+function LessonRow({
+  lesson,
+  index,
+  numbered,
+  groupTitle,
+  isSelected,
+  states,
+  onSelect,
+}: {
+  lesson: Lesson
+  index: number
+  numbered: boolean
+  groupTitle: string
+  isSelected: boolean
+  /** 这一课的六种学习状态里成立的那几项（无记录时不给，界面就不显示状态行） */
+  states?: LessonEvidenceStates
+  onSelect: () => void
+}) {
+  const progress = clampedProgress(lesson.progress)

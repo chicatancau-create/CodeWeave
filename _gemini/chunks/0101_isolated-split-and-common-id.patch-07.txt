@@ -1,0 +1,98 @@
++                    ds: root.designSystem
+                     glyph: "⚙"
+                     tip: "账户与设置"
+                     onClicked: uiShell.selectPage("账户")
+@@ -921,12 +428,14 @@ Rectangle {
+                 Layout.fillWidth: true
+                 spacing: ds.s6
+                 NavItem {
++                    ds: root.designSystem
+                     Layout.fillWidth: true
+                     glyph: "▤"; label: "学习路径"; index: "01"
+                     active: root.page === "学习"
+                     onActivated: uiShell.selectPage("学习")
+                 }
+                 NavItem {
++                    ds: root.designSystem
+                     Layout.fillWidth: true
+                     glyph: "◈"; label: "实战挑战"; index: "02"
+                     badge: uiShell.challengeMeta.length > 0
+@@ -935,18 +444,21 @@ Rectangle {
+                     onActivated: uiShell.selectPage("挑战")
+                 }
+                 NavItem {
++                    ds: root.designSystem
+                     Layout.fillWidth: true
+                     glyph: "▥"; label: "代码草稿"; index: "03"
+                     active: root.page === "草稿"
+                     onActivated: uiShell.selectPage("草稿")
+                 }
+                 NavItem {
++                    ds: root.designSystem
+                     Layout.fillWidth: true
+                     glyph: "◷"; label: "复习中心"; index: "04"
+                     active: root.page === "复习与进度"
+                     onActivated: uiShell.selectPage("复习与进度")
+                 }
+                 NavItem {
++                    ds: root.designSystem
+                     Layout.fillWidth: true
+                     glyph: "◉"; label: "学习分析"; index: "05"
+                     active: root.page === "分析"
+@@ -1113,10 +625,8 @@ Rectangle {
+                 active: root.page === "学习" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.hostRoot = root;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/StudyPage.qml"
++                sourceComponent: StudyPage { hostRoot: root; ds: root.designSystem }
+             }
+             Loader {
+                 Layout.fillWidth: true
+@@ -1125,9 +635,8 @@ Rectangle {
+                 active: root.page === "挑战" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/ChallengePage.qml"
++                sourceComponent: ChallengePage { ds: root.designSystem }
+             }
+             Loader {
+                 Layout.fillWidth: true
+@@ -1136,10 +645,8 @@ Rectangle {
+                 active: root.page === "草稿" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.hostRoot = root;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/DraftsPage.qml"
++                sourceComponent: DraftsPage { hostRoot: root; ds: root.designSystem }
+             }
+             Loader {
+                 Layout.fillWidth: true
+@@ -1148,10 +655,8 @@ Rectangle {
+                 active: root.page === "复习与进度" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.hostRoot = root;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/ReviewPage.qml"
++                sourceComponent: ReviewPage { hostRoot: root; ds: root.designSystem }
+             }
+             Loader {
+                 Layout.fillWidth: true
+@@ -1160,9 +665,8 @@ Rectangle {
+                 active: root.page === "分析" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/AnalyticsPage.qml"
++                sourceComponent: AnalyticsPage { ds: root.designSystem }
+             }
+             Loader {

@@ -1,0 +1,23 @@
+- `[通过]` 候选包 Windows 平台 smoke：使用 `--smoke-screenshot` 生成 `应用端/项目/evidence/qt-u3-window.png` 并退出码 0；普通启动按预期保持 GUI 进程运行，超时不记为失败。
+- `[失败]` 初版发布脚本使用 `.NET Path.GetRelativePath`，Windows PowerShell 5.1 不支持；已改为字符串相对路径算法并重新生成 manifest。
+- `[未执行]` 干净 Windows、DPI/IME/UIA、同机性能、Qt LGPL 材料完整性和真实安装/升级/卸载。
+- 历史阻塞（已解决）：当时缺少 WiX/NSIS/Inno 工具链，后续改用自解压当前用户安装器并完成隔离安装、启动、卸载及数据保留演练；不采用 MSIX。
+- 历史状态（已解决）：U4 便携候选和 B1-B3 安装器已完成内部预览验收；正式公开发布门禁仍保留在文档末尾。根目录 Win32 EXE 保留为回滚入口，未替换、未公开发布。
+- `[通过]` B1 自解压当前用户安装器：`G:\CodeWeave\.local\qt\CodeWeaveQt-0.1.0-preview-setup.exe`，安装目标为 `%LOCALAPPDATA%\Programs\CodeWeave`，不提权、不监听端口。
+- `[通过]` B2 隔离生命周期：`verify-qt-install-lifecycle.ps1` 完成安装、Qt EXE smoke、卸载和用户数据哨兵保留，输出 `INSTALL_LIFECYCLE_GREEN`。
+- `[通过]` B3 内部签名：Qt EXE 与安装器签名者指纹均为 `FB397F9E499283A02C358E548099AAD2D46FA25A`；证书为当前用户自签，`Get-AuthenticodeSignature` 状态为 `UnknownError`（未导入受信任根，符合内部测试边界）。
+- `[通过]` 最终 manifest 逐文件校验 `MANIFEST_FILES=1379 MANIFEST_BAD=0`；历史安装器 SHA-256：`20B4E7166C4FC4ED79F5FA8F680462C55E49E3BCCE16B54F80D17BAE14BE2681`（已由临时文件修复版替代，当前 hash 和验证见 Qt发布候选清单.md 的 IExpress 弹窗修复记录）。
+- `[通过]` 同机原生启动/内存对照：`evidence/qt-ui-benchmark-20261006.json`，最终签名 Qt 候选和 Win32 基线各 15 次（fresh 5 + warm 10），均为单进程。Qt 窗口时间 409.891–493.899 ms、中位数 440.557 ms，工作集 108.727–152.492 MiB、中位数 151.215 MiB；Win32 窗口时间 91.782–157.110 ms、中位数 101.961 ms，工作集 28.426–28.613 MiB、中位数 28.508 MiB。该结果证明 Qt 预览仍有明显运行库开销，不能宣称相对 Win32 提速；相对 Electron 的结论仍需同口径旧候选样本。OS 冷启动、课程载入、编辑延迟、取消延迟和呈现帧间隔未测。
+- `[通过]` B2 升级覆盖演练：`verify-qt-install-lifecycle.ps1 -IncludeUpgrade` 输出 `UPGRADE=PASS`，升级前后签名 EXE SHA-256 均为 `3C6335DA206E5BF86934AD8AAE4229320C0CD8DA90084B4C30BDF33B129CC7CE`，用户数据哨兵保留，随后卸载、smoke 和数据保留继续通过。
+- 更正当前状态：上述历史记录只证明各自列明的内部检查；U3 完整行为/视觉与 U4 干净系统、资源预算仍未通过，不得标记 U1–U4/B0–B3 全部验收。
+
+#### 14.20 本机门禁补齐（2026-10-06）
+
+- 后台服务：`wait_closed` 在等待前拒绝 worker 自回收，新增核心回归；账户、课程、草稿、执行、复习和数据操作继续使用同一原生核心。
+- Qt facade：补改密、自由编程、执行超时、原生工具/数据选择器、挑战独立完成、复习进度、Pending 实践表单。执行与证据 ID 使用 UUID，轨迹写入错误上报。账户格式与认证成本不变。
+- QML：Basic 样式与异步页面 Loader；五页承载现有操作，不把控件数或页数作为功能等价结论。
+- 部署/安装：携带合法 MSVC Release CRT，输出非空时拒绝覆盖；包清单校验、阶段目录切换、失败恢复与用户数据分离；使用 .NET SHA-256 避免 PowerShell 模块路径差异，使用扩展长度路径删除旧程序树。
+- [通过] 当前 Qt ON Release 构建 CTest 8/8；Node 4/4、`pnpm run check` 边界门禁；安装事务失败/回滚测试；真实跨版本安装生命周期；窗口截图与交互性能代理指标。
+- [失败] 当前 Qt 工作集/窗口出现相对 Win32 仍超 20%，未取得用户接受；不能宣称迁移后性能全面提升。主线程事件 P95 达标但最大约 235 ms，仍需定位尾部事件。
+- [未执行] 独立干净 Windows、完整 UI/IME/UIA/DPI 及真实屏幕呈现测量。用户明确当前无 VM，先完成本机范围；没有据此豁免正式发布门禁。
+- 最新产物、hash、指标、命令和功能映射统一维护在《Qt发布候选清单》，不重复维护互相矛盾的数字。Qt OFF 的 7/7 是此前证据，本轮未重新构建 Qt OFF，不冒充当前通过。

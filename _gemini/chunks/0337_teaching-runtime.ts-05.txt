@@ -1,0 +1,42 @@
+  const loopLine = findLine(lines, /for\s*\(|for\s+i\s+in/i, initLine + 1)
+  const updateLine = findLine(lines, /total\s*(?:\+=|-=|=\s*total\s*[+-])/i, loopLine + 1)
+  const outputLine = findLine(lines, /print\s*\(|printf|println|writeline|console\.log/i, lines.length)
+  const variables: [VariableValue, VariableValue] = [makeVariable('i', String(start), language === 'javascript' ? 'number 数字' : 'int 整数', 'blue'), makeVariable('total', String(initial), language === 'javascript' ? 'number 数字' : 'int 整数', 'coral')]
+  const events: TraceEvent[] = [event('start', 'start', 1, '程序开始', '进入程序入口，准备执行代码。', variables, 'start'), event('init', 'assign', initLine, '初始化 total', `total 从 0 变成 ${initial}。`, variables, 'init')]
+  let total = initial
+  for (let current = start; current <= limit; current += 1) {
+    variables[0] = { name: variables[0].name, type: variables[0].type, color: variables[0].color, value: String(current) }
+    events.push(event(`condition-${current}`, 'condition', loopLine, '检查循环条件', `判断 i <= ${limit}：当前 i = ${current}，结果为 true。`, variables, 'condition'))
+    const before = total
+    total = operation === 'subtract' ? total - current : total + current
+    variables[1] = { name: variables[1].name, type: variables[1].type, color: variables[1].color, value: String(total) }
+    events.push(event(`update-${current}`, 'loop', updateLine, '执行循环体', `total ${operation === 'subtract' ? '-' : '+'} ${current}：${before} 变成 ${total}。`, variables, 'update'))
+  }
+  variables[0] = { name: variables[0].name, type: variables[0].type, color: variables[0].color, value: String(limit + 1) }
+  events.push(event('condition-end', 'condition', loopLine, '检查循环条件', `判断 i <= ${limit}：当前 i = ${limit + 1}，结果为 false，离开循环。`, variables, 'condition'))
+  events.push(event('output', 'output', outputLine, '输出结果', `程序向控制台输出 ${total}。`, variables, 'output'))
+  events.push(event('end', 'end', lines.length, '程序结束', '执行完成，退出码为 0。', variables, 'end'))
+  return { events, output: [String(total)] }
+}
+
+function simulateCondition(lines: string[], _lesson: Lesson): ExecutionResult {
+  const code = lines.join('\n')
+  const number = getNumber(code, /number\s*=\s*(-?\d+)/i, 8)
+  const even = number % 2 === 0
+  const result = even ? '偶数' : '奇数'
+  const variables = [makeVariable('number', String(number), '整数', 'blue'), makeVariable('result', result, '文本', 'coral')]
+  const conditionLine = findLine(lines, /if\s+/i, 2)
+  const resultLine = findLine(lines, /result\s*=/i, 3)
+  const outputLine = findLine(lines, /print\s*\(/i, lines.length)
+  const events = [event('start', 'start', 1, '程序开始', '读取 number 的初始值。', variables, 'start'), event('condition', 'condition', conditionLine, '判断奇偶', `${number} % 2 == 0 的结果是 ${even}。`, variables, 'condition'), event('branch', 'branch', resultLine, `进入 ${result} 分支`, `条件为 ${even ? '真' : '假'}，result = "${result}"。`, variables, 'branch'), event('output', 'output', outputLine, '输出结果', `程序向控制台输出 ${result}。`, variables, 'output'), event('end', 'end', lines.length, '程序结束', '执行完成，退出码为 0。', variables, 'end')]
+  return { events, output: [result] }
+}
+
+function simulateGreeting(lines: string[], _lesson: Lesson): ExecutionResult {
+  const code = lines.join('\n')
+  const name = code.match(/greet\(\s*["']([^"']+)["']\s*\)/i)?.[1] ?? '小明'
+  const result = `你好，${name}`
+  const variables = [makeVariable('name', name, '文本', 'blue'), makeVariable('result', result, '文本', 'coral')]
+  const callLine = findLine(lines, /result\s*=\s*greet/i, lines.length - 1)
+  const returnLine = findLine(lines, /return\s+/i, 3)
+  const outputLine = findLine(lines, /print\s*\(/i, lines.length)

@@ -1,0 +1,119 @@
+  background-image: linear-gradient(var(--ds-stage-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ds-stage-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-control, 6px);
+  box-shadow: var(--ds-glow-inset, none);
+  /* 画布窄于内容时横向滚动，不把图压扁——压扁的图读不出比例关系。 */
+  overflow-x: auto;
+}
+
+/* viewBox 按内容算（见 stage-layout），这里只负责等比铺满可用宽度。
+   `height: auto` + `width: 100%` 是 SVG 等比缩放的标准写法。
+   但 `height: auto` 在单屏布局里是个陷阱：高度跟着**列宽**走，右栏 700px 宽时
+   1100×470 的 viewBox 会算出 527px 的画布，光这一块就吃掉 900px 视口的近六成，
+   页面照样要上下拖。所以这里给一个随视口收缩的高度上限（`max-height` + `meet`），
+   多出来的比例差由 `preserveAspectRatio` 居中留白承担。
+
+   这里**不设 `min-width`**：高度上限要能生效，宽度必须先可以收缩——
+   `min-width: 480px` 一旦大于栏内容宽（右栏实测 418px），宽度就被钉在 480px，
+   `height: auto` 反推出 243px，`max-height` 看着「在生效」实则从未参与计算，
+   `.rs-stage` 照样占满 527px。宁可画布等比缩小、字随之变小，也不再靠宽度下限撑着。 */
+/* 铺满而不是「铺宽」：`width:100%` + `height:auto` 只保证**宽度**到位，高度按 viewBox
+   比例算出来是多少就是多少——右栏 434px 宽的时候只有 220px 高，而它所在的
+   `.rs-stage` 在宽屏下有 470px。剩下的那一截不是留白，是「画布没占满自己的面板」：
+   用户看到的是画布缩在上半截、下面空一片。
+
+   宽屏下改成两个方向都铺满：`flex: 1 1 auto` + `min-height: 0` 让 SVG 吃掉面板里
+   剩下的全部高度，`width/height: 100%` 交给 `preserveAspectRatio="xMidYMid meet"`
+   去等比适配——图不会被拉变形，比例不够的那一边由 SVG 自己居中留白。 */
+svg.rs-canvas {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 34svh;
+  overflow: visible;
+}
+
+/* 宽屏（单屏化的目标区间）：高度上限交给面板，画布铺满。
+   34svh 那条是为窄屏设的——窄屏下列宽小、画布本来就矮，不限制反而会被
+   `height:auto` 算出一块很扁的图。宽屏下面板自己就有 400px 以上的高度预算，
+   再压 34svh 就只剩 306px，白白浪费。 */
+@media (min-width: 1081px) {
+  svg.rs-canvas {
+    height: 100%;
+    max-height: min(52svh, 440px);
+  }
+  /* 画布的缩放由 `meet` 承担，面板把剩余高度完整交给它。 */
+  div.rs-canvas-wrap {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  div.rs-stage {
+    min-height: 0;
+  }
+}
+
+/* ── 一步一步显现（2026-10-04） ──────────────────────────────────────────────
+   用户的要求：进入主函数先在画布正中亮出来，点「下一步」时上一步**不删**、
+   移到合适的位置，新的一步再弹出来，还要有流畅的动画。
+
+   做法与「为什么不是别的做法」：
+   - `todo` 不画（`opacity: 0`），但仍然留在 DOM 里——它是列表的一项，也是
+     「后面还有几步」的证据。删掉元素会让读屏读到一份不完整的程序，而且
+     `run-stage.test.tsx` 正是按 `getAllByRole('listitem')` 找全节点的。
+   - `now` 从画布正中飞回自己的格子：位移由 `stage-layout` 算好写在
+     `--rs-enter-dx/dy` 上（见那边 `LaidNode.enterDx`）。**用 transform 而不是改
+     x/y 属性**——SVG 的 `transform` 走合成层，改 `x`/`y` 每帧都要重排几何；
+     而且 transform 不吃文档流，不带动旁边已经画好的格子。
+   - 动画结束停在 `translate(0,0) scale(1)`，也就是**它自己的格子**。所以下一拍
+     到来时，这一格从 `is-now` 变 `is-done`，位移本来就是 0，不需要补间就停在原地
+     ——「上一步移到合适的位置」这件事是动画的**终点**，不是另一段动画。
+   - `animation-fill-mode: both`：回看某一拍（`onSeek`）时重新挂上 `is-now` 也要
+     从正中重放一次，而不是先闪一下原位再飞。 */
+g.rs-node {
+  /* fill-box + center：让 scale 绕**这一格自己**的中心，而不是 SVG 的原点
+     （默认值是 `view-box`，绕 (0,0) 缩放会让每一格往左上角跑）。 */
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* 还没走到：不画。虚线描边那几条仍然保留在下面——一旦走到，它们与填充一起现形。 */
+g.rs-node.is-todo {
+  opacity: 0;
+}
+
+/* 新走到的一格：从画布正中飞回自己的格子。 */
+@keyframes rs-node-enter {
+  from {
+    opacity: 0;
+    transform: translate(var(--rs-enter-dx, 0px), var(--rs-enter-dy, 0px)) scale(0.84);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+g.rs-node.is-now {
+  animation: rs-node-enter 340ms var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+/* 已走过：停在原地。位移归零由显式声明保证——不给的话，元素会保留
+   `animation` 结束时的那一帧（`both`），看着像是还停在正中。 */
+g.rs-node.is-done {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── 盒子轮廓 ─────────────────────────────────────────────────────────────── */
+/* SVG 用 fill/stroke，不用 background/border——这是 SVG 侧的同一件事。
+   **色值照抄参考站**的 `.visual-node rect { fill:#121e30; stroke:#44566f }`：
+   这一份不受页面 CSS 棘轮管（没有任何测试读 run-stage.css），所以可以直接写实值。
+   先前用 `var(--ds-canvas-raised, #0a0e18)` 时令牌是已定义的，那个更暗的值会赢过
+   兜底，格子比参考站深一档、描边也淡得多——画布上「一格格纸」的感觉就出不来。 */
+g.rs-node .rs-node-box {
+  fill: var(--ds-node-fill, #121e30);

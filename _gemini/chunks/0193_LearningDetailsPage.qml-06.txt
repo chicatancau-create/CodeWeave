@@ -1,0 +1,34 @@
+                visible: details.lessons.length === 0
+                text: "当前科目暂无已发布课程。"
+                color: ds.muted; font.family: ds.ui; font.pixelSize: 13
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "未标注来源和未并入编号阶段的课程按现有资料保留；当前目录未提供 S0—S9 阶段验收点与交付物。"
+                color: ds.faint; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+            }
+            Text { text: "已选单元"; color: ds.accent; font.family: ds.mono; font.pixelSize: 12 }
+            Text {
+                objectName: "detailSelectedTitle"
+                Layout.fillWidth: true
+                text: hostRoot.selectedLesson ? hostRoot.selectedLesson.title : "暂无所选课程"
+                color: ds.ink; font.family: ds.ui; font.pixelSize: 18; font.weight: Font.DemiBold; wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: hostRoot.selectedLesson ? hostRoot.selectedLesson.description || "暂无课程说明" : ""
+                color: ds.muted; font.family: ds.ui; font.pixelSize: 13; wrapMode: Text.WordWrap
+            }
+            PrimaryButton {
+                ds: details.ds
+                objectName: "learningDetailsContinue"
+                label: "进入学习"
+                enabled: hostRoot.selectedLesson !== null && !uiShell.contentBusy && !uiShell.operationBusy
+                    && !uiShell.accountBusy && !uiShell.draftSaving && !uiShell.executionBusy
+                    && uiShell.publishedIds.indexOf(hostRoot.selectedLesson.id) >= 0
+                onClicked: hostRoot.openLesson(hostRoot.safeSelectedLessonIndex)
+                onActiveFocusChanged: details.reveal(this)
+            }
+        }
+    }
+}

@@ -1,0 +1,67 @@
+    const auto fixture = QDir(qEnvironmentVariable("CODEWEAVE_SMOKE_CACHE")).canonicalPath();
+    const auto scratch = QDir(QDir::tempPath()).canonicalPath() + '/';
+    if (fixture.startsWith(scratch + QStringLiteral("codeweave-unified-smoke-"))) {
+      unifiedContent.configureCache(QDir(fixture).filePath(QStringLiteral("qt-cache")));
+    }
+  }
+  const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() :
+      (qml_smoke || unified_smoke ? benchmark_data->path() : workspace);
+  if (!smoke_preference_storage_unavailable)
+    shell.configurePreferenceStorage(std::filesystem::path(nativeData.toStdWString()));
+  shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
+  if (!isolated_window && !qml_smoke && !unified_smoke && benchmark < 0) {
+    QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
+    const auto vault = settings.value(QStringLiteral("vault/root")).toString();
+    if (!vault.isEmpty()) shell.configureVaultRoot(vault.toStdWString());
+  }
+  const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
+  for (const auto language : {std::string_view("cpp"), std::string_view("java"),
+                              std::string_view("python"), std::string_view("javascript")}) {
+    shell.configureExecutionTool(QString::fromUtf8(language.data(),
+        static_cast<int>(language.size())), configured_tool(language, nativeDataPath));
+  }
+  const auto contentRoot = topbar_reference >= 0 ? arguments.at(topbar_reference + 1) :
+      QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("content"));
+  shell.loadPublishedContent(contentRoot);
+  ShellView view(shell);
+  QObject::connect(&shell, &UiShell::vaultSelectionRequested, &view, [&] {
+    const auto path = choose_native_path(reinterpret_cast<HWND>(view.winId()),
+        L"选择资料库根目录（仅连接，确认提交前不修改资料库）", true);
+    if (!path.empty()) {
+      shell.configureVaultRoot(path);
+      if (!isolated_window && !qml_smoke && !unified_smoke && benchmark < 0) {
+        QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("vault/root"), QString::fromStdWString(path.wstring()));
+      }
+    }
+  });
+  QObject::connect(&shell, &UiShell::toolSelectionRequested, &view, [&](const QString& language) {
+    const auto path = choose_native_path(reinterpret_cast<HWND>(view.winId()),
+        L"选择编译器或解释器", false, L"*.exe");
+    if (path.empty()) return;
+    shell.configureExecutionTool(language, path);
+    QSettings settings(QDir(nativeData).filePath(QStringLiteral("tools.ini")), QSettings::IniFormat);
+    settings.setValue(QStringLiteral("tools/") + language, QString::fromStdWString(path.wstring()));
+  });
+  QObject::connect(&shell, &UiShell::dataActionRequested, &view, [&](const QString& action) {
+    if (action == "open") {
+      QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdWString(shell.nativeDataRoot().wstring())));
+      return;
+    }
+    const auto owner = reinterpret_cast<HWND>(view.winId());
+    std::filesystem::path source;
+    if (action != "backup") {
+      source = choose_native_path(owner, L"选择备份目录或旧数据 JSON", action == "restore", L"*.json");
+      if (source.empty()) return;
+    }
+    const auto parent = choose_native_path(owner, L"选择保存位置（创建新目录，不覆盖已有数据）", true);
+    if (parent.empty()) return;
+    const auto target = parent / (L"CodeWeave-" + QUuid::createUuid().toString(QUuid::Id128).toStdWString());
+    shell.performDataAction(action, source, target);
+  });
+  // The shell layout needs room for the 240px sidebar plus the 286px learning
+  // rail. Below roughly 1100px the hero's copy column starts eliding its title,
+  // so size the window to the screen instead of taking the window manager's
+  // default (which was landing on the 960x720 minimum).
+  view.setMinimumSize(QSize(1100, 720));
+  if (const auto* screen = QGuiApplication::primaryScreen()) {

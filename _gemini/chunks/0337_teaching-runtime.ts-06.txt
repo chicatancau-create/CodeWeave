@@ -1,0 +1,3 @@
+  const events = [event('start', 'start', 1, '程序开始', '准备调用 greet 函数。', variables, 'start'), event('call', 'line', callLine, '调用 greet()', `把 name = "${name}" 传入函数。`, variables, 'call'), event('return', 'assign', returnLine, '返回 message', `函数返回 "${result}"。`, variables, 'return'), event('output', 'output', outputLine, '输出问候', `程序向控制台输出 ${result}。`, variables, 'output'), event('end', 'end', lines.length, '程序结束', '执行完成，退出码为 0。', variables, 'end')]
+  return { events, output: [result] }
+}

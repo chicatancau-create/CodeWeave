@@ -1,0 +1,110 @@
+// @vitest-environment jsdom
+/**
+ * M4 全站统一 · 全局壳与顶栏（§5.2 第二行 + §5.3 第 6 条）的不变式。
+ *
+ * 锁四件事：
+ *  1) 当前入口的编号是**真实 DOM 文本**，不是 CSS counter 注入（§5.2 编号主导航）；
+ *  2) 装饰（分隔斜杠、图标）不进辅助技术朗读顺序，编号与信息文字留在名称里（§5.3 第 6 条）；
+ *  3) 搜索 / 通知 / 账户 / 键盘通道（`/` 聚焦、Esc 关闭并把焦点还给触发者、
+ *     ↑↓ + Enter 选择结果）行为不回归（§5.2「保留的业务行为」）；
+ *  4) 壳层样式层的档位收口（z 层、触控目标、字号）在 styles.css 里成文。
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { GlobalTopbar } from './topbar'
+import { NotificationCenter } from './topbar/Notifications'
+import type { AuthUser } from '../hooks/use-auth'
+import type { NotificationItem } from '../utils/notifications'
+import type { SearchTarget } from '../utils/search'
+
+/* 读原文用的是 learning-path-view.m3.test.tsx 同款写法：动态 import node:fs +
+   `import.meta.dirname` 拼路径，不静态 import node:path，也不引未声明的全局。 */
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
+const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+const cssRaw = readFileSync(`${moduleDir}/../styles.css`, 'utf8')
+const desktopTheme = readFileSync(`${moduleDir}/../design/desktop-theme.css`, 'utf8')
+/* 否定断言只看真实声明，不看注释（M3 的同款做法）：注释里会提到被禁止的写法。 */
+const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '')
+const appSource = readFileSync(`${moduleDir}/../app.tsx`, 'utf8')
+
+const user: AuthUser = {
+  id: 'user-topbar-1',
+  email: 'student@example.com',
+  name: '小明',
+  bio: '',
+  createdAt: '2026-09-01T00:00:00.000Z',
+}
+
+const targets: SearchTarget[] = [
+  { id: 'lesson-1', type: 'lesson', title: '变量与作用域', subtitle: 'Python · 资料库', aliases: [] },
+  { id: 'chal-1', type: 'challenge', title: '关卡验收：循环', subtitle: 'S3', aliases: [] },
+]
+
+const items: NotificationItem[] = [
+  { id: 'n1', kind: 'review-due', title: '3 条复习到期', dateKey: '2026-09-20' },
+  { id: 'n2', kind: 'challenge-passed', title: '关卡验收：循环 已通过', dateKey: '2026-09-19' },
+]
+
+function setup(overrides: Partial<Record<string, unknown>> = {}) {
+  const handlers = {
+    onMarkAllRead: vi.fn(),
+    onPickLesson: vi.fn(),
+    onPickChallenge: vi.fn(),
+    onPickProject: vi.fn(),
+    onNavigateView: vi.fn(),
+    onOpenSettings: vi.fn(),
+    onNavigateSecurity: vi.fn(),
+    onNavigateData: vi.fn(),
+    onExportData: vi.fn(),
+    onLogout: vi.fn(),
+    ...overrides,
+  }
+  const utils = render(
+    <GlobalTopbar
+      breadcrumbLabel="课程"
+      currentEntry={{ index: '01', label: '学习路径' }}
+      contextTitle="变量与作用域"
+      searchTargets={targets}
+      recentViews={[{ id: 'reviews', label: '复习中心' }]}
+      notifications={items}
+      user={user}
+      {...handlers}
+    />,
+  )
+  return { ...utils, ...handlers }
+}
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('§5.2 清楚的当前入口 · 编号是真实文本', () => {
+  it('顶栏当前入口渲染为「编号 + 页面名」，编号在 DOM 文本里', () => {
+    setup()
+    const entry = document.querySelector('.breadcrumbs__entry')
+    expect(entry?.textContent).toBe('01学习路径')
+    expect(entry?.querySelector('.breadcrumbs__index')?.textContent).toBe('01')
+  })
+
+  it('编号不用 CSS counter 注入：styles.css 里不存在给导航/面包屑造文字的 counter', () => {
+    expect(css).not.toMatch(/content:\s*counter\(/)
+    expect(css).not.toMatch(/counter-increment/)
+  })
+
+  it('导航项的编号同样落在真实文本里（app.tsx 渲染，非伪元素）', () => {
+    expect(appSource).toMatch(/<span className="nav-item__index">\{navIndex\(position\)\}<\/span>/)
+    expect(appSource).not.toMatch(/content:\s*['"]counter/)
+  })
+
+  it('装饰性分隔符不进入朗读文本，但页面名与分类仍在文本顺序里', () => {
+    setup()
+    const nav = screen.getByRole('navigation', { name: '当前位置' })
+    const readAloud = [...nav.querySelectorAll(':scope > *:not([aria-hidden="true"])')]
+    expect(nav.textContent).toContain('变量与作用域')
+    // 三个 `/` 分隔符都必须是 aria-hidden 的装饰
+    const seps = [...nav.querySelectorAll('.breadcrumbs__sep')]
+    expect(seps.length).toBeGreaterThanOrEqual(2)
+    expect(seps.every((s) => s.getAttribute('aria-hidden') === 'true')).toBe(true)

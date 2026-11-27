@@ -1,0 +1,97 @@
+    const records: MasteryRecord[] = [
+      { refId: 'a', kind: 'lesson', level: 1, evidence: [], updatedAt: '', reviewStep: 0, reviewDueKey: '2026-09-10' },
+      { refId: 'b', kind: 'lesson', level: 2, evidence: [], updatedAt: '', reviewStep: 0, reviewDueKey: '2026-09-13' },
+      { refId: 'c', kind: 'lesson', level: 3, evidence: [], updatedAt: '', reviewStep: 0, reviewDueKey: '2026-09-18' },
+      { refId: 'd', kind: 'lesson', level: 4, evidence: [], updatedAt: '', reviewStep: 0, reviewDueKey: '2026-09-25' },
+    ]
+    const groups = groupReviews(records, '2026-09-13')
+    expect(groups.overdue.map((r) => r.refId)).toEqual(['a'])
+    expect(groups.today.map((r) => r.refId)).toEqual(['b'])
+    expect(groups.upcoming.map((r) => r.refId)).toEqual(['c'])
+    expect(groups.next?.record.refId).toBe('c')
+    expect(groups.next?.dateKey).toBe('2026-09-18')
+  })
+})
+
+/** LEARN-01 第 4/5 条：完成证据要自己说清「谁判的」。 */
+describe('lessonCompletionNote', () => {
+  it('自动验证那一支写进口径与命中数', () => {
+    expect(lessonCompletionNote('分支与循环', 'auto-verified', { matched: 3, total: 3 })).toBe(
+      '自动验证通过：完成课程「分支与循环」，该题验收点 3/3 整行命中（口径：精确整行、每行只用一次）',
+    )
+  })
+
+  it('自行声明那一支明写系统没比对输出，并区分「没有验收点」与「验收点未全中」', () => {
+    expect(lessonCompletionNote('Git 版本管理', 'self-declared', null)).toContain(
+      '本课无结构化验收点或属外部真实环境练习，系统未比对输出',
+    )
+    expect(lessonCompletionNote('函数与返回值', 'self-declared', { matched: 1, total: 2 })).toContain(
+      '验收点未全中',
+    )
+  })
+
+  it('两句话不可能互相混读：自动验证那支必带命中数，自行声明那支必带「未比对」', () => {
+    const verified = lessonCompletionNote('X', 'auto-verified', { matched: 1, total: 1 })
+    const declared = lessonCompletionNote('X', 'self-declared', null)
+    expect(verified).not.toContain('自行声明')
+    expect(declared).not.toContain('自动验证通过')
+    expect(verified).toContain('1/1')
+    expect(declared).toContain('系统未比对输出')
+  })
+})
+
+/**
+ * #33：延迟复测节点全仓只许有一份标准。
+ *
+ * 优先级（`effectiveReviewPlan` 是唯一解析口）：
+ * 1. 本单元写了非空数组 → 本单元覆盖默认；
+ * 2. 否则读资料库发布规则（运行时的标准，`[0, 1, 3, 7, 14, 30]`）；
+ * 3. 都没有 → 本机兜底常量 `REVIEW_OFFSET_DAYS`。
+ * `null` / `undefined` / `[]` 一律是「没写」，**永远不等于「不复测」**。
+ */
+const STANDARD = [0, 1, 3, 7, 14, 30]
+
+describe('effectiveReviewPlan · #33 的三级优先', () => {
+  it('第 3 级：单元与发布规则都没给 → 落到本机兜底常量，并且自己承认是兜底', () => {
+    const plan = effectiveReviewPlan(null, null)
+    expect(plan.offsets).toEqual([...REVIEW_OFFSET_DAYS])
+    expect(plan.source).toBe('fallback')
+    expect(describeReviewPlan(plan)).toContain('按本机排期')
+  })
+
+  it('第 2 级：发布规则盖掉客户端常量（客户端常量不再是运行时标准）', () => {
+    const plan = effectiveReviewPlan(null, STANDARD)
+    expect(plan.offsets).toEqual(STANDARD)
+    expect(plan.source).toBe('published')
+    expect(plan.offsets).not.toEqual([...REVIEW_OFFSET_DAYS])
+  })
+
+  it('第 1 级：单元写了非空数组就是本单元覆盖，哪怕与默认不同', () => {
+    const plan = effectiveReviewPlan([1, 3, 7], STANDARD)
+    expect(plan.offsets).toEqual([1, 3, 7])
+    expect(plan.source).toBe('unit')
+  })
+
+  it('`[]`、`null`、`undefined` 都不许被读成「本单元不复测」——一律继承上一级', () => {
+    for (const notWritten of [[], null, undefined]) {
+      const plan = effectiveReviewPlan(notWritten, STANDARD)
+      expect(plan.source, `${JSON.stringify(notWritten)} 该按「没写」处理`).toBe('published')
+      expect(plan.offsets).toEqual(STANDARD)
+      const scheduled = scheduleFirstReview(baseRecord(), '2026-09-10', plan.offsets)
+      expect(scheduled.reviewDueKey, `${JSON.stringify(notWritten)} 排出了空计划`).toBeTruthy()
+    }
+  })
+
+  it('发布规则自己也空着时，仍然有计划（空计划不是任何一级的结果）', () => {
+    expect(effectiveReviewPlan([], []).offsets).toEqual([...REVIEW_OFFSET_DAYS])
+    expect(effectiveReviewOffsets(undefined, undefined)).toEqual([...REVIEW_OFFSET_DAYS])
+  })
+
+  it('节点归一：乱序、重复、负数与非数字都清掉，剩下的按升序排', () => {
+    const dirty = [7, 1, 1, -3, Number.NaN, 30] as unknown as number[]
+    expect(effectiveReviewOffsets(dirty, null)).toEqual([1, 7, 30])
+  })
+})
+
+describe('按 6 档标准计划走完全程（#33 裁定 1 的实际后果）', () => {
+  const pass = (record: MasteryRecord, at: string): MasteryRecord =>

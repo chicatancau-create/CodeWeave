@@ -1,0 +1,30 @@
+  // A rejected external attempt can be submitted again and keeps its old review.
+  const auto history = challengeHistory();
+  if (!history.isEmpty()) {
+    const auto last = history.first().toMap();
+    bool same = last.value("status") != "rejected";
+    for (const auto* key : {"challengeId", "tier", "evidence", "code", "expected", "output"})
+      same = same && QJsonValue::fromVariant(last.value(key)) == QJsonValue::fromVariant(record.value(key));
+    if (same) { fail(QStringLiteral("该次挑战结果已提交")); return; }
+  }
+  performChallengeHistoryTask(true, [record](const ChallengeSubmissionStore& store, QVariantList& records) {
+    return store.append(record, records);
+  });
+}
+
+void UiShell::reviewChallengeSubmission(const QString& submissionId, bool passed, const QString& observation) {
+  if (closing_ || account_busy_ || challenge_run_busy_ || execution_busy_ || operation_busy_ ||
+      challenge_history_busy_ || !hasActiveAccount()) return;
+  const auto history = challengeHistory();
+  const auto found = std::find_if(history.cbegin(), history.cend(), [&](const auto& item) {
+    return item.toMap().value("id").toString() == submissionId;
+  });
+  if (found == history.cend()) {
+    challenge_history_status_ = QStringLiteral("找不到当前关卡的提交记录");
+    emit challengeHistoryChanged();
+    return;
+  }
+  performChallengeHistoryTask(true, [submissionId, passed, observation](const ChallengeSubmissionStore& store, QVariantList& records) {
+    return store.review(submissionId, passed, observation, records);
+  });
+}

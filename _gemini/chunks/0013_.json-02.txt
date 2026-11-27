@@ -1,0 +1,156 @@
+      "from": "G:\\CodeWeave\\移动端\\README.md",
+      "to": "G:\\CodeWeave\\移动端\\项目\\README.md",
+      "files": 1,
+      "bytes": 489
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\scripts",
+      "to": "G:\\CodeWeave\\移动端\\项目\\scripts",
+      "files": 1,
+      "bytes": 406
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\settings.gradle.kts",
+      "to": "G:\\CodeWeave\\移动端\\项目\\settings.gradle.kts",
+      "files": 1,
+      "bytes": 289
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\.gitignore",
+      "to": "G:\\CodeWeave\\应用端\\项目\\.gitignore",
+      "files": 1,
+      "bytes": 156
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\.runtime-check-profile",
+      "to": "G:\\CodeWeave\\应用端\\项目\\.runtime-check-profile",
+      "files": 76,
+      "bytes": 10973935
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\build-u0b-fix.log",
+      "to": "G:\\CodeWeave\\应用端\\项目\\build-u0b-fix.log",
+      "files": 1,
+      "bytes": 59733
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\cert",
+      "to": "G:\\CodeWeave\\应用端\\项目\\cert",
+      "files": 2,
+      "bytes": 2249
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\dist",
+      "to": "G:\\CodeWeave\\应用端\\项目\\dist",
+      "files": 689,
+      "bytes": 14332710
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\evidence",
+      "to": "G:\\CodeWeave\\应用端\\项目\\evidence",
+      "files": 62,
+      "bytes": 8648506
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\native",
+      "to": "G:\\CodeWeave\\应用端\\项目\\native",
+      "files": 328,
+      "bytes": 75843527
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\node_modules",
+      "to": "G:\\CodeWeave\\应用端\\项目\\node_modules",
+      "files": 7569,
+      "bytes": 471058976
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\package.json",
+      "to": "G:\\CodeWeave\\应用端\\项目\\package.json",
+      "files": 1,
+      "bytes": 979
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\pnpm-lock.yaml",
+      "to": "G:\\CodeWeave\\应用端\\项目\\pnpm-lock.yaml",
+      "files": 1,
+      "bytes": 4674
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\pnpm-workspace.yaml",
+      "to": "G:\\CodeWeave\\应用端\\项目\\pnpm-workspace.yaml",
+      "files": 1,
+      "bytes": 63
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\README.md",
+      "to": "G:\\CodeWeave\\应用端\\项目\\README.md",
+      "files": 1,
+      "bytes": 2872
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\scripts",
+      "to": "G:\\CodeWeave\\应用端\\项目\\scripts",
+      "files": 25,
+      "bytes": 89596
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\tests",
+      "to": "G:\\CodeWeave\\应用端\\项目\\tests",
+      "files": 2,
+      "bytes": 6634
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\workspace",
+      "to": "G:\\CodeWeave\\应用端\\项目\\workspace",
+      "files": 2,
+      "bytes": 836
+    },
+    {
+      "from": "G:\\CodeWeave-prep",
+      "to": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep",
+      "files": 15757,
+      "bytes": 2317085665
+    },
+    {
+      "from": "G:\\CodeWeave-qt",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\qt",
+      "files": 15222,
+      "bytes": 4320594658
+    },
+    {
+      "from": "G:\\CodeWeave\\CodeWeave.exe",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口\\CodeWeave.exe",
+      "files": 1,
+      "bytes": 859024
+    },
+    {
+      "from": "G:\\CodeWeave\\content",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口\\content",
+      "files": 93,
+      "bytes": 440233
+    },
+    {
+      "from": "G:\\CodeWeave\\config",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口\\config",
+      "files": 1,
+      "bytes": 74
+    },
+    {
+      "from": "G:\\CodeWeave\\build-check.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\build-check.log",
+      "files": 1,
+      "bytes": 137757
+    },
+    {
+      "from": "G:\\CodeWeave\\debug-build.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\debug-build.log",
+      "files": 1,
+      "bytes": 2611811
+    },
+    {
+      "from": "G:\\CodeWeave\\native-test-out.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\native-test-out.log",
+      "files": 1,
+      "bytes": 131
+    },
+    {

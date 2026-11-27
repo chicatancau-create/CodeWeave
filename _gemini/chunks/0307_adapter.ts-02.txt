@@ -1,0 +1,110 @@
+      hasVaultContent: lesson.contentId !== undefined,
+      executable: lesson.executable !== false,
+    })
+  }
+  return [...map.values()].sort((a, b) => {
+    if (a.hasVaultContent !== b.hasVaultContent) return a.hasVaultContent ? -1 : 1
+    if (a.lessonCount !== b.lessonCount) return b.lessonCount - a.lessonCount
+    return a.label.localeCompare(b.label, 'zh-Hans-CN')
+  })
+}
+
+function executableLanguage(language: string): LanguageId | null {
+  const value = String(language ?? '').toLowerCase()
+  return (LANGUAGE_IDS as readonly string[]).includes(value) ? (value as LanguageId) : null
+}
+
+/** 旧内置课程：显式标注 legacy，且不携带资料库来源；科目按旧 languageLabel 归一。 */
+export function legacyLessonsWithFlag(): Lesson[] {
+  return legacyLessons.map((lesson) => {
+    const meta = subjectMetaOf(lesson.languageLabel, shortLabelOf(lesson.languageLabel))
+    return {
+      ...lesson,
+      legacy: true,
+      executable: lesson.content.runEnvironment !== 'external',
+      subjectId: meta.id,
+      subjectLabel: meta.label,
+      subjectShort: meta.short,
+    }
+  })
+}
+
+const LEGACY_STAGE_LABELS: Record<string, string> = Object.fromEntries(
+  legacyStages.map((stage) => [stage.id, stage.title]),
+)
+
+/** 旧阶段标识 → 可读文案（用于说明旧记录为何未计入 S0—S9）。 */
+export function legacyStageLabel(stageId: string | undefined): string {
+  if (!stageId) return '未标阶段'
+  return LEGACY_STAGE_LABELS[stageId] ?? stageId
+}
+
+function stageToCurriculum(stage: { id: string; title: string; checkpoint: string; deliverables: string[]; prerequisites: string[] }): CurriculumStage {
+  return {
+    id: stage.id,
+    title: stage.title,
+    track: '资料库口径',
+    summary: stage.checkpoint,
+    topics: [],
+    checkpoint: stage.checkpoint,
+    deliverables: stage.deliverables,
+    prerequisites: stage.prerequisites,
+    externalTools: [],
+  }
+}
+
+export function runCommandLabel(lesson: SnapshotLesson): string {
+  if (lesson.executionPolicy === 'external') return '外部环境实验（本机执行，不能由浏览器模拟）'
+  if (lesson.executionPolicy === 'worker') return '浏览器 Worker 沙箱（真实执行纯计算）'
+  if (lesson.executionPolicy === 'teaching') return '教学运行器（子集语法，非真实编译器）'
+  return '未设定执行方式'
+}
+
+function levelLabel(lesson: SnapshotLesson): string {
+  const stageIds = lesson.stageIds ?? []
+  if (lesson.executionPolicy === 'external') return '外部环境'
+  if (lesson.lessonKind === 'reading') return '阅读'
+  return stageIds[0] ? `阶段 ${stageIds[0]}` : '未标阶段'
+}
+
+export type AdaptedContent = {
+  lessons: Lesson[]
+  /** 新口径阶段（S0—S9）；规则待审核或未连接时为空 */
+  stages: CurriculumStage[]
+  /** 旧口径阶段（A—M），只用于标注旧记录 */
+  legacyStages: CurriculumStage[]
+}
+
+/**
+ * #33 裁定 1：延迟复测排期的**运行时标准**是资料库发布规则里的默认节点，不是客户端常量。
+ * 目录接口把这条规则放在**顶层** `reviewOffsetsDays`（`server/content/index.mjs:344`），
+ * 存储的 bundle 放在 `rules.reviewOffsetsDays`（`server/content/compiler.mjs:1178`），两处都读，任一非空即认。
+ *
+ * 为什么镜像成模块状态而不是走 context：`ContentContextValue` 只透出 `bundleId / counts / lessons / stages`，
+ * 不带 `rules`，而 `provider.tsx` 与 `app.tsx` 不在本次改动范围内。于是由**目录适配处**（唯一看到整份快照的地方）
+ * 记一次，读取一律走 `publishedReviewOffsets()`——不在界面或调度里再抄第二份节点列表。
+ * `adaptFallback()`（没有快照）会把它清成 `null`，此时排期才落到 `REVIEW_OFFSET_DAYS` 那条兜底常量。
+ */
+let publishedReviewOffsetsDays: number[] | null = null
+
+/** 当前适配到的发布规则默认复测节点（天）；`null` = 没有快照或规则里没写，此时才用本机兜底。 */
+export function publishedReviewOffsets(): number[] | null {
+  return publishedReviewOffsetsDays
+}
+
+/** 快照里的发布值 → 可信的 `number[] | null`（`[]` 与全非法值都算「规则没写」）。 */
+function readPublishedOffsets(snapshot: ContentSnapshot | null): number[] | null {
+  const raw = snapshot?.reviewOffsetsDays ?? snapshot?.rules?.reviewOffsetsDays ?? null
+  if (!Array.isArray(raw)) return null
+  const clean = [...new Set(raw.map(Number).filter((n) => Number.isFinite(n) && n >= 0))].sort((a, b) => a - b)
+  return clean.length > 0 ? clean : null
+}
+
+/**
+ * 目录摘要 → Lesson 列表（不含原文正文，可用于列表与搜索）。
+ * `detail` 为空时按摘要构造占位 Lesson，进入工作台后再由详情替换。
+ */
+export function snapshotSummaryToLesson(lesson: SnapshotLesson): Lesson {
+  return buildLesson(lesson, null)
+}
+

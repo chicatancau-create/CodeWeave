@@ -1,0 +1,94 @@
+            <span>目标</span>
+            <strong>{unit.objective}</strong>
+            <div className="guide-prereq">
+              {unit.prerequisites.length > 0 && <small>先备：{unit.prerequisites.join('；')}</small>}
+            </div>
+          </div>
+          <div className="guide-block guide-explain">
+            <span>讲解与例子</span>
+            <ul>
+              {unit.explanation.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+              {unit.examples.map((example) => (
+                <li key={example.good}>
+                  ✅ {example.good}
+                  {example.bad && <>；❌ {example.bad}</>}（{example.why}）
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="guide-block guide-exercise">
+            <span>跟做 / 独立题 / 变式</span>
+            <ol>
+              {unit.guidedSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            <p>
+              <strong>独立题：</strong>
+              {unit.exercise}
+            </p>
+            <p>
+              <strong>变式题：</strong>
+              {unit.variant}
+            </p>
+          </div>
+          <div className="guide-block">
+            <span>常见错误</span>
+            <ul>
+              {unit.mistakes.map((mistake) => (
+                <li key={mistake}>{mistake}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="guide-block">
+            <span>验证与证据</span>
+            <strong>{unit.runCommand}</strong>
+            <p>{unit.completion}</p>
+            {lesson.acceptance && lesson.acceptance.testCases.length > 0 && (
+              <p>
+                <strong>公开用例：</strong>
+                {lesson.acceptance.testCases.join('；')}
+              </p>
+            )}
+            {lesson.acceptance && lesson.acceptance.hints.length > 0 && (
+              <ul>
+                {lesson.acceptance.hints.map((hint) => (
+                  <li key={hint}>{hint}</li>
+                ))}
+              </ul>
+            )}
+            {unit.acceptanceCriteria && unit.acceptanceCriteria.length > 0 && (
+              <p>
+                <strong>验收标准：</strong>
+                {unit.acceptanceCriteria.join('；')}
+              </p>
+            )}
+            {unit.evidenceChecklist && unit.evidenceChecklist.length > 0 && (
+              <p>
+                <strong>证据清单：</strong>
+                {unit.evidenceChecklist.join('；')}
+              </p>
+            )}
+            <p className="guide-project">
+              <strong>项目任务：</strong>
+              {unit.projectTask}
+            </p>
+            {unit.stageId && <small>对应课程阶段 {unit.stageId}</small>}
+          </div>
+        </section>
+      )}
+
+      {lesson.insight && (
+        <section className="lesson-insight">
+          <div className="insight-icon">💡</div>
+          <div>
+            <strong>关键理解</strong>
+            <p>{lesson.insight}</p>
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}

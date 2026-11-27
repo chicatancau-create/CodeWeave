@@ -1,0 +1,89 @@
+// @vitest-environment jsdom
+/**
+ * 附件与图片按白名单访问的前端接入（DATA-10 §4）。
+ *
+ * 契约：`README-attachments.md` §4 —— 只有「库根相对路径 + 位图白名单扩展名 + `rejectReasonFor`
+ * 判定通过」才渲染 `<img src="/api/content/asset?path=…">`；其余**保持今天的纯文本显示**；
+ * 加载失败/403/404 显示「附件不可用（未发布或类型不允许）」，不静默消失。
+ *
+ * 同时守住既有边界（与 `markdown.test.tsx` 同口径，不放宽任何一条）：
+ * 不产生 `href`、不产生指向外部域或磁盘的 `src`、原始 HTML 只当文本、没有事件属性。
+ *
+ * jsdom 不会真的发起图片请求，所以「加载失败」用 `fireEvent.error` 模拟。
+ */
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { MarkdownView, parseMarkdownBlocks } from './markdown'
+import { ASSET_ALLOWED_EXTENSIONS, assetExtensionOf, resolveImageAttachment } from './wikilink'
+
+afterEach(() => {
+  cleanup()
+})
+
+const DIR = '复习大纲/01-测试语言/assets'
+
+/** 所有渲染出来的 `src`/`href`/`srcdoc` 属性值（用来证明没有外部出口）。 */
+function urlAttributes(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('*')].flatMap((el) =>
+    [...el.attributes]
+      .filter((attr) => attr.name === 'src' || attr.name === 'href' || attr.name === 'srcdoc')
+      .map((attr) => attr.value),
+  )
+}
+
+/** 「只当文本」的统一断言：不生成任何 img/src/href，也不出现事件属性。 */
+function expectTextOnly(source: string, label: string) {
+  const { container } = render(<MarkdownView markdown={source} />)
+  expect(container.querySelector('img'), label).toBeNull()
+  expect(urlAttributes(container), label).toEqual([])
+  expect(container.querySelector('script'), label).toBeNull()
+  expect(container.innerHTML.toLowerCase(), label).not.toContain('<script')
+  expect([...container.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => /^on/i.test(attr.name))), label).toBe(false)
+  expect(container.textContent, label).toContain(source)
+  cleanup()
+}
+
+describe('白名单内图片渲染成 <img>', () => {
+  it('库根相对路径 + png：同源 asset 接口、alt 取图片说明、没有 href', () => {
+    const { container } = render(<MarkdownView markdown={`图示：![分支流程图](${DIR}/分支流程图.png)`} />)
+    const img = container.querySelector('img')
+    expect(img).not.toBeNull()
+    expect(img?.getAttribute('src')).toBe(`/api/content/asset?path=${encodeURIComponent(`${DIR}/分支流程图.png`)}`)
+    expect(img?.getAttribute('alt')).toBe('分支流程图')
+    expect(img?.getAttribute('loading')).toBe('lazy')
+    expect(img?.style.aspectRatio).toBe('16 / 9')
+    expect(img?.style.objectFit).toBe('contain')
+    expect(container.querySelector('a')).toBeNull()
+    // 只允许指向同源附件接口的相对地址：既不是绝对 URL，也不是磁盘路径
+    const urls = urlAttributes(container)
+    expect(urls).toHaveLength(1)
+    for (const value of urls) {
+      expect(value.startsWith('/api/content/asset?path=')).toBe(true)
+      expect(value).not.toMatch(/^[a-z][a-z0-9+.-]*:/i)
+      expect(value).not.toMatch(/[A-Za-z]:[\\/]/)
+      expect(value).not.toContain('..')
+      expect(value).not.toContain('%5C')
+    }
+  })
+
+  it('五种位图都给 src；pdf/txt/csv/json 与表外类型一律不渲染图片、仍是纯文本', () => {
+    for (const ext of ['png', 'jpg', 'jpeg', 'gif', 'webp']) {
+      const { container } = render(<MarkdownView markdown={`![图](${DIR}/图.${ext})`} />)
+      expect(container.querySelectorAll('img'), ext).toHaveLength(1)
+      cleanup()
+    }
+    for (const ext of ['svg', 'html', 'htm', 'xhtml', 'js', 'mjs', 'css', 'md', 'pdf', 'txt', 'csv', 'json', 'exe']) {
+      const source = `![图](${DIR}/图.${ext})`
+      const { container } = render(<MarkdownView markdown={source} />)
+      expect(container.querySelector('img'), ext).toBeNull()
+      expect(container.querySelector('[src]'), ext).toBeNull()
+      expect(container.textContent, ext).toContain(source)
+      cleanup()
+    }
+    expect([...ASSET_ALLOWED_EXTENSIONS].sort()).toEqual(['csv', 'gif', 'jpeg', 'jpg', 'json', 'pdf', 'png', 'txt', 'webp'])
+  })
+
+  it('带标题的写法 ![说明](路径 "标题") 与空 alt ![](路径) 同样按白名单判定', () => {
+    const titled = render(<MarkdownView markdown={`![流程图](${DIR}/a.png "可选标题")`} />)
+    const img = titled.container.querySelector('img')
+    expect(img?.getAttribute('alt')).toBe('流程图')

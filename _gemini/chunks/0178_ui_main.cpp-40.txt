@@ -1,0 +1,67 @@
+          send_editor_shortcut(view, Qt::Key_Y, Qt::ControlModifier);
+          context->step++;
+          return;
+        }
+        case 69: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor) { context->step = 99; return; }
+          u3_record(*context, QStringLiteral("editor-redo"),
+              editor->property("text").toString().contains(QStringLiteral("剪贴板🙂")));
+          shell.selectPage(QStringLiteral("学习"));
+          context->step++;
+          return;
+        }
+        case 70: {
+          auto* list = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("courseList"));
+          if (!list || !list->isVisible() || list->height() <= 0) return;
+          const auto content_height = list->property("contentHeight").toDouble();
+          if (content_height <= list->height()) {
+            u3_record(*context, QStringLiteral("course-scroll"), false,
+                QStringLiteral("课程列表没有可滚动内容"));
+            context->step = 99;
+            return;
+          }
+          list->setProperty("contentY", content_height - list->height());
+          const bool reached_end = list->property("contentY").toDouble() > 0;
+          list->setProperty("contentY", 0);
+          u3_record(*context, QStringLiteral("course-scroll"), reached_end);
+          shell.selectPage(QStringLiteral("复习与进度"));
+          shell.refreshReviewSummary();
+          context->step = 7;
+          return;
+        }
+        case 7:
+          if (shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("review-progress"), shell.currentPage() == QStringLiteral("复习与进度"));
+          u3_screenshot(*context, view, QStringLiteral("u3-review"));
+          shell.selectPage(QStringLiteral("挑战"));
+          context->step++;
+          return;
+        case 8:
+          u3_record(*context, QStringLiteral("page-challenge"), shell.currentPage() == QStringLiteral("挑战"));
+          {
+            auto* challenge_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengePageRoot"));
+            auto* search = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeSearch"));
+            auto* previous = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengePreviousPage"));
+            auto* next = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeNextPage"));
+            const auto challenges = shell.challengeMeta();
+            const bool page_loaded = challenge_page && search && previous && next && !challenges.isEmpty();
+            if (!page_loaded) {
+              u3_record(*context, QStringLiteral("challenge-filter-controls-loaded"), false);
+            } else {
+              u3_record(*context, QStringLiteral("challenge-filter-controls-loaded"), true);
+              const auto sample = challenges.first().toMap();
+              challenge_page->setProperty("stageFilter", sample.value(QStringLiteral("stageId")));
+              challenge_page->setProperty("trackFilter", sample.value(QStringLiteral("track")));
+              challenge_page->setProperty("difficultyFilter", sample.value(QStringLiteral("difficulty")));
+              challenge_page->setProperty("runnerFilter", sample.value(QStringLiteral("runner")));
+              const auto filtered = challenge_page->property("filteredChallenges").toList();
+              QVariantList expected_filtered;
+              for (const auto& value : challenges) {
+                const auto item = value.toMap();
+                if (item.value(QStringLiteral("stageId")) == sample.value(QStringLiteral("stageId")) &&
+                    item.value(QStringLiteral("track")) == sample.value(QStringLiteral("track")) &&
+                    item.value(QStringLiteral("difficulty")) == sample.value(QStringLiteral("difficulty")) &&
+                    item.value(QStringLiteral("runner")) == sample.value(QStringLiteral("runner"))) {
+                  expected_filtered.append(value);
+                }

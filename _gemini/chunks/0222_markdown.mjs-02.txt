@@ -1,0 +1,131 @@
+        `${label}frontmatter 第 ${index + 1} 行不符合受限子集（键必须以字母/下划线开头且顶格）`,
+      )
+    }
+    const key = match[1]
+    if (Object.hasOwn(fields, key)) {
+      throw new ContentError('frontmatter_duplicate_key', `${label}frontmatter 重复键：${key}`)
+    }
+    const raw = match[2] ?? ''
+    if (/^[&*!|>]/.test(raw.trim())) {
+      throw new ContentError('frontmatter_unsupported', `${label}frontmatter 键 ${key} 使用了锚点/别名/标签/块标量`)
+    }
+    const bracketed = BRACKETED.exec(raw.trim())
+    if (bracketed) {
+      const items = bracketed[1].trim() ? splitListItems(bracketed[1]).map(parseItem) : []
+      fields[key] = items.filter((item) => item !== undefined)
+    } else {
+      fields[key] = scalar(raw)
+    }
+  }
+  throw new ContentError('frontmatter_unterminated', `${label}frontmatter 缺少结束的 ---`)
+}
+
+/**
+ * 剔除 frontmatter 与围栏代码块后的正文行（保留原始行号）。
+ * 与 tools/check_vault.py 的 visible_lines 语义一致。
+ */
+export function visibleLines(text) {
+  const lines = text.split('\n')
+  const frontmatter = lines[0]?.trim() === '---'
+  const out = []
+  let fence = null
+  let inFrontmatter = frontmatter
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const number = index + 1
+    if (inFrontmatter) {
+      if (number > 1 && line.trim() === '---') inFrontmatter = false
+      continue
+    }
+    const marker = FENCE.exec(line)
+    if (marker) {
+      const token = marker[1]
+      if (fence === null) fence = token
+      else if (token[0] === fence[0] && token.length >= fence.length) fence = null
+      continue
+    }
+    if (fence === null) out.push([number, line])
+  }
+  return out
+}
+
+/** 正文标题（含层级与行号），已剔除代码块与 frontmatter。 */
+export function headings(text) {
+  return visibleLines(text)
+    .map(([line, raw]) => {
+      const match = HEADING.exec(raw)
+      if (!match) return null
+      return { level: match[1].length, title: match[2].replace(CLOSING_HASHES, '').trim(), line }
+    })
+    .filter(Boolean)
+}
+
+/**
+ * 按 `topic_levels` 切分主题：每个指定层级的标题起一段，
+ * 到下一个「同级或更高级」标题前结束，子标题保留在段内。
+ */
+export function topicsFromVolume(text, levels) {
+  const lines = text.split('\n')
+  const marks = headings(text)
+  const topics = []
+  for (let index = 0; index < marks.length; index += 1) {
+    const mark = marks[index]
+    if (!levels.includes(mark.level)) continue
+    let end = lines.length
+    for (let next = index + 1; next < marks.length; next += 1) {
+      if (marks[next].level <= mark.level) {
+        end = marks[next].line - 1
+        break
+      }
+    }
+    const body = lines.slice(mark.line, end)
+    topics.push({
+      level: mark.level,
+      title: mark.title,
+      line: mark.line,
+      headingPath: ancestorPath(marks, index),
+      body,
+      bodyText: body.join('\n').trim(),
+      isEmpty: body.every((line) => line.trim() === ''),
+    })
+  }
+  return topics
+}
+
+/** 祖先标题链（不含自身）：用于「同名标题必须用父链定位」。 */
+function ancestorPath(marks, index) {
+  const chain = []
+  let level = marks[index].level
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (marks[cursor].level < level) {
+      chain.unshift(marks[cursor].title)
+      level = marks[cursor].level
+    }
+  }
+  return chain
+}
+
+/**
+ * 按完整标题路径定位一个章节，返回 `{ title, level, line, headingPath, body, bodyText }`；
+ * 找不到返回 null。正文含该标题之下的全部子章节，直到下一个同级或更高级标题。
+ * headingPath 必须是一条真实的祖先链，不接受把同级标题拼接起来。
+ */
+export function findSection(text, headingPath) {
+  const wanted = (headingPath ?? []).map((title) => String(title).trim())
+  if (wanted.length === 0) return null
+  const normalized = normalizeText(text)
+  return (
+    topicsFromVolume(normalized, [1, 2, 3, 4, 5, 6]).find(
+      (topic) =>
+        topic.headingPath.length === wanted.length - 1 &&
+        [...topic.headingPath, topic.title].every((title, index) => title === wanted[index]),
+    ) ?? null
+  )
+}
+
+/** 解析 sectionRef 字符串：`<库根相对路径>#<标题1> > <标题2>`。 */
+export function parseSectionRef(raw, where = '') {
+  const label = where ? `${where}: ` : ''
+  const text = String(raw ?? '').trim()
+  const hash = text.indexOf('#')
+  if (hash === -1) {

@@ -1,0 +1,119 @@
+  const safeTopic = topic.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || '学习记录'
+  return `${at}-${safeTopic}.md`
+}
+
+export function logDirOf(at) {
+  return `全栈工程师学习计划/学习日志/${at.slice(0, 7)}`
+}
+
+export function logPathOf(at, topic) {
+  return `${logDirOf(at)}/${logFileName(at, topic)}`
+}
+
+/** 行内文本进表格单元格：转义竖线并压平换行。 */
+function cell(text) {
+  return String(text ?? '').replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ').trim()
+}
+
+/** 用足够长的围栏包裹可能含反引号的内容，避免提前闭合代码块。 */
+function fenced(text) {
+  const body = String(text ?? '').replace(/\s+$/, '')
+  const longest = (body.match(/`{3,}/g) ?? []).reduce((max, run) => Math.max(max, run.length), 2)
+  const fence = '`'.repeat(longest + 1)
+  return `${fence}\n${body}\n${fence}`
+}
+
+/**
+ * 渲染一条证据的日志小节。幂等标记由 mergeEvidenceIntoLog 统一写在整块末尾。
+ */
+export function renderEvidenceSection(record) {
+  const rows = [
+    ['学习日期', record.at],
+    ['所属阶段', record.stage ?? '未记录'],
+    ['内容 ID', record.contentId ?? '未记录'],
+    ['练习 ID', record.exerciseId ?? '未记录'],
+    ['内容快照', record.bundleId ?? '未记录'],
+    ['运行者', RAN_BY_NAMES[record.ranBy] ?? '未说明'],
+    ['独立完成', record.independent ? '是（学习者声明）' : '否'],
+    ['提示等级', record.hintLevel ? HINT_LEVEL_NAMES[record.hintLevel] : '未使用或未记录'],
+    ['证据产物', record.artifacts.length > 0 ? record.artifacts.join('；') : '未记录'],
+  ]
+  const lines = [
+    `## 学习证据 · ${record.topic}`,
+    '',
+    '| 项目 | 内容 |',
+    '|---|---|',
+    ...rows.map(([key, value]) => `| ${cell(key)} | ${cell(value)} |`),
+    '',
+  ]
+  if (record.expected) lines.push('**预期结果**', '', fenced(record.expected), '')
+  if (record.actual) lines.push('**实际结果**', '', fenced(record.actual), '')
+  if (record.unfinished.length > 0) {
+    lines.push('**未完成项**', '', ...record.unfinished.map((item) => `- ${item}`), '')
+  }
+  if (record.notes) lines.push('**备注**', '', record.notes, '')
+  return `${lines.join('\n')}\n`
+}
+
+/** 新建日志文件时的文件头：说明来源，并声明等级不由本记录自动提升。 */
+export function renderLogFileHeader(record) {
+  return [
+    `# ${record.at} 学习日志 · ${record.topic}`,
+    '',
+    '> 由 CodeWeave **确认式写回**创建：只追加证据，不覆盖既有笔记。',
+    '> 本文件记录的是作答证据；掌握等级由正式流程判定，**不由本记录自动提升**。',
+    '',
+  ].join('\n')
+}
+
+/** 断言日志文本里是否已有该 operationId 的标记（断线重试去重的依据）。 */
+export function hasOperationMarker(text, operationId) {
+  return String(text ?? '').includes(`cw-evidence:${operationId}`)
+}
+
+/**
+ * 把一组证据合入日志文本。
+ * - 文件不存在 → 建头 + 小节；
+ * - 已存在 → 只追加（同日追加保留前文，不重排、不清除历史）；
+ * - `<!-- cw-evidence:<operationId> -->` 写在整块末尾：不渲染、可检索、据此去重。
+ */
+export function mergeEvidenceIntoLog({ existingText, records, operationId }) {
+  const list = Array.isArray(records) ? records : [records]
+  const body = [list.map((record) => renderEvidenceSection(record)).join('\n---\n\n'), `<!-- cw-evidence:${operationId} -->`].join('\n')
+  if (!existingText) {
+    return `${renderLogFileHeader(list[0])}\n---\n\n${body}\n`
+  }
+  const base = existingText.endsWith('\n') ? existingText : `${existingText}\n`
+  return `${base}\n---\n\n${body}\n`
+}
+
+/** 导出待保存 Markdown：未授权写回或离线时给用户拿走，内容与写回一致。 */
+export function renderExportMarkdown(records, { logPath } = {}) {
+  const header = [
+    '# CodeWeave 待保存学习证据（未写回资料库）',
+    '',
+    '> 本文件是**导出备份**，不代表已同步。只有实际写入资料库并复核后才算同步完成。',
+    logPath ? `> 目标日志路径：\`${logPath}\`` : '',
+    '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+  const body = records.map((record) => renderEvidenceSection(record)).join('\n---\n\n')
+  return `${header}\n${body}`
+}
+
+// ---------------------------------------------------------------------------
+// 暂存存储：按账户一个文件，整体读、原子写。
+// ---------------------------------------------------------------------------
+export function createEvidenceStore({ dataRoot }) {
+  const root = join(dataRoot, 'learning', 'evidence')
+
+  function filePathOf(userId) {
+    return join(root, `${safeSegment(userId)}.json`)
+  }
+
+  async function readAll(userId) {
+    const filePath = filePathOf(userId)
+    if (!existsSync(filePath)) return []
+    try {
+      const parsed = JSON.parse(await readFile(filePath, 'utf8'))

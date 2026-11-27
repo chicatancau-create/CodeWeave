@@ -1,0 +1,108 @@
+// @vitest-environment jsdom
+/**
+ * M4 全站统一 · 账户域契约测试（个人中心 / 账户安全 / 数据与隐私）。
+ *
+ * 依据：§5.2 末行「账户、设置、隐私和弹窗：相同字体、按钮、表单、焦点和遮罩体系；
+ * 保留改密、导出、恢复、按范围清除」+ §5.4 验收 + §11.2（部分失败不得显示成功）。
+ *
+ * 分工：既有的 data-privacy-view.test.tsx 守导入预览/写入的数据语义（一条未动、
+ * 继续全绿）；本文件守 ① 改密的请求与四种结果文案，② 导出入口，③ 不可决定项在
+ * 界面上「不给勾选」的结构证据，④ 按范围清除的部分失败如实上报，⑤ account-domain.css
+ * 的 CSS 不变式与「不串改他人面板」的作用域证据。
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AuthUser } from '../hooks/use-auth'
+import { STORAGE_KEYS } from '../utils/constants'
+import { STORAGE_REGISTRY } from '../utils/storage-registry'
+import { EXPORT_SCHEMA, EXPORT_VERSION, type ClearResult } from '../utils/local-data'
+import { AccountSecurityView } from './account-security-view'
+import { DataPrivacyView } from './data-privacy-view'
+import { ProfileView } from './profile-view'
+
+/**
+ * 个人中心里嵌着两个他人组件（VaultProgressCard / EvidenceWritebackPanel），它们要
+ * ContentProvider 与网络。本文件只测账户域自身的呈现与调用，故把两者替换为空壳；
+ * 「不串改它们的面板」改由下方 CSS 作用域不变式来证明（不依赖运行时渲染）。
+ */
+vi.mock('./vault-progress-view', () => ({ VaultProgressCard: () => null }))
+vi.mock('./evidence-writeback-view', () => ({
+  EvidenceWritebackPanel: () => null,
+  EvidenceWritebackView: () => null,
+}))
+
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
+const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+const cssText = readFileSync(`${moduleDir}/account-domain.css`, 'utf8')
+const cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '')
+
+expect(cssText.length).toBeGreaterThan(4000)
+
+function splitSelectors(prelude: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let current = ''
+  for (const char of prelude) {
+    if (char === '(' || char === '[') depth += 1
+    else if (char === ')' || char === ']') depth -= 1
+    if (char === ',' && depth === 0) {
+      parts.push(current)
+      current = ''
+      continue
+    }
+    current += char
+  }
+  parts.push(current)
+  return parts.map((part) => part.trim()).filter(Boolean)
+}
+
+function allSelectors(css: string): string[] {
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  const out: string[] = []
+  const pattern = /([^{}]+)\{/g
+  let match: RegExpExecArray | null = pattern.exec(code)
+  while (match) {
+    let prelude = (match[1] ?? '').replace(/}/g, '').trim()
+    if (prelude.startsWith('@')) prelude = prelude.slice(prelude.lastIndexOf(')') + 1).trim()
+    out.push(...splitSelectors(prelude))
+    match = pattern.exec(code)
+  }
+  return out.filter((selector) => !selector.startsWith('@'))
+}
+
+function declarationBlock(selector: string): string {
+  const wanted = selector.replace(/\s+/g, ' ').trim()
+  const pattern = /([^{}]+)\{([^{}]*)\}/g
+  let match: RegExpExecArray | null = pattern.exec(cssText)
+  while (match) {
+    const prelude = (match[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, ' ')
+    if (splitSelectors(prelude).some((part) => part.replace(/\s+/g, ' ').trim() === wanted)) return match[2] ?? ''
+    match = pattern.exec(cssText)
+  }
+  return ''
+}
+
+function mediaBlock(query: string): string {
+  const at = cssText.indexOf(`@media (${query})`)
+  if (at === -1) return ''
+  const open = cssText.indexOf('{', at)
+  let depth = 0
+  for (let index = open; index < cssText.length; index += 1) {
+    const char = cssText[index]
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) return cssText.slice(open + 1, index)
+    }
+  }
+  return ''
+}
+
+function reduceMotionImportantCount(): number {
+  const system = (mediaBlock('prefers-reduced-motion: reduce').match(/!important/g) ?? []).length
+  const classCount = [...cssCode.matchAll(/\.reduce-motion[^{]*\{([^{}]*)\}/g)]
+    .reduce((total, match) => total + ((match[1]?.match(/!important/g) ?? []).length), 0)

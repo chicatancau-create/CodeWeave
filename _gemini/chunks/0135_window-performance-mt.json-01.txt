@@ -1,0 +1,160 @@
+{
+  "os": "Windows-11-10.0.28000-SP0",
+  "logical_cpus": 32,
+  "memory_gib": 31.18,
+  "utc": "2026-10-05T03:46:08Z",
+  "method": "10ms window polling; 2s idle; total RSS includes shared pages; fresh profile is not OS cold cache; non-equivalent feature sets",
+  "unmeasured": [
+    "OS cold startup",
+    "course loading",
+    "editor latency",
+    "cancel latency"
+  ],
+  "executables": {
+    "electron": {
+      "path": "G:\\CodeWeave\\CodeWeave.exe",
+      "sha256": "43e5eb760e95b0c25928cd3672654893b270c085384f576f96a109df55ceab18"
+    },
+    "native": {
+      "path": "G:\\CodeWeave\\\u5e94\u7528\u7aef\\native\\build-g1-msvc-release\\codeweave-native.exe",
+      "sha256": "7882419878126ee8f54f6717fefc3c4d960aba8139e3bf5dda4dd6c33b725d86"
+    }
+  },
+  "samples": [
+    {
+      "kind": "electron",
+      "phase": "fresh-profile",
+      "index": 0,
+      "window_ms": 5352.385,
+      "working_set_mib": 456.062,
+      "startup_cpu_ms": 6765.625,
+      "close_ms": 314.906,
+      "process_count": 6
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 0,
+      "window_ms": 118.983,
+      "working_set_mib": 27.191,
+      "startup_cpu_ms": 125.0,
+      "close_ms": 47.25,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 1,
+      "window_ms": 145.315,
+      "working_set_mib": 27.148,
+      "startup_cpu_ms": 109.375,
+      "close_ms": 33.988,
+      "process_count": 1
+    },
+    {
+      "kind": "electron",
+      "phase": "fresh-profile",
+      "index": 1,
+      "window_ms": 5451.263,
+      "working_set_mib": 454.809,
+      "startup_cpu_ms": 6953.125,
+      "close_ms": 285.372,
+      "process_count": 6
+    },
+    {
+      "kind": "electron",
+      "phase": "fresh-profile",
+      "index": 2,
+      "window_ms": 6011.75,
+      "working_set_mib": 453.598,
+      "startup_cpu_ms": 8015.625,
+      "close_ms": 311.649,
+      "process_count": 6
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 2,
+      "window_ms": 90.526,
+      "working_set_mib": 27.133,
+      "startup_cpu_ms": 156.25,
+      "close_ms": 35.45,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 3,
+      "window_ms": 104.456,
+      "working_set_mib": 27.125,
+      "startup_cpu_ms": 140.625,
+      "close_ms": 33.534,
+      "process_count": 1
+    },
+    {
+      "kind": "electron",
+      "phase": "fresh-profile",
+      "index": 3,
+      "window_ms": 5484.449,
+      "working_set_mib": 456.359,
+      "startup_cpu_ms": 7203.125,
+      "close_ms": 334.132,
+      "process_count": 6
+    },
+    {
+      "kind": "electron",
+      "phase": "fresh-profile",
+      "index": 4,
+      "window_ms": 5470.74,
+      "working_set_mib": 457.809,
+      "startup_cpu_ms": 7078.125,
+      "close_ms": 325.659,
+      "process_count": 6
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 4,
+      "window_ms": 90.654,
+      "working_set_mib": 27.152,
+      "startup_cpu_ms": 109.375,
+      "close_ms": 42.583,
+      "process_count": 1
+    },
+    {
+      "kind": "electron",
+      "phase": "warm-profile",
+      "index": 0,
+      "window_ms": 5490.903,
+      "working_set_mib": 452.297,
+      "startup_cpu_ms": 7031.25,
+      "close_ms": 293.039,
+      "process_count": 6
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 0,
+      "window_ms": 88.357,
+      "working_set_mib": 27.133,
+      "startup_cpu_ms": 125.0,
+      "close_ms": 35.395,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 1,
+      "window_ms": 91.545,
+      "working_set_mib": 27.129,
+      "startup_cpu_ms": 171.875,
+      "close_ms": 33.614,
+      "process_count": 1
+    },
+    {
+      "kind": "electron",
+      "phase": "warm-profile",
+      "index": 1,
+      "window_ms": 5679.234,
+      "working_set_mib": 446.395,
+      "startup_cpu_ms": 7031.25,

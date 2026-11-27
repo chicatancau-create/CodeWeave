@@ -1,0 +1,37 @@
+    render(<RunStage {...props({ frame: frame({ nodes }), canStep: true, stepIndex: 1, stepTotal: 3 })} />)
+    expect(screen.getByText('第 3 次')).toBeTruthy()
+  })
+})
+
+describe('run-stage · 回边与输出', () => {
+  it('没有回环时不画回边注记（直线程序不该出现「绕回」两个字）', () => {
+    const nodes = [node({ id: 'n1', state: 'now', visit: 1 })]
+    render(<RunStage {...props({ frame: frame({ nodes, loopBackFrom: null, loops: 0 }) })} />)
+    expect(screen.queryByText(/绕回/)).toBeNull()
+  })
+
+  it('有回环时给出注记，且起弧点在节点下标所指的那一格上', () => {
+    const nodes = [
+      node({ id: 'n1', label: '初始化', state: 'done', ordinal: 1 }),
+      node({ id: 'n2', label: '判定', state: 'now', ordinal: 2, visit: 3 }),
+    ]
+    const { container } = render(
+      <RunStage {...props({ frame: frame({ nodes, loopBackFrom: 1, loops: 2 }), canStep: true, stepIndex: 1, stepTotal: 5 })} />,
+    )
+    // 唯一的 role="status"：注记本身（画布里没有第二条活区抢播报）
+    expect(screen.getByRole('status').textContent).toContain('已经回到上面的判定 2 次')
+    const looped = container.querySelectorAll('.rs-node.is-loop-back')
+    expect(looped).toHaveLength(1)
+    expect(looped[0]!.textContent).toContain('判定')
+  })
+
+  it('输出区按拍累计；没有输出时整块不画', () => {
+    const nodes = [node({ id: 'n1', state: 'now', ordinal: 1 })]
+    const { rerender } = render(<RunStage {...props({ frame: frame({ nodes, outputLines: [] }) })} />)
+    expect(screen.queryByText('输出')).toBeNull()
+
+    rerender(<RunStage {...props({ frame: frame({ nodes, outputLines: ['15'] }) })} />)
+    expect(screen.getByText('输出')).toBeTruthy()
+    expect(screen.getByText('15')).toBeTruthy()
+  })
+})

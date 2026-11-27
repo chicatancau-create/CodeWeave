@@ -1,0 +1,131 @@
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  color: var(--cw-fg);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--cw-mono);
+  font-size: 0.9em;
+}
+.cw-workspace .reading-pane .md-view .md-code,
+.cw-workspace .lesson-source .md-view .md-code {
+  margin: var(--ds-space-14, 14px) 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-none, 0);
+  white-space: pre;
+  overflow: auto;
+}
+.cw-workspace .reading-pane .md-view .md-code code,
+.cw-workspace .lesson-source .md-view .md-code code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--ds-size-control, 13px);
+}
+.cw-workspace .reading-pane .md-table th,
+.cw-workspace .reading-pane .md-table td,
+.cw-workspace .cw-pane .md-table th,
+.cw-workspace .cw-pane .md-table td {
+  border-color: var(--cw-line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.cw-workspace .reading-pane .md-table th {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+  text-transform: none;
+}
+.cw-workspace .md-wikilink {
+  color: var(--cw-fg);
+  border-bottom: var(--cw-line-width) solid var(--cw-scene);
+}
+
+/* ── 代码区：发丝线分栏、遮光层底；字号完全跟随用户设置 ───────────────── */
+.cw-workspace .cw-pane--code {
+  overflow: hidden;
+}
+/* 运行画布（`components/run-stage.tsx`，样式自带在 run-stage.css）：
+   本页只放它在这个 pane 里的位置与高度约束，不改它的配色——基座那份已经全走令牌。
+   画布与流程图同处 `.cw-pane--flow`：画布在上（这一拍长什么样），图在下（一拍一行的明细）。 */
+.cw-workspace .rs-stage {
+  margin: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  min-width: 0;
+  /* 跑长程序时骨架会长过一屏：给个上限自己滚，别把下面的变量面板顶出视野。 */
+  max-height: 46vh;
+  overflow-y: auto;
+}
+/* 注意：这里只 **消费** --editor-font-size / --line-height-editor（app.tsx 内联下发），
+   绝不在本文件里赋值，否则会以更近祖先的身份盖掉用户设置的编辑器字号（§5.4）。 */
+.cw-workspace .code-editor {
+  min-height: 300px;
+  max-height: 62vh;
+  padding: var(--ds-space-12, 12px) 0;
+  background: var(--cw-scrim);
+  border: 0;
+  border-radius: 0;
+  font-family: var(--cw-mono);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+}
+.cw-workspace .line-numbers {
+  width: 44px;
+  flex: 0 0 44px;
+  padding-right: var(--ds-space-10, 10px);
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border-right: var(--cw-line-width) solid var(--cw-line);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+}
+.cw-workspace .line-numbers span {
+  white-space: pre;
+}
+.cw-workspace .line-numbers span.active {
+  color: var(--cw-scene);
+  font-weight: 700;
+}
+.cw-workspace .code-surface {
+  min-width: 0;
+}
+.cw-workspace .code-tokens {
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px);
+  color: var(--cw-fg);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre; /* 长代码行横向滚动，不折行 */
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.cw-workspace .code-editor textarea {
+  min-height: 272px;
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px);
+  color: transparent;
+  caret-color: var(--cw-fg);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: var(--cw-mono);
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  overflow-x: auto; /* 横向滚动条可见：不隐藏（遮罩式滚动会让长行不可定位） */
+  overflow-y: auto;
+  tab-size: 2;
+}
+/* 当前执行行：零模糊的左侧标记线，取代原来的霓虹泛光与位移动画 */
+.cw-workspace .code-highlight {
+  height: calc(var(--editor-font-size, 13px) * var(--line-height-editor, 1.55));
+  background: var(--ds-wash-inset, rgba(220, 233, 251, 0.06));
+  border-left: 2px solid var(--cw-scene);
+  box-shadow: var(--cw-glow-line);              /* 当前行自发光，取代旧霓虹泛光与位移 */
+  transition: none;
+}
+/* 语法色：语义固定，不随场景插值 */
+.cw-workspace .tok-keyword {
+  color: var(--cw-info);
+}

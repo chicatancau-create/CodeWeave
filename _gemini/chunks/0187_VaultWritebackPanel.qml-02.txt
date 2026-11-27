@@ -1,0 +1,86 @@
+            onClicked: { bindConsent.checked = false; uiShell.bindVaultOwner(); }
+        }
+    }
+    TabBar {
+        id: tabs
+        Layout.fillWidth: true
+        currentIndex: panel.viewIndex
+        onCurrentIndexChanged: panel.viewIndex = currentIndex
+        Repeater {
+            model: ["待写回证据", "正式进度", "事务记录"]
+            TabButton {
+                required property string modelData
+                required property int index
+                text: modelData
+                contentItem: Text { text: parent.text; color: panel.viewIndex === index ? panel.ds.accent : panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                background: Rectangle { color: panel.viewIndex === index ? panel.ds.panel : panel.ds.page; border.color: panel.ds.line; radius: panel.ds.radius }
+            }
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: panel.viewIndex === 0
+        spacing: panel.ds.s10
+        Text {
+            Layout.fillWidth: true
+            visible: !panel.state.busy && (!panel.state.pending || panel.state.pending.length === 0)
+            text: panel.state.ready ? "暂无待写回证据" : "证据尚未读到，请刷新重试"
+            color: ds.muted; font.family: ds.ui; font.pixelSize: 13
+            wrapMode: Text.WordWrap
+        }
+        Repeater {
+            model: panel.state.pending || []
+            delegate: ColumnLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: panel.ds.s4
+                VaultCheckBox {
+                    Layout.fillWidth: true
+                    objectName: "vaultEvidenceChoice"
+                    text: modelData.at + " · " + modelData.contentId + (modelData.state === "partial" ? " · 待恢复事务" : "")
+                    checked: panel.selectedIds.indexOf(modelData.evidenceId) >= 0
+                    enabled: panel.state.ready && !panel.state.busy && modelData.state !== "partial"
+                    onToggled: panel.toggleId(modelData.evidenceId, checked)
+                }
+                Text {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: panel.ds.s24
+                    text: modelData.actual || modelData.expected || "未填写实际结果"
+                    textFormat: Text.PlainText
+                    color: panel.ds.muted; font.family: panel.ds.mono; font.pixelSize: 11
+                    wrapMode: Text.WrapAnywhere
+                    maximumLineCount: 4
+                    elide: Text.ElideRight
+                }
+                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: panel.ds.line }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            QuietButton {
+                ds: panel.ds
+                objectName: "vaultOpenEvidenceWorkspace"
+                label: "实践证据"
+                onClicked: uiShell.selectPage("编辑器")
+            }
+            Item { Layout.fillWidth: true }
+            PrimaryButton {
+                ds: panel.ds
+                objectName: "vaultPreview"
+                label: "预览写回"
+                enabled: panel.state.ready === true && panel.state.isOwner === true && panel.state.busy !== true && panel.selectedIds.length > 0
+                onClicked: uiShell.previewVaultWriteback(panel.selectedIds)
+            }
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: !!panel.preview.operationId
+            spacing: panel.ds.s10
+            Text { text: "写回预览"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 15; font.weight: Font.DemiBold }
+            Repeater {
+                model: panel.preview.notices || []
+                Text {
+                    required property string modelData
+                    Layout.fillWidth: true
+                    text: modelData; textFormat: Text.PlainText

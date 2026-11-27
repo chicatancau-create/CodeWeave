@@ -1,0 +1,61 @@
+                                            NumberAnimation { duration: ds.durBase; easing.type: Easing.Linear }
+                                        }
+                                    }
+
+                                    // 面板发光（悬停态）
+                                    layer.enabled: unitHover.hovered && (ds.useLayerEffects !== false)
+                                    layer.effect: MultiEffect {
+                                        shadowEnabled: true
+                                        shadowBlur: 1.0
+                                        shadowHorizontalOffset: 0
+                                        shadowVerticalOffset: 8
+                                        shadowColor: ds.glowPanelColor
+                                        shadowOpacity: 1.0
+                                    }
+
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: ds.s16
+                                        spacing: 0
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Layout.bottomMargin: ds.s12
+                                            spacing: ds.s8
+                                            Rectangle {   // .desktop-unit-number
+                                                implicitWidth: 28
+                                                implicitHeight: 27
+                                                radius: 4
+                                                color: ds.unitBadge
+                                                border.color: ds.unitBadgeEd
+                                                border.width: 1
+                                                Text {
+                                                    objectName: "lessonNumber-" + modelData.id
+                                                    anchors.centerIn: parent
+                                                    text: (index + 1) < 10
+                                                          ? "0" + (index + 1) : "" + (index + 1)
+                                                    color: ds.accent
+                                                    font.family: ds.mono
+                                                    font.pixelSize: 12
+                                                }
+                                            }
+                                            Item { Layout.fillWidth: true }
+                                            RowLayout {   // .unit-state
+                                                spacing: ds.s4
+                                                Rectangle {   // .unit-dot
+                                                    implicitWidth: 6
+                                                    implicitHeight: 6
+                                                    radius: 3
+                                                    color: "transparent"
+                                                    border.color: ds.faint
+                                                    border.width: 1
+                                                    Layout.alignment: Qt.AlignVCenter
+                                                }
+                                                Text {
+                                                    text: !uiShell.lessonEvidenceReady ? "暂无状态数据"
+                                                        : (Catalog.holdsCompletion(uiShell.lessonEvidenceStates[modelData.id]) ? "已有完成证据" : "待学习")
+                                                    color: ds.faint
+                                                    font.family: ds.ui
+                                                    font.pixelSize: 13
+                                                    Layout.alignment: Qt.AlignVCenter
+                                                }

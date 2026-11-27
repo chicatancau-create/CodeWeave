@@ -1,0 +1,83 @@
+  const hasContract = canAutoRun && expectedLines.length > 0
+  const contractJudge = hasContract ? judgeOutput(expectedLines, visibleOutput, DEFAULT_JUDGE_MODE) : null
+  const autoVerified = contractJudge?.passed === true
+  /** 完成按钮的档位：没跑成 → 不能标；跑了但验收点没全中 → 不能标；外部课证据不齐 → 不能标；没有判据可依 → 可以标，但记为自行声明。 */
+  const needsRun = canAutoRun && !ranSuccessfully
+  const needsVerify = contractJudge !== null && !autoVerified
+  /** 外部环境课：四项结构化证据没填齐就不放开按钮（LEARN-01 第 5a 条，不再接受空证据的完成）。 */
+  const needsExternalEvidence = isExternal && externalCheck !== null && !externalCheck.valid
+  /**
+   * #105 的另一半：详情在路上的那一秒里，本课的练习契约也还没到——此时按「没有契约」
+   * 把按钮放开，等于让学习者在**系统还没看过这一题验收点**的时候就把完成记下去。
+   * 所以这一段按钮锁住，理由写在下面那句说明里（不是静默禁用）。
+   */
+  const completeDisabled = needsRun || needsVerify || needsExternalEvidence || detailPending
+  return {
+    hasCode,
+    hasFlow,
+    canAutoRun,
+    autoVerified,
+    needsRun,
+    needsVerify,
+    needsExternalEvidence,
+    completeDisabled,
+    contractJudge,
+  }
+}
+
+/**
+ * 完成那句话的三档文案出自 utils/lesson-evidence.ts 的同一张表，界面不自己抄一遍。
+ * 「延迟复测掌握」这一档是 §9 收口后新增可见的：复测判过但没留下逐题验收记录的课，
+ * 从前在路径上显示已完成、在工作台显示未完成，两边各执一词。
+ */
+export function completedLabelOf(completionSource: LessonCompletionSource | null): string {
+  return completionSource
+    ? `本单元已完成（${LESSON_COMPLETION_SOURCE_LABEL[completionSource]}），按复测计划回顾`
+    : '本单元已完成，按复测计划回顾'
+}
+
+/**
+ * 按钮文案要短：原生 `button` 默认 `white-space: nowrap`，长句子会把整页顶出视口
+ * （真机在 320 档量到 159px 溢出，元凶就是这句）。逐条差在哪由下面的清单承担，
+ * 「为什么这一格没判据」由 `.cw-verify-none` 那句话说明，不塞进按钮名字里。
+ */
+export function pendingLabelOf(facts: {
+  detailPending: boolean
+  needsRun: boolean
+  needsVerify: boolean
+  contractJudge: JudgeOutcome | null
+  canAutoRun: boolean
+  needsExternalEvidence: boolean
+}): string {
+  const { detailPending, needsRun, needsVerify, contractJudge, canAutoRun, needsExternalEvidence } = facts
+  return detailPending
+    ? '详情读取中，暂不可标记'
+    : needsRun
+    ? '运行成功后可标记完成'
+    : needsVerify
+      ? `验收点 ${matchedCaseCount(contractJudge)}/${contractJudge?.cases.length ?? 0} 未全中`
+      : contractJudge
+        ? '标记完成（自动验证）'
+        : canAutoRun
+          ? '标记完成（自行声明）'
+          : needsExternalEvidence
+            ? '补齐外部证据后可标记完成'
+            : '已完成真实环境练习，标记完成'
+}
+
+/** 交上去的事实（与改版前同一个对象形状，只是搬到共用模型里算一次）。 */
+export function completionPayloadOf(facts: {
+  ran: boolean
+  contractJudge: JudgeOutcome | null
+  isExternal: boolean
+  externalCheck: EvidenceValidation | null
+  externalEvidence: ExternalEvidence
+}): LessonCompletionPayload {
+  const { ran, contractJudge, isExternal, externalCheck, externalEvidence } = facts
+  return {
+    verification: ran ? 'auto-verified' : 'self-declared',
+    cases: contractJudge ? { matched: matchedCaseCount(contractJudge), total: contractJudge.cases.length } : null,
+    // 校验通过才带上证据：锁住的时候按钮本就点不动，不该交出半份材料让上层去序列化。
+    ...(isExternal && externalCheck?.valid ? { externalEvidence } : {}),
+  }
+}

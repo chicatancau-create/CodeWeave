@@ -1,0 +1,85 @@
+      "description": "运行两个服务与一个网关并解释调用链（外部环境实验）。 本关聚焦：注册发现、服务调用、网关。",
+      "language": "java",
+      "stack": [
+        "Spring Cloud",
+        "网关",
+        "注册中心"
+      ],
+      "difficulty": "进阶",
+      "runner": "external",
+      "prerequisites": [
+        "stage-i"
+      ],
+      "starterCode": "service-a -> gateway -> service-b\n// 标注一次失败重试策略",
+      "targetOutput": [
+        "运行两个服务和一个网关并解释调用链"
+      ],
+      "evidence": [
+        "两个服务注册成功的日志",
+        "网关转发请求的记录",
+        "一次熔断或重试的演示"
+      ],
+      "hint": "先在本地把注册中心和两个服务跑起来，再用网关统一入口。",
+      "explanation": "微服务的问题都出现在“之间”：网络、超时、一致性；证据必须来自真实运行。"
+    },
+    {
+      "id": "stage-l",
+      "stageId": "L",
+      "track": "交付运维",
+      "title": "L 关卡验收：部署与运维",
+      "description": "在干净环境完成容器化部署与排错（外部环境实验）。 本关聚焦：Linux、进程、端口、日志、环境变量。",
+      "language": "java",
+      "stack": [
+        "Linux",
+        "Docker",
+        "Nginx"
+      ],
+      "difficulty": "进阶",
+      "runner": "external",
+      "prerequisites": [
+        "stage-i"
+      ],
+      "starterCode": "docker compose up -d\n# docker compose ps\n# curl -I http://127.0.0.1:8080/health",
+      "targetOutput": [
+        "在干净环境完成启动、测试和排错"
+      ],
+      "evidence": [
+        "docker compose ps 输出",
+        "健康检查 200 响应",
+        "一次端口冲突或启动失败的排查记录"
+      ],
+      "hint": "先写最小 compose 文件只跑数据库，再逐个加服务；每次改动都验证。",
+      "explanation": "部署能力只能在真实环境获得；把排错过程写下来就是团队的运维手册。"
+    },
+    {
+      "id": "stage-m",
+      "stageId": "M",
+      "track": "综合实战",
+      "title": "M 关卡验收：竞赛综合实战",
+      "description": "限时完成需求拆解、开发、修复与答辩（外部环境实验）。 本关聚焦：需求拆解、实体建模、接口清单。",
+      "language": "java",
+      "stack": [
+        "全栈组合"
+      ],
+      "difficulty": "进阶",
+      "runner": "external",
+      "prerequisites": [
+        "stage-c",
+        "stage-e",
+        "stage-i",
+        "stage-j"
+      ],
+      "starterCode": "需求 -> 数据模型 -> API -> 页面 -> 测试\n// 先拆出最小可运行版本，再迭代",
+      "targetOutput": [
+        "限时交付可运行、可解释的全栈项目"
+      ],
+      "evidence": [
+        "限时内可运行的项目",
+        "答辩演示脚本",
+        "Bug 修复与延迟复测记录"
+      ],
+      "hint": "先用 30 分钟把最小闭环跑通，再扩展功能；每一步留证据。",
+      "explanation": "竞赛考察的是交付节奏与表达；能解释“为什么这样做”比堆功能更重要。"
+    }
+  ]
+}

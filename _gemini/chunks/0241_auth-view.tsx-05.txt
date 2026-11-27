@@ -1,0 +1,8 @@
+        <p className="cv-auth__foot">
+          <span><ShieldCheck size={13} aria-hidden="true" /> 本地账户 · 独立学习空间</span>
+          <span>密码 {PASSWORD_MIN_LENGTH}–{PASSWORD_MAX_LENGTH} 位</span>
+        </p>
+      </section>
+    </div>
+  )
+}

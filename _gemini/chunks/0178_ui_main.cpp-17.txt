@@ -1,0 +1,65 @@
+            if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 0 || spinner->isVisible() ||
+                spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Accessible reduced-motion action did not apply its checked state");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection);
+            QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
+            if (shell.reducedMotion() || toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 150) {
+              diagnostic = QStringLiteral("Reduced-motion checkbox did not restore after its accessible action");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            const auto preference_draft = shell.draftCode();
+            const auto preference_revision = shell.draftRevision();
+            auto* accessible_lines = QAccessible::queryAccessibleInterface(line_toggle);
+            auto* line_actions = accessible_lines ? accessible_lines->actionInterface() : nullptr;
+            if (!accessible_lines || accessible_lines->role() != QAccessible::CheckBox || !line_actions ||
+                !line_actions->actionNames().contains(QAccessibleActionInterface::toggleAction()) ||
+                !QMetaObject::invokeMethod(font_size, "activated", Qt::DirectConnection, Q_ARG(int, 4))) {
+              diagnostic = QStringLiteral("Editor preferences did not expose their activation actions");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            line_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+            if (!require_toggle_thumb(line_toggle)) return;
+            if (shell.editorFontSize() != 16 || shell.editorLineNumbers() ||
+                font_size->property("currentIndex").toInt() != 4 || line_toggle->property("checked").toBool() ||
+                shell.draftCode() != preference_draft || shell.draftRevision() != preference_revision) {
+              diagnostic = QStringLiteral("Editor preferences did not apply or changed the current draft");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Editor preferences defaults action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+            if (!require_toggle_thumb(line_toggle)) return;
+            if (shell.editorFontSize() != 13 || !shell.editorLineNumbers() ||
+                font_size->property("currentIndex").toInt() != 1 || !line_toggle->property("checked").toBool() ||
+                shell.draftCode() != preference_draft || shell.draftRevision() != preference_revision) {
+              diagnostic = QStringLiteral("Restoring editor preferences changed the draft or missed defaults");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            const auto preference_path = QDir(nativeData).filePath(QStringLiteral("preferences.ini"));
+            if (!QFile::remove(preference_path) || !QDir().mkpath(preference_path)) {
+              diagnostic = QStringLiteral("Could not create isolated preference write-failure fixture");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            toggle->forceActiveFocus();

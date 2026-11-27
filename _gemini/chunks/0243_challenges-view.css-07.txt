@@ -1,0 +1,141 @@
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+  margin-top: 0;
+}
+
+.challenges-view .challenge-pagination .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-pagination .subtle-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+/* 禁用态文字走三级文字档（5.44:1），不走 0.34 装饰档：
+   WCAG 1.4.3 确实豁免非活动控件，但本库给这一档写的边界是「仅限装饰、不承载信息」
+   （tokens.css:29），而「上一页」是一个按钮的名字——它读不出来就是读不出来。
+   禁用感由描边与底色表达（下面两行），不靠把文字压到看不见。全站补测 50 格量出来的。 */
+.challenges-view .challenge-pagination .subtle-button:disabled {
+  color: var(--cv-faint);
+  border-color: var(--cv-hair);
+  opacity: 1;                                                       /* 不靠降低整块不透明度表达禁用 */
+}
+
+.challenges-view .challenge-pagination-status {
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================================
+   5. 详情视图
+   ========================================================================== */
+
+.challenges-view .challenge-detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-16, 16px), 2vw, var(--ds-space-28, 28px));
+  padding-bottom: var(--cv-pad);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-14, 14px);
+}
+
+.challenges-view .challenge-back {
+  align-self: flex-start;
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  transition: border-color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-back:hover {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-back:active {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+/* 详情编号行：真实文本「07 / 13 · 阶段 G」，与列表同一口径 */
+.challenges-view .challenge-detail-no {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-detail-no-index {
+  color: var(--cv-scene);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.challenges-view .challenge-detail-heading h2 {
+  margin: var(--ds-space-10, 10px) 0 var(--ds-space-10, 10px);
+  color: var(--cv-ink);
+  font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.challenges-view .challenge-detail-heading > p {
+  max-width: 70ch;
+  margin: 0 0 var(--ds-space-12, 12px);
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-detail-heading-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+}
+
+.challenges-view .challenge-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--cv-faint);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+}
+
+.challenges-view .challenge-meta svg {
+  color: var(--cv-scene);
+}
+
+/* 详情面板容器：轻边界信息区（1px 发丝线，直角，遮光层，无投影） */
+.challenges-view .challenge-detail {
+  padding: clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-24, 24px));
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);

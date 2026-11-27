@@ -1,0 +1,85 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "../components"
+import "../components/LearningCatalog.js" as Catalog
+
+Item {
+    id: details
+    objectName: "learningDetailsRoot"
+    property QtObject ds
+    property var hostRoot
+    property var lessons: []
+    property var catalogLessons: []
+    property var subjects: []
+    property int subjectIndex: -1
+    signal backRequested()
+    signal subjectChosen(int index)
+    Component.onCompleted: backButton.forceActiveFocus()
+    Keys.onEscapePressed: backRequested()
+    readonly property var groups: Catalog.stageGroups(lessons)
+    readonly property int publishedStageCount: groups.filter(function(group) {
+        return group.numbered && group.lessons.length > 0;
+    }).length
+    readonly property int unitGapCount: lessons.filter(function(lesson) { return Catalog.gapLabels(lesson).length > 0; }).length
+    readonly property int stageGapCount: Catalog.stageGapCount(groups)
+    readonly property var recommended: uiShell.lessonEvidenceReady ? lessons.find(function(lesson) {
+        return !Catalog.holdsCompletion(uiShell.lessonEvidenceStates[lesson.id]);
+    }) || null : null
+    readonly property var statistics: [
+        { label: "当前科目", value: subjectIndex >= 0 && subjectIndex < subjects.length ? subjects[subjectIndex] : "全部科目" },
+        { label: "课程单元", value: lessons.length + " 个" },
+        { label: "编号阶段", value: publishedStageCount + " / 10 个已发布" },
+        { label: "缺口", value: unitGapCount + " 个单元 · " + stageGapCount + " 处阶段缺口" },
+        { label: "下一推荐", value: !uiShell.lessonEvidenceReady ? "完成证据未载入" : (recommended ? (recommended.label ? recommended.label + " · " : "") + recommended.title : "暂无待学习单元") }
+    ]
+    function reveal(item) {
+        const flickable = detailScroll.contentItem;
+        if (!item.activeFocus || !flickable || flickable.contentY === undefined) return;
+        const top = item.mapToItem(detailColumn, 0, 0).y;
+        const bottom = top + item.height;
+        if (top < flickable.contentY) flickable.contentY = Math.max(0, top);
+        else if (bottom > flickable.contentY + detailScroll.availableHeight)
+            flickable.contentY = Math.max(0, bottom - detailScroll.availableHeight);
+    }
+
+    ScrollView {
+        id: detailScroll
+        objectName: "learningDetailsScroll"
+        anchors.fill: parent
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ColumnLayout {
+            id: detailColumn
+            width: details.width - ds.s16
+            spacing: ds.s24
+            QuietButton {
+                id: backButton
+                ds: details.ds
+                objectName: "learningDetailsBack"
+                label: "返回工作区概览"
+                onClicked: details.backRequested()
+            }
+            RowLayout {
+                spacing: ds.s16
+                Text { text: "PATH"; color: ds.accent; font.family: ds.mono; font.pixelSize: 11 }
+                Rectangle { implicitWidth: 48; implicitHeight: 1; color: ds.lineRaised }
+                Text { text: "交互式学习路径"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+            }
+            Text { objectName: "learningDetailsTitle"; Layout.fillWidth: true; text: "选择科目和课程"; color: ds.ink; font.family: ds.ui; font.pixelSize: 24; font.weight: Font.DemiBold; wrapMode: Text.WordWrap }
+            Text {
+                Layout.fillWidth: true
+                Layout.maximumWidth: 470
+                text: "每个课程通过代码、讲解与练习帮助理解程序的运行过程。清单按 S0—S9 编号阶段排列，来源与缺口逐条标明。"
+                color: ds.muted
+                font.family: ds.ui
+                font.pixelSize: 14
+                lineHeight: 1.65
+                wrapMode: Text.WordWrap
+            }
+            ColumnLayout {
+                objectName: "learningDetailsStatistics"
+                Layout.fillWidth: true
+                Layout.maximumWidth: 470
+                spacing: 0
+                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }

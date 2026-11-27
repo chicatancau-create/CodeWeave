@@ -1,0 +1,127 @@
+import { memo, useRef, useState } from 'react'
+import {
+  BookOpenCheck,
+  Check,
+  CircleHelp,
+  ClipboardCheck,
+  Lightbulb,
+  Play,
+  ShieldAlert,
+  SquareDashed,
+  Trophy,
+  X,
+} from 'lucide-react'
+import type {
+  AchievementObservation,
+  Challenge,
+  ChallengeRecord,
+  ExecutionResult,
+} from '../../types/lesson'
+import { EXECUTION_TIER_LABEL, tierOfRunner } from '../../types/lesson'
+import { judgeModeShortLabel, type JudgeOutcome } from '../../engine/challenge-judge'
+import type { EvidenceValidation, ExternalEvidence } from '../../utils/external-evidence'
+import { MovingBorderButton } from '../moving-border'
+import { LANGUAGE_EXTENSIONS, RUNNER_LABELS, submissionPhase } from './challenge-model'
+import { EXTERNAL_FIELDS, ExternalEvidenceForm } from './ExternalEvidenceForm'
+import { SubmissionHistory } from './SubmissionHistory'
+
+/* ----------------------------------------------------------------------------
+   详情面板（CHAL-01）：内容分区 = 题目 / 编写与运行 / 提交记录。
+   手机用标签页；桌面（≥1024px）由 CSS 展开为双栏，全部分区可见。
+   草稿、运行结果、证据都保存在父组件（按 challenge.id），切换标签不丢失。
+   ---------------------------------------------------------------------------- */
+
+type DetailTab = 'overview' | 'lab' | 'evidence'
+
+const DETAIL_TABS: { id: DetailTab; label: string; panelClass: string }[] = [
+  { id: 'overview', label: '题目', panelClass: 'detail-tabpanel--overview' },
+  { id: 'lab', label: '编写与运行', panelClass: 'detail-tabpanel--lab' },
+  { id: 'evidence', label: '提交记录', panelClass: 'detail-tabpanel--evidence' },
+]
+
+function ChallengeDetailPanel({
+  challenge,
+  sequence,
+  total,
+  record,
+  units,
+  onOpenUnit,
+  draft,
+  draftCodeState,
+  draftEvidenceState,
+  onDraftChange,
+  runResult,
+  outputMatches,
+  judge,
+  busy,
+  onRun,
+  evidence,
+  onEvidenceChange,
+  externalEvidence,
+  externalCheck,
+  onExternalEvidenceChange,
+  hintOpen,
+  onToggleHint,
+  canSubmit,
+  onSubmit,
+  onVerifySubmission,
+  onRejectSubmission,
+}: {
+  challenge: Challenge
+  sequence: string
+  total: string
+  record: ChallengeRecord | undefined
+  units: { id: string; title: string }[]
+  onOpenUnit: (lessonId: string) => void
+  draft: string
+  draftCodeState: string
+  draftEvidenceState: string
+  onDraftChange: (code: string) => void
+  runResult: ExecutionResult | undefined
+  outputMatches: boolean
+  /** CHAL-02：逐条判定结果，未运行时为 undefined（不渲染判定明细，也不给通过结论） */
+  judge: JudgeOutcome | undefined
+  busy: boolean
+  onRun: () => void
+  evidence: string
+  onEvidenceChange: (note: string) => void
+  externalEvidence: ExternalEvidence
+  externalCheck: EvidenceValidation | undefined
+  onExternalEvidenceChange: (updates: Partial<ExternalEvidence>) => void
+  hintOpen: boolean
+  onToggleHint: () => void
+  canSubmit: boolean
+  onSubmit: () => void
+  /** R4 人工复核：由上层把 hook 的 verifySubmission / rejectSubmission 原样递进来（未接上时不画按钮） */
+  onVerifySubmission: ((challengeId: string, observation?: AchievementObservation) => void) | undefined
+  onRejectSubmission: ((challengeId: string) => void) | undefined
+}) {
+  const isExternal = challenge.runner === 'external'
+  const [tab, setTab] = useState<DetailTab>('overview')
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  const focusTab = (index: number) => {
+    const next = (index + DETAIL_TABS.length) % DETAIL_TABS.length
+    const nextTab = DETAIL_TABS[next]
+    if (!nextTab) return
+    setTab(nextTab.id)
+    tabRefs.current[next]?.focus()
+  }
+
+  const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      focusTab(index + 1)
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      focusTab(index - 1)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      focusTab(0)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      focusTab(DETAIL_TABS.length - 1)
+    }
+  }
+
+  const tierBadge = (

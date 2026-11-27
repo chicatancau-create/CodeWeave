@@ -1,0 +1,105 @@
+      prompt: front.fields.prompt,
+      inputConvention: front.fields.inputConvention ?? '',
+      testCases: asList(front.fields.testCases),
+      hintLevels: asList(front.fields.hintLevels),
+      executionPolicy: front.fields.executionPolicy,
+      language: front.fields.language ?? 'none',
+      version: Number(front.fields.version),
+      starterCode: starterMatch ? starterMatch[2].replace(/\n$/, '') : '',
+      starterLanguage: starterMatch ? starterMatch[1] || 'text' : 'text',
+      expectedOutput: asList(front.fields.expectedOutput),
+      evidenceChecklist: asList(front.fields.evidenceChecklist),
+      rubric: asList(front.fields.rubric),
+      notes: body.trim(),
+    })
+  }
+  return { exercises, problems }
+}
+
+// ---------------------------------------------------------------------------
+// 规则投影（DATA-01）
+// ---------------------------------------------------------------------------
+
+/** v2 起按「明确规则段」取版本指纹；v1 的整文件 hash 继续可读，不使旧投影静默失效。 */
+export const RULE_SCHEMA_VERSION = 2
+
+export function ruleSourcePaths(rules) {
+  const paths = new Set(Object.keys(rules?.sourceHashes ?? {}))
+  for (const section of rules?.ruleSections ?? []) if (section?.path) paths.add(section.path)
+  return [...paths]
+}
+
+/**
+ * 读取规则来源并逐段定位。定位失败原样带出 `located: false`，不静默忽略，
+ * 也不允许把几个同级标题拼成一条祖先链——findSection 只认真实祖先链。
+ */
+export async function loadRuleSources(root, rules) {
+  const texts = {}
+  for (const path of ruleSourcePaths(rules)) {
+    try {
+      texts[path] = normalizeText(await readVaultText(root, path))
+    } catch {
+      texts[path] = null
+    }
+  }
+  const fileHashes = {}
+  for (const [path, text] of Object.entries(texts)) fileHashes[path] = text === null ? null : sha256(text)
+
+  const sections = (rules?.ruleSections ?? []).map((section) => {
+    const text = section?.path ? (texts[section.path] ?? null) : null
+    const found = text === null ? null : findSection(text, section.headingPath)
+    const review = rules?.sectionReviews?.[String(section?.id ?? '')]
+    return {
+      id: String(section?.id ?? ''),
+      path: String(section?.path ?? ''),
+      headingPath: [...(section?.headingPath ?? [])],
+      covers: [...(section?.covers ?? [])],
+      sourceReadable: text !== null,
+      located: Boolean(found),
+      fingerprint: found ? sha256(normalizeText(found.bodyText)) : null,
+      // 审阅记录：谁在哪一天核对了这一段，指纹是多少。
+      reviewedAt: review?.reviewedAt ?? null,
+      reviewer: review?.reviewer ?? null,
+      reviewedFingerprint: review?.fingerprint ?? null,
+    }
+  })
+  return { fileHashes, sections }
+}
+
+function labelSection(section) {
+  return `${section.id}(${section.path}#${section.headingPath.join(' > ')})`
+}
+
+export function checkRules(rules, sources) {
+  if (!rules) return { status: 'missing', reason: '未配置 rules/teaching-rules.json', usable: false, sections: [] }
+
+  if ((rules.schemaVersion ?? 1) < RULE_SCHEMA_VERSION) {
+    const stale = Object.entries(rules.sourceHashes ?? {})
+      .filter(([path, hash]) => sources.fileHashes[path] !== hash)
+      .map(([path]) => path)
+    return stale.length > 0
+      ? {
+          status: 'stale',
+          schema: 'v1-file-hash',
+          reason: `规则来源（v1 整文件指纹）已变化或被移动，需人工复核后更新 sourceHashes：${stale.join('、')}`,
+          usable: false,
+          sections: [],
+        }
+      : { status: 'current', schema: 'v1-file-hash', reason: '', usable: true, sections: [] }
+  }
+
+  const ids = sources.sections.map((section) => section.id)
+  if (new Set(ids).size !== ids.length) {
+    const dup = ids.filter((id, index) => ids.indexOf(id) !== index)
+    return { status: 'invalid', reason: `规则段 id 重复：${dup.join('、')}`, usable: false, sections: sources.sections }
+  }
+  const unscoped = sources.sections.filter((section) => section.covers.length === 0)
+  if (unscoped.length > 0) {
+    return {
+      status: 'invalid',
+      reason: `规则段未声明 covers，无法判断该段授权哪些投影字段：${unscoped.map(labelSection).join('、')}`,
+      usable: false,
+      sections: sources.sections,
+    }
+  }
+  if (sources.sections.length === 0) {

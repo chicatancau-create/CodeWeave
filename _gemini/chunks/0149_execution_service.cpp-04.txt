@@ -1,0 +1,63 @@
+    const std::filesystem::path& working_directory, const std::atomic_bool* cancellation,
+    ExecutionControl* control, Trace::Observer observer) const {
+  ProcessPlan plan{};
+  const auto validation = build_process_plan(request, executable, working_directory, plan);
+  if (!validation.ok) return {validation, std::nullopt, std::nullopt};
+  if (request.language == "python" || request.language == "javascript") {
+    const bool python = request.language == "python";
+    std::error_code directory_error;
+    const auto trace_directory = unique_source_trace_directory(working_directory, request.language);
+    const bool created = std::filesystem::create_directory(trace_directory, directory_error);
+    if (!created || directory_error) {
+      return {app::Result::failure(created ? "源码追踪隔离工作目录创建后不可用"
+                                           : "源码追踪隔离工作目录已被占用或无法创建"),
+          std::nullopt, std::nullopt};
+    }
+    TemporaryDirectory trace_cleanup(trace_directory);
+    const auto source_path = trace_directory / (python ? "program.py" : "program.cjs");
+    const auto runner_path = trace_directory / (python ? "runner.py" : "runner.cjs");
+    const auto snapshot_path = trace_directory / "snapshots.jsonl";
+    const auto syntax_fallback_path = trace_directory / "syntax-fallback";
+    if (!write_file(source_path, request.source) ||
+        !write_file(runner_path, python ? kPythonTraceRunner : kJavaScriptTraceRunner)) {
+      return {app::Result::failure("创建源码追踪文件失败"), std::nullopt, std::nullopt};
+    }
+    std::vector<std::wstring> arguments;
+    if (python) arguments = {L"-X", L"utf8"};
+    arguments.insert(arguments.end(), {runner_path.wstring(), source_path.wstring(), snapshot_path.wstring()});
+    if (!python) arguments.push_back(syntax_fallback_path.wstring());
+    ProcessPlan trace_plan{
+        {executable, std::move(arguments), working_directory, request.language},
+        {}, request.timeout_ms, request.output_limit};
+    if (const auto valid = validate_process_request(trace_plan.process); !valid.ok) {
+      return {valid, std::nullopt, std::nullopt};
+    }
+    Trace trace(request.session_id, std::move(observer));
+    trace.append(EventKind::Started);
+    auto process = run_observed(runner_, trace_plan, cancellation, control, trace, snapshot_path);
+    if (!python && process.exit_code != 0 && !process.cancelled && !process.timed_out &&
+        !(cancellation && cancellation->load())) {
+      std::error_code fallback_error;
+      const auto status = std::filesystem::symlink_status(syntax_fallback_path, fallback_error);
+      if (!fallback_error && std::filesystem::is_regular_file(status) && !std::filesystem::is_symlink(status)) {
+        std::ifstream marker(syntax_fallback_path, std::ios::binary);
+        // The marker is written only by the parser, before any learner code runs.
+        if (marker.get() == '1') process = run_observed(runner_, plan, cancellation, control, trace);
+      }
+    }
+    if (process.timed_out || process.error_code == "execution_timeout") trace.append(EventKind::Failed, process.error_code);
+    else if (process.cancelled) trace.append(EventKind::Cancelled);
+    else if (process.exit_code == 0 && process.error_code.empty()) trace.append(EventKind::Completed);
+    else trace.append(EventKind::Failed, process.error_code.empty() ? "process_exit_nonzero" : process.error_code);
+    return {validation, std::move(process), std::move(trace)};
+  }
+  if (request.language == "java") {
+    std::error_code directory_error;
+    const auto java_directory = unique_source_trace_directory(working_directory, request.language);
+    const bool created = std::filesystem::create_directory(java_directory, directory_error);
+    if (!created || directory_error) {
+      return {app::Result::failure(created ? "Java 隔离工作目录创建后不可用"
+                                           : "Java 隔离工作目录已被占用或无法创建"),
+          std::nullopt, std::nullopt};
+    }
+    TemporaryDirectory java_cleanup(java_directory);

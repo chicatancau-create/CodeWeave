@@ -1,0 +1,65 @@
+    // 项目详情是清单的下钻视图，h1 只在页眉；页面级最佳实践项由浏览器复核承担
+    'landmark-one-main': { enabled: false },
+    region: { enabled: false },
+  }
+
+  it('列表 + 详情（含检查点两行）无 axe 违规', async () => {
+    const { container } = renderView({
+      projects: [
+        project({
+          checkpoints: [
+            { id: 'cp-2', at: '2026-09-11T08:00:00.000Z', files: [file()] },
+            { id: 'cp-1', at: '2026-09-09T08:00:00.000Z', files: [file(), file({ id: 'file-2' })] },
+          ],
+        }),
+      ],
+    })
+    const results = await axe.run(container, { rules: axeRules })
+    expect(results.violations.map((violation) => `${violation.id}: ${violation.description}`)).toEqual([])
+  })
+})
+
+/**
+ * 01 号方案 §4 的 error 行 + §2.1 状态层：写不进本机时要说出口，
+ * 并且语义色之外还要有文字与边界（不只靠颜色承载）。
+ * 失败原因由 `useProjects` 统一给出，本组件只负责把它说出来并给一次重试。
+ */
+describe('M4 项目页 · 落盘失败那一块', () => {
+  const FAILURE = '这台设备的浏览器没有收下这次改动（本地存储配额已满，或浏览器禁止写入站点数据）。'
+
+  it('有失败原因时：role=alert、原话、以及「只存在于这一次会话」的后果都说清', () => {
+    const { container } = renderView({ persistFailure: FAILURE })
+    const block = container.querySelector('.projects-persist-error')
+    expect(block?.getAttribute('role'), '失败必须播报，不能只换一行灰字').toBe('alert')
+    expect(block?.textContent).toContain('改动没有保存到这台设备')
+    expect(block?.textContent).toContain(FAILURE)
+    expect(block?.textContent).toContain('只存在于这一次会话')
+    expect(container.querySelector('.projects-persist-error-reason')?.textContent).toContain(FAILURE)
+  })
+
+  it('没有失败原因时整块不渲染（不留一个空壳占位）', () => {
+    const { container } = renderView()
+    expect(container.querySelector('.projects-persist-error')).toBeNull()
+  })
+
+  it('重试按钮按一次就要求重写一遍，不要求用户重做刚才的编辑', () => {
+    const onRetryPersist = vi.fn()
+    renderView({ persistFailure: FAILURE, onRetryPersist })
+    const button = screen.getByRole('button', { name: '重试保存' })
+    fireEvent.click(button)
+    expect(onRetryPersist).toHaveBeenCalledTimes(1)
+  })
+
+  it('没给重试回调时不画一颗按了没用的按钮', () => {
+    const { container } = renderView({ persistFailure: FAILURE })
+    expect(container.querySelector('.projects-persist-retry')).toBeNull()
+  })
+
+  it('失败块的颜色只走令牌，且带边界：红不是唯一通道（§2.1 状态层）', () => {
+    const block = ruleBody('.projects-view .projects-persist-error')
+    expect(block).toContain('border:')
+    expect(block).toMatch(/var\(--ds-status-danger/)
+    const strong = ruleBody('.projects-view .projects-persist-error strong')
+    expect(strong).toMatch(/var\(--ds-status-danger/)
+  })
+})

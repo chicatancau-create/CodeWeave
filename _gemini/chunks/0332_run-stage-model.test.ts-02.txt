@@ -1,0 +1,108 @@
+    const samples: Record<string, string> = {
+      parity: 'n = 4\nif n % 2 == 0:\n    print("even")\nelse:\n    print("odd")',
+      'while-loop': 'n = 3\nwhile n > 0:\n    print(n)\n    n -= 1',
+      'max-of-two': 'int a = 3;\nint b = 7;\nif (a > b) { print(a); } else { print(b); }',
+      'for-sum': 'total = 0\nfor i in range(1, 6):\n    total += i\nprint(total)',
+      'age-increment': 'age = 30\nprint(age + 1)',
+    }
+    let folded = 0
+    for (const [id, code] of Object.entries(samples)) {
+      const result = simulateProgram(code, 'python', mockLesson())
+      if (result.events.length === 0) continue // 没识别成这个模板的样本跳过，不在这一层断言识别率
+      const frames = stageFrames(result.events, stepsOf(result.events))
+      expect(frames, id).toHaveLength(result.events.length)
+      expect(frames.at(-1)!.index, id).toBe(result.events.length - 1)
+      expect(frames.at(-1)!.total, id).toBe(result.events.length)
+      folded++
+    }
+    expect(folded).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('run-stage-model · 变量快照按值比较', () => {
+  it('两个数组对象、内容逐字相同的两拍算「没变」——比的是值，不是数组引用', () => {
+    // 反向守卫：这一层若偷懒按引用比（`prev.variables === next.variables`），或者干脆
+    // 每拍一律标 changed，这一条都会红。两拍给的是**两个不同的数组对象**、内容完全一致，
+    // 正确结果是 changed=false、born=false。
+    const before: TraceEvent['variables'] = [{ name: 'total', value: '3', type: 'int', color: 'blue' }]
+    const after: TraceEvent['variables'] = [{ name: 'total', value: '3', type: 'int', color: 'blue' }]
+    expect(before === after).toBe(false)
+
+    const events: TraceEvent[] = [
+      { id: 'e0', type: 'start', line: 1, label: '开始', detail: '', variables: before, nodeId: 'n1' },
+      { id: 'e1', type: 'assign', line: 2, label: '累加', detail: '', variables: after, nodeId: 'n1' },
+    ]
+    const steps: StageStep[] = [{ id: 'n1', label: '累加', kind: 'process', tone: 'blue' }]
+    const cells = stageFrameAt(events, steps, 1)!.nodes[0]!.cells
+    expect(cells).toMatchObject([{ name: 'total', value: '3', changed: false, born: false }])
+  })
+
+  it('内容不同就标 changed（两份各自独立的快照）', () => {
+    const events: TraceEvent[] = [
+      {
+        id: 'e0',
+        type: 'start',
+        line: 1,
+        label: '开始',
+        detail: '',
+        variables: [{ name: 'total', value: '0', type: 'int', color: 'blue' }],
+        nodeId: 'n1',
+      },
+      {
+        id: 'e1',
+        type: 'assign',
+        line: 2,
+        label: '累加',
+        detail: '',
+        variables: [{ name: 'total', value: '6', type: 'int', color: 'blue' }],
+        nodeId: 'n1',
+      },
+    ]
+    const steps: StageStep[] = [{ id: 'n1', label: '累加', kind: 'process', tone: 'blue' }]
+    const cells = stageFrameAt(events, steps, 1)!.nodes[0]!.cells
+    expect(cells[0]!.value).toBe('6')
+    expect(cells[0]!.changed).toBe(true)
+    expect(cells[0]!.born).toBe(false)
+  })
+
+  it('第 0 拍的变量算「首次出现」而不是「被改写」', () => {
+    const events: TraceEvent[] = [
+      {
+        id: 'e0',
+        type: 'assign',
+        line: 1,
+        label: '赋值',
+        detail: '',
+        variables: [{ name: 'a', value: '4', type: 'int', color: 'blue' }],
+        nodeId: 'n1',
+      },
+    ]
+    const frame = stageFrameAt(events, [{ id: 'n1', label: '赋值', kind: 'process', tone: 'blue' }], 0)
+    expect(frame!.nodes[0]!.cells).toMatchObject([{ name: 'a', value: '4', born: true, changed: false }])
+  })
+
+  it('数据格只挂在当前这一拍命中的节点上，其他节点不填旧值', () => {
+    const events: TraceEvent[] = [
+      {
+        id: 'e0',
+        type: 'assign',
+        line: 1,
+        label: '第一拍',
+        detail: '',
+        variables: [{ name: 'a', value: '1', type: 'int', color: 'blue' }],
+        nodeId: 'n1',
+      },
+      {
+        id: 'e1',
+        type: 'assign',
+        line: 2,
+        label: '第二拍',
+        detail: '',
+        variables: [{ name: 'b', value: '2', type: 'int', color: 'blue' }],
+        nodeId: 'n2',
+      },
+    ]
+    const steps: StageStep[] = [
+      { id: 'n1', label: '一', kind: 'process', tone: 'blue' },
+      { id: 'n2', label: '二', kind: 'process', tone: 'blue' },
+    ]

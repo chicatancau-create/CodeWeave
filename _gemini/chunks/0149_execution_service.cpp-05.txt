@@ -1,0 +1,60 @@
+    const auto source_path = java_source_path(java_directory);
+    const auto runner_directory = java_directory / "codeweave" / "trace";
+    std::filesystem::create_directories(runner_directory, directory_error);
+    if (directory_error || !write_file(runner_directory / "CodeWeaveTraceRunner.java", kJavaTraceRunner)) {
+      return {app::Result::failure("无法创建 Java 源码追踪器"), std::nullopt, std::nullopt};
+    }
+    const auto snapshot_path = java_directory / "snapshots.jsonl";
+    {
+      std::ofstream source_file(source_path, std::ios::binary | std::ios::trunc);
+      if (!source_file) return {app::Result::failure("无法创建 Java 源文件"), std::nullopt, std::nullopt};
+      source_file.write(request.source.data(), static_cast<std::streamsize>(request.source.size()));
+      source_file.flush();
+      if (!source_file) return {app::Result::failure("写入 Java 源文件失败"), std::nullopt, std::nullopt};
+    }
+    const auto compiler = sibling_java_compiler(executable);
+    const ProcessRequest compile_request{
+        compiler, {L"--add-modules", L"jdk.jdi", L"-g", L"-encoding", L"UTF-8", L"Main.java",
+                      L"codeweave/trace/CodeWeaveTraceRunner.java"}, java_directory, "java-compile"};
+    if (const auto compile_valid = validate_process_request(compile_request); !compile_valid.ok) {
+      return {app::Result::failure("Java 编译器未配置或不在同一 JDK 中"), std::nullopt, std::nullopt};
+    }
+    Trace trace(request.session_id, std::move(observer));
+    trace.append(EventKind::Started);
+    auto compilation = runner_.run({compile_request, {}, request.timeout_ms, request.output_limit}, cancellation, control);
+    if (!compilation.started || compilation.exit_code != 0 || !compilation.error_code.empty() ||
+        (cancellation && cancellation->load())) {
+      compilation.execution_output_valid = false;
+      if (!compilation.output.empty()) trace.append(EventKind::Output, compilation.output);
+      if (compilation.cancelled || (cancellation && cancellation->load())) trace.append(EventKind::Cancelled);
+      else if (!compilation.error_code.empty()) trace.append(EventKind::Failed, compilation.error_code);
+      else trace.append(EventKind::Failed, "java_compilation_failed");
+      return {validation, std::move(compilation), std::move(trace)};
+    }
+    ProcessPlan runtime_plan{
+        {executable, {L"--add-modules", L"jdk.jdi", L"-cp", java_directory.wstring(),
+                         L"codeweave.trace.CodeWeaveTraceRunner", snapshot_path.wstring()}, java_directory, "java"},
+        {}, request.timeout_ms, request.output_limit};
+    auto process = run_observed(runner_, runtime_plan, cancellation, control, trace, snapshot_path);
+    if (process.timed_out || process.error_code == "execution_timeout") trace.append(EventKind::Failed, process.error_code);
+    else if (process.cancelled) trace.append(EventKind::Cancelled);
+    else if (process.exit_code == 0 && process.error_code.empty()) trace.append(EventKind::Completed);
+    else trace.append(EventKind::Failed, process.error_code.empty() ? "process_exit_nonzero" : process.error_code);
+    return {validation, std::move(process), std::move(trace)};
+  }
+  Trace trace(request.session_id, std::move(observer));
+  trace.append(EventKind::Started);
+  auto source_path = request.language == "cpp" ? generated_cpp_source_path(plan)
+      : std::filesystem::path{};
+  auto program_path = request.language == "cpp" ? generated_cpp_path(plan)
+      : std::filesystem::path{};
+  std::filesystem::path cpp_trace_directory;
+  std::unique_ptr<TemporaryDirectory> cpp_trace_cleanup;
+  auto cpp_debugger = request.language == "cpp" ? sibling_cpp_debugger(executable) : std::filesystem::path{};
+  std::filesystem::path temporary_root;
+  if (!cpp_debugger.empty()) {
+    std::error_code error;
+    temporary_root = std::filesystem::temp_directory_path(error);
+    if (error) {
+      trace.append(EventKind::Failed, "cpp_trace_temp_unavailable");
+      return {app::Result::failure("无法定位 C++ 调试临时目录"), std::nullopt, std::move(trace)};

@@ -1,0 +1,63 @@
+                    close_ms=round((time.perf_counter()-stopped)*1000, 3),
+                    process_count=len(owned))
+    finally:
+        # Only processes created by this sample; never kill by image name.
+        for process in reversed(owned):
+            try:
+                if process.is_running():
+                    process.kill()
+            except psutil.NoSuchProcess:
+                pass
+        child.wait(timeout=10)
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--electron', type=Path, help='optional legacy Electron executable')
+    parser.add_argument('--native', type=Path, required=True)
+    parser.add_argument('--qt', type=Path, help='optional Qt deployment executable')
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args()
+    root = Path(tempfile.mkdtemp(prefix='cw-visible-benchmark-'))
+    result = dict(os=platform.platform(), logical_cpus=psutil.cpu_count(),
+                  memory_gib=round(psutil.virtual_memory().total / 1024**3, 2),
+                  utc=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                  method='10ms window polling; 2s idle; total RSS includes shared pages; fresh profile is not OS cold cache; non-equivalent feature sets',
+                  unmeasured=['OS cold startup', 'course loading', 'editor latency', 'cancel latency'],
+                  executables={}, samples=[])
+    try:
+        kinds = ['native']
+        if args.electron is not None:
+            kinds.insert(0, 'electron')
+        if args.qt is not None:
+            kinds.append('qt')
+        for kind in kinds:
+            exe = getattr(args, kind).resolve()
+            result['executables'][kind] = dict(path=str(exe), sha256=hashlib.sha256(exe.read_bytes()).hexdigest())
+        for phase, count in [('fresh-profile', 5), ('warm-profile', 10)]:
+            for index in range(count):
+                # Alternate order to reduce persistent first-run bias.
+                order = list(kinds)
+                if index % 2:
+                    order.reverse()
+                for kind in order:
+                    fixture = root / (f'{kind}-{phase}-{index}' if phase == 'fresh-profile' else f'{kind}-warm')
+                    workspace = fixture / 'workspace'
+                    (workspace / 'config').mkdir(parents=True, exist_ok=True)
+                    (workspace / 'data/knowledge/vault').mkdir(parents=True, exist_ok=True)
+                    (workspace / 'config/codeweave.config.example.json').write_text('{}', encoding='utf-8')
+                    row = dict(kind=kind, phase=phase, index=index, **sample(getattr(args,kind).resolve(),kind,workspace,fixture/'profile'))
+                    result['samples'].append(row)
+                    print(json.dumps(row), flush=True)
+        result['status'] = 'passed'
+    except Exception as error:
+        result['status'] = 'failed'
+        result['error'] = str(error)
+        raise
+    finally:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(result, indent=2), encoding='utf-8')
+        # The unique fixture is created entirely by this script.
+        shutil.rmtree(root)
+
+if __name__ == '__main__':
+    main()

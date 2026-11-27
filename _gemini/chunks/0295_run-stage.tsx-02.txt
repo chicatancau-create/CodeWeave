@@ -1,0 +1,133 @@
+  const { shape } = laid
+  if (shape.form === 'poly') return <polygon className="rs-node-box" points={shape.points} />
+  return (
+    <rect
+      className="rs-node-box"
+      x={shape.x}
+      y={shape.y}
+      width={shape.width}
+      height={shape.height}
+      rx={shape.rx}
+    />
+  )
+})
+
+/**
+ * 一个骨架节点。`role="listitem"` 让它成为画布这份列表里的一条——
+ * 读屏读到的顺序就是程序的顺序，不需要另挂一份隐藏文字。
+ *
+ * **一步一步显现**（2026-10-04）：当前这一拍先在画布正中亮出来，被下一步顶替之后
+ * 再滑回自己的格子，上一步的内容不删、停在原地。三个状态各有一档：
+ * - `todo` 未走到：不画（`run-stage.css` 里 `opacity: 0`），但仍然留在 DOM 里
+ *   ——它是列表的一项，也是「还有几步」的证据，删掉就没有这层信息了；
+ * - `now` 此刻：`--rs-enter-dx/dy` 把它摆到画布正中，`is-entering` 触发入场动画；
+ * - `done` 走过：位移归零，CSS 的 `transform: none` 让它留在自己的格子上。
+ *
+ * 位移由 `stage-layout` 算（画布尺寸的产物），这里只负责写进 CSS 自定义属性。
+ */
+const Node = memo(function Node({ laid, loopBack }: { laid: LaidNode; loopBack: boolean }) {
+  const { node, x, y, textInset } = laid
+  const cells = node.cells.slice(0, CELLS_PER_NODE)
+  const hidden = node.cells.length - cells.length
+  const left = x + textInset
+
+  return (
+    <g
+      role="listitem"
+      data-node-id={node.id}
+      className={`rs-node rs-kind-${node.kind} tone-${node.tone} is-${node.state}${loopBack ? ' is-loop-back' : ''}`}
+      aria-current={node.state === 'now' ? 'step' : undefined}
+      /* 入场位移。写在 style 上而不是类里：它是**每一格都不同**的数，
+         类名只能表达「在不在中心」这一位；数值必须跟着几何走。
+         `as CSSProperties` 是因为 `--*` 是自定义属性，React 的类型定义里没有这个键。 */
+      style={
+        {
+          '--rs-enter-dx': `${laid.enterDx}px`,
+          '--rs-enter-dy': `${laid.enterDy}px`,
+        } as CSSProperties
+      }
+    >
+      <Shape laid={laid} />
+
+      <text className="rs-node-no" x={left} y={y + ROW_TITLE} aria-hidden="true">
+        {node.ordinal !== null ? String(node.ordinal).padStart(2, '0') : '--'}
+      </text>
+      {/* 序号对读屏隐藏（列表本身就有序），但「--」要留在文字里：
+          它是「这一格还没走到」的证据，测试与用户都靠它。 */}
+      <text className="rs-node-label" x={left + 30} y={y + ROW_TITLE}>
+        {node.label}
+      </text>
+
+      {/* 走到过才有源码行；没走到就说「未走到」，不填骨架里的静态行号冒充此刻。 */}
+      {node.state === 'todo' ? (
+        <text className="rs-node-line-no" x={left} y={y + ROW_META}>
+          尚未执行
+        </text>
+      ) : (
+        node.line !== null && (
+          <text className="rs-node-line-no" x={left} y={y + ROW_META}>
+            L{node.line}
+          </text>
+        )
+      )}
+      {/* 重访次数只在真的绕回来过的时候出现，`×1` 是废话。 */}
+      {node.visit > 1 && (
+        <text className="rs-node-visit" x={left + 40} y={y + ROW_META}>
+          第 {node.visit} 次
+        </text>
+      )}
+
+      {cells.length === 0 ? (
+        <text className="rs-cell is-empty" x={left} y={y + ROW_CELL_TOP}>
+          尚未落值
+        </text>
+      ) : (
+        cells.map((cell, i) => (
+          <Cell key={cell.name} cell={cell} x={left} y={y + ROW_CELL_TOP + i * ROW_CELL_PITCH} />
+        ))
+      )}
+      {hidden > 0 && (
+        <text className="rs-cell-more" x={left} y={y + ROW_CELL_TOP + cells.length * ROW_CELL_PITCH}>
+          还有 {hidden} 项
+        </text>
+      )}
+    </g>
+  )
+})
+
+/** 一条边。纯装饰：它的含义由节点顺序与回边注记讲完了，读屏不需要再听一遍几何。 */
+const Edge = memo(function Edge({ edge }: { edge: LaidEdge }) {
+  return (
+    <g className={`rs-edge is-${edge.state}${edge.loop ? ' is-loop' : ''}`} aria-hidden="true">
+      <path className="rs-edge-line" d={edge.d} markerEnd={`url(#rs-arrow-${edge.state})`} />
+      {edge.label && (
+        <text className="rs-edge-label" x={edge.labelX} y={edge.labelY}>
+          {edge.label}
+        </text>
+      )}
+    </g>
+  )
+})
+
+/** 箭头。三态各一个——SVG 的 `marker` 不继承线条颜色，只能一档一个。 */
+const ARROW_STATES: Array<LaidEdge['state']> = ['idle', 'done', 'active']
+
+export const RunStage = memo(function RunStage({
+  frame,
+  playing,
+  stepIndex,
+  stepTotal,
+  canStep,
+  onPrev,
+  onNext,
+  onTogglePlay,
+  onReset: _onReset,
+}: RunStageProps) {
+  if (!frame) return null
+
+  const atStart = stepIndex <= 0
+  const atEnd = stepTotal === 0 || stepIndex >= stepTotal - 1
+  const layout = layoutStage(frame)
+  /**
+   * 骨架态：还没有拍（`stepTotal === 0`，也就是还没点过运行）。
+   *

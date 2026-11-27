@@ -1,0 +1,10 @@
+      readFileSync: (path: string, encoding: 'utf8') => string
+    }
+    const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+    const css = readFileSync(`${moduleDir}/evidence-writeback-view.css`, 'utf8')
+    const block = /\.evidence-writeback \.primary-action:disabled[\s\S]*?\}/.exec(css)
+    expect(block, '共享层那条 opacity:.5 必须被本页覆盖掉').toBeTruthy()
+    expect(block?.[0]).toMatch(/opacity:\s*1/)
+    expect(block?.[0]).toMatch(/border-style:\s*dashed/)
+  })
+})

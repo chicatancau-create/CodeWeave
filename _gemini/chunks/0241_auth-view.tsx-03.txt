@@ -1,0 +1,95 @@
+            <circle key={`${x}-${y}`} className="cv-auth__star" cx={x} cy={y} r="1.5" />
+          ))}
+        </svg>
+        <span className="cv-auth__scene-tag">CODECANVAS · LOCAL WORKSPACE</span>
+      </div>
+
+      {/* ── 左栏：品牌 + 展示标题 + 说明。
+             整栏没有可聚焦元素，所以 Tab 顺序与改版前完全一致 ── */}
+      <section className="cv-auth__content" aria-label="工作台介绍">
+        <p className="cv-auth__brand">
+          <span className="cv-auth__brand-ring"><CodeXml size={22} aria-hidden="true" /></span>
+          <span>
+            code<span className="cv-auth__brand-accent">canvas</span>
+          </span>
+          <span className="cv-auth__brand-badge">{SURFACE_LABEL[currentSurface]}</span>
+        </p>
+
+        {/* 展示标题：字重 200、负字距、多行中文用 1.15 行高（§5.1 表「展示标题」行）。
+            本页唯一的 h1 在左栏，右栏不再另立标题（#77 裁定：h1 归页面主题）。 */}
+        <p className="cv-auth__scene-caption">// YOUR PERSONAL CODING UNIVERSE</p>
+        <p className="cv-auth__hero">瞬时唤醒<br /><span>你的代码宇宙</span></p>
+        <h1 className="cv-auth__title">{mode === 'login' ? '登录你的工作区' : '创建学习账户'}</h1>
+        <p className="cv-auth__lead">
+          {mode === 'login'
+            ? '使用邮箱或手机号登录。'
+            : '用邮箱或手机号注册，开始你的编程学习之旅。'}
+        </p>
+        <div className="cv-auth__hero-footer"><span>LOCAL FIRST</span><span>代码 · 思考 · 成长</span></div>
+      </section>
+
+      {/* 宇宙播放/暂停按钮：放在左列，作为 scene 的兄弟。
+          不放进 scene 里面（scene 要求零 focusable 后代），也不放进 content
+          （content 的 aria-label="工作台介绍" 不覆盖控件）。 */}
+      <div className="cv-auth__scene-controls">
+        <button
+          type="button"
+          className="cv-auth__scene-btn"
+          onClick={toggleUserPaused}
+          aria-pressed={userPaused}
+          aria-label={userPaused ? '播放背景动画' : '暂停背景动画'}
+        >
+          {userPaused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
+        </button>
+      </div>
+
+      {/* ── 右栏：登录动作本身。眉标 + 表单 + 切换 + 页脚 ── */}
+      <section className="cv-auth__panel" aria-label={mode === 'login' ? '登录' : '注册'}>
+        <header className="cv-auth__panel-header">
+          <p className="cv-auth__eyebrow"><span className="cv-auth__eyebrow-index">▪</span> CODECANVAS CORE ACCESS</p>
+          <h2>{mode === 'login' ? '接入工作区' : '开启学习旅程'}</h2>
+          <span className="cv-auth__gateway">{mode === 'login' ? 'PASSWORD ACCESS' : 'CREATE ACCOUNT'}</span>
+        </header>
+
+        <form
+          ref={formRef}
+          className="cv-auth__form"
+          aria-busy={busy}
+          onSubmit={handleSubmit}
+          onKeyDown={handleKeyDown}
+        >
+          {mode === 'register' && (
+            <>
+              <label className="cv-auth__field">
+                <span className="cv-auth__field-label">昵称</span>
+                <input
+                  className="cv-auth__input"
+                  name="name"
+                  type="text"
+                  placeholder="你的昵称"
+                  minLength={2}
+                  maxLength={40}
+                  required
+                  autoComplete="name"
+                />
+              </label>
+              <label className="cv-auth__field cv-auth__field--select">
+                <span className="cv-auth__field-label">联系方式</span>
+                <select
+                  className="cv-auth__select"
+                  name="contactType"
+                  value={contactType}
+                  onChange={(event) => setContactType(event.target.value as ContactType)}
+                  required
+                >
+                  <option value="email">邮箱</option>
+                  <option value="phone">手机号</option>
+                </select>
+              </label>
+              <label className="cv-auth__field" htmlFor={contactId}>
+                <span className="cv-auth__field-label">{isPhone ? '手机号' : '邮箱'}</span>
+                <input
+                  className="cv-auth__input"
+                  id={contactId}
+                  name="contact"
+                  type={isPhone ? 'tel' : 'email'}

@@ -1,0 +1,54 @@
+            for (int index = 0; index < 8; ++index) {
+              auto* row = u3_find_item(settings_scroll,
+                  QStringLiteral("settingsPreferenceRow%1").arg(index));
+              if (!flick || !row || content_height <= flick->height()) {
+                diagnostic = QStringLiteral("Unavailable preference settings content is incomplete");
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              flick->setProperty("contentY", 0);
+              QCoreApplication::processEvents();
+              const auto initial = row->mapToItem(flick, QPointF());
+              flick->setProperty("contentY", std::clamp(
+                  initial.y() + row->height() / 2 - flick->height() / 2,
+                  0.0, content_height - flick->height()));
+              QCoreApplication::processEvents();
+              const auto supported = index == 3 || index == 4 || index == 7;
+              const auto control_name = index == 3 ? QStringLiteral("settingsReducedMotionToggle") :
+                  index == 4 ? QStringLiteral("settingsEditorFontSize") :
+                  index == 7 ? QStringLiteral("settingsEditorLineNumbersToggle") :
+                  QStringLiteral("settingsPreference%1%2").arg(index == 5 ? "Select" : "Toggle").arg(index);
+              auto* control = u3_find_item(row, control_name);
+              auto* title = u3_find_item(row, QStringLiteral("settingsPreferenceTitle%1").arg(index));
+              auto* description = u3_find_item(row,
+                  QStringLiteral("settingsPreferenceDescription%1").arg(index));
+              const auto text_fits_row = [&](QQuickItem* item) {
+                if (!item || !item->isVisible() || item->property("truncated").toBool() ||
+                    item->width() <= 0 || item->height() <= 0) return false;
+                const auto origin = item->mapToItem(row, QPointF());
+                const auto implicit_height = item->property("implicitHeight");
+                const auto content_height_value = item->property("contentHeight");
+                const auto painted_width = item->property("paintedWidth");
+                const auto painted_height = item->property("paintedHeight");
+                bool implicit_valid = false, content_valid = false, painted_width_valid = false,
+                    painted_height_valid = false;
+                const auto implicit = implicit_height.toDouble(&implicit_valid);
+                const auto content = content_height_value.toDouble(&content_valid);
+                const auto painted_w = painted_width.toDouble(&painted_width_valid);
+                const auto painted_h = painted_height.toDouble(&painted_height_valid);
+                return origin.x() >= -1 && origin.y() >= -1 &&
+                    origin.x() + item->width() <= row->width() + 1 &&
+                    origin.y() + item->height() <= row->height() + 1 &&
+                    implicit_valid && content_valid && painted_width_valid && painted_height_valid &&
+                    implicit <= item->height() + 1 && content <= item->height() + 1 &&
+                    painted_w <= item->width() + 1 && painted_h <= item->height() + 1;
+              };
+              const auto status_suffix = QStringLiteral("（本机配置不可用）");
+              const bool row_valid = row->isVisible() && control && !control->property("enabled").toBool() &&
+                  title && description && text_fits_row(title) && text_fits_row(description) &&
+                  (!supported || description->property("text").toString().endsWith(status_suffix));
+              if (!row_valid) {
+                diagnostic = QStringLiteral("Unavailable preference text or control is invalid at row %1: title=%2x%3 description=%4x%5 row=%6x%7")
+                    .arg(index).arg(title ? title->width() : -1).arg(title ? title->height() : -1)
+                    .arg(description ? description->width() : -1).arg(description ? description->height() : -1)

@@ -1,0 +1,27 @@
+      const result = await executeJavaScript('console.log("x")', mockLesson)
+      expect(result.error?.message).toContain('不支持浏览器 Worker')
+      expect(result.tier).toBe('worker')
+    })
+
+    /**
+     * CHAL-02 第 2 条 · D / J 两关的「关卡可过」不变式。
+     *
+     * #91 的教训是这条不变式从来没被验过：两关在完整服务下**永远**过不去，界面却一切正常。
+     * 浏览器侧目前只有 D 关真点过（取证段 `sandbox`），所以这里把两关都过一遍真执行——
+     * FakeWorker 用 node:vm 编译并运行**生成出来的那段脚本**，走的就是现役那条编译路径，
+     * 判题用产品同一个 `judgeOutput`，不是自己写一遍近似逻辑。
+     */
+    for (const challenge of challenges.filter((item) => item.runner === 'javascript-sandbox')) {
+      it(`${challenge.id}：起始代码在沙箱里真跑出的输出满足自己的验收点`, async () => {
+        const result = await executeJavaScript(challenge.starterCode, mockLesson)
+        expect(result.error?.message, `运行报错：${result.error?.message}`).toBeUndefined()
+        const outcome = judgeOutput(challenge.targetOutput, result.output, challenge.judgeMode ?? DEFAULT_JUDGE_MODE)
+        expect(
+          outcome.cases.map((entry) => [entry.expected, entry.matched, entry.actual]),
+          `${challenge.id} 实跑输出 ${JSON.stringify(result.output)}，判定 ${JSON.stringify(outcome.cases)}`,
+        ).toEqual(challenge.targetOutput.map((target) => [target, true, target]))
+        expect(outcome.passed, `${challenge.id} 起始代码过不去自己的关卡`).toBe(true)
+      })
+    }
+  })
+})

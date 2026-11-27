@@ -1,0 +1,157 @@
+### 5.1 需求登记
+
+先在本文件的“变更登记”末尾写一条记录：功能名、触发入口、数据所有者、输入、输出、失败行为、是否新增文件、验收命令。没有登记不得编码。
+
+### 5.2 选择归属模块
+
+按下面顺序选择已有模块：
+
+1. 账户或权限问题 → `account_service` / `account_store`。
+2. 课程正文、提示、starter → `content_repository` / `content_access`。
+3. 代码运行或取消 → `execution_service` / `process_runner`。
+4. 正式学习事实 → `challenge_service` / `progress_store` / `evidence_store`。
+5. 迁移或备份 → `migration_*` / `legacy_import` / `backup_service`。
+6. 仅显示汇总 → `review_service`。
+
+只有确认没有合适归属时，才新建模块。新模块必须是一对文件，例如 `bookmark_service.hpp/.cpp`，不得先建空目录或占位脚本。
+
+### 5.3 编写模块契约
+
+新模块头文件必须明确：
+
+- 类型名和命名空间；
+- 构造函数依赖；
+- 每个公共函数的输入约束；
+- 成功返回什么；
+- 失败是否写盘、是否创建进程、是否改变状态；
+- 线程安全要求；
+- 数据文件和版本号；
+- 调用方和禁止调用方。
+
+示例：
+
+```cpp
+namespace codeweave::feature {
+struct Result { bool ok; std::string message; };
+class BookmarkService {
+ public:
+  explicit BookmarkService(std::filesystem::path account_root);
+  Result save(std::string_view content_id, std::string_view note);
+  Result load(std::string_view content_id, std::string& note) const;
+};
+}
+```
+
+实现要求：先做 ID、长度、UTF-8、路径和权限校验；再读写；写入使用临时文件 + 原子替换；失败保留原文件；重复请求要么幂等，要么明确拒绝。
+
+### 5.4 接入现有应用
+
+按固定顺序接入：
+
+1. 在 `CMakeLists.txt` 加入源文件。
+2. 在对应 Service 或 Repository 中实例化，不在多个地方复制状态。
+3. 在 `main.cpp` 只增加命令分支和结果显示，不改变控件布局。
+4. 在 `native_tests.cpp` 增加正常、失败、边界和重复调用测试。
+5. 如需发布内容，先更新 `native/content` 生成器和 hash，再运行内容测试。
+6. 更新本文件的模块表、数据格式和回滚说明。
+
+### 5.5 完成判定
+
+新增功能必须同时满足：
+
+- 正常路径可运行；
+- 空值、非法 UTF-8、超长输入、重复请求、文件损坏、路径越界有明确结果；
+- 账户切换不泄露旧状态；
+- 失败不会覆盖旧数据；
+- `cmake --build`、CTest、`corepack pnpm test`、`corepack pnpm run check` 与真实 smoke 按影响范围通过；
+- 文档、manifest、回滚点已同步。
+
+## 6. 修改已有后端功能
+
+修改前先写“旧行为/新行为/兼容策略”。只允许以下三类：
+
+- **修 bug**：保留正确行为，增加先失败后通过的回归测试。
+- **扩展字段**：新增可选字段，旧文件仍可读；写入版本号或迁移步骤。
+- **调整规则**：必须说明对旧账户、旧进度、旧草稿和导入文件的影响，并提供回滚。
+
+禁止直接改变：文件名、账本分隔符、operationId 语义、密码 hash 语义、账户目录规则、执行白名单、默认数据根。若必须改变，先增加 `schemaVersion`，实现双读一写或显式迁移，完成旧版样本、损坏样本和回滚测试。
+
+## 7. 删除后端功能或模块
+
+删除前必须确认：
+
+1. `rg` 查明生产调用方、测试调用方、脚本和文档引用；
+2. 确认没有用户数据格式依赖；
+3. 如果是账本或配置字段，先保留只读兼容读取；
+4. 删除代码前先删除调用方和测试，再运行构建；
+5. 记录替代方案、回滚点和删除后的验证结果。
+
+禁止因为“暂时不用”删除账户、进度、备份、迁移、恢复、锁或兼容读取代码。无法证明无用的文件保留并登记，不得猜删。
+
+## 8. 临时脚本、测试包和残留清理规范
+
+### 8.1 临时对象必须登记
+
+Flash 创建临时脚本、测试包、日志、截图、测试账户或临时目录时，必须使用：
+
+- 系统临时目录，目录名带任务日期和唯一后缀；或
+- 项目约定的 `应用端/项目/evidence/`（只保存正式证据）；或
+- `备份区/`（只保存恢复材料）。
+
+在任务开始和结束各记录一次准确路径。不得把临时脚本放到根目录、`native/src`、`scripts` 正式目录或工程文件目录。
+
+### 8.2 删除前的最小检查清单
+
+删除临时对象只检查用户指定的路径及其直接父目录，不扫描全盘。每个路径必须逐一满足：
+
+1. 路径是绝对路径；
+2. `resolve` 后仍位于预期临时目录；
+3. basename 与登记名称完全相等；
+4. 不是符号链接或路径组件异常；
+5. 不是正式源码、用户数据、恢复快照、证据或发布产物；
+6. 没有正在使用的进程；
+7. 删除后再次确认路径不存在。
+
+推荐使用 `Path.resolve(strict=True)` 或 PowerShell `Get-Item -LiteralPath` + `Remove-Item -LiteralPath`。不得使用 `Remove-Item C:\...\Temp\*`、扩展名批量删除、模糊前缀删除或仓库递归删除。
+
+### 8.3 “不确定就保留”规则
+
+如果路径不存在、父目录不匹配、名称不匹配、来源不明、无法确认是否被使用，停止删除并报告准确路径。不要为了清理数量而扩大范围。删除测试账户前也必须确认它位于本次隔离数据根，不能按用户名搜索后批量删除。
+
+### 8.4 正式脚本与临时脚本边界
+
+`应用端/项目/scripts/` 只放可复用、被文档引用、能重复运行且有输入边界的正式工具。一次性脚本用完即删；若以后仍需要，先补 README、参数校验、输出目录、失败清理和测试，再转为正式工具。测试包不是源码，不得放进 Git；正式截图和报告才进入 `evidence/`。
+
+## 9. 数据、安全和并发要求
+
+- 所有用户输入校验 UTF-8、NUL、长度、日期、ID 和路径；拒绝绝对越界路径和符号链接组件。
+- 日志不得输出密码、hash、Token、Cookie、个人资料或完整源码。
+- 长任务放后台线程，关闭窗口先取消并等待回收；账户切换先阻止新任务并 join 旧任务。
+- 账户切换必须清空输出、轨迹、草稿、进度和复习视图；新账户打开失败也不能显示旧账户状态。
+- 账本追加必须幂等；相同 operationId 重复请求返回同一事实，不同内容复用 operationId 必须失败。
+- 备份先校验源和目标，再生成清单；目标必须在源目录外，跨 Windows 盘符允许，不能覆盖现有目录。
+- 导入源只读，先 dry-run 再写入隔离目标；失败保持原活动目录不变。
+
+## 10. 验证命令
+
+在 `应用端` 目录执行：
+
+```powershell
+corepack pnpm test
+corepack pnpm run check
+git diff --check
+cmake --build native/build-g1-msvc-1 --config Release
+ctest --test-dir native/build-g1-msvc-1 -C Release --output-on-failure
+cmake --build native/build-g1-msvc-release --config Release
+node scripts/native-release-audit.mjs native/build-g1-msvc-release
+node scripts/package-native.mjs --exe native/build-g1-msvc-release/codeweave-native.exe --out dist/native-next
+python scripts/native-product-smoke.py --exe dist/native-next/CodeWeave.exe --screenshot evidence/native-product-next.png
+```
+
+`native-next` 必须是新目录；不得覆盖现有交付目录。所有命令实际执行后才能在文档标记 `[通过]`。跨盘、符号链接、DPI、输入法等环境专项没有执行时必须标 `[未执行]`。
+
+## 11. 变更登记模板
+
+每次 Flash 开工先复制以下模板到本文件末尾，完成后填写结果：
+
+```text

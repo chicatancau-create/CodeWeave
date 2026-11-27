@@ -1,0 +1,132 @@
+/**
+ * 内容来源状态与来源详情（LINK-05 / §8.2 来源详情）。
+ *
+ * 显示原则：
+ * - 状态用通俗文案，不在常规页面暴露资料库绝对路径；
+ * - 「外部未复核」等核验状态原样保留，不能显示成已验证；
+ * - 未连接/未登录时明确说明当前显示的是旧内置课程，避免被当成资料库内容。
+ *
+ * M4 全站统一（01 号方案 §3.4 数据与来源）：
+ * 来源区按 **规范主题 / 原文位置 / 核验状态 / 同步时间 / 正式事实** 五块分区，
+ * 每块一行、由 1px 发丝线分开（模板 `.specs` 的 dt/dd 细线键值，geometry.md §2）。
+ * 核验状态与正式事实**只转述资料库侧口径**：本文件不出现任何把「外部未复核」
+ * 提升为「已核实」的映射；语义标识用「固定字符徽记 + 文字」双通道，不跟场景色。
+ */
+import { AlertTriangle, Database, RefreshCw } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { MarkdownView } from '../content/markdown'
+import { useContent, useOptionalContent } from '../content/provider'
+import { legacyStageLabel } from '../content/adapter'
+import type { Lesson } from '../types/lesson'
+import './content-source-view.css'
+
+function stateText(state: string, vaultConfigured: boolean, vaultReason: string | null): string {
+  switch (state) {
+    case 'ready':
+      return '资料库已连接'
+    case 'scanning':
+      return '正在扫描资料库'
+    case 'validating':
+      return '正在校验内容'
+    case 'stale':
+      return '资料库暂不可用，正在使用上次成功快照'
+    case 'invalid':
+      return '上次同步未通过校验，仍使用上一个有效快照'
+    case 'unavailable':
+      return vaultReason === 'missing'
+        ? '未找到资料库目录'
+        : vaultConfigured
+          ? '资料库暂不可用'
+          : '尚未配置资料库'
+    default:
+      return '资料库未连接'
+  }
+}
+
+/** 五块分区的 dt/dd 数据；`value` 为空时由调用方给出如实的「未记录」，不猜测。 */
+type SourceField = { key: string; label: string; value: string; mark?: ReactNode }
+
+function SourceSpecs({ fields, className }: { fields: SourceField[]; className: string }) {
+  return (
+    <dl className={className}>
+      {fields.map((field) => (
+        <div className="cs-spec" key={field.key} data-cs-field={field.key}>
+          <dt>{field.label}</dt>
+          <dd>
+            {field.mark}
+            {field.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** 页面顶部的来源状态条：只说明事实，不做“已同步/已验证”的过度承诺。 */
+export function ContentSourceBanner() {
+  const content = useContent()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  /** 全页只挂一条来源状态条（app.tsx），所以禁用说明用一个稳定 id 即可。 */
+  const busyHintId = 'content-source-busy-hint'
+
+  const stateLine = stateText(content.state, Boolean(content.status?.vaultConfigured), content.status?.vaultReason ?? null)
+
+  if (content.sourceKind === 'vault' && content.state === 'ready' && !content.error) {
+    const fields: SourceField[] = [
+      {
+        key: 'topic',
+        label: '规范主题',
+        value: '资料库正式内容（按主题 ID 定位，标题改名不改变身份）',
+      },
+      {
+        key: 'source',
+        label: '原文位置',
+        value: '按单元「来源」区的分册与章节定位；本页不显示资料库绝对路径',
+      },
+      {
+        key: 'verification',
+        label: '核验状态',
+        value: `${stateLine}（逐单元核验状态见来源详情，不折算）`,
+        mark: (
+          <span className="cs-mark cs-mark--verified" data-cs-mark="verified">
+            <span className="cs-mark-glyph" aria-hidden>
+              接
+            </span>
+            <span className="cs-mark-text">{stateLine}</span>
+          </span>
+        ),
+      },
+      {
+        key: 'sync',
+        label: '同步时间',
+        value: content.buildTime ? `快照构建于 ${new Date(content.buildTime).toLocaleString()}` : '快照构建时间未记录',
+      },
+      {
+        key: 'facts',
+        label: '正式事实',
+        value: `快照 ${content.bundleId?.slice(0, 8) ?? '—'} · ${content.counts ? `正式内容 ${content.counts.lessons ?? 0} 条` : '计数未提供'}`,
+      },
+    ]
+    return (
+      <div className="content-source-banner cw-source ok" role="status">
+        <span className="cs-banner-lead">
+          <Database size={14} aria-hidden />
+          {stateLine}
+        </span>
+        <details className="cs-facts">
+          <summary className="cs-facts-summary">来源事实明细（5 项）</summary>
+          <SourceSpecs fields={fields} className="cs-specs cs-specs--inline" />
+        </details>
+      </div>
+    )
+  }
+
+  const handleSync = async () => {
+    setBusy(true)
+    const result = await content.sync()
+    setMessage(result.message)
+    setBusy(false)
+  }
+
+  /*

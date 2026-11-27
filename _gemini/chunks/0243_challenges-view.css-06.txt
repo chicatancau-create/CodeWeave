@@ -1,0 +1,121 @@
+.challenges-view .stage-status.status-external-pending::before {
+  border-radius: var(--ds-shape-circle, 50%);
+  background: currentColor;
+}
+
+.challenges-view .stage-status.status-unsupported {
+  color: var(--cv-bad);
+  background: var(--cv-bad-wash);
+}
+
+.challenges-view .stage-status.status-unsupported::before {
+  border-style: dashed;
+  transform: rotate(45deg);
+}
+
+.challenges-view .stage-status.status-ready-to-submit {
+  color: var(--cv-info);                                             /* 恒定 info，非场景青 */
+  background: var(--cv-info-wash);
+}
+
+.challenges-view .stage-status.status-ready-to-submit::before {
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;
+}
+
+.challenges-view .stage-status.status-pending-verify {
+  color: var(--cv-warn);                                              /* 恒定 warn，非场景品红 */
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .stage-status.status-pending-verify::before {
+  transform: rotate(45deg);
+}
+
+.challenges-view .stage-status.status-passed {
+  color: var(--cv-ok);                                                /* 恒定 success */
+  background: var(--cv-ok-wash);
+}
+
+.challenges-view .stage-status.status-passed::before {
+  background: currentColor;
+}
+
+/* 卡片左侧状态竖条：形状通道之外的第二重定位辅助，仍为恒定语义色。
+   hover 变体一并写：styles.css 的 `.stage-card:hover{border-color:…}`(0,2,0)
+   会盖掉单类基线规则，这里用 0,3,1 把状态色钉住。 */
+.challenges-view .stage-card.status-passed,
+.challenges-view .stage-card.status-passed:hover { border-left-color: var(--cv-ok); }
+.challenges-view .stage-card.status-pending-verify,
+.challenges-view .stage-card.status-pending-verify:hover { border-left-color: var(--cv-warn); }
+.challenges-view .stage-card.status-external-pending,
+.challenges-view .stage-card.status-external-pending:hover { border-left-color: var(--cv-warn); }
+.challenges-view .stage-card.status-unsupported,
+.challenges-view .stage-card.status-unsupported:hover { border-left-color: var(--cv-bad); }
+.challenges-view .stage-card.status-ready-to-submit,
+.challenges-view .stage-card.status-ready-to-submit:hover { border-left-color: var(--cv-info); }
+.challenges-view .stage-card.status-not-started,
+.challenges-view .stage-card.status-not-started:hover { border-left-color: var(--cv-hair); }
+
+/* 难度 = 分类，不是成败：取消语义色，改中性细线（避免把「进阶」读成「错误」） */
+.challenges-view .difficulty {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  color: var(--cv-dim);
+  border: var(--cv-hair-width) solid var(--cv-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.challenges-view .difficulty.入门,
+.challenges-view .difficulty.基础,
+.challenges-view .difficulty.进阶 {
+  color: var(--cv-dim);
+  border-color: var(--cv-hair-raised);
+  background: none;
+}
+
+/* 空态：细线框 + 文字 + 操作，不用图标发光 */
+.challenges-view .challenge-grid-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-12, 12px);
+  min-height: 160px;
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--cv-dim);
+  background: none;
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-grid-empty svg {
+  color: var(--cv-faint);
+}
+
+/* §4 empty 行的第二句（下一步动作）：与原因分行显示，字号仍走承载信息的那一档，
+   不降到 0.34 装饰档 —— 这句是人看完之后唯一能照着做的东西。 */
+.challenges-view .challenge-grid-empty-next {
+  margin: 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+/* ============================================================================
+   4. 分页（触控 ≥44px；页码状态用文字承载，不只靠禁用色）
+   ========================================================================== */
+
+.challenges-view .challenge-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  flex-wrap: wrap;
+  padding-top: var(--cv-pad);

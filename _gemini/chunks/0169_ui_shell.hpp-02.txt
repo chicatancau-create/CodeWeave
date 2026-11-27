@@ -1,0 +1,60 @@
+  Q_PROPERTY(QString executionOutput READ executionOutput NOTIFY executionOutputChanged)
+  Q_PROPERTY(bool executionOutputError READ executionOutputError NOTIFY executionOutputChanged)
+  Q_PROPERTY(QVariantMap executionTrace READ executionTrace NOTIFY executionTraceChanged)
+  Q_PROPERTY(QString progressSummary READ progressSummary NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QString reviewSummary READ reviewSummary NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY reviewItemsChanged)
+  Q_PROPERTY(QVariantMap analysisSnapshot READ analysisSnapshot NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QVariantMap checkinSummary READ checkinSummary NOTIFY checkinChanged)
+  Q_PROPERTY(QVariantMap vaultWriteback READ vaultWriteback NOTIFY vaultWritebackChanged)
+  Q_PROPERTY(QVariantMap lessonEvidenceStates READ lessonEvidenceStates NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(bool lessonEvidenceReady READ lessonEvidenceReady NOTIFY reviewSummaryChanged)
+  Q_PROPERTY(QVariantMap lessonAssessment READ lessonAssessment NOTIFY lessonAssessmentChanged)
+  Q_PROPERTY(int executionTimeout READ executionTimeout WRITE setExecutionTimeout NOTIFY executionOptionsChanged)
+  Q_PROPERTY(bool independentAttempt READ independentAttempt WRITE setIndependentAttempt NOTIFY independentAttemptChanged)
+  Q_PROPERTY(bool reducedMotion READ reducedMotion WRITE setReducedMotion NOTIFY reducedMotionChanged)
+  Q_PROPERTY(int editorFontSize READ editorFontSize NOTIFY editorFontSizeChanged)
+  Q_PROPERTY(bool editorLineNumbers READ editorLineNumbers NOTIFY editorLineNumbersChanged)
+  Q_PROPERTY(bool preferenceStorageReady READ preferenceStorageReady NOTIFY preferenceStorageReadyChanged)
+
+ public:
+  explicit UiShell(QObject* parent = nullptr);
+  ~UiShell() override;
+
+  [[nodiscard]] QString appTitle() const;
+  [[nodiscard]] QString currentPage() const;
+  [[nodiscard]] QStringList publishedTitles() const;
+  [[nodiscard]] QStringList publishedIds() const { return published_ids_; }
+  [[nodiscard]] QVariantList lessonMeta() const { return lesson_meta_; }
+  [[nodiscard]] QVariantList challengeMeta() const { return challenge_meta_; }
+  [[nodiscard]] QVariantMap selectedChallenge() const { return selected_challenge_; }
+  [[nodiscard]] bool challengeDetailOpen() const { return !selected_challenge_.isEmpty(); }
+  [[nodiscard]] QString challengeCode() const;
+  [[nodiscard]] QVariantMap challengeRunResult() const { return challenge_run_result_; }
+  [[nodiscard]] bool challengeRunBusy() const { return challenge_run_busy_; }
+  [[nodiscard]] QVariantList challengeHistory() const;
+  [[nodiscard]] QVariantMap challengeProgress() const;
+  [[nodiscard]] bool challengeHistoryBusy() const { return challenge_history_busy_; }
+  [[nodiscard]] QString challengeHistoryStatus() const { return challenge_history_status_; }
+  [[nodiscard]] QString selectedContentBody() const;
+  [[nodiscard]] QString starterLanguage() const;
+  [[nodiscard]] QString starterCode() const;
+  [[nodiscard]] QString executionPolicy() const;
+  [[nodiscard]] bool hasSelectedContent() const;
+  [[nodiscard]] QString draftCode() const;
+  [[nodiscard]] bool draftDirty() const;
+  [[nodiscard]] qulonglong accountGeneration() const { return account_generation_; }
+  [[nodiscard]] qulonglong draftRevision() const { return draft_revision_; }
+  [[nodiscard]] qulonglong savedRevision() const { return saved_revision_; }
+  [[nodiscard]] QString documentId() const { return selected_content_id_; }
+  [[nodiscard]] bool hasActiveAccount() const;
+  [[nodiscard]] QString activeAccountId() const;
+  [[nodiscard]] bool draftSaving() const;
+  [[nodiscard]] bool draftPersistenceBlocked() const;
+  [[nodiscard]] QString contentStatus() const;
+  [[nodiscard]] bool contentBusy() const;
+  [[nodiscard]] bool accountBusy() const;
+  [[nodiscard]] QString accountStatus() const;
+  [[nodiscard]] QString accountName() const;
+  [[nodiscard]] QString accountContact() const;
+  [[nodiscard]] QString hints() const { return hints_; }

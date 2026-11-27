@@ -1,0 +1,95 @@
+#include "ui_shell.hpp"
+
+#include "backup_service.hpp"
+#include "content_repository.hpp"
+#include "evidence_store.hpp"
+#include "external_evidence_service.hpp"
+#include "process_contract.hpp"
+#include "trace_store.hpp"
+#include "challenge_service.hpp"
+#include "legacy_import.hpp"
+#include "challenge_submission_store.hpp"
+
+#include <QMetaObject>
+#include <QDate>
+#include <QDateTime>
+#include <QUuid>
+#include <QMap>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTimer>
+
+#include <fstream>
+#include <algorithm>
+#include <memory>
+#include <mutex>
+#include <string>
+
+namespace {
+QString normalized_output(const std::string& value) {
+  return QString::fromUtf8(value).replace(QStringLiteral("\r\n"), QStringLiteral("\n"))
+      .replace(QChar('\r'), QChar('\n'));
+}
+
+QVariantList trace_events(std::span<const codeweave::execution::TraceEvent> source) {
+  using codeweave::execution::EventKind;
+  QVariantList events;
+  for (const auto& event : source) {
+    QString kind;
+    QString label;
+    switch (event.kind) {
+      case EventKind::Started: kind = "started"; label = QStringLiteral("开始执行"); break;
+      case EventKind::SourceStep: kind = "source_step"; label = QStringLiteral("源码步骤"); break;
+      case EventKind::Output: kind = "output"; label = QStringLiteral("输出"); break;
+      case EventKind::Paused: kind = "paused"; label = QStringLiteral("已暂停"); break;
+      case EventKind::Resumed: kind = "resumed"; label = QStringLiteral("已继续"); break;
+      case EventKind::Completed: kind = "completed"; label = QStringLiteral("执行完成"); break;
+      case EventKind::Failed: kind = "failed"; label = QStringLiteral("执行失败"); break;
+      case EventKind::Cancelled: kind = "cancelled"; label = QStringLiteral("已取消"); break;
+    }
+    QVariantMap item{{"sequence", QVariant::fromValue<qulonglong>(event.sequence)},
+        {"kind", kind}, {"label", label}, {"payload", normalized_output(event.payload)}};
+    if (event.kind == EventKind::SourceStep) {
+      const auto snapshot = QJsonDocument::fromJson(QByteArray::fromStdString(event.payload)).object();
+      item.insert("sourceLine", snapshot.value("line").toInt());
+      item.insert("phase", snapshot.value("phase").toString());
+      item.insert("variables", snapshot.value("variables").toObject().toVariantMap());
+      item.insert("label", QStringLiteral("第 %1 行 · %2").arg(snapshot.value("line").toInt())
+          .arg(snapshot.value("phase").toString() == "line" ? QStringLiteral("执行前") :
+               snapshot.value("phase").toString() == "return" ? QStringLiteral("返回") : QStringLiteral("异常")));
+    }
+    events.push_back(item);
+  }
+  return events;
+}
+
+struct ProgressSource {
+  bool found{};
+  std::string markdown;
+};
+
+ProgressSource read_progress_source(const std::filesystem::path& workspace) {
+  if (workspace.empty()) return {};
+  for (const auto& name : {std::filesystem::path("progress.md"),
+                           std::filesystem::path(L"学习进度.md")}) {
+    const auto path = workspace / name;
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (error || status.type() == std::filesystem::file_type::not_found) continue;
+    if (std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) continue;
+    const auto size = std::filesystem::file_size(path, error);
+    if (error || size > 4 * 1024 * 1024) continue;
+    std::ifstream input(path, std::ios::binary);
+    if (!input) continue;
+    std::string markdown(static_cast<std::size_t>(size), '\0');
+    input.read(markdown.data(), static_cast<std::streamsize>(markdown.size()));
+    if (!input && !input.eof()) continue;
+    return {true, std::move(markdown)};
+  }
+  return {};
+}
+
+QString projection_status(codeweave::learning::ProgressStatus status) {
+  switch (status) {
+    case codeweave::learning::ProgressStatus::Ok: return QStringLiteral("ok");
+    case codeweave::learning::ProgressStatus::Partial: return QStringLiteral("partial");

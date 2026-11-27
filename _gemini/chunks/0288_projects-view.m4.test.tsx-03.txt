@@ -1,0 +1,89 @@
+          checkpoints: [
+            { id: 'cp-newer', at: '2026-09-11T08:00:00.000Z', files: [file()] },
+            { id: 'cp-older', at: '2026-09-09T08:00:00.000Z', files: [file()] },
+          ],
+        }),
+      ],
+    })
+    const rows = document.querySelectorAll('.checkpoint-row')
+    fireEvent.click(rows[1]!.querySelector('button')!)
+    expect(onRestoreCheckpoint).toHaveBeenCalledTimes(1)
+    expect(onRestoreCheckpoint.mock.calls[0]).toEqual(['p-1', 'cp-older'])
+  })
+
+  it('编辑文件代码：只替换该文件并刷新 updatedAt，其余字段与文件原样上抛', () => {
+    const { onUpdate } = renderView({
+      projects: [project({ files: [file({ id: 'f-a' }), file({ id: 'f-b', code: 'x = 1' })] })],
+    })
+    const editors = screen.getAllByRole('textbox')
+    fireEvent.change(editors[editors.length - 1]!, { target: { value: 'y = 2' } })
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    const [projectId, updates] = onUpdate.mock.calls[0]!
+    expect(projectId).toBe('p-1')
+    const files = (updates as { files: Project['files'] }).files
+    expect(files).toHaveLength(2)
+    expect(files[0]!.code).toBe('print("hello")')
+    expect(files[1]!.code).toBe('y = 2')
+    expect(new Date(files[1]!.updatedAt).getTime()).toBeGreaterThan(new Date(files[0]!.updatedAt).getTime())
+  })
+
+  it('重命名与描述同样走 onUpdate（长度上限未动）', () => {
+    const { onUpdate } = renderView()
+    fireEvent.change(screen.getByLabelText('项目名称'), { target: { value: '新名字' } })
+    fireEvent.change(screen.getByLabelText('项目描述'), { target: { value: '新描述' } })
+    expect(onUpdate.mock.calls.map((call) => call[1])).toEqual([{ name: '新名字' }, { description: '新描述' }])
+  })
+
+  it('删除仍需二次确认；取消则不上抛（确认口径未改）', () => {
+    const { onDelete } = renderView()
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    fireEvent.click(screen.getByRole('button', { name: /删除/ }))
+    expect(onDelete).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    fireEvent.click(screen.getByRole('button', { name: /删除/ }))
+    expect(onDelete).toHaveBeenCalledWith('p-1')
+  })
+
+  it('复制上抛整个项目对象；新建带上所选语言', () => {
+    const { onDuplicate, onCreate, projects } = renderView()
+    fireEvent.click(screen.getByRole('button', { name: /复制/ }))
+    expect(onDuplicate).toHaveBeenCalledWith(projects[0])
+    fireEvent.change(screen.getByLabelText('新项目语言'), { target: { value: 'java' } })
+    fireEvent.click(screen.getByRole('button', { name: /新建项目/ }))
+    expect(onCreate).toHaveBeenCalledWith('java')
+  })
+
+  it('没有项目时保留原空态文案', () => {
+    renderView({ projects: [], selectedProjectId: undefined })
+    expect(screen.getByText('还没有保存的项目')).toBeTruthy()
+    expect(screen.getByText('创建第一个项目开始练习')).toBeTruthy()
+    expect(document.querySelector('.project-zone')).toBeNull()
+  })
+})
+
+describe('M4 项目页 · 轻边界信息区与恒定语义色', () => {
+  it('黑场 + 发丝线分行，卡片不铺玻璃底', () => {
+    expect(ruleBody('.projects-view')).toContain('background: var(--pv-canvas)')
+    const list = ruleBody('.projects-view .project-list')
+    expect(list).toContain('border-top: var(--pv-hair-width) solid var(--pv-hair)')
+    expect(ruleBody('.projects-view .project-list-item')).toContain(
+      'border-bottom: var(--pv-hair-width) solid var(--pv-hair)',
+    )
+    const card = ruleBody('.projects-view .project-card')
+    expect(card).toContain('background: none')
+    expect(card).toContain('box-shadow: var(--pv-glow-inset)')
+  })
+
+  it('无渐变 / 无模糊；box-shadow 一律走 --pv-glow-*', () => {
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((match) => match[1]!.trim())
+    expect(shadows.length).toBeGreaterThan(0)
+    // 科技档反转（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+    // 约束不放松 —— 不允许裸投影字面量，每条只允许落到 --pv-glow-* 或共享的 --ds-glow-*。
+    for (const value of shadows) {
+      expect(/^var\(--(pv|ds)-glow-(near|panel|inset)(,\s*[^;]+)?\)$/.test(value), `未走发光令牌：${value}`).toBe(true)
+    }
+  })
+
+  it('圆角只有 0 / 50% / 100px 三档，且全部经令牌', () => {

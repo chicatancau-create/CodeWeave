@@ -1,0 +1,97 @@
+      additionalProperties: true
+    WritebackOutcome:
+      type: object
+      description: 预览/提交/回滚的共用结果体（服务端按日期与主题推导目标文件，不接受客户端传路径）
+      properties:
+        operationId: { type: string }
+        status: { type: string }
+        targets: { type: array, items: { type: object, additionalProperties: true } }
+      additionalProperties: true
+    LearningChange:
+      type: object
+      required: [schemaVersion, changeId, deviceId, kind, occurredAt, payload]
+      additionalProperties: false
+      properties:
+        schemaVersion: { const: 1 }
+        changeId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$' }
+        deviceId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$' }
+        kind:
+          enum: [learning.evidence.recorded, learning.completion.recorded, learning.checkin.recorded, learning.challenge.recorded, learning.review.recorded, learning.workspace.selected, learning.position.updated, learning.bookmark.updated, learning.bookmark.deleted, learning.draft.updated, learning.draft.deleted]
+        occurredAt: { type: string, format: date-time }
+        localDate: { type: string, format: date }
+        timeZone: { type: string, description: IANA 时区 }
+        contentRef:
+          type: [object, 'null']
+          required: [vaultId, contentId]
+          properties:
+            vaultId: { type: string }
+            contentId: { type: string }
+            bundleId: { type: string }
+            aliasVersion: { type: string }
+          description: 旧课程标识必须携带来源 bundleId 和 aliasVersion
+        baseRevision: { type: [integer, 'null'], minimum: 1 }
+        payload: { type: object }
+    BundleIdentity:
+      type: object
+      required: [serviceInstance, vaultId, bundleId, manifestHash]
+      properties:
+        serviceInstance: { type: string }
+        vaultId: { type: string }
+        bundleId: { type: string }
+        manifestHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+security: []
+
+paths:
+  # =========================================================================
+  /api/health:
+    get:
+      tags: [health]
+      summary: 健康检查与实例身份
+      description: >-
+        不读取用户文件、不受数据损坏影响、不暴露任何用户信息。额外返回 project / instanceId /
+        buildId 三项供启动器核对，「端口上任意 200」不算本项目（03 号方案 §3）。
+        资料库与页面是否就绪不在本探针里宣称。
+      security: []
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 客户端建议 3s（启动器轮询用）
+      x-sensitive-fields: 无用户数据；instanceId 是数据目录路径的哈希前 16 位，不反推路径
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, project, instanceId, buildId]
+                properties:
+                  status: { const: ok }
+                  uptimeSeconds: { type: integer }
+                  project: { const: CodeWeave }
+                  instanceId: { type: string, description: 同一机器上区分实例的数据目录指纹 }
+                  buildId: { type: string, description: dist/index.html 引用产物的哈希前 12 位；未构建时为 absent }
+
+  # =========================================================================
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: 注册并直接建立会话
+      security: []
+      x-idempotency: 非幂等（重复提交同邮箱得 409 email_taken，不会产生第二个账户）
+      x-pagination: 不适用
+      x-timeout: 写 15s；scrypt 哈希在 CPU 上耗时，超时后不得盲重发，应先查 /api/auth/me
+      x-sensitive-fields: 密码只用于 scrypt，不入库明文、不入日志、不回显
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, password]
+              oneOf:
+                - { required: [email], properties: { contactType: { const: email } } }
+                - { required: [phone], properties: { contactType: { const: phone } } }
+              properties:
+                name: { type: string, minLength: 2, maxLength: 40 }
+                contactType: { type: string, enum: [email, phone], default: email }
+                email: { type: string, format: email }

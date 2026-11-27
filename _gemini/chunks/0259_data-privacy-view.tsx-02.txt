@@ -1,0 +1,110 @@
+          <p>学习数据全部保存在本机；导出文件只含学习记录与代码草稿，不含认证凭据。</p>
+        </div>
+        <button className="primary-action cw-account-btn" onClick={onExportData}>
+          <Download size={14} />
+          导出学习数据（JSON）
+        </button>
+      </div>
+
+      <section className="profile-overview-card cw-account-card">
+        <h2 className="security-card-title cw-account-title">
+          <Database size={14} />
+          数据类别与存储位置
+        </h2>
+        <div className="cw-privacy-scroll">
+          <table className="data-table cw-account-table">
+            <caption className="cw-account-caption">各类学习数据的存储位置与最后保存时间</caption>
+            <thead>
+              <tr>
+                <th scope="col">数据类别</th>
+                <th scope="col">存储位置</th>
+                <th scope="col">最后保存</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key}>
+                  <td>{row.label}</td>
+                  <td data-ca-meta="1">{row.location}</td>
+                  {/* #95：时间戳是原子值，320 档实测这一列 97px 会把它折成约 3 行 */}
+                  <td data-ca-meta="1" className="cw-ca-time">{row.savedAt}</td>
+                </tr>
+              ))}
+              <tr>
+                <td>账户资料（昵称 / 联系方式 / 密码哈希）</td>
+                <td data-ca-meta="1">本地服务 data/users.json（密码为 scrypt 哈希，不参与导出）</td>
+                <td data-ca-meta="1">由服务端在写入时管理</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <ImportPanel scope={scope} />
+
+      <section className="profile-overview-card cw-account-card">
+        <h2 className="security-card-title cw-account-title">
+          <Activity size={14} />
+          隐私边界
+        </h2>
+        <ul className="security-notes cw-account-list">
+          <li>学习数据按账户 ID 作用域隔离：同一浏览器不同账号互不可见。</li>
+          <li>
+            这是<strong>应用级分区</strong>，不是对本机管理员或开发者工具的加密保护——
+            能访问本机浏览器存储的人仍可看到这些数据。
+          </li>
+          <li>导出 JSON 只包含当前账户的学习数据，带 schema 与版本标识，不含登录 Cookie、密码哈希与设备设置。</li>
+          <li>
+            导出会对 <code>password</code>、<code>token</code> 等<strong>字段名</strong>做过滤，
+            但这不等于对内容做密钥检测：你自己写进代码、笔记或实验证据里的敏感内容不会被识别，
+            分享导出文件前请自行检查。
+          </li>
+          <li>清除本机学习数据只移除当前账户的学习记录与会话状态，设备级偏好（工作台设置）保留，操作不可撤销。若部分数据删除失败，界面会如实说明而不会显示成功。</li>
+        </ul>
+        <div className="account-actions cw-account-actions">
+          <button className="danger-button cw-account-btn cw-account-btn--danger" onClick={clearScopedLocalData}>
+            清除本机学习数据
+          </button>
+        </div>
+        {clearError ? (
+          <div className="cw-account-status cw-account-status--error" role="alert">
+            <AlertCircle size={14} aria-hidden="true" />
+            <span className="cw-account-status-text">{clearError}</span>
+          </div>
+        ) : null}
+        {/* DATA-01 第 4 条：成功也要把「动了多少键、涉及几类」说出口，而不是只让按钮消失。 */}
+        {clearOk ? (
+          <div className="cw-account-status cw-account-status--ok" role="status">
+            <CheckCircle2 size={14} aria-hidden="true" />
+            <span className="cw-account-status-text">{clearOk}</span>
+          </div>
+        ) : null}
+      </section>
+    </section>
+  )
+}
+
+const STATUS_LABELS: Record<ImportStatus, string> = {
+  new: '空位可恢复',
+  conflict: '目标已有不同内容',
+  identical: '内容相同',
+  'cross-scope': '属于其他账户',
+  rejected: '被拒绝',
+}
+
+/** 只有「空位」与「冲突」可由用户决定；其余是数据层硬性不写，界面上也不给勾。 */
+const DECIDABLE: ImportStatus[] = ['new', 'conflict']
+
+function ImportPanel({ scope }: { scope: string }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [payload, setPayload] = useState<unknown>(null)
+  const [preview, setPreview] = useState<ImportPreview | null>(null)
+  const [decisions, setDecisions] = useState<Record<string, ImportDecision>>({})
+  const [result, setResult] = useState<ImportResult | null>(null)
+  const [error, setError] = useState('')
+
+  function reset(): void {
+    setPreview(null)
+    setPayload(null)
+    setDecisions({})
+    setError('')

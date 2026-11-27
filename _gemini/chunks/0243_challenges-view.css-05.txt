@@ -1,0 +1,152 @@
+  background: var(--cv-scene);                                      /* 选中 = 场景色 2px 实心竖条（非语义状态） */
+}
+
+.challenges-view .stage-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  width: 100%;
+}
+
+.challenges-view .stage-card-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+
+/* 真实文本序号：等宽两位，靠字色与字号与阶段徽标分层，不靠颜色表意 */
+.challenges-view .stage-card-no {
+  color: var(--cv-scene);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 阶段徽标 = 细线方框（直角），与序号同属编号骨架 */
+.challenges-view .stage-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.challenges-view .stage-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.challenges-view .stage-card-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.challenges-view .stage-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  margin-top: auto;
+  padding-top: var(--ds-space-6, 6px);
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .stage-runner,
+.challenges-view .stage-track {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.04em;
+  white-space: normal;                                              /* 取消 nowrap：轨道名是中文，挤压比折行更糟 */
+  text-overflow: clip;
+}
+
+.challenges-view .stage-card-action {
+  margin-left: auto;
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+/* 本机草稿标记：与「已通过 / 待确认」等提交态分属两套写法（§5.2） */
+.challenges-view .stage-card-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) dashed var(--cv-edge);
+  border-radius: var(--ds-shape-none, 0);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+/* ---------------------------------------------------------------------------
+   状态徽章：图形（::before 形状 + lucide 图标）+ 文字 + 恒定语义色，三通道。
+   重要修正 —— styles.css 把 pending-verify 指到 --c-purple(= 品红场景色)、
+   ready-to-submit 指到 --c-cyan(= 青场景色)，违反 §5.1 末段「成功/错误/警告
+   不得跟随场景变化」；本块把六档全部改指恒定的 --ds-status-* / 暖白档。
+   -------------------------------------------------------------------------- */
+.challenges-view .stage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  flex: 0 0 auto;
+  padding: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.challenges-view .stage-status::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  transform: none;
+}
+
+.challenges-view .stage-status.status-not-started {
+  color: var(--cv-faint);
+}
+
+.challenges-view .stage-status.status-not-started::before {
+  border-style: dashed;
+}
+
+.challenges-view .stage-status.status-external-pending {
+  color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+}
+

@@ -1,0 +1,158 @@
+      "code": "# Git 操作清单\n# git switch -c feature/env-notes\n# git add README.md\n# git commit -m \"docs: 记录环境清单\"\n# git log --oneline",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "创建分支",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "改动完成？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "提交并写信息",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "回看历史",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "小步提交 + 规范信息，是可回溯开发的最小纪律。",
+      "fileName": "git-checklist.txt",
+      "runtime": "外部环境 · Git",
+      "content": {
+        "objective": "在独立分支上完成一次提交，并用 git log 解释提交历史。",
+        "prerequisites": [
+          "java-env-a1"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ],
+        "stageId": "A",
+        "explanation": [
+          "分支让实验性改动不污染主干；合并前可以随时丢弃。",
+          "提交信息用“类型: 描述”格式（docs:/fix:/feat:），便于生成变更记录。",
+          "git log --oneline 是回看历史最快的方式。"
+        ],
+        "examples": [
+          {
+            "good": "feat: 增加联系人添加功能",
+            "bad": "update / 修改 / 111",
+            "why": "无意义信息让回溯失效"
+          }
+        ],
+        "guidedSteps": [
+          "创建 feature 分支并提交一项改动。",
+          "切回主分支确认改动不在，再合并回来。",
+          "用 git log --oneline 解释最近三条提交。"
+        ],
+        "exercise": "独立完成“分支 → 提交 → 合并 → 回看”全流程。",
+        "variant": "制造一次冲突（两个分支改同一行），手动解决并提交。",
+        "projectTask": "后续每阶段的项目都在分支上开发，主干保持可运行。",
+        "mistakes": [
+          "在 main 上直接做大改动",
+          "一次提交混入多个不相关改动"
+        ],
+        "runCommand": "git 命令行（真实仓库）",
+        "completion": "仓库里有一条 feature 分支的合并记录，能口述每条提交内容。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "完成分支创建与合并",
+          "提交信息符合类型前缀规范"
+        ],
+        "evidenceChecklist": [
+          "git log 输出",
+          "分支合并记录"
+        ]
+      }
+    },
+    {
+      "id": "java-algo-c1",
+      "language": "java",
+      "languageLabel": "Java",
+      "label": "C1",
+      "title": "找出较大值：比较与边界",
+      "description": "用分支比较两个数，讨论相等与负数边界",
+      "duration": "30 min",
+      "level": "基础",
+      "code": "int a = 4;\nint b = 8;\nif (a > b) {\n    System.out.println(a);\n} else {\n    System.out.println(b);\n}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "读入 a、b",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "a > b ?",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "取较大值",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "输出结果",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "比较逻辑是所有选择结构的基础；相等分支是边界思维的第一课。",
+      "fileName": "MaxTwo.java",
+      "runtime": "教学运行器 · Java 子集",
+      "content": {
+        "objective": "独立完成两数取大，并解释相等、负数两组边界的行为。",
+        "prerequisites": [
+          "B 阶段变量与流程基础"
+        ],
+        "reviewOffsetsDays": [

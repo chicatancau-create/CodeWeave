@@ -1,0 +1,84 @@
+          const now = edit.kind === 'evidence-date' ? latestEvidenceDate(text) : handoffValue(text, edit.field)
+          if (now !== edit.before) fieldDiffs.push({ field: edit.field, previewed: edit.before, current: now ?? '（未找到该字段）' })
+        }
+        for (const edit of step.before.masteryEdits ?? []) {
+          const now = masteryValue(text, edit.field)
+          if (now !== edit.before) fieldDiffs.push({ field: `掌握矩阵 · ${edit.field}`, previewed: edit.before, current: now ?? '（未找到该技能行）' })
+        }
+      } else if (step.kind === 'index') {
+        // 索引行的存在与否与文件是否被改是两件事：只有文件确实变了才算冲突。
+        const text = current.text ?? ''
+        if (hashChanged && step.before.line && !text.includes(step.before.line)) {
+          fieldDiffs.push({
+            field: '§0 日志索引',
+            previewed: step.before.line,
+            current: '当前文件中没有该行',
+          })
+        }
+      }
+      if (!hashChanged && fieldDiffs.length === 0) continue
+      if (fieldDiffs.length === 0) {
+        fieldDiffs.push({ field: '文件指纹', previewed: baseline ?? '（先前不存在）', current: current.hash ?? '（当前不存在）' })
+      }
+      files.push({ path: step.path, kind: step.kind, reason: 'third_party_change', fieldDiffs })
+    }
+    return { code: 'sync_conflict', files }
+  }
+
+  /** 把某一步的最终文本算出来（提交与恢复共用，保证同一 operationId 结果一致）。 */
+  async function desiredText(root, step, transaction) {
+    const current = await readTarget(root, step.path)
+    if (step.kind === 'log') {
+      if (current.text && hasOperationMarker(current.text, transaction.operationId)) {
+        return { text: current.text, changed: false, current }
+      }
+      const records = await evidenceStore.list(transaction.userId)
+      const group = records.filter((item) => step.groupEvidenceIds.includes(item.evidenceId))
+      if (group.length === 0) throw new WritebackError('evidence_not_found', '事务引用的证据已不存在，已停止写入')
+      return {
+        text: mergeEvidenceIntoLog({ existingText: current.text, records: group, operationId: transaction.operationId }),
+        changed: true,
+        current,
+      }
+    }
+    if (step.kind === 'progress') {
+      if (current.text === null) throw new WritebackError('source_not_found', `目标文件不存在：${step.path}`)
+      if (step.path === PROGRESS_BOARD_PATH && step.before.boardEntries) {
+        const { text } = evidenceBoardPatch(current.text, step.before.boardEntries)
+        return { text, changed: text !== current.text, current }
+      }
+      let text = current.text
+      for (const edit of step.before.edits ?? []) {
+        const next = edit.kind === 'evidence-date'
+          ? replaceLatestEvidenceDate(text, edit.before, edit.after)
+          : replaceHandoffRow(text, edit.field, edit.after)
+        if (next === null) {
+          throw new WritebackError('structure_unsupported', `进度追踪里找不到要更新的字段「${edit.field}」，需人工核对结构`)
+        }
+        text = next
+      }
+      for (const edit of step.before.masteryEdits ?? []) {
+        const next = replaceMasteryLevel(text, edit.field, edit.after)
+        if (next === null) {
+          throw new WritebackError('structure_unsupported', `进度追踪里找不到技能行「${edit.field}」，需人工核对结构`)
+        }
+        text = next
+      }
+      return { text, changed: text !== current.text, current }
+    }
+    // index
+    if (current.text === null) throw new WritebackError('source_not_found', `目标文件不存在：${step.path}`)
+    const line = step.before.line
+    if (!line || current.text.includes(line)) return { text: current.text, changed: false, current }
+    const at = transaction.at
+    const located = locateIndexInsertion(current.text, at.slice(0, 7))
+    if (!located) throw new WritebackError('structure_unsupported', '总计划缺少 §0 学习日志索引小节，需人工补充后再同步')
+    located.lines.splice(located.index, 0, line)
+    return { text: `${located.lines.join('\n')}`, changed: true, current }
+  }
+
+  /**
+   * 提交：按日志 → 进度 → 索引顺序写入。
+   * - 幂等：同一 operationId 已 synced 直接返回成功，不重复追加；
+   * - 恢复：事务未完成时按实际文件 hash 判断每一步是否已应用（= postHash）或未应用（= preHash），
+   *   两者都不是说明有第三方改动 → 409 冲突，停止覆盖；

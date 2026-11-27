@@ -1,0 +1,64 @@
+                        ctx.stroke(); arrow(to.x - 7, to.y + 56, 1, 0);
+                    } else if (!edge.back) {
+                        ctx.moveTo(from.x + 78, from.y + 112);
+                        ctx.lineTo(from.x + 78, from.y + 140);
+                        ctx.lineTo(to.x + 78, from.y + 140);
+                        ctx.lineTo(to.x + 78, to.y - 7);
+                        ctx.stroke(); arrow(to.x + 78, to.y - 7, 0, 1);
+                    } else {
+                        // Repeated observations, including the same line, use a visible return route.
+                        const routeX = Math.max(from.x, to.x) + 178;
+                        ctx.moveTo(from.x + 156, from.y + 80);
+                        ctx.lineTo(routeX, from.y + 80);
+                        ctx.lineTo(routeX, to.y + 28);
+                        ctx.lineTo(to.x + 163, to.y + 28);
+                        ctx.stroke(); arrow(to.x + 163, to.y + 28, -1, 0);
+                    }
+                }
+                for (const laid of diagram.drawing.nodes) {
+                    const node = laid.node;
+                    const x = laid.x, y = laid.y, w = 156, h = 112;
+                    const tones = { purple: diagram.ds.tonePurple, blue: diagram.ds.toneBlue,
+                        yellow: diagram.ds.toneYellow, coral: diagram.ds.toneCoral, green: diagram.ds.toneGreen };
+                    ctx.fillStyle = node.state === "now" ? diagram.ds.accentSoft
+                                  : node.state === "todo" ? diagram.ds.stageBg : diagram.ds.panel;
+                    ctx.strokeStyle = node.failed ? diagram.ds.danger : node.state === "now"
+                                      ? diagram.ds.accent : node.state === "todo"
+                                      ? (tones[node.tone] || diagram.ds.lineStrong) : diagram.ds.lineStrong;
+                    ctx.lineWidth = node.state === "now" ? 2 : 1;
+                    ctx.setLineDash(node.state === "todo" ? [4, 4] : []);
+                    ctx.beginPath();
+                    if (node.kind === "decision") {
+                        ctx.moveTo(x + 20, y); ctx.lineTo(x + w - 20, y); ctx.lineTo(x + w, y + h / 2);
+                        ctx.lineTo(x + w - 20, y + h); ctx.lineTo(x + 20, y + h); ctx.lineTo(x, y + h / 2);
+                    } else if (node.kind === "output") {
+                        ctx.moveTo(x + 16, y); ctx.lineTo(x + w, y);
+                        ctx.lineTo(x + w - 16, y + h); ctx.lineTo(x, y + h);
+                    } else {
+                        const r = node.kind === "start" || node.kind === "end" ? 32 : diagram.ds.radiusSm;
+                        ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+                        ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);
+                        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+                        ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r);
+                        ctx.quadraticCurveTo(x, y, x + r, y);
+                    }
+                    ctx.closePath(); ctx.fill(); ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+        }
+
+        Repeater {
+            model: diagram.drawing.nodes
+            delegate: Item {
+                id: nodeItem
+                required property var modelData
+                readonly property var node: modelData.node
+                x: modelData.x
+                y: modelData.y
+                width: 156
+                height: 112
+                activeFocusOnTab: node.lastEventIndex >= 0
+                Accessible.role: node.lastEventIndex >= 0 ? Accessible.Button : Accessible.StaticText
+                Accessible.name: node.label + (node.state === "now" ? "，当前事件" : "")
+                                 + (node.state === "todo" ? "，尚未执行" : "，访问 " + node.visits + " 次")

@@ -1,0 +1,82 @@
+    UiShell shell;
+    shell.configureAccountStorage(workspace, data);
+    shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.login("qt@example.test", "Test-Password-123!");
+    wait_for([&] { return !shell.accountBusy() && !shell.challengeHistoryBusy(); });
+    shell.openChallenge("stage-j");
+    assert(shell.challengeHistory().size() == 1);
+    assert(shell.challengeHistory().first().toMap().value("code").toString().contains("console.log"));
+    assert(shell.setAccountContext(second, workspace, data));
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    shell.openChallenge("stage-j");
+    assert(shell.challengeHistory().isEmpty() && shell.challengeProgress().isEmpty());
+    shell.openChallenge("stage-a");
+    std::mutex mutex;
+    std::condition_variable condition;
+    bool started = false, release = false;
+    assert(UiShellTestAccess::block_worker(shell, mutex, condition, started, release));
+    {
+      std::unique_lock lock(mutex);
+      assert(condition.wait_for(lock, std::chrono::seconds(5), [&] { return started; }));
+    }
+    shell.submitChallenge({}, QVariantMap{
+        {"environment", "Windows isolated shutdown fixture"}, {"command", "fixture-check"},
+        {"resultSummary", QStringLiteral("错误原因与修复步骤说明已留存，提交须在关闭前写入。")},
+        {"artifactRef", ""}, {"reproducedOn", QDate::currentDate().toString(Qt::ISODate)}});
+    assert(shell.challengeHistoryBusy());
+    assert(!shell.setAccountContext(first, workspace, data));
+    QTimer::singleShot(20, [&] {
+      { std::lock_guard lock(mutex); release = true; }
+      condition.notify_all();
+    });
+    assert(shell.requestClose());
+    QVariantList stored;
+    assert(ChallengeSubmissionStore(QString::fromStdWString(second_root.wstring())).read(stored).ok);
+    assert(stored.size() == 1 && stored.first().toMap().value("status") == "submitted");
+  }
+  // Account changes are allowed while a read is in flight. The old callback
+  // must be ignored after the generation changes and must not overwrite the
+  // new account's starter/draft state.
+  {
+    UiShell shell;
+    shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.setAccountContext(first, workspace, data));
+    std::mutex mutex;
+    std::condition_variable condition;
+    bool started = false;
+    bool release = false;
+    assert(UiShellTestAccess::block_worker(shell, mutex, condition, started, release));
+    {
+      std::unique_lock lock(mutex);
+      assert(condition.wait_for(lock, std::chrono::seconds(5), [&] { return started; }));
+    }
+    shell.openPublishedContent(0);
+    assert(shell.contentBusy());
+    assert(shell.setAccountContext(second, workspace, data));
+    {
+      std::lock_guard lock(mutex);
+      release = true;
+    }
+    condition.notify_all();
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.hasActiveAccount());
+    assert(shell.activeAccountId() == QString::fromUtf8(second.current()->id));
+    assert(!shell.starterLanguage().isEmpty());
+    assert(!shell.draftPersistenceBlocked());
+    assert(shell.requestClose());
+  }
+  assert(!std::filesystem::exists(first_root / ".native.lock"));
+  assert(!std::filesystem::exists(second_root / ".native.lock"));
+  {
+    UiShell shell;
+    shell.configureAccountStorage(workspace, data);
+    shell.login(QStringLiteral("b@example.test"), QStringLiteral("Test-Password-123!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(shell.hasActiveAccount());
+    shell.changePassword(QStringLiteral("wrong"), QStringLiteral("Changed-Password-456!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(!shell.accountStatus().contains(QStringLiteral("密码已修改")));
+    shell.changePassword(QStringLiteral("Test-Password-123!"), QStringLiteral("Changed-Password-456!"));
+    wait_for([&] { return !shell.accountBusy(); });

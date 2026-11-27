@@ -1,0 +1,115 @@
+  const categories: ExportCategory[] = []
+  const allowedBases = new Set(exportableDescriptors().map((entry) => entry.baseKey))
+
+  for (const key of collectKeys()) {
+    const descriptor = descriptorOf(key)
+    if (!descriptor) continue
+    if (!allowedBases.has(descriptor.baseKey)) continue
+    if (scopeOf(key) !== scope) continue
+
+    let parsed: unknown
+    const raw = localStorage.getItem(key)
+    try {
+      parsed = JSON.parse(raw ?? 'null')
+    } catch {
+      parsed = raw
+    }
+    data[key] = stripSensitive(parsed)
+    const base = baseOf(key)
+    if (!categories.some((entry) => entry.base === base)) {
+      categories.push({ base, category: descriptor.scope, label: labelOf(key) })
+    }
+  }
+
+  return {
+    schema: EXPORT_SCHEMA,
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    scope,
+    categories,
+    data,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 导入预览与恢复（DATA-09 · 方案 §6.2）
+//
+// 换目录或换 origin 后，浏览器 localStorage 看起来「丢了」；恢复路径是导出 → 预览 → 选择 → 应用。
+// 不可信输入处理：只接受已注册且允许导出的键，绝不按文件里写的名字写任意 localStorage 键；
+// 默认不覆盖目标已有记录；账户 ID 与旧实体 ID 原样保留，不做重映射。
+// ---------------------------------------------------------------------------
+
+export type ImportDecision = 'skip' | 'import'
+
+/** 'cross-scope' 表示这份数据属于另一个账户的槽位：界面上不给勾选，数据层无条件跳过。 */
+export type ImportStatus = 'new' | 'conflict' | 'identical' | 'cross-scope' | 'rejected'
+
+export type ImportItemPlan = {
+  key: string
+  base: string
+  label: string
+  category: StorageScope
+  status: ImportStatus
+  bytes: number
+  /** 默认决策：冲突与跨范围都是 skip，绝不静默覆盖。 */
+  decision: ImportDecision
+  reason?: string
+}
+
+export type ImportPreview = {
+  ok: boolean
+  errors: string[]
+  warnings: string[]
+  source: { scope: string; exportedAt: string; version: number } | null
+  items: ImportItemPlan[]
+  counts: Record<ImportStatus, number>
+}
+
+export type ImportResult = {
+  applied: string[]
+  skipped: string[]
+  /** 本次写入失败的键（回滚成功时它们不算未解决）。 */
+  failed: string[]
+  /** 写入中途失败时是否已把写过的键恢复原值。 */
+  rolledBack: boolean
+  /** 恢复不回去的键：必须如实报告，不宣称成功。 */
+  unresolved: { key: string; reason: string }[]
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+/** 校验导出文件并给出逐项计划；不写任何东西。 */
+export function previewImport(payload: unknown, currentScope: string): ImportPreview {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const items: ImportItemPlan[] = []
+  const emptyCounts: Record<ImportStatus, number> = { new: 0, conflict: 0, identical: 0, 'cross-scope': 0, rejected: 0 }
+
+  const root = asRecord(payload)
+  if (!root) {
+    return { ok: false, errors: ['导出文件不是 JSON 对象'], warnings, source: null, items, counts: emptyCounts }
+  }
+  if (root.schema !== EXPORT_SCHEMA) {
+    return { ok: false, errors: [`不是 CodeWeave 学习数据导出文件（schema=${String(root.schema)}）`], warnings, source: null, items, counts: emptyCounts }
+  }
+  const version = Number(root.version)
+  if (!Number.isInteger(version)) {
+    return { ok: false, errors: ['缺少导出版本号'], warnings, source: null, items, counts: emptyCounts }
+  }
+  if (version > EXPORT_VERSION) {
+    return { ok: false, errors: [`导出来自更新的版本（${version} > ${EXPORT_VERSION}），本应用无法安全解读，拒绝导入`], warnings, source: null, items, counts: emptyCounts }
+  }
+  if (version < EXPORT_VERSION) {
+    return { ok: false, errors: [`导出版本 ${version} 早于当前 ${EXPORT_VERSION}，尚无迁移路径；请先用原版本应用升级到 ${EXPORT_VERSION} 再导出`], warnings, source: null, items, counts: emptyCounts }
+  }
+  const data = asRecord(root.data)
+  if (!data) {
+    return { ok: false, errors: ['导出文件缺少 data 对象'], warnings, source: null, items, counts: emptyCounts }
+  }
+  const scope = typeof root.scope === 'string' ? root.scope : ''
+  if (!scope) {
+    return { ok: false, errors: ['导出文件缺少账户范围'], warnings: [], source: null, items, counts: emptyCounts }
+  }
+  if (scope !== currentScope) {

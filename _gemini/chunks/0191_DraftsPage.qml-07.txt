@@ -1,0 +1,47 @@
+                                onClicked: uiShell.saveDraft()
+                            }
+                            QuietButton {
+                                ds: draftsPage.ds
+                                implicitHeight: 32
+                                label: "打开工作台"
+                                enabled: uiShell.hasSelectedContent
+                                onClicked: uiShell.selectPage("编辑器")
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: snapshotCol.implicitHeight + ds.s24
+                            objectName: "draftSnapshotPanel"
+                            color: ds.page
+                            border.color: ds.line
+                            border.width: 1
+                            ColumnLayout {
+                                id: snapshotCol
+                                anchors.fill: parent
+                                anchors.margins: ds.s12
+                                spacing: ds.s6
+                                Text { text: "检查点快照"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                Text {
+                                    objectName: "draftSnapshotStatus"
+                                    Layout.fillWidth: true
+                                    text: "暂无历史快照。当前版本仅支持保存最近一份草稿，尚未接入检查点保存与恢复。"
+                                    color: ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                }
+                                QuietButton {
+                                    ds: draftsPage.ds
+                                    objectName: "draftCheckpointButton"
+                                    label: "保存检查点（待接入）"
+                                    enabled: false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        }
+    }

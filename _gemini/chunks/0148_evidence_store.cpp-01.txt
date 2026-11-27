@@ -1,0 +1,78 @@
+#include "evidence_store.hpp"
+
+#include <algorithm>
+#include <charconv>
+#include <chrono>
+#include <fstream>
+#include <random>
+#include <sstream>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::learning {
+namespace {
+
+constexpr std::uintmax_t kMaxEvidenceFileBytes = 32 * 1024 * 1024;
+constexpr std::size_t kMaxEvidenceLineBytes = 256 * 1024;
+constexpr std::size_t kMaxEvidenceRecords = 100'000;
+
+std::filesystem::path pending_path(const std::filesystem::path& destination) {
+  return destination.string() + ".append.txn";
+}
+
+std::filesystem::path temporary_path(const std::filesystem::path& destination) {
+  return destination.string() + ".tmp." +
+      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "." +
+      std::to_string(std::random_device{}());
+}
+
+std::string hex_encode(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string result;
+  result.reserve(value.size() * 2);
+  for (const unsigned char character : value) { result.push_back(digits[character >> 4]); result.push_back(digits[character & 15]); }
+  return result;
+}
+
+bool hex_decode(std::string_view value, std::string& result) {
+  if (value.size() % 2) return false;
+  result.clear(); result.reserve(value.size() / 2);
+  for (size_t i = 0; i < value.size(); i += 2) {
+    const auto digit = [](char c) -> int { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'f') return c - 'a' + 10; if (c >= 'A' && c <= 'F') return c - 'A' + 10; return -1; };
+    const int high = digit(value[i]), low = digit(value[i + 1]);
+    if (high < 0 || low < 0) return false;
+    result.push_back(static_cast<char>((high << 4) | low));
+  }
+  return true;
+}
+
+std::string actor(RanBy value) { return value == RanBy::Learner ? "learner" : value == RanBy::Assistant ? "assistant" : "unknown"; }
+bool parse_actor(std::string_view value, RanBy& out) { if (value == "learner") out = RanBy::Learner; else if (value == "assistant") out = RanBy::Assistant; else if (value == "unknown") out = RanBy::Unknown; else return false; return true; }
+std::string state(EvidenceState value) { return value == EvidenceState::Pending ? "pending" : value == EvidenceState::Synced ? "synced" : "partial"; }
+bool parse_state(std::string_view value, EvidenceState& out) { if (value == "pending") out = EvidenceState::Pending; else if (value == "synced") out = EvidenceState::Synced; else if (value == "partial") out = EvidenceState::Partial; else return false; return true; }
+
+std::string serialize(const EvidenceRecord& record) {
+  std::vector<std::string> fields;
+  const auto add = [&fields](std::string_view value) { fields.push_back(hex_encode(value)); };
+  add(record.evidence_id); add(record.content_id); add(record.exercise_id); add(record.at); add(record.expected_result); add(record.actual_result); add(actor(record.ran_by)); add(record.independent ? "1" : "0"); add(record.hint_level); add(state(record.state)); add(record.operation_id);
+  add(std::to_string(record.artifact_refs.size()));
+  for (const auto& value : record.artifact_refs) add(value);
+  add(std::to_string(record.unfinished_items.size()));
+  for (const auto& value : record.unfinished_items) add(value);
+  std::ostringstream out;
+  for (size_t index = 0; index < fields.size(); ++index) { if (index) out << '\t'; out << fields[index]; }
+  return out.str();
+}
+
+bool same_record(const EvidenceRecord& left, const EvidenceRecord& right) {
+  return left.evidence_id == right.evidence_id && left.content_id == right.content_id &&
+      left.exercise_id == right.exercise_id && left.at == right.at &&
+      left.expected_result == right.expected_result && left.actual_result == right.actual_result &&
+      left.ran_by == right.ran_by && left.independent == right.independent &&
+      left.hint_level == right.hint_level && left.artifact_refs == right.artifact_refs &&
+      left.unfinished_items == right.unfinished_items && left.state == right.state &&
+      left.operation_id == right.operation_id;
+}
+

@@ -1,0 +1,106 @@
+    expect(onPrev).toHaveBeenCalledTimes(1)
+    expect(onNext).toHaveBeenCalledTimes(1)
+    expect(onTogglePlay).toHaveBeenCalledTimes(1)
+    // 画布上不摆第二个「重置」：页面上那份归 `RuntimeTraceControls`，
+    // 两个同名按钮会让读屏与查询都撞车。
+    expect(screen.queryByRole('button', { name: /重置/ })).toBeNull()
+    expect(onReset).not.toHaveBeenCalled()
+  })
+
+  it('播放中：按钮变「暂停」并带 aria-pressed，组件自己不驱动时间', () => {
+    render(<RunStage {...props({ frame: frame({ nodes: threeNodes }), canStep: true, stepIndex: 1, stepTotal: 7, playing: true })} />)
+    const play = screen.getByRole('button', { name: /暂停/ })
+    expect(play.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: /^播放$/ })).toBeNull()
+  })
+})
+
+describe('run-stage · 计数器与当前拍', () => {
+  it('两位对齐：`03 / 07`，并带完整可读标签', () => {
+    const nodes = [node({ id: 'n1', state: 'now', ordinal: 1 })]
+    render(<RunStage {...props({ frame: frame({ nodes, index: 2 }), canStep: true, stepIndex: 2, stepTotal: 7 })} />)
+    expect(screen.getByText('03 / 07')).toBeTruthy()
+    expect(screen.getByLabelText('第 3 拍，共 7 拍')).toBeTruthy()
+  })
+
+  it('当前拍恰有一个 aria-current="step"', () => {
+    const nodes = [
+      node({ id: 'n1', state: 'done', ordinal: 1 }),
+      node({ id: 'n2', state: 'now', ordinal: 2 }),
+      node({ id: 'n3', state: 'todo' }),
+    ]
+    const { container } = render(
+      <RunStage {...props({ frame: frame({ nodes }), canStep: true, stepIndex: 1, stepTotal: 3 })} />,
+    )
+    const currents = container.querySelectorAll('[aria-current="step"]')
+    expect(currents).toHaveLength(1)
+    expect(currents[0]!.textContent).toContain('节点 n2')
+  })
+})
+
+describe('run-stage · 没走到的节点不填假值', () => {
+  it('未走到的节点：`尚未执行` + 序号 `--`，且没有数据格', () => {
+    const nodes = [
+      node({ id: 'n1', label: '已走过', state: 'done', ordinal: 1, line: 4 }),
+      node({ id: 'n2', label: '还没到', state: 'todo', ordinal: null, line: 9 }),
+    ]
+    render(<RunStage {...props({ frame: frame({ nodes }), canStep: true, stepIndex: 0, stepTotal: 2 })} />)
+
+    const todo = itemWith('还没到')
+    expect(todo.textContent).toContain('尚未执行')
+    expect(todo.textContent).toContain('--')
+    expect(todo.textContent).toContain('尚未落值')
+    // 骨架里的静态行号不许冒充此刻的播放头。
+    expect(todo.textContent).not.toContain('L9')
+  })
+
+  it('数据格只在当前这一拍命中的那一格上出现', () => {
+    const nodes = [
+      node({ id: 'n1', label: '上一拍', state: 'done', ordinal: 1, line: 1, cells: [] }),
+      node({
+        id: 'n2',
+        label: '这一拍',
+        state: 'now',
+        ordinal: 2,
+        line: 2,
+        cells: [{ name: 'total', value: '6', type: 'int', changed: true, born: false }],
+      }),
+    ]
+    render(<RunStage {...props({ frame: frame({ nodes }), canStep: true, stepIndex: 1, stepTotal: 2 })} />)
+
+    const past = itemWith('上一拍')
+    const now = itemWith('这一拍')
+    expect(past.textContent).toContain('尚未落值')
+    expect(now.textContent).toContain('total')
+    expect(now.textContent).toContain('6')
+    expect(now.textContent).toContain('这一拍被改写')
+    // 上一拍的值没被搬到这一拍的画布上
+    expect(past.textContent).not.toContain('6')
+  })
+
+  it('一拍的全部分量都画出来：`for-sum` 每一步同时带着 i 与 total', () => {
+    const nodes = [
+      node({
+        id: 'n1',
+        label: '累加',
+        state: 'now',
+        ordinal: 1,
+        line: 3,
+        cells: [
+          { name: 'i', value: '3', type: 'int', changed: true, born: false },
+          { name: 'total', value: '3', type: 'int', changed: true, born: false },
+        ],
+      }),
+    ]
+    const { container } = render(
+      <RunStage {...props({ frame: frame({ nodes }), canStep: true, stepIndex: 2, stepTotal: 7 })} />,
+    )
+    // 两个格都在：这一拍程序的状态是「i 与 total 各自是多少」，不是「只报一个」。
+    expect(container.querySelectorAll('.rs-cell')).toHaveLength(2)
+    const now = itemWith('累加')
+    expect(now.textContent).toContain('i')
+    expect(now.textContent).toContain('total')
+  })
+
+  it('重访次数只在真的绕回来过时出现（`×1` 是废话）', () => {
+    const nodes = [node({ id: 'n1', state: 'now', ordinal: 1, visit: 3, line: 2 })]

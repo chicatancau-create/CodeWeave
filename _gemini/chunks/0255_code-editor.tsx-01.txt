@@ -1,0 +1,115 @@
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { Copy, Save } from 'lucide-react'
+import { createCachedTokenizer } from '../engine/cached-syntax-tokenizer'
+import type { Token } from '../engine/syntax-tokenizer'
+import type { LanguageId } from '../types/lesson'
+import './code-editor.css'
+
+type Props = {
+  code: string
+  /** 语言 id（用于词法着色） */
+  language: LanguageId
+  /** 展示用语言名 */
+  languageLabel: string
+  runtime: string
+  activeLine?: number
+  onChange: (code: string) => void
+  /** 一次 Tab 进/退几格（设置项，EDIT-01）；默认 2，与基座 `tab-size: 2` 一致。 */
+  tabSize?: number
+  /** 自动换行（设置项，EDIT-01）。关掉时长行走横向滚动——那是 §5.4 的取证形态，别默认改。 */
+  wordWrap?: boolean
+  /** 行号层开关（设置项，EDIT-01）。关掉只是不画，不改变文本内容一个字。 */
+  lineNumbers?: boolean
+  /**
+   * EDIT-01 第 6 条「错误定位」：外部（控制台）请求把某一行送到眼前。
+   * 带 token 是因为同一行连点两次也要真的再滚一次——只比行号的话第二次什么也不会发生。
+   */
+  reveal?: { line: number; token: number }
+}
+
+/**
+ * 一整块缩进的纯函数：EDIT-01 第 2 条要求「先补选区/缩进测试再扩能力」，
+ * 所以算法不碰 DOM，键盘事件只负责把选区交给它。
+ *
+ * 两种模式，分界是**选区起点在不在本行的缩进区里**（或者选区跨行）：
+ * - 在（或跨行）→ 整块进/退：每行前面加 `tabSize` 个空格，或每行**最多**退 `tabSize` 个
+ *   （只缩了 1 格的行就退 1 格，不会因为按一次 Shift+Tab 把行首吃光）。
+ * - 不在 → 光标处在代码中间：Tab 在光标处插一格宽的缩进，Shift+Tab 删掉光标前那几个空格；
+ *   这一支保持的是改版前的「Tab 就在光标处插两个空格」，因为那半句本来没坏。
+ */
+export function indentBlock(
+  code: string,
+  selectionStart: number,
+  selectionEnd: number,
+  tabSize: number,
+  dir: 1 | -1,
+): { value: string; selectionStart: number; selectionEnd: number } {
+  const unit = ' '.repeat(Math.max(1, tabSize))
+  const blockStart = code.lastIndexOf('\n', selectionStart - 1) + 1
+  const nextBreak = code.indexOf('\n', selectionEnd)
+  const blockEnd = nextBreak === -1 ? code.length : nextBreak
+  const leadingCount = /^ */.exec(code.slice(blockStart, blockEnd))?.[0].length ?? 0
+  const spansLines = code.slice(selectionStart, selectionEnd).includes('\n')
+  const startsInIndent = selectionStart <= blockStart + leadingCount
+  if (!(spansLines || startsInIndent)) {
+    if (dir === 1) {
+      return {
+        value: `${code.slice(0, selectionStart)}${unit}${code.slice(selectionEnd)}`,
+        selectionStart: selectionStart + unit.length,
+        selectionEnd: selectionStart + unit.length,
+      }
+    }
+    let cut = 0
+    while (cut < unit.length && code[selectionStart - 1 - cut] === ' ') cut += 1
+    if (!cut) return { value: code, selectionStart, selectionEnd: selectionStart }
+    return {
+      value: `${code.slice(0, selectionStart - cut)}${code.slice(selectionEnd)}`,
+      selectionStart: selectionStart - cut,
+      selectionEnd: selectionStart - cut,
+    }
+  }
+  const lines = code.slice(blockStart, blockEnd).split('\n')
+  const shifted = lines.map((line) => {
+    if (dir === 1) return unit + line
+    const leading = /^ +/.exec(line)?.[0].length ?? 0
+    return line.slice(Math.min(unit.length, leading))
+  })
+  const block = shifted.join('\n')
+  const value = `${code.slice(0, blockStart)}${block}${code.slice(blockEnd)}`
+  if (selectionStart === selectionEnd) {
+    // 收起的光标跟着本行走，退到行首就停住不会跑到上一行。
+    const col = selectionStart - blockStart
+    const moved = col + ((shifted[0]?.length ?? 0) - (lines[0]?.length ?? 0))
+    const caret = blockStart + Math.max(0, Math.min(shifted[0]?.length ?? 0, moved))
+    return { value, selectionStart: caret, selectionEnd: caret }
+  }
+  return { value, selectionStart: blockStart, selectionEnd: blockStart + block.length }
+}
+
+const LineNumbersLayer = memo(function LineNumbersLayer({
+  lines,
+  activeLine,
+  offset,
+}: {
+  lines: string[]
+  activeLine?: number
+  offset: number
+}) {
+  return (
+    <div className="line-numbers" aria-hidden="true">
+      <div className="line-numbers-inner" style={{ transform: `translateY(${-offset}px)` }}>
+        {lines.map((_, index) => <span className={activeLine === index + 1 ? 'active' : ''} key={index}>{String(index + 1).padStart(2, '0')}</span>)}
+      </div>
+    </div>
+  )
+})
+
+const CodeTokensLayer = memo(function CodeTokensLayer({
+  tokens,
+  left,
+  top,
+  tabSize,
+  wordWrap,
+}: {
+  tokens: Token[]
+  left: number

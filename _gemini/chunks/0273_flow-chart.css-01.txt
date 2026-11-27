@@ -1,0 +1,115 @@
+/* ============================================================================
+   CodeWeave · 执行流程图（src/components/flow-chart.tsx）· 2026-09-30 重做为横向拍轨
+   ----------------------------------------------------------------------------
+   特异度与层叠约定见 code-editor.css 头部注释：只在 (c) 档抬一位，页面作用域
+   `.cw-workspace …`（恰好多一个类）永远赢 → 工作台仍由 learning-workspace-view.css 决定。
+
+   本文件的三条裁定：
+   1) **横向拍轨 + 单拍展开**：一拍一格横向排；每一拍在 DOM 里**都带着自己那份数据栏**
+      （`div.flow-data`，M4 基座契约按 per-step 钉着），但只有当前那一拍的数据栏
+      （`.flow-data.is-shown`）显示，其余 `display: none`。2026-09-29 那版把五张数据卡
+      竖着摞起来，实测 6 拍 607px——900px 的视口里光流程图就占掉三分之二，而且逐字重复
+      画布已经画过的内容。展开态收在一处后，同一屏里「这一步的数据是什么」仍然常驻。
+      超出宽度的拍横向滚动；滚出去的是已走过的拍，当前拍靠高亮 + 泛光定位。
+   2) **三态靠形状 + 文字 + 颜色**：已走过（实线 + 编号实框）、当前（冷色近档泛光 +
+      实心竖条 + `aria-current`）、未到（虚线 + 次级文字）。发光只表「现在在哪」，
+      不表「对错」——语义状态一律 tokens §4 的固定 --ds-status-*，不引用 --ds-scene-*（§5.1 末段）。
+   3) 零装饰动画：不做循环 keyframes、不做位移。当前态由泛光与竖条表达，静态可读。
+
+   取值出处（行号 = app/src/design/tokens.css）：黑场 L25、暖白 L27、次级 L28、
+   发丝线 L37/L40、抬起档 L38、场景档 L50、环宽 L51、状态色 L60-L63、
+   圆角三档 L118-L120、零投影 L123（L179 起指向 --ds-glow-panel）、字栈 L88、
+   缓动 L147、时长 L153。
+   规格：§5.1（黑场 + 发丝线，去玻璃卡/渐变）、§5.3（回放时不做弹跳动画）、
+   §5.4（行号与变量是必读文字：等宽 13px 起，长值横向滚动不折行挤压）。
+   ========================================================================== */
+
+div.flow-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  min-height: 0;
+  padding: var(--ds-space-12, 12px);
+  background: var(--ds-canvas, #000); /* L25：独立复用时自己也是一个分区 */
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37 */
+  border-radius: var(--ds-radius-panel, 0); /* L121 */
+  box-shadow: var(--ds-glow-panel, none); /* 科技档：冷色面板发光（原零投影，tokens §4.5） */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 轨道：横向一排格子，超宽自己横滚 ─────────────────────────────────────── */
+ol.flow-track {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+ol.flow-track > li.flow-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* ── 连接线：横向主干的一段。实线 = 已走到，虚线 = 还没到 ─────────────────── */
+span.flow-rail {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  /* 与节点编号行垂直居中：编号徽记高约 20px，节点上内衬 10px */
+  margin-top: calc(var(--ds-space-10, 10px) + var(--ds-space-10, 10px));
+  width: var(--ds-space-20, 20px);
+  border-block-start: var(--ds-line-width, 1px) dashed var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+}
+/* 每格起点的那颗圆点：靠描边成立（geometry.md §2 裁定 2），不铺实底 */
+span.flow-rail::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  inline-size: 7px;
+  block-size: 7px;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  border-radius: var(--ds-shape-circle, 50%);
+  background: var(--ds-canvas, #000);
+}
+/* 首尾各收一半，主干不通到格列外 */
+ol.flow-track > li.flow-step:first-child span.flow-rail {
+  width: var(--ds-space-10, 10px);
+}
+ol.flow-track > li.flow-step:last-child::after {
+  content: '';
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: calc(var(--ds-space-10, 10px) + var(--ds-space-10, 10px));
+  width: var(--ds-space-10, 10px);
+  border-block-start: var(--ds-line-width, 1px) dashed var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+}
+
+li.flow-step.is-done span.flow-rail,
+li.flow-step.is-now span.flow-rail {
+  border-block-start-style: solid;
+  border-block-start-color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50 */
+}
+li.flow-step.is-now span.flow-rail::before {
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  background: var(--ds-scene-active, rgb(34, 211, 238));
+}
+li.flow-step.is-done span.flow-rail::before {
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+
+/* ── 节点格 ───────────────────────────────────────────────────────────────── */
+div.flow-node {
+  display: flex;
+  flex-direction: column;

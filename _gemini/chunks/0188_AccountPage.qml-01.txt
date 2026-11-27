@@ -1,0 +1,111 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "../components"
+
+Item {
+    property var hostRoot
+    property QtObject ds
+    id: accountPage
+    objectName: "profilePageRoot"
+
+    Component.onCompleted: {
+        if (uiShell.hasActiveAccount) uiShell.refreshReviewSummary();
+    }
+
+    Connections {
+        target: uiShell
+        function onAccountChanged() {
+            pwField.text = "";
+            identField.text = "";
+            nameField.text = "";
+        }
+    }
+
+    ScrollView {
+        objectName: "accountScrollView"
+        anchors.fill: parent
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ColumnLayout {
+            // Use the page width because ScrollView reparents this column.
+            width: accountPage.width - ds.s16
+            spacing: ds.s16
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: ds.s12
+                ColumnLayout {
+                    spacing: 2
+                    RowLayout {
+                        spacing: ds.s8
+                        Rectangle {
+                            implicitWidth: 6
+                            implicitHeight: 6
+                            radius: 3
+                            color: ds.cyan
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "ACCOUNT"
+                            color: ds.faint
+                            font.family: ds.mono
+                            font.pixelSize: 10
+                            font.letterSpacing: 1
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    Text {
+                        Layout.topMargin: ds.s4
+                        text: "个人中心"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 20
+                        font.weight: Font.Bold
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+
+            // Identity card
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 104
+                radius: ds.radius
+                color: ds.panel
+                border.color: ds.line
+                border.width: 1
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: ds.s16
+                    spacing: ds.s16
+                    Rectangle {
+                        implicitWidth: 56
+                        implicitHeight: 56
+                        radius: 28
+                        color: ds.accent
+                        Layout.alignment: Qt.AlignVCenter
+                        Text {
+                            anchors.centerIn: parent
+                            text: uiShell.hasActiveAccount
+                                  && uiShell.accountName.length > 0
+                                  ? uiShell.accountName.charAt(0) : "访"
+                            color: ds.inkOnAccent
+                            font.family: ds.ui
+                            font.pixelSize: 22
+                            font.weight: Font.Bold
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s4
+                        Text {
+                            text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 16
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: uiShell.hasActiveAccount
+                                  ? (uiShell.activeAccountId || "—")

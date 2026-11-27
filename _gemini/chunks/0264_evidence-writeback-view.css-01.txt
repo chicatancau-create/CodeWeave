@@ -1,0 +1,84 @@
+/* ============================================================================
+   CodeWeave · 证据写回页（LINK-09）· M3 视觉竖切（01 号方案 §4 写回拆分目标 + §5 不可逆动作二次确认）
+   ----------------------------------------------------------------------------
+   - 只作用于 `.evidence-writeback` 子树；不写全局文件、不改 styles.css。
+   - 全部取值走 `--ds-*` 令牌并带兜底（app/src/design/tokens.css 有行号出处）：
+     黑场 L14 / 暖白 L15 / 发丝线三档 L18·L176·L94 / 语义状态恒定 L55-L68。
+   - 形态（§5.1 表「形态」行）：黑场 + 发丝线 + 编号；玻璃卡、渐变按钮、泛光在本页删除。
+   - 细线表格取自模板 ledger（site.css L361-L379）与 specs（L287-L307）的
+     「上下 1px 发丝线 + 无竖线 + 无底色」结构，压成产品字号（§5.4 正文 16px）。
+   - 语义状态双通道（§5.1 末段）：图标 + 文字，颜色只是第三重提示，
+     且只用 --ds-status-*，永不引用 --ds-scene-* / --accent。
+   ========================================================================== */
+
+.evidence-writeback {
+  /* 局部别名：令牌缺席时也能拿到与 tokens.css 同值的兜底 */
+  --ewb-canvas: var(--ds-canvas, #000);
+  --ewb-ink: var(--ds-text-primary, #f4f1ee);
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     装饰性，不参与语义状态。 */
+  --ewb-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --ewb-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --ewb-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --ewb-ink-2: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  /* 三级色 0.34 在纯黑上只有 2.69:1（design/README §6），不能承载必读信息，
+     这里抬到 0.49（≥4.5:1）用于禁用态与次要说明。 */
+  --ewb-ink-3: rgba(220, 233, 251, 0.49);
+  --ewb-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  --ewb-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  --ewb-hair-frame: var(--ds-line-frame, rgba(220, 233, 251, 0.07));
+  /* 边界与焦点必须是可辨识的独立档位，发丝线（1.32:1）承担不了（tokens §5 注释） */
+  --ewb-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));
+  --ewb-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62));
+  --ewb-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  /* 语义状态：固定值，不随场景点缀变化 */
+  --ewb-ok: var(--ds-status-success, #3fd3a4);
+  --ewb-warn: var(--ds-status-warning, #ffc457);
+  --ewb-bad: var(--ds-status-danger, #ff8371);
+  --ewb-info: var(--ds-status-info, #4f7cff);
+  --ewb-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --ewb-warn-wash: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+  --ewb-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --ewb-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+  --ewb-body: var(--ds-size-body, 16px);
+  --ewb-leading: var(--ds-leading-body, 1.7);
+  --ewb-meta: 13px; /* §5.4 反对 9.5–10.5px HUD 用于必读信息 */
+  --ewb-tap: var(--ds-tap-min, 44px);
+  --ewb-mono: var(--ds-font-mono, ui-monospace, Consolas, monospace);
+  --ewb-play: var(--ds-anim-play-state, running);
+
+  /* 覆写 .profile-overview-card 的玻璃面板（§5.1 形态：去大面积卡片与投影） */
+  position: relative; /* 让私有的 .sr-only 定位留在本页内 */
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.4vw, var(--ds-space-24, 24px)) 0 0;
+  border: 0;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ds-shadow-panel, none);
+  color: var(--ewb-ink);
+  font-family: var(--ds-font-display, 'Geist Mono', 'Microsoft YaHei', ui-monospace, monospace);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere; /* 长中文标题与长路径在 320px 下不破版（§5.4） */
+  word-break: normal;
+}
+
+/* 让全局的 `word-break: break-all`（.evidence-writeback code / .vault-progress-notice）
+   回到「必要时才断行」，避免中长文件路径被硬切断。 */
+.evidence-writeback code {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: var(--ewb-mono);
+  font-size: 0.86em;
+  color: var(--ewb-ink);
+}
+
+/* ── 1. 标题与编号（§5.1 形态：编号 + 细字重，正文标题按阅读密度适配） ───── */
+.evidence-writeback .ewb-head {
+  padding-bottom: var(--ds-space-12, 12px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+

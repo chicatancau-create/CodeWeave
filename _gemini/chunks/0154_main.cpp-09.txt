@@ -1,0 +1,76 @@
+    if (result.ok) ShellExecuteW(window, L"open", target.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    return;
+  }
+  const auto source = action == kImportUsersId ? choose_json(window) :
+      action == kRestoreId ? choose_directory(window, L"选择 CodeWeave 备份目录") : g_core.data_root();
+  if (source.empty()) return;
+  const auto parent = choose_directory(window, L"选择保存位置（将在其下创建新目录，不覆盖现有数据）");
+  if (parent.empty()) return;
+  const auto target = parent / (std::wstring(action == kBackupId ? L"CodeWeave-backup-" : L"CodeWeave-data-") + std::to_wstring(GetTickCount64()));
+  codeweave::app::Result result;
+  if (action == kImportUsersId) {
+    codeweave::migration::LegacyImportReport report;
+    result = codeweave::migration::import_legacy_users(source, target, report);
+  } else {
+    codeweave::backup::Report report;
+    result = action == kBackupId ? codeweave::backup::create_native_backup(source, target, report) :
+        codeweave::backup::restore_native_backup(source, target, report);
+  }
+  if (result.ok && action != kBackupId && !activate_profile(target)) return;
+  set_status(wide_from_utf8(result.message));
+}
+
+bool is_test_runner_path(const std::filesystem::path& path) {
+  auto filename = path.filename().wstring();
+  std::transform(filename.begin(), filename.end(), filename.begin(), [](wchar_t value) {
+    return static_cast<wchar_t>(std::towlower(value));
+  });
+  return filename == L"codeweave-cpp-runner.exe";
+}
+
+bool is_native_ui_runnable(std::string_view language) {
+  // These external interpreters are optional per-machine tools. They are only
+  // runnable after the same absolute-path and process whitelist checks below.
+  return language == "cpp" || language == "java" ||
+      language == "python" || language == "javascript";
+}
+
+void list_content() {
+  const auto root = configured_content_root();
+  if (root.empty()) { set_status(L"未配置版本化课程目录（CODEWEAVE_NATIVE_CONTENT_ROOT）"); return; }
+  codeweave::content::ContentRepository repository(root);
+  std::vector<codeweave::content::Unit> units;
+  const auto result = repository.list_published(units);
+  if (!result.ok) { set_status(wide_from_utf8(result.message)); return; }
+  SendMessageW(g_content_list, LB_RESETCONTENT, 0, 0);
+  for (const auto& unit : units) {
+    const auto display = wide_from_utf8(unit.title + " [" + unit.content_id + "]");
+    SendMessageW(g_content_list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(display.c_str()));
+  }
+  set_status(L"已读取已发布课程目录（只读）");
+}
+
+void show_selected_content() {
+  if (g_draft_dirty && !persist_draft()) return;
+  const int index = static_cast<int>(SendMessageW(g_content_list, LB_GETCURSEL, 0, 0));
+  if (index < 0) return;
+  const auto root = configured_content_root(); if (root.empty()) return;
+  codeweave::content::ContentRepository repository(root); std::vector<codeweave::content::Unit> units;
+  if (!repository.list_published(units).ok || static_cast<size_t>(index) >= units.size()) return;
+  codeweave::content::LoadedUnit loaded; const auto result = repository.read_published(units[static_cast<size_t>(index)].content_id, loaded);
+  if (!result.ok) { set_status(wide_from_utf8(result.message)); return; }
+  g_selected_content = loaded.metadata.content_id;
+  g_hint_viewed = false;
+  std::string language;
+  const auto starter = repository.read_starter(g_selected_content, language, g_starter, g_execution_policy);
+  if (!starter.ok) { g_starter.clear(); g_execution_policy = "external"; }
+  SendMessageW(g_independent_check, BM_SETCHECK, BST_UNCHECKED, 0);
+  g_content_language = starter.ok ? language : loaded.metadata.language;
+  SetWindowTextW(g_language_edit, wide_from_utf8(g_content_language).c_str());
+  load_personal_draft();
+  set_multiline(g_content_body, loaded.body);
+  std::vector<codeweave::content::Exercise> exercises;
+  const auto exercises_result = repository.list_exercises(loaded.metadata.content_id, exercises);
+  if (!exercises_result.ok) {
+    set_status(wide_from_utf8(exercises_result.message));
+  } else if (!exercises.empty()) {

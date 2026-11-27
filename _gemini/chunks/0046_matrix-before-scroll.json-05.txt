@@ -1,0 +1,138 @@
+            "name": "review-pass-refreshes-level-step-and-due-date",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-refreshes-date-without-changing-mastery",
+            "passed": true
+        },
+        {
+            "name": "review-updated-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-open-course-row-action",
+            "passed": true
+        },
+        {
+            "detail": "page=复习与进度 document=java-loop-sum selected=1 body=1",
+            "name": "review-open-course-resolves-published-id",
+            "passed": true
+        },
+        {
+            "name": "lesson-workspace-header-matches-evidence-document",
+            "passed": true
+        },
+        {
+            "name": "lesson-workspace-missing-metadata-clears-previous-flow",
+            "passed": true
+        },
+        {
+            "name": "lesson-evidence-opens-from-workspace",
+            "passed": true
+        },
+        {
+            "name": "lesson-contract-unrun-blocks-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-mark-read-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-read-is-persisted-without-completing",
+            "passed": true
+        },
+        {
+            "name": "lesson-run-miss-from-workspace",
+            "passed": true
+        },
+        {
+            "name": "lesson-successful-process-is-practice-not-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-current-code-all-cases-hit",
+            "passed": true
+        },
+        {
+            "name": "lesson-explicit-completion-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-completion-reloads-verified-fact",
+            "passed": true
+        },
+        {
+            "name": "lesson-dialog-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "detail": "doc=csharp-loop-sum title=01 · 让 C# 输出一句话 expected=让 C# 输出一句话 flow=6 expectedFlow=6 breadcrumb=Code Canvas / 编辑器 / 04 · 让 C# 输出一句话",
+            "name": "lesson-workspace-external-document-updates-title-and-flow",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-form-filled-with-required-date",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-submit-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-submitted-without-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-self-declaration-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-completion-is-self-declared",
+            "passed": true
+        },
+        {
+            "name": "lesson-evidence-small-scroll-width",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-fault-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-starts-and-disables",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-failure-visible-and-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-error-screenshot",
+            "passed": true
+        },
+        {
+            "name": "workspace-dismiss-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "workspace-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "workspace-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "detail": "草稿已保存",
+            "name": "review-normal-content-hides-error",
+            "passed": true
+        },

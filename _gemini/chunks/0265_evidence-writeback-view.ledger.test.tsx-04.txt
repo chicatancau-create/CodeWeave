@@ -1,0 +1,86 @@
+      detail: () => json({ error: '写回事务记录损坏', code: 'transaction_corrupt' }, 409),
+    })
+    await ledgerLoaded()
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    const zone = await screen.findByText(/读不回这一笔的明细/)
+    expect(zone.textContent).toContain('transaction_corrupt')
+    expect(document.querySelector('.ewb-table--steps')).toBeNull()
+  })
+
+  it('刷新后横幅仍在：partial 由服务端账本兜着，并写明它读自事务记录', async () => {
+    renderPanel({
+      queue: { pending: [], synced: [stagedRecord({ evidenceId: 'ev-9', state: 'synced' })] },
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+    })
+    const zone = await screen.findByLabelText('部分成功的事务')
+    expect(text(zone)).toContain('op-partial-aaaa11')
+    expect(text(zone)).toContain('这条横幅读自服务端的事务记录')
+    expect(text(zone)).toContain('点「重试补齐」时从服务端这笔事务的记录里读回')
+  })
+
+  it('重试补齐带的是从这笔事务记录读回的真实指纹，不是空对象', async () => {
+    const { calls } = renderPanel({
+      queue: { pending: [], synced: [stagedRecord({ evidenceId: 'ev-9', state: 'synced' })] },
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+    })
+    await screen.findByLabelText('部分成功的事务')
+    fireEvent.click(screen.getByRole('button', { name: /重试补齐/ }))
+    const commit = await waitFor(() => {
+      const found = calls.find((call) => call.path === '/api/learning/evidence-commit')
+      if (!found) throw new Error('还没发出补齐请求')
+      return found
+    })
+    const body = commit.body as { operationId: string; expectedHashes: Record<string, string | null> }
+    expect(body.operationId).toBe('op-partial-aaaa11')
+    expect(Object.keys(body.expectedHashes).length).toBe(3)
+    expect(body.expectedHashes[PROGRESS_REL]).toBe('hash-progress')
+    expect(body.expectedHashes[INDEX_REL]).toBe('hash-index')
+    expect(body.expectedHashes[LOG_REL]).toBeNull()
+    // 取指纹在前、提交在后：顺序本身就是「不带空指纹盲写」的证据。
+    const readIndex = calls.findIndex((call) => call.path === '/api/learning/evidence-transaction/op-partial-aaaa11')
+    expect(readIndex).toBeGreaterThanOrEqual(0)
+    expect(calls.findIndex((call) => call.path === '/api/learning/evidence-commit')).toBeGreaterThan(readIndex)
+  })
+
+  it('取不回基线就不提交：宁可停在这里，也不关掉校验走通流程', async () => {
+    const { calls } = renderPanel({
+      queue: { pending: [], synced: [stagedRecord({ evidenceId: 'ev-9', state: 'synced' })] },
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+      detail: () => json({ error: '找不到对应的写回事务', code: 'operation_not_found' }, 404),
+    })
+    await screen.findByLabelText('部分成功的事务')
+    fireEvent.click(screen.getByRole('button', { name: /重试补齐/ }))
+    const banner = await screen.findByText(/取不回这笔事务的预览基线，未能重试/)
+    expect(banner.textContent).toContain('找不到对应的写回事务')
+    expect(calls.some((call) => call.path === '/api/learning/evidence-commit')).toBe(false)
+  })
+})
+
+describe('挂账 #35 · 回滚入口', () => {
+  it('回滚要两次点击：先确认说明，再真的发请求，回来一律重读服务端', async () => {
+    let rollbacks = 0
+    const { calls } = renderPanel({
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+      rollback: () => {
+        rollbacks += 1
+        return json({
+          data: {
+            rolledBack: true,
+            idempotent: false,
+            operationId: 'op-partial-aaaa11',
+            targets: [
+              { path: INDEX_REL, kind: 'index', action: 'restored' },
+              { path: PROGRESS_REL, kind: 'progress', action: 'restored' },
+              { path: LOG_REL, kind: 'log', action: 'removed' },
+            ],
+          },
+        })
+      },
+    })
+    await ledgerLoaded()
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /回滚这一笔写回/ }))
+    expect(rollbacks).toBe(0)
+    expect(calls.some((call) => call.path === '/api/learning/evidence-rollback')).toBe(false)
+
+    const confirm = await screen.findByLabelText('回滚确认')

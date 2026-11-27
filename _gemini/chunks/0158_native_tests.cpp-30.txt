@@ -1,0 +1,87 @@
+    std::string ticks;
+    std::getline(file, ticks);
+    return ticks;
+  };
+  const auto stopped_ticks = read_ticks();
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  assert(read_ticks() == stopped_ticks);
+  assert(std::filesystem::remove(ticks_path) && std::filesystem::is_empty(execution_root));
+#else
+  (void)runtime;
+#endif
+}
+
+void test_execution_service_runs_external_language(const std::string& language,
+    const std::filesystem::path& runtime, std::string source, std::string expected_output) {
+#ifdef _WIN32
+  if (runtime.empty()) return;
+  const auto root = std::filesystem::temp_directory_path() /
+      ("codeweave-native-" + language + "-execution-" + std::to_string(std::random_device{}()));
+  std::error_code error;
+  std::filesystem::create_directories(root, error);
+  assert(!error);
+  codeweave::execution::ExecutionService service;
+  const auto result = service.run(
+      {"external-" + language + "-01", language, std::move(source), 10'000, 4096},
+      runtime, root);
+  assert(result.validation.ok);
+  assert(result.process.has_value() && result.process->started);
+  assert(result.process->exit_code == 0 && result.process->error_code.empty());
+  if (result.process->output != expected_output) {
+    std::cerr << language << " output mismatch: expected bytes="
+              << expected_output.size() << " actual bytes="
+              << result.process->output.size() << " actual="
+              << result.process->output << "\n";
+  }
+  assert(result.process->output == expected_output);
+  if (language == "python" || language == "javascript") {
+    assert(result.trace.has_value());
+    const auto& events = result.trace->events();
+    const auto step = std::find_if(events.begin(), events.end(), [](const auto& event) {
+      return event.kind == codeweave::execution::EventKind::SourceStep;
+    });
+    assert(step != events.end());
+    assert(step->payload.find("\"line\":") != std::string::npos);
+    assert(step->payload.find("\"variables\":") != std::string::npos);
+    if (language == "javascript") {
+      const auto second_line = std::find_if(events.begin(), events.end(), [](const auto& event) {
+        return event.kind == codeweave::execution::EventKind::SourceStep &&
+            event.payload.find("\"line\":2") != std::string::npos;
+      });
+      assert(second_line != events.end());
+      assert(second_line->payload.find("\"total\":\"7\"") != std::string::npos);
+      const auto third_line = std::find_if(events.begin(), events.end(), [](const auto& event) {
+        return event.kind == codeweave::execution::EventKind::SourceStep &&
+            event.payload.find("\"line\":3") != std::string::npos &&
+            event.payload.find("\"total\":\"9\"") != std::string::npos;
+      });
+      assert(third_line != events.end());
+    }
+  }
+  assert(std::filesystem::is_empty(root, error) && !error);
+  std::filesystem::remove_all(root, error);
+#else
+  (void)language; (void)runtime; (void)source; (void)expected_output;
+#endif
+}
+
+void test_javascript_source_trace_preserves_failures_and_bounds(const std::filesystem::path& runtime) {
+#ifdef _WIN32
+  if (runtime.empty()) return;
+  Fixture fixture;
+  const auto execution_root = fixture.root / "execution";
+  assert(std::filesystem::create_directory(execution_root));
+  codeweave::execution::ExecutionService service;
+  const auto run = [&](std::string source) {
+    const auto result = service.run({"javascript-trace-boundary", "javascript", std::move(source), 10'000, 4096},
+        runtime, execution_root);
+    assert(result.validation.ok && result.process && result.process->started && result.trace);
+    assert(std::filesystem::is_empty(execution_root));
+    std::size_t count = 0;
+    std::size_t bytes = 0;
+    for (const auto& event : result.trace->events()) {
+      if (event.kind != codeweave::execution::EventKind::SourceStep) continue;
+      assert(event.payload.size() <= 8192);
+      ++count;
+      bytes += event.payload.size();
+    }

@@ -1,0 +1,88 @@
+    return `${sourceLine}\n${trace}`
+  })
+  const traceLines = traceLineEntries.join('\n')
+  const prefix = [
+    '"use strict";',
+    `const __cwLimit = ${maxOutputLines};`,
+    'const __cwCodeOffset = __CW_OFFSET__;',
+    'const __cwLineMap = __CW_LINE_MAP__;',
+    'const __cwSelfUrl = String(self.location.href);',
+    'const __cwLines = [];',
+    'const __cwWrite = (value) => {',
+    `  if (__cwLines.length >= __cwLimit) throw new Error('输出超过 ${maxOutputLines} 行上限');`,
+    '  __cwLines.push(String(value));',
+    "  self.postMessage({ type: 'output', value: String(value) });",
+    '};',
+    'const __cwConsole = {',
+    '  log: (...values) => __cwWrite(values.join(" ")),',
+    '  info: (...values) => __cwWrite(values.join(" ")),',
+    '  warn: (...values) => __cwWrite(values.join(" ")),',
+    '  error: (...values) => __cwWrite(values.join(" ")),',
+    '};',
+    'const __cwGet = (name, read) => {',
+    '  try {',
+    '    const value = read();',
+    '    const type = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;',
+    '    const printable = typeof value === "string" ? value : type === "undefined" ? "undefined" : (() => { try { return JSON.stringify(value); } catch { return String(value); } })();',
+    '    return { name, value: String(printable), type, color: type === "number" || type === "boolean" ? "blue" : "coral" };',
+    '  } catch { return null; }',
+    '};',
+    'const __cwTrace = (line, label, variables) => {',
+    '  self.postMessage({ type: "trace", line, label, variables: variables.filter(Boolean) });',
+    '};',
+    'const __cwLineFromFrame = (frame) => {',
+    '  const tail = frame.split(__cwSelfUrl).pop() || "";',
+    '  let digits = "";',
+    '  for (const ch of tail) {',
+    "    if (ch >= '0' && ch <= '9') digits += ch;",
+    '    else if (digits) break;',
+    '  }',
+    '  if (!digits) return undefined;',
+    '  const generated = Number(digits);',
+    '  return __cwLineMap[generated] || Math.max(1, generated - __cwCodeOffset);',
+    '};',
+    'const __cwLineFromStack = (stack) => {',
+    "  for (const frame of String(stack || '').split('\\n')) {",
+    '    if (frame.includes(__cwSelfUrl)) return __cwLineFromFrame(frame);',
+    '  }',
+    '  return undefined;',
+    '};',
+    'const __cwEntry = function (console) {',
+  ]
+  const suffix = [
+    '};',
+    'try {',
+    '  __cwEntry(__cwConsole);',
+    "  self.postMessage({ type: 'done' });",
+    '} catch (error) {',
+    '  const message = error instanceof Error ? error.message : String(error);',
+    '  const line = error instanceof Error ? __cwLineFromStack(error.stack) : undefined;',
+    "  self.postMessage({ type: 'error', message, line });",
+    '}',
+    '',
+  ]
+  // 用户代码第 1 行落在 prefix.length + 1；lineMap 把插入追踪行折回编辑器行号。
+  const codeLineOffset = prefix.length
+  const lineMap: number[] = [0, ...prefix.map(() => 0)]
+  sourceLines.forEach((sourceLine, index) => {
+    lineMap.push(index + 1)
+    if (traceLineEntries[index]!.includes('\n__cwTrace(')) lineMap.push(index + 1)
+  })
+  lineMap.push(...suffix.map(() => 0))
+  const source = `${prefix.join('\n')}\n${traceLines}\n${suffix.join('\n')}`
+    .replace('__CW_OFFSET__', String(codeLineOffset))
+    .replace('__CW_LINE_MAP__', JSON.stringify(lineMap))
+  return { source, codeLineOffset, lineMap }
+}
+
+/** 无 Worker 环境的明确降级：不伪装成真实执行。 */
+function fallbackResult(): ExecutionResult {
+  const error = { line: 1, message: '当前环境不支持浏览器 Worker，教学沙箱无法真实执行代码；请在完整浏览器环境运行，或使用教学运行器课程。' }
+  const variables: VariableValue[] = []
+  const events: TraceEvent[] = [makeEvent('error', 'error', error.line, '无法启动沙箱', error.message, variables)]
+  return { events, output: [], error, tier: 'worker' }
+}
+
+function flowNodeForLine(lesson: Lesson, line: number, type: TraceEvent['type'] = 'line'): string | undefined {
+  if (type === 'output') return lesson.flow.find((node) => node.kind === 'output')?.id ?? `line-${line}`
+  if (type === 'start') return lesson.flow.find((node) => node.kind === 'start')?.id ?? 'start'

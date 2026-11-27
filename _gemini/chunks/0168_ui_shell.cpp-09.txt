@@ -1,0 +1,49 @@
+            execution_policy_ = *policy;
+            lesson_expected_output_ = *expected;
+            lesson_contract_ready_ = true;
+            draft_baseline_ = *code;
+            draft_code_ = *code;
+            draft_saved_code_ = *code;
+            draft_revision_++;
+            saved_revision_ = draft_revision_;
+            draft_persistence_blocked_ = false;
+            emit draftPersistenceBlockedChanged();
+            emit starterCodeChanged();
+            emit draftChanged();
+            emit draftDirtyChanged();
+            content_status_ = QStringLiteral("起始代码已读取");
+            loadAccountDraft();
+          } else {
+            content_status_ = QString::fromUtf8(result.result.message);
+          }
+          emit contentStatusChanged();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    content_task_id_.clear();
+    content_busy_ = false;
+    content_status_ = QString::fromUtf8(submitted.message);
+    emit contentBusyChanged();
+    emit contentStatusChanged();
+  }
+}
+
+void UiShell::updateDraftCode(const QString& code) {
+  if (closing_ || account_busy_) return;
+  if (content_busy_ || draft_persistence_blocked_ || starter_language_.isEmpty() || draft_code_ == code) return;
+  const auto was_dirty = draftDirty();
+  draft_code_ = code;
+  draft_revision_++;
+  emit draftChanged();
+  if (was_dirty != draftDirty()) emit draftDirtyChanged();
+}
+
+void UiShell::resetDraftCode() {
+  updateDraftCode(draft_baseline_);
+}
+
+void UiShell::selectPage(const QString& page) {
+  if (page.isEmpty() || page == current_page_) return;
+  current_page_ = page;
+  emit currentPageChanged();
+}

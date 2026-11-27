@@ -1,0 +1,68 @@
+  invalid.drafts.push_back({"draft-01", "duplicate"});
+  invalid.progress[0].operation_id = "bad";
+  const auto blocked = codeweave::migration::inspect_snapshot(invalid);
+  assert(blocked.status == codeweave::migration::Status::Blocked);
+  assert(!blocked.issues.empty());
+  assert(!blocked.writes_performed && !blocked.committed);
+}
+
+void test_legacy_account_import_preserves_identity_and_rejects_bad_input() {
+  Fixture fixture;
+  const auto source = fixture.root / "users.json";
+  const auto target = fixture.root / "imported-native";
+  const std::string hash = "0123456789abcdef0123456789abcdef:d17d0629e32ad3ac88ab78b388a13cb98d41fa6ed2e104e81b80e25bc66af3008a31dd0a0a9fa8bef5b167c25ca65cb0c9278b211bd5ab1270f7104cadd89486";
+  const std::string valid = "[{\"id\":\"user-legacy\",\"name\":\"中文\",\"email\":\"legacy@example.test\","
+      "\"passwordHash\":\"" + hash + "\"}]";
+  std::ofstream(source, std::ios::binary) << valid;
+  codeweave::migration::LegacyImportReport report;
+  assert(codeweave::migration::import_legacy_users(source, target, report).ok);
+  assert(report.committed && report.accounts == 1);
+  codeweave::account::AccountStore accounts(target);
+  std::vector<codeweave::account::Record> records;
+  assert(accounts.list_accounts(records).ok && records.size() == 1);
+  assert(records[0].id == "user-legacy" && records[0].password_hash == hash);
+  assert(records[0].name == "中文");
+  codeweave::account::Record authenticated;
+  assert(accounts.authenticate_password("legacy@example.test", "password", authenticated).ok);
+  assert(authenticated.id == "user-legacy");
+  assert(std::filesystem::exists(target / "profile" / "legacy-users.json"));
+  std::ifstream input(source, std::ios::binary);
+  const std::string retained((std::istreambuf_iterator<char>(input)), {});
+  assert(retained == valid);
+  assert(!codeweave::migration::import_legacy_users(source, target, report).ok);
+  const auto invalid_target = fixture.root / "invalid-import";
+  for (const auto& bad : {
+      std::string("[{\"id\":\"first\",\"id\":\"second\"}]"),
+      std::string("[{\"unknown\":true}]"),
+      std::string("[{\"id\":\"user-legacy\",\"name\":\"x\",\"email\":\"legacy@example.test\",\"passwordHash\":\"") + hash + "\",\"bio\":1}]",
+      std::string("[{\"id\":\"user-legacy\",\"name\":\"\\uD800\"}]"),
+      valid + " trailing"}) {
+    std::ofstream(source, std::ios::binary | std::ios::trunc) << bad;
+    assert(!codeweave::migration::import_legacy_users(source, invalid_target, report).ok);
+    assert(!std::filesystem::exists(invalid_target));
+  }
+}
+
+void test_legacy_learning_import_keeps_history_out_of_formal_progress() {
+  Fixture fixture;
+  const auto source = fixture.root / "learning-export.json";
+  const auto target = fixture.root / "learning-history";
+  const std::string exported =
+      "{\"schema\":\"codeweave.learning-data\",\"version\":1,\"exportedAt\":\"2026-10-05\","
+      "\"scope\":\"user-legacy\",\"categories\":[],\"data\":{"
+      "\"code-canvas.challenge-progress.v2:user-legacy\":{\"data\":{\"sample\":{\"status\":\"passed\"}}}}}";
+  std::ofstream(source, std::ios::binary) << exported;
+  codeweave::migration::LegacyImportReport report;
+  assert(!codeweave::migration::import_legacy_learning(source, "other-user", target, report).ok);
+  assert(!std::filesystem::exists(target));
+  assert(codeweave::migration::import_legacy_learning(source, "user-legacy", target, report).ok);
+  assert(report.committed && report.history_categories == 1);
+  assert(std::filesystem::exists(target / "legacy-learning.json"));
+  assert(!std::filesystem::exists(target / "learning" / "progress.v1.log"));
+  assert(!codeweave::migration::import_legacy_learning(source, "user-legacy", target, report).ok);
+}
+
+void test_execution_contract_controls_state_and_output_budget() {
+  codeweave::execution::Request request{
+      "session-01", "cpp", "int main() { return 0; }", 1000, 256};
+  assert(codeweave::execution::validate_request(request).ok);

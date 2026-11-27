@@ -1,0 +1,56 @@
+      expect(result.output).toEqual([])
+      expect(result.error?.message).toContain('同时含 2 种支持模板的结构')
+      expect(result.error?.message).toContain('成绩及格分支')
+      expect(result.events[0]?.label).toBe('结构不唯一')
+    })
+
+    it('detectTemplates 交出全部命中，detectTemplate 只在唯一命中时放行', () => {
+      const code = 'age = 18\nconsole.log(age + 1)'
+      expect(detectTemplates(code, 'javascript').map((t) => t.id)).toEqual(['age-increment'])
+      expect(detectTemplate(code, 'javascript')?.id).toBe('age-increment')
+    })
+  })
+
+  /**
+   * 逐拍变量快照（回归守卫）。
+   *
+   * 曾经的真缺陷：模板为省事复用同一个 `variables` 数组对象原地改写，再把**同一个引用**
+   * 推进每一拍，于是所有事件读到的都是终值——`start` 也说 `i=6,total=15`。画布要显示
+   * 「这一格刚被改过」和流程图要显示 `a = 4` 的明细，都依赖这条契约成立。
+   */
+  describe('逐拍变量快照', () => {
+    it('每一拍挂的是自己的快照，事件之间不共享数组对象', () => {
+      const code = 'total = 0\nfor i in range(1, 6):\n    total += i\nprint(total)'
+      const { events } = simulateProgram(code, 'python', mockLesson)
+      expect(events.length).toBeGreaterThan(4)
+
+      for (let i = 1; i < events.length; i++) {
+        expect(events[i]!.variables, `第 ${i} 拍与第 ${i - 1} 拍共享了数组对象`).not.toBe(events[i - 1]!.variables)
+      }
+      // 连格也不许共享：只复制外层数组、里面仍塞着同一个对象，等于没复制。
+      // 两拍之间只要有**同名**变量，它们必须是两个对象。
+      for (let i = 1; i < events.length; i++) {
+        const prev = events[i - 1]!.variables
+        for (const v of events[i]!.variables) {
+          const twin = prev.find((p) => p.name === v.name)
+          if (twin) expect(v, `第 ${i} 拍的 ${v.name} 与上一拍是同一个对象`).not.toBe(twin)
+        }
+      }
+    })
+
+    it('for-sum 的循环变量逐拍前进，而不是一路终值', () => {
+      const code = 'total = 0\nfor i in range(1, 6):\n    total += i\nprint(total)'
+      const { events } = simulateProgram(code, 'python', mockLesson)
+      const iOf = (index: number) => events[index]!.variables.find((v) => v.name === 'i')?.value
+
+      // 首拍是起点值，不是终值——这正是这条守卫存在的理由。
+      expect(iOf(0)).toBe('1')
+      // 逐拍取出来的 i 不是同一个值：程序在跑，快照在动。
+      const everyI = events.map((e) => e.variables.find((v) => v.name === 'i')?.value)
+      expect(new Set(everyI).size).toBeGreaterThan(1)
+      // 末拍的 i 走到了 6（`range(1, 6)` 跑完），total 累加到 15。
+      expect(iOf(events.length - 1)).toBe('6')
+      expect(events.at(-1)!.variables.find((v) => v.name === 'total')?.value).toBe('15')
+    })
+  })
+})

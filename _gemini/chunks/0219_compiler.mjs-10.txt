@@ -1,0 +1,99 @@
+  const { exercises, problems: exerciseProblems } = await loadExercises(root, manifest)
+  const rules = await readJsonIfExists(root, wl.rulesPath, inputFileHashes)
+  const legacyMap = await readJsonIfExists(root, wl.legacyMapPath, inputFileHashes)
+
+  const ruleSources = await loadRuleSources(root, rules)
+  const rulesCheck = checkRules(rules, ruleSources)
+  const stageIds = new Set((rules?.stages ?? []).map((stage) => stage.id))
+
+  const { blocking, gaps, publishedContentIds } = validateCrossReferences({
+    units,
+    exercises,
+    topicByKey,
+    topicById,
+    volumes: scan.volumes,
+    rulesCheck,
+    legacyMap,
+    stageIds,
+  })
+  // DATA-04：发布引用的来源必须同时解析到登记项与来源卡。
+  const sourceCards = await loadSourceCards(root, wl.sourceRoot, { skipDirs: wl.excludedPathSegments })
+  const referencedSources = new Map()
+  for (const topic of scannedTopics) {
+    if (topic.isEmpty) continue
+    for (const sourceId of topic.sourceIds) referencedSources.set(sourceId, (referencedSources.get(sourceId) ?? 0) + 1)
+  }
+  const sourceCheck = checkSourceConsistency({
+    registry: manifest.sourceRegistry,
+    cards: sourceCards.cards,
+    referenced: referencedSources,
+    sourceRoot: wl.sourceRoot,
+    knownPages: sourceCards.pages,
+  })
+
+  const scanProblems = [...scan.problems, ...unitProblems, ...exerciseProblems]
+  const blockingAll = [
+    ...blocking,
+    ...sourceCheck.blocking,
+    ...sourceCards.problems,
+    ...idMap.problems,
+    ...idMapProblems,
+    ...(registryReset
+      ? [
+          {
+            code: 'topic_registry_reset',
+            path: wl.topicIdMapPath,
+            message: `主题登记表为空，但上次发布的内容包里有 ${(previousBundle?.topics ?? []).length} 条主题。ID 登记是源资产，不能当缓存清空重建；请从备份恢复 content-manifest.json 的 topics。`,
+          },
+        ]
+      : []),
+    ...scanProblems.filter((problem) => problem.code !== 'empty_volume'),
+  ]
+  const warnings = [
+    ...scanProblems.filter((problem) => problem.code === 'empty_volume'),
+    ...sourceCheck.warnings,
+    ...(autoRetired.length > 0
+      ? [
+          {
+            code: 'topic_auto_retired',
+            path: wl.topicIdMapPath,
+            message: `${autoRetired.length} 个主题因来源消失且无显式映射而自动退役（${autoRetired.slice(0, 8).join('、')}${autoRetired.length > 8 ? ' 等' : ''}）。若这是改名或拆分，请补 topic-id-map.json 记录。`,
+          },
+        ]
+      : []),
+  ]
+  const lessons = units
+    .filter((unit) => unit.status === 'published')
+    .map((unit) => buildLesson({ unit, topicById, bodyByKey, exercises }))
+    .sort((a, b) => a.contentId.localeCompare(b.contentId))
+
+  const exerciseList = exercises
+    .filter((exercise) => publishedContentIds.includes(exercise.primaryLessonId))
+    .map((exercise) => ({
+      exerciseId: exercise.exerciseId,
+      primaryLessonId: exercise.primaryLessonId,
+      supportingTopicIds: exercise.supportingTopicIds,
+      title: exercise.title,
+      prompt: exercise.prompt,
+      inputConvention: exercise.inputConvention,
+      testCases: exercise.testCases,
+      hintLevels: exercise.hintLevels,
+      executionPolicy: exercise.executionPolicy,
+      language: exercise.language,
+      version: exercise.version,
+      starterCode: exercise.starterCode,
+      starterLanguage: exercise.starterLanguage,
+      expectedOutput: exercise.expectedOutput,
+      evidenceChecklist: exercise.evidenceChecklist,
+      rubric: exercise.rubric,
+      source: { path: exercise.path, sourceHash: exercise.sourceHash },
+    }))
+    .sort((a, b) => a.exerciseId.localeCompare(b.exerciseId))
+
+  const rulesPublished = rulesCheck.usable
+    ? { status: 'current', ...projectRules(rules, ruleSources) }
+    : previousBundle?.rules?.status === 'current'
+      ? { ...previousBundle.rules, status: 'stale', reason: rulesCheck.reason }
+      : { status: rulesCheck.status, reason: rulesCheck.reason, stages: [], milestones: [], masteryLevels: [], hintLevels: [], reviewOffsetsDays: [] }
+
+  const topicsOut = registry.filter(isPublishable).map((topic) => {

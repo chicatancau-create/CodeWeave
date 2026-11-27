@@ -1,0 +1,113 @@
+import { describe, it, expect } from 'vitest'
+import { simulateProgram, detectTemplate, detectTemplates, TEACHING_TEMPLATES, UNSUPPORTED_MESSAGE } from './teaching-runtime'
+import type { Lesson } from '../types/lesson'
+
+const mockLesson: Lesson = {
+  id: 'test-lesson',
+  language: 'python',
+  languageLabel: 'Python',
+  label: '01',
+  title: 'Test Lesson',
+  description: 'A test lesson',
+  duration: '5 min',
+  level: '入门',
+  progress: 0,
+  code: '',
+  flow: [],
+  insight: '',
+  fileName: 'test.py',
+  runtime: 'Python 3.11',
+  content: {
+    objective: '',
+    prerequisites: [],
+    explanation: [],
+    examples: [],
+    guidedSteps: [],
+    exercise: '',
+    variant: '',
+    projectTask: '',
+    mistakes: [],
+    runCommand: '',
+    completion: '',
+    reviewOffsetsDays: [],
+  },
+}
+
+describe('teaching-runtime', () => {
+  describe('bracket validation', () => {
+    it('should detect missing closing bracket', () => {
+      const code = 'def greet(name):\n    print("Hello"'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.error).toBeDefined()
+      expect(result.error?.message).toContain('括号')
+    })
+
+    it('should detect mismatched brackets', () => {
+      const code = 'values = [1, 2, 3)'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.error).toBeDefined()
+    })
+
+    it('should pass with correct brackets', () => {
+      const code = 'number = 8\nif number % 2 == 0:\n    result = "偶数"\nelse:\n    result = "奇数"\nprint(result)'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.error).toBeUndefined()
+    })
+  })
+
+  describe('conditional simulation', () => {
+    it('should simulate even number correctly', () => {
+      const code = 'number = 8\nif number % 2 == 0:\n    result = "偶数"\nelse:\n    result = "奇数"\nprint(result)'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.output).toEqual(['偶数'])
+      expect(result.events).toHaveLength(5)
+    })
+
+    it('should simulate odd number correctly', () => {
+      const code = 'number = 7\nif number % 2 == 0:\n    result = "偶数"\nelse:\n    result = "奇数"\nprint(result)'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.output).toEqual(['奇数'])
+    })
+  })
+
+  describe('loop simulation', () => {
+    it('should simulate while loop', () => {
+      const code = 'count = 1\nwhile count <= 3:\n    print(count)\n    count = count + 1'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.output).toEqual(['1', '2', '3'])
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should simulate for loop sum', () => {
+      const code = 'total = 0\nfor i in range(1, 6):\n    total = total + i\nprint(total)'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.output).toEqual(['15'])
+    })
+  })
+
+  /* ---------------------------------------------------------------
+     R4 G.3 第 5 条：无法识别结构时必须显式返回“未识别”，禁止猜测成功。
+     --------------------------------------------------------------- */
+  describe('R4：未识别结构不猜测成功', () => {
+    it('对无法识别的代码返回 unsupported 与 teaching 等级，且不产生输出', () => {
+      const code = 'const answer = computeSomething(data)\nrender(answer)'
+      const result = simulateProgram(code, 'javascript', mockLesson)
+
+      expect(result.unsupported).toBe(true)
+      expect(result.tier).toBe('teaching')
+      expect(result.output).toEqual([])
+      expect(result.error?.message).toBe(UNSUPPORTED_MESSAGE)
+      expect(result.events[0]?.label).toBe('未识别代码结构')
+    })
+
+    it('空代码返回 unsupported，而不是空输出视为成功', () => {
+      const result = simulateProgram('', 'python', mockLesson)
+      expect(result.unsupported).toBe(true)
+      expect(result.output).toEqual([])
+    })
+
+    it('注释-only 代码返回 unsupported', () => {
+      const result = simulateProgram('// 只是注释\n# 没有语句', 'javascript', mockLesson)
+      expect(result.unsupported).toBe(true)
+    })
+

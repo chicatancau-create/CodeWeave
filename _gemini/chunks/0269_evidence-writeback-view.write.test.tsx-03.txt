@@ -1,0 +1,77 @@
+      if (input === '/api/learning/evidence-preview') return json({ data: PREVIEW })
+      if (input === '/api/learning/evidence-commit') {
+        posts.push({ path: String(input), body: (init?.body ? JSON.parse(String(init.body)) : {}) as Record<string, unknown> })
+        return PROGRESS_PENDING()
+      }
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    // 提交后半失败 → 面板重读队列，这次读取失败：条目仍在，失败被单独说清。
+    expect(await screen.findByText(/日志已保存，进度待合并/)).toBeTruthy()
+    expect(await screen.findByText(/队列重读失败/)).toBeTruthy()
+    expect(screen.getByText('Java Hello World')).toBeTruthy()
+    expect(screen.queryByText(/没有待写回证据/)).toBeNull()
+    expect(screen.queryByText(/正在读取暂存证据/)).toBeNull()
+  })
+})
+
+describe('挂账③④ 冲突后的界面不再有可用的写入入口', () => {
+  it('提交冲突：失效预览整块撤下，页面上只剩「重新预览」', async () => {
+    await openPreviewAndConfirm(() => json({ error: '目标文件已被其他编辑者修改，未写入任何内容', code: 'sync_conflict', details: CONFLICT_DETAILS }, 409))
+
+    expect(await screen.findByText('检测到第三方改动，未覆盖任何内容')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /重新预览/ })).toBeTruthy()
+    // 旧预览的指纹在冲突后已失效：预览区与它的「确认写入」都不能再留在页面上。
+    expect(screen.queryByText('预览（尚未写入任何文件）')).toBeNull()
+    expect(screen.queryByRole('button', { name: '确认写入' })).toBeNull()
+    expect(screen.queryByLabelText(/我已核对以上将写入的内容/)).toBeNull()
+  })
+
+  it('冲突后重新预览：必须重新勾选确认，写入入口按新指纹重来', async () => {
+    let previews = 0
+    const posts: { path: string; body: Record<string, unknown> }[] = []
+    stubFetch((input, init) => {
+      const method = init?.method ?? 'GET'
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence' && method === 'GET') return json({ data: { pending: [stagedRecord()], synced: [] } })
+      if (input === '/api/learning/evidence-preview') {
+        previews += 1
+        return json({ data: { ...PREVIEW, operationId: previews === 1 ? 'op-test-abc123' : 'op-second-000001' } })
+      }
+      if (input === '/api/learning/evidence-commit') {
+        posts.push({ path: String(input), body: (init?.body ? JSON.parse(String(init.body)) : {}) as Record<string, unknown> })
+        return previews === 1
+          ? json({ error: '目标文件已被其他编辑者修改，未写入任何内容', code: 'sync_conflict', details: CONFLICT_DETAILS }, 409)
+          : json({ data: { synced: true, idempotent: false, operationId: 'op-second-000001', targets: [] } })
+      }
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    await screen.findByText('检测到第三方改动，未覆盖任何内容')
+    fireEvent.click(screen.getByRole('button', { name: /重新预览/ }))
+
+    await screen.findByText('预览（尚未写入任何文件）')
+    // 新预览带着新的 operationId，确认勾选被重置：未重新核对就不能写入。
+    expect(await screen.findByText('op-second-000001')).toBeTruthy()
+    const confirm = screen.getByRole('button', { name: '确认写入' }) as HTMLButtonElement
+    expect((screen.getByLabelText(/我已核对以上将写入的内容/) as HTMLInputElement).checked).toBe(false)
+    expect(confirm.disabled).toBe(true)
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    expect(confirm.disabled).toBe(false)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(posts.filter((post) => post.path === '/api/learning/evidence-commit')).toHaveLength(2))

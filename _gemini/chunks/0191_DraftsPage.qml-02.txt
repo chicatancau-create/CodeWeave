@@ -1,0 +1,100 @@
+                            border.color: ds.accent
+                            border.width: 1
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "我的练习项目"
+                            color: ds.muted
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            font.letterSpacing: 3.1
+                            font.capitalization: Font.AllUppercase
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    Text {
+                        Layout.topMargin: ds.s6
+                        Layout.bottomMargin: ds.s8
+                        text: "代码草稿"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 24
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: -0.5
+                        lineHeight: 1.4
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "保存你的练习代码，随时回来继续。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        lineHeight: 1.6
+                        elide: Text.ElideRight
+                    }
+                }
+
+                QuietButton {
+                    ds: draftsPage.ds
+                    objectName: "draftChooseCourse"
+                    Layout.alignment: Qt.AlignBottom
+                    label: "选择课程"
+                    onClicked: uiShell.selectPage("学习")
+                }
+            }
+
+            // heading hairline
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: ds.s0
+                height: 1
+                color: ds.line
+            }
+
+            // .projects-layout — minmax(220px,300px) + 1fr
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: ds.s24
+
+                // .project-list-column
+                ColumnLayout {
+                    Layout.minimumWidth: 220
+                    Layout.maximumWidth: 300
+                    Layout.preferredWidth: 300
+                    Layout.fillHeight: true
+                    spacing: ds.s10
+
+                    // .projects-section-title — count on the right
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: ds.s8
+                        spacing: ds.s10
+                        Text {
+                            Layout.fillWidth: true
+                            text: "项目清单"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 2.6
+                            font.capitalization: Font.AllUppercase
+                        }
+                        Text {
+                            text: uiShell.hasSelectedContent ? "01 个" : "00 个"
+                            color: ds.faint
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                        }
+                    }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+
+                    // .project-card — real draft, when a course is open
+                    Rectangle {
+                        id: projectCard
+                        Layout.fillWidth: true
+                        implicitHeight: 72
+                        visible: uiShell.hasSelectedContent
+                        radius: ds.radius
+                        // 静止态: 透明背景
+                        // 悬停态: 遮光层底色 rgba(220, 233, 251, 0.028)
+                        // 选中态: 遮光层二档 rgba(220, 233, 251, 0.055)

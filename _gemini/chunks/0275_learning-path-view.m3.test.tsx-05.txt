@@ -1,0 +1,89 @@
+    expect(declarationBlock('.lp-view :is(h2, h3, h4, p, span, td, th, dd, dt, li, button)')).toContain(
+      'overflow-wrap: anywhere',
+    )
+  })
+
+  it('触控目标 ≥44px 且焦点轮廓可见（不写 outline:none）', () => {
+    expect(declarationBlock('.lp-view')).toContain('--lp-tap: var(--ds-tap-min, 44px)')
+    expect(declarationBlock('.lp-subject')).toContain('min-height: var(--lp-tap)')
+    expect(declarationBlock('.lp-row-btn')).toContain('min-height: var(--lp-tap)')
+    expect(declarationBlock('.lp-cta')).toContain('min-height: var(--lp-tap)')
+    expect(declarationBlock('.lp-view :focus-visible')).toContain('var(--ds-focus-ring, rgba(220, 233, 251, 0.72))')
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+  })
+
+  it('320px 最小宽度有专门降级规则', () => {
+    expect(mediaBlock('max-width: 399px')).toContain('padding-left: var(--ds-space-10, 10px)')
+    expect(cssCode).toContain('min-width: 0')
+  })
+
+  it('#95 课程单元列的地板真的过 120px，且多出来的宽度交给可聚焦的横向滚动区', () => {
+    // 320 档普查实测这一列 113px≈7.5 字/行：页面不溢出，但长中文课名被切成一字一行
+    const narrow = mediaBlock('max-width: 399px')
+    expect(narrow).toMatch(/\.lp-ledger\s*\{[^}]*min-width:\s*3[0-9]{2}px/)
+    expect(narrow).toMatch(/\.lp-cell-main\s*\{[^}]*min-width:\s*1[0-9]em/)
+    // 地板用 em 写，就要把「换算基数」一起钉住：窄档正文 15px ⇒ 12em = 180px ≥ 120px
+    expect(narrow).toMatch(/--lp-body:\s*15px/)
+    const scroll = declarationBlock('.lp-table-scroll')
+    expect(scroll).toContain('min-width: 0')
+    expect(scroll).toMatch(/overflow-x:\s*auto/)
+    expect(declarationBlock('.lp-table-scroll:focus-visible')).toContain('var(--ds-focus-ring')
+  })
+
+  it('形态：黑场 + 发丝线 + 冷色发光，无玻璃卡与渐变，圆角只有令牌两档', () => {
+    // 科技档反转（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+    // 约束不放松 —— box-shadow 仍不许出现裸字面量，每条只走 --lp-glow-* 别名。
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((m) => m[1]!.trim())
+    expect(shadows.length).toBeGreaterThan(0)
+    for (const value of shadows) {
+      expect(/^var\(--lp-glow-(near|panel|inset)\)$/.test(value), `未走发光令牌：${value}`).toBe(true)
+    }
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+    expect(cssCode).not.toContain('!important')
+    expect(declarationBlock('.lp-view')).toContain('background: var(--lp-canvas)')
+    expect(cssText).toContain('var(--ds-radius-panel, 0)')
+    expect(cssText).toContain('var(--ds-shape-pill, 100px)')
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('持续动画被系统偏好与 .reduce-motion 两道开关真正停止', () => {
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('.lp-eyebrow-rule::after')
+    expect(system.match(/animation: none/g)?.length).toBeGreaterThanOrEqual(2)
+    expect(declarationBlock('.reduce-motion .lp-view .lp-eyebrow-rule::after')).toContain('animation: none')
+    expect(
+      declarationBlock('.reduce-motion .lp-view *, .reduce-motion .lp-view *::before, .reduce-motion .lp-view *::after'),
+    ).toContain('animation: none')
+  })
+})
+
+describe('M3 学习路径 · 无障碍（axe-core）', () => {
+  it('编号阶段 + 表格 + 按钮结构无 axe 违规', async () => {
+    const { container } = render(
+      <LearningPathView
+        subjectId="java"
+        subjects={[javaSubject, { ...javaSubject, id: 'python', label: 'Python', short: 'PY', executable: false }]}
+        lessons={[
+          baseLesson(),
+          lessonAtStage({ id: 'vault-s2-1', stage: 'S2', title: '变式单元' }),
+          baseLesson({
+            id: 'java-env-a1',
+            title: '旧内置单元',
+            label: 'A1',
+            contentId: undefined,
+            legacy: true,
+            source: undefined,
+            content: { ...baseLesson().content, stageId: undefined },
+          }),
+        ]}
+        selectedLessonId="vault-s0-1"
+        recommended={null}
+        onSubjectChange={vi.fn()}
+        onLessonChange={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )

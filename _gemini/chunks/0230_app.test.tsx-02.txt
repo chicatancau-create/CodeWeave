@@ -1,0 +1,91 @@
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+    await screen.findAllByText(/小明/)
+
+    fireEvent.click(screen.getByRole('button', { name: /实战挑战/ }))
+    // CHAL-01 分页：第 1 页渲染 12 张卡片，概览统计全部 13 关。
+    // 01 号方案 §6 第 1 条把挑战页改成入口懒加载后，chunk 到不到位是异步的，
+    // 「点一下就有 DOM」不再成立 —— 这里先等第一张卡片落地，再数分页与概览。
+    // 等的是卡片本身（页面的产物），不是定时器，断言强度没有下降。
+    // 超时放宽到 5s：并行跑全量时这一档要现场转译并装载 7 个模块，默认 1s 会误报
+    // （单独跑本文件 581ms 就过）。放宽的是「等多久」，不是「等什么」。
+    await screen.findByText('开发环境与基本操作', {}, { timeout: 5000 })
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(12)
+    expect(screen.getByText('第 1 / 2 页')).toBeTruthy()
+    expect(screen.getAllByText('开发环境与基本操作').length).toBeGreaterThan(0)
+    expect(screen.getByText(/已完成 0 \/ 13/)).toBeTruthy()
+  })
+})
+
+/**
+ * 审计卡 NAV-01 / RUN-01 第 4 条的两处闸门。
+ *
+ * 标题这一处是**行为**断言：`activeLesson` 只在 closeWorkspace 里清空，切视图时它仍留着，
+ * 所以以前人站在别的页面上，浏览器标签还写着上一节课的名字。
+ * Ctrl+Enter 那一处只能是**源码不变式**：跑与不跑之后回到工作台，控制台都是同样的输出行，
+ * jsdom 里观测不到差别（快捷键本身的行为由 use-execution.test.tsx 的 enabled 两条用例覆盖）。
+ */
+describe('离开学习路径视图时的两处闸门', () => {
+  async function openLesson() {
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+    render(<StrictMode><App /></StrictMode>)
+    await screen.findAllByText(/小明/)
+    const row = await waitFor(() => {
+      const el = document.querySelector<HTMLButtonElement>('.desktop-unit-card')
+      if (!el) throw new Error('学习路径里没有可点的课程行')
+      return el
+    })
+    fireEvent.click(row)
+    // 工作台现在是入口懒加载（01 号方案 §6 第 1 条），这一等要现场转译装载整棵子树；
+    // 并行跑全量时默认 1s 会误报（单独跑 781ms 就过）。放宽的是「等多久」，判据不变。
+    await waitFor(() => expect(document.querySelector('.cw-workspace')).toBeTruthy(), { timeout: 5000 })
+  }
+
+  it('切到别的视图后 document.title 不再挂着课程名', async () => {
+    await openLesson()
+    expect(document.querySelector('.learning-title'), '没进到工作台，标题断言无从谈起').toBeTruthy()
+    const titleAtPath = document.title
+    expect(titleAtPath).toMatch(/· Code Canvas$/)
+
+    fireEvent.click(screen.getByRole('button', { name: /学习分析/ }))
+    await waitFor(() => expect(document.querySelector('.cw-workspace')).toBeNull())
+    expect(document.title).not.toBe(titleAtPath)
+    expect(document.title).toContain('学习分析')
+  })
+
+  it('Ctrl+Enter 的启用条件与「工作台正在显示」是同一个判据', async () => {
+    const fsSpecifier: string = 'node:fs'
+    const { readFileSync } = (await import(fsSpecifier)) as { readFileSync: (path: string, encoding: 'utf8') => string }
+    const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+    const source = readFileSync(`${moduleDir}/app.tsx`, 'utf8')
+    expect(source.length, '读不到 app.tsx 原文，下面两条断言就是假绿').toBeGreaterThan(1000)
+    // useExecution 的第 4 个实参是 enabled：必须同时要求工作台正在显示（view === 'path'）
+    expect(source).toMatch(/activeLesson !== null && view === 'path',/)
+    // 标题与顶栏面包屑共用同一个闸门
+    expect(source).toMatch(/const lessonInView = view === 'path' && activeLesson/)
+  })
+
+  /**
+   * #94：详情在路上时那份空占位不许被存成草稿。
+   *
+   * 行为断言在 jsdom 里做不到确定性——它要的是「详情比 600ms 防抖晚到」这个竞态窗口，
+   * 而本文件的 fetch 桩给的是内置课程（没有 contentId，也就没有详情请求）。
+   * 所以这里钉源码不变式，真行为由取证段 editorperf 的「落位时代码面非空」那一格在浏览器里判。
+   */
+  it('资料课详情未落地的窗口里不出手保存快照', async () => {
+    const fsSpecifier: string = 'node:fs'
+    const { readFileSync } = (await import(fsSpecifier)) as { readFileSync: (path: string, encoding: 'utf8') => string }
+    const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+    const source = readFileSync(`${moduleDir}/app.tsx`, 'utf8')
+    expect(source.length, '读不到 app.tsx 原文，这条断言就是假绿').toBeGreaterThan(1000)
+    // ① 发起详情请求前先把这一课登记成「在路上」
+    expect(source).toMatch(/detailPendingLessonId\.current = lesson\.id/)
+    // ② 快照效果在该课在路上且代码为空时直接返回（不推进 revision，也就不进防抖保存）
+    expect(source).toMatch(/detailPendingLessonId\.current === activeLesson\.id && code === ''/)
+    // ③ 详情落地（含取不到详情的失败路径）后撤掉登记，不许留成永久抑制
+    //（#105 之后这里是个块：同一格还要清掉给渲染用的镜像态，两条一起清才不会一半新一半旧）

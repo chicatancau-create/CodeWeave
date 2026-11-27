@@ -1,0 +1,16 @@
+    const settings = screen.getByRole('button', { name: '打开设置' })
+    expect(ref.current).toBe(settings)
+    fireEvent.click(settings)
+    expect(shell.onOpenSettings).toHaveBeenCalledTimes(1)
+    // 顺序按 §3.2：快捷动作在通知与设置之前，三者互不吞并
+    const order = [...document.querySelectorAll('.topbar-actions > *')].map((el) => el.className)
+    expect(order[0]).toContain('topbar-quick-actions')
+    expect(order[1]).toContain('notification-wrap')
+  })
+
+  it('动作回调没接齐时整组不渲染（宁可不出现，也不画按了没用的按钮）', () => {
+    setupShell({ onOpenHelp: undefined })
+    expect(screen.queryByRole('button', { name: '快捷动作' })).toBeNull()
+    expect(screen.getByRole('button', { name: '打开设置' })).toBeTruthy()
+  })
+})

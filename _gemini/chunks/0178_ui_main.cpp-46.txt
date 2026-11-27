@@ -1,0 +1,61 @@
+              shell.challengeHistoryStatus());
+          u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeVerify-0"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-pending-small"), QSize(1100, 720));
+          auto* observation = u3_find_item(view.rootObject(), QStringLiteral("challengeObservation-0"));
+          if (observation) observation->setProperty("currentIndex", 2);
+          auto* verify = u3_find_item(view.rootObject(), QStringLiteral("challengeVerify-0"));
+          u3_record(*context, QStringLiteral("challenge-manual-verification-button-dispatches"),
+              verify && QMetaObject::invokeMethod(verify, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy());
+          context->step = 221;
+          return;
+        }
+        case 221: {
+          if (shell.challengeHistoryBusy()) return;
+          const auto record = shell.challengeHistory().isEmpty() ? QVariantMap{} : shell.challengeHistory().first().toMap();
+          u3_record(*context, QStringLiteral("challenge-manual-verification-persists-observation"),
+              record.value("status") == "verified" && record.value("observation") == "partially-completed" &&
+              !record.value("reviewedAt").toString().isEmpty());
+          u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-verified-small"), QSize(1100, 720));
+          auto* summary = u3_find_item(view.rootObject(), QStringLiteral("challengeExternalSummary"));
+          if (summary) summary->setProperty("text", QStringLiteral("第二次实验的错误原因与修复步骤说明已留存，尚需人工复查。"));
+          auto* submit = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmit"));
+          if (submit) QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection);
+          context->step = 222;
+          return;
+        }
+        case 222: {
+          if (shell.challengeHistoryBusy()) return;
+          auto* reject = u3_find_item(view.rootObject(), QStringLiteral("challengeReject-0"));
+          u3_record(*context, QStringLiteral("challenge-manual-rejection-button-dispatches"),
+              shell.challengeHistory().size() == 2 && reject &&
+              QMetaObject::invokeMethod(reject, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy());
+          context->step = 223;
+          return;
+        }
+        case 223:
+          if (shell.challengeHistoryBusy()) return;
+          u3_record(*context, QStringLiteral("challenge-rejection-preserves-previous-review"),
+              shell.challengeHistory().size() == 2 &&
+              shell.challengeHistory().first().toMap().value("status") == "rejected" &&
+              shell.challengeHistory().last().toMap().value("status") == "verified");
+          view.resize(context->detail_restore_size);
+          context->step = 224;
+          return;
+        case 224: {
+          if (view.size() != context->detail_restore_size) return;
+          u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-review-history"));
+          shell.closeChallenge();
+          shell.discardDraftChanges();
+          shell.selectPage(QStringLiteral("账户"));
+          context->step = 9;
+          return;
+        }
+        case 9: {
+          if (shell.operationBusy()) return;
+          auto* profile_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profilePageRoot"));
+          auto* security_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileSecurityLink"));
+          auto* privacy_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profilePrivacyLink"));
+          const bool profile_loaded = shell.currentPage() == QStringLiteral("账户") && profile_page &&
+              security_link && privacy_link && shell.hasActiveAccount();

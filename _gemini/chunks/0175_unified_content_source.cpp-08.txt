@@ -1,0 +1,10 @@
+  run(path, {}, [this, assets, index, bundle, hash, target, asset, digestValue](int status, const QByteArray& bytes, const QNetworkReply& reply) {
+    if (status != 200 || reply.rawHeader("X-Content-Bundle") != bundle.toUtf8() ||
+        bytes.size() != asset.value("size").toLongLong() || digest(bytes) != digestValue.toUtf8() ||
+        !saveFile(QDir(target).filePath(QStringLiteral("objects/") + digestValue), bytes)) {
+      finishOffline(QStringLiteral("离线附件校验失败"));
+      return;
+    }
+    saveOfflineAssets(assets, index + 1, bundle, hash, target);
+  });
+}

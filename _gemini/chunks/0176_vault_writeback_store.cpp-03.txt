@@ -1,0 +1,78 @@
+      for (const auto& unfinished : record.unfinished_items) output += QStringLiteral("- %1\n").arg(to_utf8(unfinished));
+    }
+  }
+  output += QStringLiteral("<!-- cw-evidence:%1 -->\n").arg(operation);
+  return output;
+}
+
+QString merge_progress(QString text, const QString& date, const QString& topic, const QString& log_link) {
+  const QRegularExpression latest(QStringLiteral("(最近学习证据\\s*[：:]\\s*)\\d{4}-\\d{2}-\\d{2}"));
+  auto match = latest.match(text);
+  const bool advances_latest = !match.hasMatch() || match.captured().right(10) <= date;
+  if (match.hasMatch() && match.captured().right(10) < date)
+    text.replace(match.capturedStart(), match.capturedLength(), match.captured(1) + date);
+  const auto update_row = [&](const QString& field, const QString& value) {
+    const auto lines = text.split(QLatin1Char('\n'));
+    for (qsizetype index = 0; index < lines.size(); ++index) {
+      if (!lines[index].trimmed().startsWith(QLatin1Char('|'))) continue;
+      const auto cells = lines[index].split(QLatin1Char('|'));
+      if (cells.size() < 4 || cells[1].trimmed() != field) continue;
+      auto mutable_cells = cells;
+      mutable_cells[2] = QStringLiteral(" %1 ").arg(value);
+      auto changed = lines; changed[index] = mutable_cells.join(QLatin1Char('|'));
+      text = changed.join(QLatin1Char('\n')); return;
+    }
+  };
+  if (advances_latest) {
+    update_row(QStringLiteral("最近正式日志"), log_link);
+    update_row(QStringLiteral("当前主题"), topic);
+  }
+  return text;
+}
+
+QString insert_index(QString text, const QString& month, const QString& line, bool& supported) {
+  if (text.contains(line)) { supported = true; return text; }
+  auto lines = text.split(QLatin1Char('\n'));
+  const QRegularExpression heading(QStringLiteral("^###\\s+%1\\s*$").arg(QRegularExpression::escape(month)));
+  for (qsizetype i = 0; i < lines.size(); ++i) {
+    if (heading.match(lines[i].trimmed()).hasMatch()) {
+      lines.insert(i + 1, line); supported = true; return lines.join(QLatin1Char('\n'));
+    }
+  }
+  for (qsizetype i = 0; i < lines.size(); ++i) {
+    if (!lines[i].startsWith(QStringLiteral("> 每日记录统一存放")) &&
+        lines[i].trimmed() != QStringLiteral("## 0. 学习日志索引")) continue;
+    lines.insert(i + 1, QString()); lines.insert(i + 2, QStringLiteral("### %1").arg(month));
+    lines.insert(i + 3, line); supported = true; return lines.join(QLatin1Char('\n'));
+  }
+  supported = false; return text;
+}
+
+QVariantMap target_view(const Target& target) {
+  return {{"path", target.path}, {"kind", target.kind}, {"exists", target.existed},
+      {"expectedHash", target.expected_hash.isEmpty() ? QVariant() : QVariant(target.expected_hash)},
+      {"preview", target.after}};
+}
+
+std::unique_ptr<QLockFile> acquire_lock(const std::filesystem::path& root) {
+  const auto path = root / "learning" / "vault-writeback.lock";
+  if (!safe_path(path) || !QDir().mkpath(qpath(path.parent_path()))) return {};
+  auto lock = std::make_unique<QLockFile>(qpath(path));
+  if (!lock->tryLock(0)) return {};
+  return lock;
+}
+
+QString vault_key(const std::filesystem::path& root) {
+  return hash_bytes(QFileInfo(qpath(root)).canonicalFilePath().toUtf8());
+}
+
+bool valid_transaction(const QJsonObject& tx, const std::filesystem::path& root,
+    const std::filesystem::path& vault, const std::string& account, const QString& operation) {
+  if (tx.value("schemaVersion").toInt() != 1 || tx.value("accountId").toString().toStdString() != account ||
+      tx.value("operationId").toString() != operation || tx.value("vaultKey").toString() != vault_key(vault) ||
+      !valid_operation(operation) || !tx.value("targets").isArray() || !tx.value("evidenceIds").isArray()) return false;
+  const auto targets = tx.value("targets").toArray();
+  if (targets.size() < 3 || targets.size() > 102) return false;
+  QSet<QString> paths;
+  for (qsizetype i = 0; i < targets.size(); ++i) {
+    const auto target = target_from_json(targets[i].toObject());

@@ -1,0 +1,5 @@
+} finally {
+  await stop()
+  const path = resolve(temporary)
+  if (dirname(path) === resolve(tmpdir()) && basename(path).startsWith('codeweave-unified-smoke-')) await rm(path, { recursive: true, force: true })
+}

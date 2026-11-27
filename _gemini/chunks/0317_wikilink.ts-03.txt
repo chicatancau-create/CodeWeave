@@ -1,0 +1,101 @@
+  const reason = targetRejectReason(target, pathPart, chain)
+  if (reason) return { kind: 'rejected', display: display || target || raw, tooltip: `${reason}（已按文本呈现，不跳转）`, reason }
+
+  const normalized = normalizePath(pathPart)
+  const baseName = normalized.split('/').at(-1) ?? ''
+  const lookups: WikiLinkCandidate[] = []
+  for (const list of [
+    index.byContentId.get(normalizeTitle(pathPart)),
+    index.byPath.get(normalized),
+    index.byTitle.get(normalizeTitle(pathPart)),
+    index.byBaseName.get(baseName),
+  ]) {
+    for (const candidate of pick(list)) if (!lookups.some((item) => item.contentId === candidate.contentId)) lookups.push(candidate)
+  }
+
+  if (index.total === 0) {
+    return { kind: 'unresolved', display, tooltip: '未连接资料库内容快照，无法判定发布状态', reason: '未连接内容快照' }
+  }
+  if (lookups.length === 0) {
+    return { kind: 'unresolved', display, tooltip: `${tooltipBase} 未发布或未登记`, reason: '该引用指向未发布/未登记内容' }
+  }
+  const matched = lookups.filter((candidate) => anchorMatches(candidate, chain))
+  if (matched.length === 0) {
+    return {
+      kind: 'unresolved',
+      display,
+      tooltip: `${tooltipBase}：锚点标题不在已发布主题里`,
+      reason: '该引用指向未发布/未登记内容（章节锚点未发布）',
+    }
+  }
+  if (matched.length > 1) {
+    return {
+      kind: 'unresolved',
+      display,
+      tooltip: `${tooltipBase}：已发布内容里有 ${matched.length} 个同名目标`,
+      reason: '目标不唯一，请用完整路径定位（未自动择一）',
+    }
+  }
+  const found = matched[0]
+  if (!found) {
+    return { kind: 'unresolved', display, tooltip: `${tooltipBase} 未发布或未登记`, reason: '该引用指向未发布/未登记内容' }
+  }
+  return { kind: 'resolved', display, tooltip: `打开已发布主题：${found.title}`, contentId: found.contentId, title: found.title }
+}
+
+// ---------------------------------------------------------------------------
+// 附件白名单判定（DATA-10 §4 前端侧）
+//
+// 路径合法性**只有一套规则**：复用上面的 `rejectReasonFor()`，不另起第二套。
+// 扩展名清单与 `server/content/asset.mjs` 的 `ASSET_TYPES` 同口径，
+// 由 `tests/content.asset.test.mjs` 逐项比对，防止两份清单各自漂移。
+// 前端不据它放行内容：它只决定「要不要生成一个同源 `<img src>`」，
+// 是否真的可读由服务端的白名单 + 已发布目录门禁 + 鉴权决定。
+// ---------------------------------------------------------------------------
+
+/** 可内嵌显示的位图扩展名（`svg` 能带脚本，明确排除）。 */
+export const ASSET_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp'] as const
+/** 服务端可读但本轮不内嵌显示的类型（不产生任何 href/src 出口）。 */
+export const ASSET_DOCUMENT_EXTENSIONS = ['pdf'] as const
+export const ASSET_TEXT_EXTENSIONS = ['txt', 'csv', 'json'] as const
+/** 白名单全集：与 `ASSET_TYPES` 的键一一对应。 */
+export const ASSET_ALLOWED_EXTENSIONS: readonly string[] = [
+  ...ASSET_IMAGE_EXTENSIONS,
+  ...ASSET_DOCUMENT_EXTENSIONS,
+  ...ASSET_TEXT_EXTENSIONS,
+]
+
+/** 附件接口（同源、GET、只有 path 一个查询参数）。 */
+export const ASSET_ENDPOINT = '/api/content/asset'
+
+const ASSET_IMAGE_SET: ReadonlySet<string> = new Set<string>(ASSET_IMAGE_EXTENSIONS)
+const ASSET_ALLOWED_SET: ReadonlySet<string> = new Set(ASSET_ALLOWED_EXTENSIONS)
+
+/** 扩展名（小写、不含点）；无扩展名返回空串。 */
+export function assetExtensionOf(target: string): string {
+  const base = String(target ?? '').replace(/\\/g, '/').split('/').at(-1) ?? ''
+  const dot = base.lastIndexOf('.')
+  return dot <= 0 ? '' : base.slice(dot + 1).toLowerCase()
+}
+
+export type ImageAttachmentDecision =
+  | { kind: 'image'; relPath: string; src: string }
+  | { kind: 'text'; reason: string }
+
+/**
+ * 一条 `![说明](目标)` 能否渲染成 `<img src="/api/content/asset?path=…">`。
+ * 通过条件：**库根相对路径（`rejectReasonFor` 无拒绝理由）+ 位图白名单扩展名**。
+ * 其余（协议、绝对路径、盘符、`..`、svg/html/js/css、无扩展名）一律 `{kind:'text'}`，
+ * 由调用方按今天的方式把原始语法当纯文本显示。
+ */
+export function resolveImageAttachment(target: string): ImageAttachmentDecision {
+  const value = String(target ?? '').trim()
+  const reason = rejectReasonFor(value)
+  if (reason) return { kind: 'text', reason }
+  const relPath = value.replace(/\\/g, '/')
+  const extension = assetExtensionOf(relPath)
+  if (!ASSET_IMAGE_SET.has(extension)) {
+    return { kind: 'text', reason: ASSET_ALLOWED_SET.has(extension) ? '该类型不内嵌显示（只允许服务端按白名单读取）' : '扩展名不在附件白名单内' }
+  }
+  return { kind: 'image', relPath, src: `${ASSET_ENDPOINT}?path=${encodeURIComponent(relPath)}` }
+}

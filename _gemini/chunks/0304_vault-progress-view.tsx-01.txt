@@ -1,0 +1,118 @@
+/**
+ * LINK-08 学习事实界面：拥有者绑定 + 正式进度只读投影。
+ *
+ * 展示原则（方案 §10.1）：
+ * - 绑定必须由用户**显式点击**确认；界面不提示「根据昵称自动识别」这类做法。
+ * - 正式进度只在拥有者这里显示；其他账户看到的是明确的未授权说明，不是空白或 0。
+ * - 不确定必须保持不确定：`无法确认`、`0—1 级` 原样显示，不折算成整数。
+ * - 解析不了的块显示原文 + 「结构待适配」，不显示猜测值。
+ * - 环境核验日期与学习证据日期分开显示，不推导「环境齐全 = 阶段通过」。
+ *
+ * M4 全站统一（01 号方案 §3.4 数据页 + 02 号方案 §4 正式学习事实规则）：
+ * 两个界面都按 **规范主题 / 原文位置 / 核验状态 / 同步时间 / 正式事实** 五块分区
+ * （模板 `.specs` 细线键值，geometry.md §2），正式事实再用 `.ledger` 细线表格
+ * （真 `<table>` + `<caption>` + `th[scope]`）表达，层次靠编号与发丝线，不靠卡片。
+ * 权限语义未改动：`status.isOwner === false` 仍然在渲染任何进度**之前**返回，
+ * 只读接口 `loadVaultProgress()` 也不会在非拥有者分支被调用之外的地方消费。
+ *
+ * 01 号方案 §4 状态矩阵（本轮补齐的两档）：绑定面板与进度卡片的 **loading** 挂同形占位
+ * （取数中不 `return null`，读不到说「读不到」并给重试），**error** 按未绑定 / 无权限 /
+ * 读取失败三档分开陈述且只有最后一档给重试，**disabled** 一句说明禁用条件的真实文字 +
+ * `aria-disabled`，不再只靠共享层那条 `opacity:.5`。
+ */
+import { AlertTriangle, Database, Link2, RefreshCw, ShieldCheck, Unlink } from 'lucide-react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useContent } from '../content/provider'
+import type { LearningStatus, MasteryLevel, VaultProgress } from '../content/types'
+import './vault-progress-view.css'
+
+const NOT_ESTIMATED = '本机历史活动不算作资料库掌握等级'
+
+/** 五块分区的 dt/dd 数据；取不到的值一律显示「未记录」，不做推测。 */
+type SourceField = { key: string; label: string; value: string; mark?: ReactNode }
+
+function SourceSpecs({ fields, className }: { fields: SourceField[]; className: string }) {
+  return (
+    <dl className={className}>
+      {fields.map((field) => (
+        <div className="vp-spec" key={field.key} data-vp-field={field.key}>
+          <dt>{field.label}</dt>
+          <dd>
+            {field.mark}
+            {field.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** 固定字符徽记 + 文字：语义状态不靠颜色单独表达（§5.1 末段）。 */
+function StateMark({ tone, glyph, text }: { tone: 'ok' | 'warn' | 'unknown'; glyph: string; text: string }) {
+  return (
+    <span className={`vp-mark vp-mark--${tone}`} data-vp-mark={tone}>
+      <span className="vp-mark-glyph" aria-hidden>
+        {glyph}
+      </span>
+      <span className="vp-mark-text">{text}</span>
+    </span>
+  )
+}
+
+function levelText(level: MasteryLevel): string {
+  return level.label
+}
+
+function levelTone(level: MasteryLevel): 'ok' | 'warn' | 'unknown' {
+  if (level.kind === 'numeric') return 'ok'
+  if (level.kind === 'range') return 'warn'
+  return 'unknown'
+}
+
+/** 等级徽记的固定字符：数值档实心框、区间档虚线框、无法确认点线框（都不靠颜色）。 */
+function levelGlyph(level: MasteryLevel): string {
+  if (level.kind === 'numeric') return '定'
+  if (level.kind === 'range') return '区'
+  return '疑'
+}
+
+/** 资料库状态条上的绑定向导：未绑定时提供显式绑定入口。 */
+export function VaultBindingPanel() {
+  const content = useContent()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const status = content.learningStatus
+
+  /** 禁用条件的说明文字（01 号方案 §4 disabled 行）：绑定动作进行中，三个控件都不可再用。 */
+  const busyHintId = 'vault-binding-busy-hint'
+  const busyHint = (
+    <p className="vp-disabled-hint" id={busyHintId} role="status">
+      现在不能再用：上一步绑定操作还没返回。返回后这一档自动恢复可点。
+    </p>
+  )
+
+  /*
+   * 01 号方案 §4 的 loading / error 两行：改版前这里是 `return null`，绑定面板在
+   * 首轮读取（以及超出启动预算后的续读）期间整块塌陷，落地时把下面的问候区与阶段
+   * 列表整段往上顶。现在取数中挂同形占位（自带文字 + 细线骨架，高度由 CSS 的 min-height 兜住），
+   * 读不到则说「读不到」并给重试——**不把读不到说成「尚未绑定」**。
+   */
+  if (!status) {
+    if (content.loading) {
+      return (
+        <div
+          className="vault-binding cw-vault"
+          role="group"
+          aria-label="资料库拥有者绑定"
+          aria-busy="true"
+          data-vp-panel="loading"
+        >
+          <div className="vault-binding-head">
+            <Link2 size={14} aria-hidden />
+            <strong>正在读取资料库绑定状态…</strong>
+          </div>
+          <p className="vault-progress-empty vp-empty" role="status">
+            绑定状态要读一次本机账户与资料库的对应关系；读取期间不显示推测出来的绑定结论，也不把这一块撤掉。
+          </p>
+          <div className="view-skeleton__shape" aria-hidden="true">
+            <span className="view-skeleton__line" />

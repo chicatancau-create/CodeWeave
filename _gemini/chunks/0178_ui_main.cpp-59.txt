@@ -1,0 +1,59 @@
+          const auto expected_header = published_title;
+          const auto expected_breadcrumb = QStringLiteral("Code Canvas / 课程 / stage-d");
+          const auto actual_breadcrumb = breadcrumb
+              ? breadcrumb->property("text").toString() : QString{};
+          const auto actual_accessible_name = accessible_breadcrumb
+              ? accessible_breadcrumb->text(QAccessible::Name) : QString{};
+          const auto detail = QStringLiteral(
+              "document=%1 selected=%2 publishedIndex=%3 catalogTitle=%4 header=%5 isCourse=%6 "
+              "selectedLessonId=%7 indexVisible=%8 indexText=%9 entryLabel=%10 breadcrumb=%11 accessible=%12")
+              .arg(shell.documentId())
+              .arg(shell.hasSelectedContent())
+              .arg(published_index)
+              .arg(published_title)
+              .arg(title ? title->property("text").toString() : QString{})
+              .arg(is_course)
+              .arg(selected.value(QStringLiteral("id")).toString())
+              .arg(breadcrumb_index && breadcrumb_index->isVisible())
+              .arg(breadcrumb_index ? breadcrumb_index->property("text").toString() : QString{})
+              .arg(breadcrumb_label ? breadcrumb_label->property("text").toString() : QString{})
+              .arg(actual_breadcrumb)
+              .arg(actual_accessible_name);
+          u3_record(*context, QStringLiteral("challenge-document-workspace-header-matches-catalog"),
+              shell.documentId() == QStringLiteral("stage-d") &&
+              shell.hasSelectedContent() && published_index >= 0 &&
+              title && title->isVisible() && title->property("text").toString() == expected_header, detail);
+          u3_record(*context, QStringLiteral("challenge-document-breadcrumb-is-accessible-without-course-index"),
+              !is_course &&
+              breadcrumb && breadcrumb->isVisible() &&
+              actual_breadcrumb == expected_breadcrumb &&
+              accessible_breadcrumb && actual_accessible_name ==
+                  QStringLiteral("当前位置：") + expected_breadcrumb &&
+              breadcrumb_index && !breadcrumb_index->isVisible() &&
+              breadcrumb_label && breadcrumb_label->isVisible() &&
+              breadcrumb_label->property("text").toString() == QStringLiteral("stage-d"), detail);
+          u3_record(*context, QStringLiteral("lesson-workspace-breadcrumb-narrow-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-workspace-breadcrumb-unlisted-narrow"), QSize(1100, 720)));
+          view.resize(workspace_size);
+          QCoreApplication::processEvents();
+          auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
+          u3_record(*context, QStringLiteral("lesson-workspace-missing-metadata-clears-previous-flow"),
+              flow && flow->property("nodeCount").isValid() && flow->property("nodeCount").toInt() == 0);
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          u3_record(*context, QStringLiteral("lesson-evidence-opens-from-workspace"), open && open->isVisible() &&
+              open->property("enabled").toBool() && QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 301: {
+          if (shell.operationBusy()) return;
+          auto* read = u3_find_item(view.contentItem(), QStringLiteral("lessonMarkRead"));
+          u3_record(*context, QStringLiteral("lesson-contract-unrun-blocks-completion"),
+              shell.lessonAssessment().value("cases").toList().size() == 3 &&
+              !shell.lessonAssessment().value("canComplete").toBool());
+          u3_record(*context, QStringLiteral("lesson-mark-read-action"), read && read->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(read, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 302: {

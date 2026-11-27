@@ -1,0 +1,31 @@
+          if (!write_file(script_path, kCppTraceRunner)) {
+            trace.append(EventKind::Failed, "cpp_trace_runner_write_failed");
+            return {app::Result::failure("无法准备 C++ 源码追踪器"), std::nullopt, std::move(trace)};
+          }
+          ProcessPlan debugger_plan{{cpp_debugger,
+              {L"--nx", L"--nh", L"--quiet", L"--batch", L"-iex", L"set auto-load off",
+                  L"--se=" + program_path.wstring(), L"-x", script_path.wstring()},
+              working_directory, "cpp-debugger"}, {}, plan.timeout_ms, plan.output_limit};
+          process = run_observed(runner_, debugger_plan, cancellation, control, trace,
+              trace_directory / "snapshots.jsonl", trace_directory / "program-output");
+          if (std::filesystem::exists(trace_directory / "trace-error", error) && !error) {
+            process.error_code = "cpp_trace_failed";
+            process.execution_output_valid = false;
+          }
+        }
+      }
+    }
+  }
+  if (process.timed_out || process.error_code == "execution_timeout") {
+    trace.append(EventKind::Failed, process.error_code);
+  } else if (process.cancelled) {
+    trace.append(EventKind::Cancelled);
+  } else if (process.exit_code == 0 && process.error_code.empty()) {
+    trace.append(EventKind::Completed);
+  } else {
+    trace.append(EventKind::Failed, process.error_code.empty() ? "process_exit_nonzero" : process.error_code);
+  }
+  return {validation, std::move(process), std::move(trace)};
+}
+
+}  // namespace codeweave::execution

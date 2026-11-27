@@ -1,0 +1,86 @@
+   * 共享层 styles.css 的 `.primary-action:disabled` 只有 `opacity:.5`：按钮名字被压到读不出，
+   * 界面也从没说什么条件下才解禁。两处保存/改密按钮都按同一形态补：
+   * 保留 `disabled`（真的不能点）+ `aria-disabled` + 一句渲染出来的条件说明 + `aria-describedby`。
+   */
+  it('账户安全：三项没填齐时说明条件，填齐后说明撤下、按钮解禁', () => {
+    const { container } = renderSecurity()
+    const button = screen.getByRole('button', { name: '修改密码' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    const hint = container.querySelector<HTMLElement>('.cw-account-disabled-hint')
+    // 禁用条件是**静态说明文字**，靠 aria-describedby 绑到按钮上；它不是活区域——
+    // 这一屏的播报权属于改密结果那一行（role=status），再加一个只会互相抢播报。
+    expect(hint?.hasAttribute('role')).toBe(false)
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(hint?.textContent).toContain('当前密码、新密码、确认新密码三项都必须填写')
+    expect(button.getAttribute('aria-describedby')).toBe(hint?.id)
+
+    fireEvent.change(screen.getByLabelText('当前密码'), { target: { value: 'old-password' } })
+    fireEvent.change(screen.getByLabelText('新密码（至少 8 个字符）'), { target: { value: 'new-password' } })
+    fireEvent.change(screen.getByLabelText('确认新密码'), { target: { value: 'new-password' } })
+    const ready = screen.getByRole('button', { name: '修改密码' }) as HTMLButtonElement
+    expect(ready.disabled).toBe(false)
+    expect(ready.hasAttribute('aria-disabled')).toBe(false)
+    expect(ready.hasAttribute('aria-describedby')).toBe(false)
+    expect(container.querySelector('.cw-account-disabled-hint')).toBeNull()
+  })
+
+  it('个人中心：保存忙态说明「在等上一次返回」，返回后撤下', async () => {
+    let release: (value: null) => void = () => {}
+    const onUpdateUser = vi.fn(() => new Promise<null>((res) => { release = res }))
+    const { container } = render(
+      <ProfileView
+        user={user}
+        onUpdateUser={onUpdateUser}
+        onLogout={vi.fn()}
+        onNavigateReviews={vi.fn()}
+        stageMastery={[]}
+        completedLessons={0}
+        completedChallenges={0}
+        dueCount={0}
+        onExportData={vi.fn()}
+        onClearLocalData={vi.fn()}
+        onNavigateSecurity={vi.fn()}
+      />,
+    )
+    const save = screen.getByRole('button', { name: /保存修改/ })
+    expect(save.hasAttribute('aria-disabled')).toBe(false)
+    fireEvent.click(save)
+    await waitFor(() => expect(onUpdateUser).toHaveBeenCalledTimes(1))
+
+    const busy = screen.getByRole('button', { name: /保存中…/ }) as HTMLButtonElement
+    expect(busy.disabled).toBe(true)
+    expect(busy.getAttribute('aria-disabled')).toBe('true')
+    const hint = container.querySelector<HTMLElement>('.cw-account-disabled-hint')
+    // 同上：条件说明走 describe，不占活区域；这一屏唯一的 status 是保存结果那一行。
+    expect(hint?.hasAttribute('role')).toBe(false)
+    expect(hint?.textContent).toContain('上一次保存还没返回')
+    expect(busy.getAttribute('aria-describedby')).toBe(hint?.id)
+
+    release?.(null)
+    await waitFor(() => expect(busy.disabled).toBe(false))
+    expect(container.querySelector('.cw-account-disabled-hint')).toBeNull()
+  })
+
+  it('CSS 不变式：账户域的禁用档 opacity 保持 1，改走虚线描边', () => {
+    // declarationBlock 是按**单个**选择器逐段比对的（splitSelectors），把两个选择器并成一条
+    // 字符串永远查不到，只会拿到空串——那是一条永远不会绿的断言，比假绿更难查。
+    const btnDisabled = declarationBlock('.cw-account .cw-account-btn:disabled')
+    const btnAria = declarationBlock(".cw-account .cw-account-btn[aria-disabled='true']")
+    for (const block of [btnDisabled, btnAria]) {
+      expect(block, '两种禁用写法都得同一档：不靠透明度').toMatch(/opacity:\s*1/)
+      expect(block).toMatch(/border-style:\s*dashed/)
+    }
+    const hint = declarationBlock('.cw-account .cw-account-disabled-hint')
+    expect(hint).toContain('color: var(--ca-ink-2)')
+    expect(hint).toContain('font-size: var(--ca-meta)')
+  })
+})
+
+describe('M4 账户域 · 导出与恢复入口（§5.2 保留行为）', () => {
+  it('数据与隐私页与个人中心都提供导出入口，且都只调用注入的导出实现', () => {
+    const privacy = renderPrivacy(okClear)
+    fireEvent.click(screen.getByRole('button', { name: /导出学习数据/ }))
+    expect(privacy.onExportData).toHaveBeenCalledTimes(1)
+    cleanup()
+    const profile = renderProfile(okClear)

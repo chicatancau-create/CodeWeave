@@ -1,0 +1,103 @@
+  groups: Partial<Parameters<typeof ReviewCenterView>[0]['groups']> = {},
+  // 回调槽位显式按 mock 类型声明：若写成 Partial<组件 props>，展开后 onReview 会退化成
+  // 「真实函数类型 | Mock」的联合，`.mock.calls` 在 tsc 下不可访问（vitest 不做类型检查，
+  // 所以这条只有跑 tsc -b 才暴露）。
+  overrides: {
+    groups?: Parameters<typeof ReviewCenterView>[0]['groups']
+    onReview?: Mock
+    onSnooze?: Mock
+    onOpenLesson?: Mock
+  } = {},
+) {
+  const props = {
+    groups: {
+      overdue: [] as MasteryRecord[],
+      today: [] as MasteryRecord[],
+      upcoming: [] as MasteryRecord[],
+      next: null as { dateKey: string; record: MasteryRecord } | null,
+      ...groups,
+    },
+    titles,
+    // REVIEW-01：「这是不是一门课」与「顺延到哪天」都由数据给，组件不再自己猜。
+    lessonIds: ['lesson-s0-1', 'lesson-s1-2', 'lesson-s2-3'],
+    todayKey: '2026-09-20',
+    onReview: vi.fn(),
+    onSnooze: vi.fn(),
+    onOpenLesson: vi.fn(),
+    ...overrides,
+  }
+  render(<ReviewCenterView {...props} />)
+  return props
+}
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('M4 复习中心 · ledger 表格语义（§5.2 第六行）', () => {
+  it('三组各是一张真细线表格，caption 说明组名与条数', () => {
+    renderView({
+      overdue: [record()],
+      today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })],
+      upcoming: [record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })],
+    })
+    const tables = document.querySelectorAll('table.rv-ledger')
+    expect(tables).toHaveLength(3)
+    const captions = [...tables].map((table) => table.querySelector('caption')?.textContent)
+    expect(captions).toEqual([
+      '逾期复习清单，共 1 项（超过计划日期仍未复测，优先处理）',
+      '今日到期复习清单，共 1 项（按 1/3/7/14/30 天计划今天应复测）',
+      '未来 7 天复习清单，共 1 项（即将到期的复测）',
+    ])
+    for (const table of tables) {
+      expect(table.querySelector('caption')?.className).toContain('rv-sr-only')
+    }
+  })
+
+  it('列表头与行表头齐备：每行由 th[scope=row] 的编号担任行头', () => {
+    renderView({ overdue: [record(), record({ refId: 'lesson-s1-2' })] })
+    const table = document.querySelector('table.rv-ledger') as HTMLTableElement
+    const cols = [...table.querySelectorAll('thead th[scope="col"]')].map((th) => th.textContent)
+    expect(cols).toEqual(['次', '复习项', '掌握等级', '复测计划', '到期状态', '操作'])
+    const rows = [...table.querySelectorAll('tbody th[scope="row"]')]
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.textContent).toBe('01')
+    expect(rows[1]?.textContent).toBe('02')
+  })
+
+  it('分组层次靠编号 01/02/03 与发丝线，不靠卡片：块标题带编号与计数分母', () => {
+    renderView({
+      overdue: [record()],
+      upcoming: [record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })],
+    })
+    const headings = [...document.querySelectorAll('.rv-block-heading')]
+    expect(headings).toHaveLength(2)
+    expect(headings[0]?.querySelector('.rv-block-idx')?.textContent).toBe('01')
+    expect(headings[1]?.querySelector('.rv-block-idx')?.textContent).toBe('03')
+    expect(headings[0]?.querySelector('.rv-block-note')?.textContent).toContain('1 / 2 项')
+  })
+
+  it('到期状态是「固定字符徽记 + 文字」双通道，徽记不进读屏顺序', () => {
+    renderView({
+      overdue: [record()],
+      today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })],
+      upcoming: [record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })],
+    })
+    const marks = [...document.querySelectorAll<HTMLElement>('.rv-row .rv-mark')]
+    expect(marks.map((mark) => mark.getAttribute('data-rv-mark'))).toEqual(['overdue', 'today', 'upcoming'])
+    for (const mark of marks) {
+      const glyph = mark.querySelector('.rv-mark-glyph')
+      const text = mark.querySelector('.rv-mark-text')
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+      expect((text?.textContent ?? '').length).toBeGreaterThan(1)
+    }
+    expect(marks[0]?.querySelector('.rv-mark-text')?.textContent).toBe('已逾期')
+  })
+
+  it('每张台账都住在一个可 Tab 到、有名字的横向滚动区里（§5.4 320px 不撑破页面）', () => {
+    renderView({
+      overdue: [record()],
+      today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })],
+      upcoming: [record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })],
+    })

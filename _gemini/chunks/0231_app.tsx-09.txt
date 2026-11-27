@@ -1,0 +1,96 @@
+      title: challenge.title,
+      subtitle: challenge.track,
+    }))
+    const projectTargets = projects.projects.map((project) => ({
+      id: project.id,
+      type: 'project' as const,
+      title: project.name,
+      subtitle: `${project.files.length} 个文件`,
+    }))
+    return [...lessonTargets, ...challengeTargets, ...projectTargets]
+  }, [content.lessons, challenges, projects.projects])
+
+  // 通知派生（只来自真实学习数据）
+  const notifications = useMemo(
+    () =>
+      visibleNotifications(
+        [...notifEvents, ...deriveNotifications({
+          dueReviews: mastery.dueReviews,
+          titles,
+          challengeRecords: challengeProgress.progress,
+          challengeTitles: titles,
+          streak: checkin.streak,
+          checkedInToday: checkin.checkedIn,
+          todayKey: checkin.todayKey,
+        })],
+        notifState.readIds,
+        notifState.clearedDateKey,
+      ),
+    [notifEvents, mastery.dueReviews, titles, challengeProgress.progress, checkin.streak, checkin.checkedIn, checkin.todayKey, notifState],
+  )
+
+  // 「减少动效」镜像到 documentElement。原先这个类只挂在 .app-shell 上，而登录页与
+  // 加载态在壳外提前 return（App 的两个分支），所以设置项路径压不住它们；页面里
+  // 写成 `.reduce-motion .xxx` 的降级规则在壳外也一并失效。挂在根上对所有子树成立。
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', Boolean(settings.reduceMotion))
+    return () => document.documentElement.classList.remove('reduce-motion')
+  }, [settings.reduceMotion])
+
+  const markNotificationsRead = useCallback((ids: string[]) => {
+    setNotifState((current) => ({ ...current, readIds: [...new Set([...current.readIds, ...ids])] }))
+  }, [setNotifState])
+  const pickLesson = useCallback((lessonId: string) => {
+    const lesson = content.lessons.find((item) => item.id === lessonId)
+    if (lesson) handleLessonChange(lesson)
+  }, [content.lessons, handleLessonChange])
+  const pickChallenge = useCallback((challengeId: string) => {
+    setFocusChallengeId(challengeId)
+    setView('challenges')
+  }, [])
+  const { setSelectedProjectId } = projects
+  const pickProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId)
+    setView('projects')
+  }, [setSelectedProjectId])
+  const navigateView = useCallback((viewId: string) => setView(viewId as ViewId), [])
+  const navigateSecurity = useCallback(() => setView('security'), [])
+  const navigateData = useCallback(() => setView('data'), [])
+  const exportData = useCallback(() => exportLocalData(scope), [scope])
+  const continueLesson = useCallback(() => {
+    if (recommendedLesson) handleLessonChange(recommendedLesson)
+  }, [recommendedLesson, handleLessonChange])
+  const goReviews = useCallback(() => setView('reviews'), [])
+  const openHelp = useCallback(() => setHelpOpen(true), [])
+  const toggleCalendar = useCallback(() => setCalendarOpen((open) => !open), [])
+
+  const shellClassName = [
+    'app-shell',
+    'unified-theme',
+    // 学习工作台（编辑器 / 长文阅读）挂沉浸式标记：装饰层不挂载（geometry.md §5 裁定 1
+    // 「工作台与弹层不挂装饰框」+ §5.3 第 1 条「编辑器和长文阅读默认静态或低动态」）。
+    view === 'path' && activeLesson ? 'is-immersive' : '',
+    ['profile', 'security', 'data'].includes(view) ? 'is-account' : '',
+    settings.compactMode ? 'compact-mode' : '',
+    settings.reduceMotion ? 'reduce-motion' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  /**
+   * §5.2「清楚的当前入口」：编号 + 页面名，供顶栏面包屑消费。
+   * 停在 path 但已打开课程时，当前入口是 01 学习路径，页面名取学习工作台。
+   */
+  const navPosition = NAV_ITEMS.findIndex((item) => item.id === view)
+  const currentEntry = {
+    index: navPosition >= 0 ? navIndex(navPosition) : undefined,
+    label: view === 'path' && activeLesson ? VIEW_META.workspace.label : VIEW_META[view].label,
+  }
+
+  const styleWithEditorFont = { '--editor-font-size': `${settings.editorFontSize ?? 13}px` } as CSSProperties
+
+  // STAT-01：挑战完成数使用唯一派生口径，submitted / rejected 不计入“已通过”。
+  const { passed: passedChallengeCount, legacy: legacyPassedChallengeCount } = countPassedChallenges(
+    challengeProgress.progress,
+  )
+  const completedCount = passedChallengeCount + legacyPassedChallengeCount

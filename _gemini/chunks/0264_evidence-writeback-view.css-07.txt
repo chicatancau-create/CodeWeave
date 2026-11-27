@@ -1,0 +1,155 @@
+  overflow-x: auto; /* 长代码 / 长路径横向滚动而不撑破版心（§5.4） */
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.evidence-writeback .ewb-table {
+  width: 100%;
+  min-width: 460px; /* 320px 视口下靠滚动容器，不压缩到不可读 */
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  table-layout: auto;
+}
+
+.evidence-writeback .ewb-table caption {
+  text-align: left;
+}
+
+/* ledger / specs 式：只有上下 1px 发丝线，无竖线、无底色 */
+.evidence-writeback .ewb-table th,
+.evidence-writeback .ewb-table td {
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px) var(--ds-space-10, 10px) 0;
+  border: 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  text-align: left;
+  vertical-align: top;
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .ewb-table thead th {
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-bottom-color: var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.evidence-writeback .ewb-table tbody tr:last-child th,
+.evidence-writeback .ewb-table tbody tr:last-child td {
+  border-bottom-color: var(--ewb-hair-raised);
+}
+
+.evidence-writeback .ewb-table strong {
+  font-weight: 600;
+  color: var(--ewb-ink);
+}
+
+/* 差异行：固定语义色 + 文字前缀双通道（§5.1 末段） */
+.evidence-writeback .ewb-sign {
+  display: inline-block;
+  min-width: 2.4em;
+  margin-right: var(--ds-space-8, 8px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 700;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  white-space: nowrap;
+}
+
+.evidence-writeback .ewb-sign--minus {
+  color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-sign--plus {
+  color: var(--ewb-ok);
+}
+
+.evidence-writeback .evidence-before {
+  color: var(--ewb-ink-2);
+  text-decoration: none; /* 删除线不承担语义：已有前缀 + 颜色 + 列标题 */
+}
+
+.evidence-writeback .evidence-after {
+  color: var(--ewb-ink);
+  font-weight: 600;
+}
+
+/* 追加行区域 */
+.evidence-writeback .ewb-diff {
+  border: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+}
+
+.evidence-writeback .ewb-diff-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.evidence-writeback .ewb-diff-legend-text {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.evidence-writeback .ewb-diff-body {
+  max-height: 320px;
+  overflow: auto; /* 长行横向滚动、长段纵向滚动 */
+  padding: var(--ds-space-8, 8px) 0;
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-body);
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.evidence-writeback .ewb-diff-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  min-width: max-content; /* 长代码行不折行、不被裁切，横向滚动交给 .ewb-diff-body */
+  width: max-content;
+  max-width: none;
+  padding: 0 var(--ds-space-12, 12px);
+}
+
+.evidence-writeback .ewb-diff-text {
+  min-width: max-content;
+  white-space: pre; /* 代码与 Markdown 原样呈现，不折行破版 */
+  color: var(--ewb-ink);
+}
+
+/* 被阻止项 / 说明清单：同样走细线，不用彩色卡片 */
+.evidence-writeback .evidence-blocked,
+.evidence-writeback .evidence-notices {
+  display: grid;
+  gap: 0;
+  margin: var(--ds-space-8, 8px) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  font-size: var(--ewb-body);
+}
+
+.evidence-writeback .evidence-blocked li,
+.evidence-writeback .evidence-notices li {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink-2);

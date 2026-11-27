@@ -1,0 +1,14 @@
+  std::string replacement;
+  const auto hashed = hash_password(new_password, replacement);
+  if (!hashed.ok) return hashed;
+  const auto found = std::find_if(records.begin(), records.end(), [&current](const Record& item) { return item.id == current.id; });
+  if (found == records.end()) return app::Result::failure("账户不存在");
+  found->password_hash = std::move(replacement);
+  std::string serialized;
+  for (const auto& item : records) serialized += encode_hex(item.id) + '\t' + encode_hex(item.email) + '\t' + encode_hex(item.phone) + '\t' + encode_hex(item.name) + '\t' + encode_hex(item.password_hash) + '\n';
+  if (has_symlink_component(path().parent_path())) return app::Result::failure("账户目录路径不能经过符号链接");
+  std::error_code error; std::filesystem::create_directories(path().parent_path(), error); if (error) return app::Result::failure("创建账户目录失败");
+  return write_atomically(path(), serialized);
+}
+
+}  // namespace codeweave::account

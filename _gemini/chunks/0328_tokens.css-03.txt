@@ -1,0 +1,70 @@
+  --ds-font-cjk-ui: 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', sans-serif;
+
+  /* 展示标题：字重 200 + 负字距（site.css L258-L263 / L268-L275，核实一致） */
+  --ds-weight-display: 200;                       /* L262 / L274 */
+  --ds-weight-body: 400;                          /* L48 / L281 */
+  --ds-track-display: -0.03em;                    /* L260 */
+  --ds-track-title: -0.02em;                      /* L272 */
+  --ds-leading-display: 1;                        /* L259 —— 仅单行；中文多行禁用，README §3 C2 */
+  --ds-leading-title: 1.15;                       /* L271 多行中文标题用这一档 */
+  --ds-leading-lead: 1.66;                        /* L279 */
+
+  /* 模板字阶（clamp 原文，行号见括号） */
+  --ds-size-display: clamp(2.6rem, 6vw, 6rem);    /* L258 */
+  --ds-size-title: clamp(1.7rem, 3.6vw, 3.4rem);  /* L270；L358 结尾标题实测也在这档 */
+  --ds-size-lead: clamp(14.5px, 1.02vw, 17.5px);  /* L278 */
+  --ds-size-hud: 9.5px;                           /* L198 —— 仅非关键装饰 */
+  --ds-size-rail: 10px;                           /* L148 —— 仅非关键装饰 */
+  --ds-size-meta: 10.5px;                         /* L109 / L242 / L374 / L387 —— 同上 */
+
+  /* 产品正文可读性（01 号方案 §8 可读性验收；正文约 16px、行高 1.6–1.75 的原值出自旧总工程方案 §5.4，由 Git 保留；模板无此档） */
+  --ds-size-body: 16px;
+  --ds-leading-body: 1.7;
+  /* 必读小字档：模板在 10.5px 与 14.5px 之间是空档，而产品里有一批文字既不是正文
+     也不能看不清——按钮名、禁用条件说明、字段错误、空态解释。这三类此前一直写 10.5px,
+     也就是占用了上面自述「仅非关键装饰」的那一档, 与本文件第 6 段的注释互相矛盾。
+     取值 13px 不是新造的数：styles.css 的 `.account-menu strong` 早就硬写着 13px,
+     这里把它提成令牌, 同时给「必须读」的小字与「可以读不出来」的装饰拉开一档。 */
+  --ds-size-control: 13px;
+  --ds-leading-control: 1.55;
+  --ds-track-hud: 0.14em;                         /* L199 */
+  --ds-track-meta: 0.2em;                         /* L110 */
+  --ds-track-eyebrow: 0.24em;                     /* L243 */
+  --ds-track-boot: 0.28em;                        /* L443 */
+
+  /* ── 7. 形态与层级（科技档：直角 → 小圆角；零投影 → 冷色发光） ───────────
+     原模板「全站零圆角 + 零投影」是极简黑场的取舍：分区只靠 1px 发丝线。
+     科技风要的是「有厚度的面板」——所以圆角回到小档，投影换成冷色外发光
+     （黑底上黑投影等于没有，发光才是黑场里唯一能表达层级的形态手段）。
+     圆角只开三档，避免变成「到处都在圆」：面板 10px、控件 6px、药丸保留。
+     层级 z 值一律不动。 */
+  --ds-shape-none: 0;                             /* 保留：表格内联、发丝线分隔仍用直角 */
+  --ds-shape-circle: 50%;                         /* L118 / L128 / L431 */
+  --ds-shape-pill: 100px;                         /* L393 唯一药丸（CTA） */
+  --ds-radius-panel: 10px;                        /* 科技档：面板 / 弹层 / 卡片小圆角 */
+  --ds-radius-control: 6px;                       /* 科技档：按钮 / 输入框小圆角 */
+  --ds-radius-chip: 4px;                          /* 科技档：状态芯片 / 徽记（比控件更紧） */
+  --ds-shadow-panel: var(--ds-glow-panel);        /* 科技档：面板发光（原 none） */
+  --ds-blend-chrome: difference;                  /* L112 顶栏自动反色，业务界面慎用 */
+  --ds-blend-frame: screen;                       /* L95 取景框，装饰层 */
+  --ds-z-canvas: 0;                               /* L70 */
+  --ds-z-scrim: 1;                                /* L80 */
+  --ds-z-content: 4;                              /* L213 */
+  --ds-z-frame: 6;                                /* L92 */
+  --ds-z-fixed-ui: 8;                             /* L103 / L141 / L194 */
+  --ds-z-boot: 20;                                /* L423 */
+  --ds-z-fallback: 22;                            /* L462 */
+
+  /* ── 8. 布局尺度（site.css L27 / L107 / L226 / L231 / L281 / L144-L146） ── */
+  --ds-pad-page: clamp(20px, 4.4vw, 64px);        /* L27 --pad 全局水平安全边距 */
+  --ds-pad-bleed: clamp(22px, 3.2vw, 40px);       /* L107 / L193 固定 UI 内缩 */
+  --ds-gutter-visual: clamp(var(--ds-pad-page), 14vw, 200px); /* L226 文字为视觉主体让位 */
+  --ds-measure-lead: 44ch;                        /* L281 */
+  --ds-measure-hero: 38ch;                        /* L285 */
+  --ds-measure-stage: min(52ch, 46vw);            /* L231 */
+  --ds-rail-gap: 15px;                            /* L144 */
+  --ds-rail-offset: 22px;                         /* L146 给 1px 竖线让位 */
+  --ds-frame-inset: clamp(10px, 1.5vw, 20px);     /* L91 */
+  --ds-tap-min: 44px;                             /* §5.4 触控目标下限（模板 10px 文字不达标） */
+
+  /* ── 8.5 间距阶（01 号方案 §2.2「间距只能从设计令牌读取」） ────────────────

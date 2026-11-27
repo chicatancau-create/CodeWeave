@@ -1,0 +1,122 @@
+  autosave: true,
+  compactMode: false,
+  editorFontSize: 13,
+  reduceMotion: false,
+}
+
+/** 模拟 app.tsx 的真实挂载方式：触发按钮 → 弹窗 → 关闭后焦点归还。 */
+function Harness({ mode = 'settings' }: { mode?: 'settings' | 'help' }) {
+  const [open, setOpen] = useState(false)
+  const [settings, setSettings] = useState<AppSettings>(baseSettings)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  return (
+    <div className="app-shell">
+      <button ref={triggerRef} onClick={() => setOpen(true)}>
+        打开设置
+      </button>
+      {open && mode === 'settings' && (
+        <SettingsModal
+          settings={settings}
+          onChange={(updates) => setSettings((current) => ({ ...current, ...updates }))}
+          onClose={() => {
+            setOpen(false)
+            triggerRef.current?.focus()
+          }}
+          onExport={vi.fn()}
+          onRestoreDefaults={vi.fn()}
+        />
+      )}
+      {open && mode === 'help' && (
+        <HelpModal
+          onClose={() => {
+            setOpen(false)
+            triggerRef.current?.focus()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function renderSettings(overrides: Partial<Parameters<typeof SettingsModal>[0]> = {}) {
+  const props = {
+    settings: baseSettings,
+    onChange: vi.fn(),
+    onClose: vi.fn(),
+    onExport: vi.fn(),
+    onRestoreDefaults: vi.fn(),
+    ...overrides,
+  }
+  render(<SettingsModal {...props} />)
+  return props
+}
+
+beforeEach(() => {
+  localStorage.clear()
+  vi.restoreAllMocks()
+})
+
+afterEach(() => {
+  cleanup()
+  document.body.style.overflow = ''
+  document.documentElement.className = ''
+})
+
+describe('M4 弹层 · 关闭与焦点契约（不得回归的既有行为）', () => {
+  it('Esc 关闭后焦点归还到打开它的触发元素（设置弹窗）', () => {
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: '打开设置' })
+    fireEvent.click(trigger)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '关闭设置' }))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('Esc 关闭后焦点归还到触发元素（帮助弹窗）', () => {
+    render(<Harness mode="help" />)
+    const trigger = screen.getByRole('button', { name: '打开设置' })
+    fireEvent.click(trigger)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '知道了' }))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('弹窗卸载后 body 滚动锁被解除（不残留 overflow:hidden）', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: '打开设置' }))
+    expect(document.body.style.overflow).toBe('hidden')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('Tab 循环不逃出弹窗：末位元素之后回到首位', () => {
+    renderSettings()
+    const dialog = screen.getByRole('dialog')
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select'))
+    const last = focusables[focusables.length - 1]!
+    last.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+    expect(document.activeElement).toBe(focusables[0])
+  })
+
+  it('点遮罩关闭、点弹层内部不关闭（遮罩本身 role=presentation）', () => {
+    const { onClose } = renderSettings()
+    const backdrop = document.querySelector('.cw-modal-backdrop') as HTMLElement
+    expect(backdrop.getAttribute('role')).toBe('presentation')
+    fireEvent.click(screen.getByRole('dialog'))
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('设置项默认值未被改版改动（提醒/自动保存/行号默认开，紧凑/减动效/自动换行默认关）', () => {
+    renderSettings({ settings: {} })
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
+    // 后两位是 EDIT-01 补的两项：自动换行默认关（§5.4 长代码行量的就是关着的样子）、
+    // 行号默认开（改版前根本没有这个开关，行号一直在——默认值必须等于旧观感）。
+    expect(boxes.map((box) => box.checked)).toEqual([true, true, false, false, false, true])
+    expect(screen.getByDisplayValue('13 px')).toBeTruthy()
+  })
+

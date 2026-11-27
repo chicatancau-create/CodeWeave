@@ -1,0 +1,79 @@
+                    <span className="vp-row-idx">{String(index + 1).padStart(2, '0')}</span>
+                  </th>
+                  <td className="vp-cell">{row.skill}</td>
+                  <td className="vp-cell vp-cell-value">{levelText(row.level)}</td>
+                  <td className="vp-cell">
+                    <StateMark tone={levelTone(row.level)} glyph={levelGlyph(row.level)} text={levelText(row.level)} />
+                    {row.status ? <span className="vp-cell-note">{row.status}</span> : null}
+                  </td>
+                  <td className="vp-cell vp-cell-evidence">{row.evidence}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {progress.mastery.note && <p className="vault-progress-notice vp-note">{progress.mastery.note.replace(/^>\s?/, '')}</p>}
+
+          <h4 className="vault-progress-subtitle vp-subtitle">
+            <span className="vp-subtitle-idx" aria-hidden>
+              03
+            </span>
+            下一步行动（原文顺序）
+          </h4>
+          <table className="vp-ledger">
+            <caption className="vp-sr-only">
+              下一步行动：共 {progress.nextActions.rows.length} 项，按资料库原文顺序列出，不重新排序
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="vp-col vp-col-num">
+                  序
+                </th>
+                <th scope="col" className="vp-col">
+                  行动（原文）
+                </th>
+                <th scope="col" className="vp-col">
+                  产出
+                </th>
+                <th scope="col" className="vp-col vp-col-state">
+                  完成状态
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {progress.nextActions.rows.map((row) => (
+                <tr key={`${row.order}-${row.action}`} className={row.done ? 'vp-row-done' : undefined}>
+                  <th scope="row" className="vp-cell vp-cell-num">
+                    <span className="vp-row-idx">{row.order}</span>
+                  </th>
+                  <td className="vp-cell vp-cell-value">{row.action || row.actionRaw}</td>
+                  <td className="vp-cell vp-cell-evidence">{row.deliverable || '原文未填写'}</td>
+                  <td className="vp-cell">
+                    <StateMark tone={row.done ? 'ok' : 'warn'} glyph={row.done ? '已' : '未'} text={row.done ? '原文标为已完成' : '原文未标完成'} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {progress.unparsed.length > 0 && (
+            <details className="vault-unparsed vp-unparsed">
+              <summary>结构待适配的原文（{progress.unparsed.length}）</summary>
+              <ul>
+                {progress.unparsed.map((item) => (
+                  <li key={`${item.key}-${item.reason}`}>
+                    <strong>{item.key}</strong>：{item.reason}
+                    {item.raw && <pre>{item.raw}</pre>}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <p className="vault-progress-notice vp-note">
+            {NOT_ESTIMATED}；本卡片只读，不提供写回，也不因导入或阅读而提升任何等级。
+          </p>
+        </>
+      )}
+    </section>
+  )
+}

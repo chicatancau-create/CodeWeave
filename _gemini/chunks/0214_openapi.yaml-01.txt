@@ -1,0 +1,116 @@
+# CodeWeave 后端数据服务 · 唯一 API 契约来源
+#
+# 分离方案 §6.1：契约先行，两端由此生成类型或薄客户端；§5：这是唯一允许跨边界共享的内容。
+# 网页端使用 contract:sync 生成独立部署副本，contract:check 核对内容。
+#
+# 逐接口写明：用途、认证要求、请求 schema、响应 schema、错误码、幂等性、分页、超时、敏感字段处理
+# （后四项放在 `x-` 扩展里，因为 OpenAPI 3.1 没有原生字段）。
+#
+# 全局事实（所有接口共同遵守，出自 `server.mjs` 常量与 `guardWriteRequest`）：
+#   - 会话：HttpOnly + SameSite=Lax + Path=/ + Max-Age=604800（7 天）的 `code_canvas_session` Cookie；
+#     永不写入 localStorage / 日志 / URL（§6.2）。桌面 renderer 只访问本机 loopback origin。
+#   - 请求体上限 100,000 字节；超限 413 `body_too_large`。
+#   - 所有非 GET 请求先过同源校验（`Sec-Fetch-Site` / `Origin` vs `Host`）与 `application/json` 检查。
+#   - 登录限流：账号与来源 IP 双维度，默认 10 次 / 15 分钟窗口。
+#   - JSON 响应使用 `{ error, code }` 或 `{ data }`，写回冲突可带 `details`。
+openapi: 3.1.0
+info:
+  title: CodeWeave 后端数据服务 API
+  version: 1.0.0
+  description: >-
+    网页端与本地应用端唯一的跨边界协议。正式学习事实、账户、内容快照与资料库写回事务
+    全部由本服务持有；任何端不得直接读取数据目录（分离方案 §5 禁止项）。
+  license: { name: MIT }
+servers:
+  - url: http://127.0.0.1:4173
+    description: 本机服务（端口由后端配置解析器决定，端侧一律从 API_ORIGIN 取，不写死）
+
+tags:
+  - { name: health, description: 健康与实例身份 }
+  - { name: auth, description: 注册、登录、会话、改密 }
+  - { name: profile, description: 个人资料 }
+  - { name: content, description: 课程目录、教材正文、附件、快照同步 }
+  - { name: learning, description: 拥有者绑定、正式学习事实、确认式写回 }
+  - { name: sync, description: 学习事件、增量拉取与冲突 }
+
+x-conventions:
+  authentication:
+    cookie: code_canvas_session
+    attributes: [HttpOnly, "SameSite=Lax", "Path=/", "Max-Age=604800"]
+    neverStored: [密码, 会话 Cookie, Token]
+  timeouts:
+    serverDefault: 无请求级超时；慢请求仅对超过 800ms 记诊断日志
+    clientRecommended: { readMs: 10000, writeMs: 15000 }
+    note: 客户端超时不等于服务端失败——写请求超时后必须靠幂等键或账本复查，不得盲目重发
+  idempotency:
+    reads: GET 全部幂等
+    writes: 见各接口 x-idempotency；写回链用 operationId 作幂等标识
+  pagination: 本服务当前不分页（快照与账本一次返回、条数在服务端封顶），分页属未来契约变更，必须走版本号
+  sensitiveFields:
+    neverReturned: [passwordHash, 会话 ID, 资料库绝对路径, 私密资料正文]
+    redactedInLogs: [密码, 完整 Cookie, 私密资料正文, 学习答案]
+    loggedInstead: [requestId, 路由, 状态码, 耗时, 脱敏用户标识]
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: code_canvas_session
+  parameters:
+    contentId:
+      name: id
+      in: path
+      required: true
+      description: 内容标识；只接受 `[A-Za-z0-9][A-Za-z0-9._-]*`，长度 ≤96，拒路径、`..` 与盘符
+      schema: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$' }
+    operationId:
+      name: operationId
+      in: path
+      required: true
+      description: 写回事务标识（URL 编码后传输）
+      schema: { type: string, maxLength: 200 }
+    bundleQuery:
+      name: bundleId
+      in: query
+      required: false
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,80}$' }
+    bundlePath:
+      name: bundleId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,80}$' }
+    ifNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      schema: { type: string }
+  schemas:
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        code: { type: string, description: 稳定错误码 }
+        error: { type: string, description: 面向用户的说明 }
+        details: { description: 冲突/事务明细，仅在写回链出现 }
+      additionalProperties: true
+    User:
+      type: object
+      required: [id, name, bio, createdAt]
+      properties:
+        id: { type: string, pattern: '^user-[0-9a-f]{16}$' }
+        email: { type: [string, 'null'], format: email }
+        phone: { type: [string, 'null'], pattern: '^[0-9]{11}$' }
+        name: { type: string, minLength: 2, maxLength: 40 }
+        bio: { type: string, maxLength: 160 }
+        createdAt: { type: string, format: date-time }
+      x-sensitive: 响应永不含 passwordHash
+    EvidenceRecord:
+      type: object
+      description: 暂存证据（服务端存储，客户端只提交字段、不提交路径）
+      required: [evidenceId, topic, createdAt]
+      properties:
+        evidenceId: { type: string }
+        topic: { type: string, maxLength: 60 }
+        stage: { type: [string, 'null'], maxLength: 16 }
+        createdAt: { type: string, format: date-time }

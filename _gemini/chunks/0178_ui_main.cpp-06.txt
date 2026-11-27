@@ -1,0 +1,86 @@
+            unifiedContent.refreshLearningFacts();
+          } else {
+            QFile saved(disconnectMarker + QStringLiteral(".queued"));
+            if (!saved.exists() && saved.open(QIODevice::WriteOnly)) saved.write("pending");
+          }
+        }
+        const auto today = QDate::currentDate().toString(Qt::ISODate);
+        syncedOutbox = reconnectionRequested && unifiedContent.checkinDates().count(today) == 1;
+      }
+      if (ready && !disconnectMarker.isEmpty() && !offlineRequested) {
+        if (!downloading) {
+          downloading = true;
+          unifiedContent.saveOfflineBundle();
+        } else if (unifiedContent.offlineStatus() == QStringLiteral("离线课程已校验")) {
+          if (QFile::exists(disconnectMarker)) {
+            offlineRequested = true;
+            requested = false;
+            unifiedContent.loadCatalog();
+          } else {
+            QFile downloaded(disconnectMarker + QStringLiteral(".ready"));
+            if (!downloaded.exists() && downloaded.open(QIODevice::WriteOnly)) downloaded.write("verified");
+          }
+        }
+      } else if (ready && syncedOutbox && (disconnectMarker.isEmpty() || unifiedContent.status() == QStringLiteral("离线只读"))) {
+        const auto catalog = unifiedContent.catalog();
+        QJsonObject result{
+          {"contentId", lesson.value("contentId").toString()},
+          {"bundleId", catalog.value("bundleId").toString()},
+          {"manifestHash", catalog.value("manifestHash").toString()},
+          {"vaultId", catalog.value("vaultId").toString()},
+          {"serviceInstance", catalog.value("serviceInstance").toString()},
+          {"checkinCount", static_cast<int>(unifiedContent.checkinDates().count(expectedCheckin))},
+          {"exerciseCount", static_cast<int>(page.value("exercises").toList().size())},
+          {"offlineOpened", offlineRequested},
+          {"restoredSession", restoreRequested},
+          {"offline", unifiedContent.status() == QStringLiteral("离线只读")},
+          {"outboxSynced", outboxTest && syncedOutbox},
+        };
+        QFile output(report);
+        const bool written = output.open(QIODevice::WriteOnly) && output.write(QJsonDocument(result).toJson()) > 0;
+        application.exit(written ? 0 : 1);
+        return;
+      }
+      if (++ticks >= 180) {
+        QFile output(report);
+        if (output.open(QIODevice::WriteOnly)) {
+          output.write(QJsonDocument(QJsonObject{
+            {"connected", unifiedContent.connected()},
+            {"courseShown", shown},
+            {"syncStatus", unifiedContent.syncStatus()},
+            {"offlineStatus", unifiedContent.offlineStatus()},
+            {"queued", queued},
+            {"askedToReconnect", reconnectionRequested},
+            {"onlineMarker", QFile::exists(disconnectMarker + QStringLiteral(".online"))},
+            {"warnings", QJsonArray::fromStringList(qml_warnings)},
+          }).toJson());
+        }
+        application.exit(1);
+      }
+    });
+    timer.start(200);
+    if (restoreRequested) unifiedContent.restoreAccount();
+    else unifiedContent.connectAccount(unifiedContent.defaultOrigin(), login, password);
+    return application.exec();
+  }
+  QTimer qml_smoke_timer;
+  int qml_smoke_page = 0;
+  int qml_smoke_ticks = 0;
+  QSize smoke_expected_size(1440, 900);
+  const auto report_path = qml_smoke ? arguments.at(qml_smoke_arg + 1) : QString{};
+  QString diagnostic = QStringLiteral("running");
+  QStringList smoke_screenshots;
+  QJsonArray smoke_geometry;
+  QJsonArray smoke_popup_geometry;
+  QJsonArray smoke_settings_rows;
+  QJsonArray smoke_settings_text;
+  QJsonArray smoke_settings_initial_viewport;
+  QJsonArray smoke_topbar_geometry;
+  QJsonObject smoke_sidebar_geometry;
+  bool smoke_reference_ready = false;
+  bool smoke_reference_registration_started = false;
+  QString smoke_preference_draft;
+  qulonglong smoke_preference_revision = 0;
+  const auto write_smoke_report = [&] {
+      QJsonObject report;
+      report.insert(QStringLiteral("diagnostic"), diagnostic);

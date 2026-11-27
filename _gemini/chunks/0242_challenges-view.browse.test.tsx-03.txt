@@ -1,0 +1,18 @@
+    renderView({ progress: { 'stage-b': { completedAt: '2026-09-13T00:00:00.000Z', evidence: 'x', status: 'passed' } } })
+    const aCard = screen.getByRole('button', { name: /A 关：开发环境与基本操作/ })
+    expect(aCard.textContent).toContain('外部环境实验')
+    expect(aCard.textContent).toContain('开始挑战')
+
+    const bCard = screen.getByRole('button', { name: /B 关：Java 核心编程/ })
+    expect(bCard.textContent).toContain('教学运行器')
+    expect(bCard.textContent).toContain('继续挑战')
+  })
+
+  it('卡片摘要显示两行以内的说明文字', () => {
+    renderView()
+    const aCard = screen.getByRole('button', { name: /A 关：开发环境与基本操作/ })
+    const summary = aCard.querySelector('.stage-card-summary')
+    expect(summary).toBeTruthy()
+    expect(summary!.textContent!.length).toBeGreaterThan(0)
+  })
+})

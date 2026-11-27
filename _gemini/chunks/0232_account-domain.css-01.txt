@@ -1,0 +1,81 @@
+/* ============================================================================
+   CodeWeave · 账户域（个人中心 / 账户安全 / 数据与隐私）· M4 全站统一
+   ----------------------------------------------------------------------------
+   规格：`docs/00-CodeWeave三合一总工程方案.md` §5.2 末行「账户、设置、隐私和弹窗：相同
+   字体、按钮、表单、焦点和遮罩体系」+ §5.1 形态行 + §5.4 验收。
+   保留的业务行为：改密、导出、恢复、按范围清除（§5.2 该行右列）——本文件只改呈现，
+   三个视图里的 fetch / clearLocalData / applyImport 调用与判定语义一字未动。
+
+   为什么是**一个**共享文件而不是三个同名文件：§5.2 把「账户、设置、隐私」判成
+   **同一套**字体 / 按钮 / 表单 / 焦点体系，三份同值别名块必然随时间漂移；
+   Vite 会对同一 CSS 的多次 import 去重，因此三个视图各 import 本文件一次即可。
+   弹窗与错误态各有独立文件（modals.css / error-boundary.css），因为它们的生命周期
+   与页面壳不同（模态在壳上层、错误态可能在壳外）。
+
+   作用域与安全边界（重要）：
+   - 全局裸选择器 0 条：每条选择器都以 `.cw-account` / `.cw-security` / `.cw-profile`
+     / `.cw-privacy` 起头，且权重 ≥ (0,2,0)，避免被后引入的 styles.css 反压。
+   - 个人中心里嵌着**他人组件**（VaultProgressCard、EvidenceWritebackPanel），
+     它们的子树里也有 `.field-label`、`.primary-action`、`.subtle-button`、
+     `.profile-overview-card`、`.security-card-title`。因此本文件**从不**以这些
+     全局类名作右端主语（`.cw-profile .field-label` 这种写法会串改别人的面板）；
+     一律改为我方自有类名 `.cw-account-*`，加在三个视图自己的元素上。
+   - 圆角三档（0 / 50% / 100px）：本文件只取 0 与 50%（头像圆环），不引入第三种。
+   - 语义状态：固定标识（glyph + 边框样式）+ 文字，颜色只取 --ds-status-*，
+     不引用 --ds-scene-* / --accent（§5.1 末段：状态不得跟场景变色）。
+   - `!important` 只出现在 §5.3 的两条减动效真停开关上。
+   ========================================================================== */
+
+.cw-account {
+  /* ── 令牌别名（缺令牌时同值兜底，出处见 tokens.css 行号注释） ───────────── */
+  --ca-canvas: var(--ds-canvas, #000);                            /* L14 */
+  --ca-canvas-solid: var(--ds-canvas-solid, #000);                /* L424 */
+  --ca-ink: var(--ds-text-primary, #f4f1ee);                      /* L15，18.66:1 */
+  --ca-ink-2: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L16，5.86:1 */
+  --ca-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));      /* L18 */
+  --ca-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 */
+  --ca-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));   /* ≥3:1 */
+  --ca-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62));
+  --ca-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));    /* 9.45:1 */
+  --ca-ok: var(--ds-status-success, #3fd3a4);
+  --ca-warn: var(--ds-status-warning, #ffc457);
+  --ca-bad: var(--ds-status-danger, #ff8371);
+  --ca-info: var(--ds-status-info, #4f7cff);
+  --ca-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --ca-warn-wash: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+  --ca-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --ca-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+  --ca-body: var(--ds-size-body, 16px);                           /* §5.4 正文 16px */
+  --ca-leading: var(--ds-leading-body, 1.7);                      /* §5.4 1.6–1.75 */
+  --ca-meta: 13px; /* §5.4：10.5px HUD 档不承载必读信息，元信息最小 13px */
+  --ca-tap: var(--ds-tap-min, 44px);                              /* §5.4 触控 ≥44px */
+  --ca-line: var(--ds-line-width, 1px);
+  --ca-radius: var(--ds-shape-none, 0);
+  --ca-circle: var(--ds-shape-circle, 50%);
+  --ca-mono: var(--ds-font-mono, ui-monospace, Consolas, monospace);
+  --ca-ui: var(--ds-font-display, 'Geist Mono', 'Microsoft YaHei', ui-monospace, monospace);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-24, 24px);
+  min-width: 0;
+  color: var(--ca-ink);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+  overflow-wrap: anywhere;               /* 长中文标题 / 长键名在 320px 不破版 */
+  word-break: normal;
+}
+
+/* ── 1. 页眉：编号眉标 + 展示标题（§5.1 展示标题：字重 200、负字距） ──────── */
+.cw-account .module-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ds-space-16, 16px);
+  margin-bottom: var(--ds-space-4, 4px);
+  padding-bottom: var(--ds-space-16, 16px);
+  border-bottom: var(--ca-line) solid var(--ca-hair-raised);
+}
+.cw-account .module-heading h1 {
+  margin: var(--ds-space-4, 4px) 0 var(--ds-space-8, 8px);

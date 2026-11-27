@@ -1,0 +1,70 @@
+                                            anchors.centerIn: parent
+                                            text: modelData.difficulty || ""
+                                            color: ds.muted
+                                            font.family: ds.mono
+                                            font.pixelSize: 13
+                                            font.letterSpacing: 1.8
+                                        }
+                                    }
+                                    Text {   // .stage-runner
+                                        text: modelData.runner === "external"
+                                              ? "外部环境实验" : "教学运行器"
+                                        color: ds.runnerLabelInk
+                                        font.family: ds.mono
+                                        font.pixelSize: 13
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    Text {   // .stage-card-action
+                                        text: "开始挑战"
+                                        color: ds.ink
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                }
+
+                                // hairline above the meta row
+                                Rectangle {
+                                    anchors { left: parent.left; right: parent.right
+                                               bottom: cardMeta.top; bottomMargin: ds.s6 }
+                                    height: 1
+                                    color: ds.line
+                                }
+
+                                ColumnLayout {
+                                    anchors {
+                                        left: parent.left
+                                        right: parent.right
+                                        top: cardTop.bottom
+                                        bottom: cardMeta.top
+                                        topMargin: ds.s8
+                                        bottomMargin: ds.s14
+                                    }
+                                    spacing: ds.s6
+
+                                    // .stage-title — shortTitle, mono
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: (modelData.title || "").replace(/^[A-M] 关卡验收：/, "")
+                                        color: ds.ink
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                        lineHeight: 1.45
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+
+                                    // .stage-card-summary — description + 本关聚焦
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: (modelData.description || "")
+                                              + ((modelData.stack || []).length > 0
+                                                 ? " 本关聚焦：" + modelData.stack.join("、") + "。"
+                                                 : "")
+                                        color: ds.muted
+                                        font.family: ds.mono
+                                        font.pixelSize: 14

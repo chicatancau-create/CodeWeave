@@ -1,0 +1,97 @@
+            改版前这里是一段「两套口径各自表述、界面不做合并」的免责说明，口径统一后已无凭据。
+          */}
+          <p className="rv-plan-summary">
+            {describeReviewPlan(defaultPlan)}——按这份节奏回顾已学内容；未通过的复测会降低掌握等级并重新安排。
+            {defaultPlan.source === 'fallback'
+              ? '当前没有读到资料库发布规则（内容服务未连接或尚无可用快照），上面是未接入发布规则时的本机排期；读到目录后会自动改按发布规则的节点排期，默认节奏比这里多一档「学习当天」。'
+              : ''}
+          </p>
+        </div>
+        <div className="challenge-stats">
+          <span>
+            待复测 {total} 项 · 未来 7 天 {groups.upcoming.length} 项
+          </span>
+        </div>
+      </div>
+
+      {/*
+        01 号方案 §4 的 loading / error 两行（排期口径的来源，不是排期判定）：
+        复测节点表有三个来源（本单元覆盖 → 资料库发布规则 → 本机兜底），中间那一档要等教材目录
+        读回来才有。改版前这一段没有任何形态——「正在读」与「读失败」都说成「按本机排期」，
+        用户看不出这是临时的、也找不到重试。这里只陈述来源与下一步，
+        `useReviewPlanResolver` 与 `data/mastery` 的判定一字未动（§9 纪律）。
+      */}
+      {asyncState && (
+        <div
+          className={`rv-async rv-empty${asyncState === 'error' ? ' rv-async--failed' : ''}`}
+          role={asyncState === 'error' ? 'alert' : 'status'}
+          data-rv-async={asyncState}
+          aria-busy={asyncState === 'loading' || undefined}
+        >
+          <p>
+            {asyncState === 'loading'
+              ? '正在读取资料库发布规则：这一档是临时的，读到节点表之后本页自动改按发布规则排期，在此之前按本机兜底节奏。'
+              : `读不到资料库发布规则：${content?.error}。本页仍按本机兜底节奏排期，已排好的复测节点不受影响；可以重试读取。`}
+          </p>
+          {asyncState === 'loading' ? (
+            <div className="view-skeleton__shape" aria-hidden="true">
+              <span className="view-skeleton__line" />
+              <span className="view-skeleton__line view-skeleton__line--short" />
+            </div>
+          ) : (
+            <button className="subtle-button rv-btn" onClick={() => void content?.refresh()}>
+              重试读取发布规则
+            </button>
+          )}
+        </div>
+      )}
+
+      {/*
+        空态先看 `groups.next` 再说「没有计划」（REVIEW-01 第 3 条）：
+        `next` 是**任何**比今天晚的排期，而上一步的判据只看 7 天窗口里有没有条目——
+        于是一门排在第 14 天的课会让页面写「当前没有任何计划的复测」，远期任务被说成不存在。
+      */}
+      {total === 0 && groups.upcoming.length === 0 && !groups.next && (
+        <div className="review-center-empty rv-empty" role="status">
+          <CalendarClock size={24} aria-hidden />
+          <p>当前没有任何计划的复测。完成课程单元后会自动按计划安排。</p>
+        </div>
+      )}
+
+      {total === 0 && groups.next && (
+        <div className="review-center-empty rv-empty" role="status">
+          <CalendarClock size={24} aria-hidden />
+          <p>
+            今天没有到期的复测。下一次：{groups.next.dateKey}（
+            {titles[groups.next.record.refId] ?? groups.next.record.refId}）
+          </p>
+        </div>
+      )}
+
+      {sections.map((section) =>
+        section.rows.length === 0 ? null : (
+          <section className="rv-block" key={section.key} data-tone={section.key}>
+            <h2 className="rv-block-heading">
+              <span className="rv-block-idx" aria-hidden>
+                {TONE_META[section.key].idx}
+              </span>
+              <span className="rv-block-title">{TONE_META[section.key].title}</span>
+              <StatusMark tone={section.key} />
+              <span className="rv-block-note">
+                {TONE_META[section.key].hint(defaultPlan)} · {section.rows.length} / {scheduled} 项
+              </span>
+            </h2>
+            {/*
+              六列台账在 320px 下放不进 231px 的内容宽：实测会把「复习项」等四列压到 24px
+              （一个字一行），再把整张表顶出页面 41px。所以窄屏让它**在区域内横向滚动**，
+              而不是继续挤压列宽——§5.4 要的是「不撑破页面」且「画得能看」，两条都要。
+              滚动区必须可 Tab 到并带名字，否则键盘用户进不去这个容器（WCAG 2.1.1）。
+            */}
+            <div className="rv-table-scroll" role="region" tabIndex={0} aria-label={`${TONE_META[section.key].title}复习清单表格，可横向滚动`}>
+            <table className="rv-ledger">
+              <caption className="rv-sr-only">
+                {TONE_META[section.key].title}复习清单，共 {section.rows.length} 项（{TONE_META[section.key].hint(defaultPlan)}）
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="rv-col rv-col-num">

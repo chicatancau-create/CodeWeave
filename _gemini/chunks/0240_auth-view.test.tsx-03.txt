@@ -1,0 +1,19 @@
+      rules: {
+        // jsdom 无真实布局，色彩对比与目标尺寸由人工/构建期核对（见 总工程方案验收基线）
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(loginResults.violations.map((v) => v.id)).toEqual([])
+
+    cleanup()
+    const { container: registerContainer } = render(<AuthView {...baseProps} mode="register" />)
+    const registerResults = await axe.run(registerContainer, {
+      rules: {
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(registerResults.violations.map((v) => v.id)).toEqual([])
+  })
+})

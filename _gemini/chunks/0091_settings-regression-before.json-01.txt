@@ -1,0 +1,155 @@
+{
+    "accountContact": "",
+    "accountName": "",
+    "diagnostic": "All eight settings rows must fit the initial 1440x900 viewport",
+    "filteredLessonIds": [
+    ],
+    "geometry": [
+    ],
+    "lessonCount": 0,
+    "lessonIds": [
+    ],
+    "popupGeometry": [
+    ],
+    "preferenceStorageReady": true,
+    "preferenceStorageUnavailableSmoke": false,
+    "qmlWarnings": [
+    ],
+    "referenceAccount": false,
+    "referenceSubject": "",
+    "screenshots": [
+    ],
+    "selectedLesson": {
+    },
+    "settingsInitialViewport": [
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 44
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 116
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 2,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 188
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 260
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 332
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 93,
+            "index": 5,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 404
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 6,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 497
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": false,
+            "height": 72,
+            "index": 7,
+            "storageReady": true,
+            "viewportHeight": 618,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 569
+        }
+    ],
+    "settingsRows": [
+    ],
+    "settingsText": [
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,

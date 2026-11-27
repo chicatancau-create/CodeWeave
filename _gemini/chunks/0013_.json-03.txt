@@ -1,0 +1,117 @@
+      "from": "G:\\CodeWeave\\qt-test-out.log",
+      "to": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志\\qt-test-out.log",
+      "files": 1,
+      "bytes": 178
+    },
+    {
+      "from": "G:\\CodeWeave\\LICENSE",
+      "to": "G:\\CodeWeave\\工程文件\\LICENSE",
+      "files": 1,
+      "bytes": 1066
+    },
+    {
+      "from": "G:\\CodeWeave\\CodeWeave Qt 预览.lnk",
+      "to": "G:\\CodeWeave\\应用端\\启动应用端.lnk",
+      "files": 1,
+      "bytes": 1303
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\构建产物\\qt\\signing",
+      "to": "G:\\CodeWeave\\应用端\\开发环境\\signing",
+      "reason": "preserve private signing material or unknown account data; never upload"
+    },
+    {
+      "from": "G:\\CodeWeave\\应用端\\构建产物\\qt\\tmp-data",
+      "to": "G:\\CodeWeave\\工作区\\data\\待核对数据\\qt-tmp-data",
+      "reason": "preserve private signing material or unknown account data; never upload"
+    }
+  ],
+  "deleted": [
+    {
+      "path": "G:\\CodeWeave\\备份区",
+      "files": 403,
+      "bytes": 927817834.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\待清理根入口",
+      "files": 95,
+      "bytes": 1299331.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\待清理日志",
+      "files": 4,
+      "bytes": 2749877.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\dist",
+      "files": 689,
+      "bytes": 14332710.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\.runtime-check-profile",
+      "files": 76,
+      "bytes": 10973935.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\build-u0b-fix.log",
+      "files": 1,
+      "bytes": 59733.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\工作区\\build",
+      "files": 1,
+      "bytes": 23434.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\bootstrap-diagnostic-r3",
+      "files": 240,
+      "bytes": 69196539.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\bootstrap-diagnostic-r4",
+      "files": 240,
+      "bytes": 69197437.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\bootstrap-upgrade-diagnostic",
+      "files": 240,
+      "bytes": 69197468.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build",
+      "files": 13,
+      "bytes": 2465805.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-debug",
+      "files": 46,
+      "bytes": 1916372.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-debug-msvc",
+      "files": 233,
+      "bytes": 532724927.0,

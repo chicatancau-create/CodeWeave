@@ -1,0 +1,50 @@
+      setScroll(pendingScroll.current)
+    })
+  }
+
+  return <>
+    <div className={`code-editor${wordWrap ? ' code-editor--wrap' : ''}`}>
+      {lineNumbers && (
+        <LineNumbersLayer lines={lines} activeLine={activeLine} offset={scroll.top} />
+      )}
+      <div className="code-surface">
+        {/* 高亮层：纯展示，aria-hidden 且不接收鼠标事件；输入始终由下方真实 textarea 承担。
+            强制颜色模式下这一层整层隐掉，见 code-editor.css 的 forced-colors 段。 */}
+        <CodeTokensLayer tokens={tokens} left={scroll.left} top={scroll.top} tabSize={Math.max(1, tabSize)} wordWrap={wordWrap} />
+        {activeLine && (
+          <div
+            className="code-highlight"
+            style={{ top: `calc(var(--editor-font-size) * var(--line-height-editor) * ${activeLine - 1} - ${scroll.top}px)` }}
+          />
+        )}
+        <textarea
+          ref={editorRef}
+          aria-label={`${languageLabel} 代码编辑器`}
+          spellCheck="false"
+          value={code}
+          style={{ tabSize: Math.max(1, tabSize), whiteSpace: wordWrap ? 'pre-wrap' : 'pre' }}
+          onChange={(event) => onChange(event.target.value)}
+          onScroll={handleScroll}
+        />
+      </div>
+    </div>
+    <div className="code-footer">
+      <span>{runtime} · {languageLabel}</span>
+      <span className="editor-actions">
+        {/* 键盘模式是当前状态、不是「刚发生的事」，所以只做可见文字：
+            一处 `role=status` 已经归复制结果用，两个活区会把工作台自己那条执行等级播报挤掉。 */}
+        <span className="editor-keyhint">
+          {tabReleasesFocus ? 'Tab = 切换焦点（Esc 改回缩进）' : 'Tab = 缩进 · Shift+Tab 退缩进（Esc 交还焦点导航）'}
+        </span>
+        <button aria-label="复制代码" onClick={handleCopy}><Copy size={11} /> 复制</button>
+        {copyResult !== 'idle' && (
+          <span role="status" className={copyResult === 'ok' ? 'editor-copy-ok' : 'editor-copy-fail'}>
+            {copyResult === 'ok' ? '已复制到剪贴板' : '复制失败：代码已全选，请按 Ctrl+C'}
+          </span>
+        )}
+        <span>Ctrl + Enter 运行</span>
+        <Save size={11} />
+      </span>
+    </div>
+  </>
+}

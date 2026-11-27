@@ -1,0 +1,116 @@
+  flex-direction: column;
+  padding: var(--ds-space-24, 24px) var(--ds-space-14, 14px) var(--ds-space-16, 16px);
+  background: var(--chrome);           /* 科技档：半透明玻璃底 */
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border-right: var(--hair) solid var(--line); /* 1px 发丝线边界 */
+  box-shadow: 1px 0 0 var(--ds-wash-accent), 12px 0 32px var(--shadow-chrome); /* 右侧冷色描光 */
+}
+
+.main-content {
+  position: relative;
+  z-index: var(--z-content);             /* 自身成栈上下文：装饰层挂在这里，压在正文之上、顶栏之下 */
+  min-height: 100vh;
+  min-width: 0;
+  flex: 1;
+  margin-left: var(--sidebar-w);
+}
+
+/* 装饰层：发丝线取景框（模板 .fx-grain，site.css L91-L95）——geometry.md §5 裁定 1
+   的落地。三条约束一起满足：
+     ① 档位 10：高于内容 1、低于持久 chrome 15，装饰框不再被顶栏/侧栏切掉，
+        也盖不到任何弹层（弹层从 40 起）；
+     ② 只在入口/壳层挂载：由 app.tsx 渲染在 `.main-content` 内，且学习工作台
+        （§5.3 第 1 条要求编辑器/长文低动态）与弹层不挂 —— 见 `.app-shell.is-immersive
+        .shell-decor { display: none }`；
+     ③ 不截获鼠标与键盘、不进辅助技术朗读顺序：`pointer-events: none` + DOM 上是
+        空元素并带 `aria-hidden="true"`，画线只用伪元素，没有文字内容。
+   色档取 --ds-line-frame（α 0.07，实测对 #000 只有 1.06:1，纯装饰档，见 tokens §2
+   与 geometry §2 裁定 3：装饰框与分隔线不得压成同一档）。 */
+.shell-decor {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-decor);
+  pointer-events: none;                  /* §5.3 第 6 条：装饰层不截获指针与键盘 */
+  background-color: var(--ds-canvas-deep);
+  background-image: radial-gradient(72rem 46rem at 6% -8%, var(--ds-wash-ambient), transparent 64%),
+    radial-gradient(62rem 44rem at 98% 106%, var(--ds-wash-nebula), transparent 66%),
+    radial-gradient(90rem 26rem at 50% -14%, var(--ds-wash-toplight), transparent 72%),
+    radial-gradient(78rem 52rem at 52% 46%, var(--ds-wash-midlight), transparent 70%);
+  mask-image: radial-gradient(140% 108% at 50% 40%, #000 62%, transparent 100%);
+  -webkit-mask-image: radial-gradient(140% 108% at 50% 40%, #000 62%, transparent 100%);
+}
+.shell-decor::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  background-image: linear-gradient(var(--ds-grid-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ds-grid-strong) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  animation: cw-bg-drift 34s linear infinite;
+}
+
+/* 背景底色保持静止；网格与扫光使用独立合成层，减少逐帧重绘。 */
+.shell-decor::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 38%, var(--ds-wash-accent) 50%, transparent 62%);
+  opacity: 0.35;
+  transform: translate3d(-20%, 0, 0);
+  will-change: transform, opacity;
+  animation: cw-bg-sheen 26s ease-in-out infinite;
+}
+/* 平移一个完整网格周期，循环时无接缝。 */
+@keyframes cw-bg-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(40px, 40px, 0);
+  }
+}
+/* 扫光横向掠过：只动末层，一层淡的斜向高光以 26s 从左侧扫到右侧再回来。
+   `ease-in-out` 让两端自然减速，来回都不会在端点「啪」地折返。 */
+@keyframes cw-bg-sheen {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translate3d(-20%, 0, 0);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translate3d(20%, 0, 0);
+  }
+}
+.app-shell.is-immersive .shell-decor { display: none; }
+
+.content-wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--ds-space-32, 32px) var(--pad-page) var(--ds-space-48, 48px);  /* 水平安全边距走模板 --pad（site.css L27） */
+}
+
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -56px;
+  z-index: var(--z-system);            /* M4 裁定 3：60 = skip-link 与系统级提示 */
+  padding: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  color: var(--ink-on-accent);         /* 点缀色底上用黑字（site.css L56），不再白字 */
+  background: var(--accent);
+  font-size: var(--ds-size-body);
+  transition: top var(--ds-dur-quick) var(--ease);
+}
+.skip-link:focus { top: 12px; }
+
+/* ---------------------------------------------------------------------------
+   侧栏（§5.2 全局壳：细线分区 + 清楚的当前入口；玻璃、渐变、泛光全部移除）
+   ------------------------------------------------------------------------- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  padding: 0 var(--ds-space-10, 10px);

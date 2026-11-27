@@ -1,0 +1,92 @@
+  const remainingChallenges = challenges.length - completedCount
+
+  return (
+    <div className={shellClassName} style={styleWithEditorFont}>
+      <a className="skip-link" href="#main-content">
+        跳到主内容
+      </a>
+      <Sidebar
+        user={user}
+        view={view}
+        onNavigate={(next) => {
+          setView(next)
+          setCalendarOpen(false)
+        }}
+        dueReviewsCount={mastery.dueReviews.length}
+        checkin={checkin}
+        calendarOpen={calendarOpen}
+        onToggleCalendar={toggleCalendar}
+        remainingChallenges={remainingChallenges}
+        totalStages={displayStages.length}
+      />
+
+      <div className="main-content">
+        {/* 装饰层：发丝线取景框，档位 10（geometry.md §5 裁定 1）。空元素 + aria-hidden
+            + pointer-events:none，画线全部用伪元素，因此不截获鼠标键盘、也不进辅助技术
+            朗读顺序（§5.3 第 6 条）。工作台（.is-immersive）下由 CSS 收起不挂载。 */}
+        <div className="shell-decor" aria-hidden="true" />
+        <GlobalTopbar
+          activeArea={['profile', 'security', 'data'].includes(view) ? 'account' : 'workspace'}
+          breadcrumbLabel={VIEW_META[view].breadcrumb}
+          currentEntry={currentEntry}
+          contextTitle={view === 'path' && activeLesson ? activeLesson.title : undefined}
+          settingsTriggerRef={settingsTriggerRef}
+          searchTargets={searchTargets}
+          recentViews={recentViews}
+          notifications={notifications}
+          onMarkAllRead={markNotificationsRead}
+          user={user}
+          onPickLesson={pickLesson}
+          onPickChallenge={pickChallenge}
+          onPickProject={pickProject}
+          onNavigateView={navigateView}
+          onOpenSettings={openSettings}
+          onNavigateSecurity={navigateSecurity}
+          onNavigateData={navigateData}
+          onExportData={exportData}
+          onLogout={onLogout}
+          /* 01 §3.2「快捷动作」的三条都取上层已有的事实与动作：推荐单元、今日到期数、
+             帮助弹层——本处不派生任何新的学习状态（§9 禁止第二套判定）。 */
+          recommendedLesson={recommendedLesson ? { label: recommendedLesson.label, title: recommendedLesson.title } : null}
+          reviewDueCount={mastery.dueReviews.length}
+          onContinueLesson={continueLesson}
+          onGoReviews={goReviews}
+          onOpenHelp={openHelp}
+        />
+
+        <main className="content-wrap" id="main-content" tabIndex={-1} aria-busy={!contentSettled}>
+          {!contentSettled ? <ViewFallback view={view} /> : <>
+          <ContentSourceBanner />
+          <details className="desktop-vault-settings">
+            <summary>资料库连接与拥有者设置</summary>
+            <VaultBindingPanel />
+          </details>
+          {/* #77 的裁定：文档的 h1 归**页内标题**，壳层这句是个性化问候，不是页面名字。
+              从前它顶着 h1，于是实战挑战 / 复习中心 / 学习分析 / 代码草稿四页同时有两个 h1，
+              而学习路径与工作台反过来只能借它当一个 h1。现在八页各自只有一个 h1，
+              字号档原样挂在 `.welcome-greeting` 类上（视觉零变化），条件也原样保留
+              ——那三页不重复显示问候语是呈现取舍，不再是标题层级的副产品。
+              单屏化（2026-09-30）：工作台（`activeLesson`）里这一行改为不挂载。
+              它 98px 高，说的是日期与阶段口径，而工作台自己的顶栏已经带着课名，
+              学习者在这一屏要的是代码与画布——问候语在这里既不是导航也不是上下文。
+              路径页照旧显示（那里的阶段口径正是页面内容）。 */}
+          {view === 'path' && !activeLesson && (
+            <div className="welcome-row">
+              <Clock name={user.name} stageCount={displayStages.length} stageNote={stagesAreLegacy
+                ? '（资料库未连接，当前为旧 A—M 口径）'
+                : `（${displayStages.map((stage) => stage.id).join('、')}）`} />
+              <div className="weekly-progress">
+                <div className="progress-ring" role="img" aria-label={`挑战完成度 ${completedCount}/${challenges.length}`}>
+                  <span>{challenges.length ? Math.round((completedCount / challenges.length) * 100) : 0}%</span>
+                </div>
+                <div>
+                  <strong>挑战验收</strong>
+                  <span>
+                    已通过 {completedCount} / {challenges.length} 关
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 01 号方案 §6 第 1 条：入口懒加载。闸门顺序固定 ErrorBoundary → Suspense → 视图，

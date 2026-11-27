@@ -1,0 +1,80 @@
+  if (!output) { std::error_code ignored; std::filesystem::remove(temporary, ignored); return app::Result::failure("写入进度补偿文件失败"); }
+  output.close();
+  std::error_code error;
+#ifdef _WIN32
+  if (!MoveFileExW(temporary.wstring().c_str(), destination.wstring().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+#else
+  std::filesystem::rename(temporary, destination, error);
+#endif
+  if (error) { std::error_code ignored; std::filesystem::remove(temporary, ignored); return app::Result::failure("提交进度补偿失败"); }
+  return app::Result::success("进度补偿已完成");
+}
+
+app::Result ProgressStore::append_idempotent(const ProgressFact& fact, bool& duplicate) {
+  std::lock_guard lock(mutex_);
+  duplicate = false;
+  const auto valid = validate_progress_fact(fact);
+  if (!valid.ok) return valid;
+  if (data_root_.empty() || !data_root_.is_absolute()) {
+    return app::Result::failure("进度数据根必须是绝对路径");
+  }
+  const auto recovered = recover_pending(path(), data_root_);
+  if (!recovered.ok) return recovered;
+  auto parsed = [](std::string_view line, std::string& operation_id) {
+    ProgressFact existing;
+    if (!parse_line(line, existing)) return false;
+    operation_id = std::move(existing.operation_id);
+    return true;
+  };
+  const auto index_status = operation_index::load_or_rebuild(index_path(), path(), data_root_,
+      kMaxProgressFileBytes, kMaxProgressLineBytes, kMaxProgressRecords, parsed,
+      index_snapshot_);
+  if (!index_status.ok) return index_status;
+  index_ready_ = true;
+  operation_index::Entry entry;
+  bool found = false;
+  auto indexed = operation_index::find(index_path(), fact.operation_id, index_snapshot_, entry, found);
+  if (!indexed.ok) {
+    const auto rebuilt = operation_index::rebuild(index_path(), path(), data_root_,
+        kMaxProgressFileBytes, kMaxProgressLineBytes, kMaxProgressRecords, parsed,
+        index_snapshot_);
+    if (!rebuilt.ok) return rebuilt;
+    indexed = operation_index::find(index_path(), fact.operation_id, index_snapshot_, entry, found);
+    if (!indexed.ok) return indexed;
+  }
+  if (found) {
+    std::string line;
+    const auto read = operation_index::read_entry(path(), entry, line);
+    ProgressFact existing;
+    if (!read.ok || !parse_line(line, existing) || existing.operation_id != fact.operation_id) {
+      index_ready_ = false;
+      const auto rebuilt = operation_index::rebuild(index_path(), path(), data_root_,
+          kMaxProgressFileBytes, kMaxProgressLineBytes, kMaxProgressRecords, parsed,
+          index_snapshot_);
+      if (!rebuilt.ok) return rebuilt;
+      indexed = operation_index::find(index_path(), fact.operation_id, index_snapshot_, entry, found);
+      if (!indexed.ok || !found) return app::Result::failure("进度 operation 索引与账本不一致");
+      const auto reread = operation_index::read_entry(path(), entry, line);
+      if (!reread.ok || !parse_line(line, existing) || existing.operation_id != fact.operation_id) {
+        return app::Result::failure("进度 operation 索引重建后仍不一致");
+      }
+    }
+    if (existing.fact_id == fact.fact_id && existing.content_id == fact.content_id &&
+        existing.exercise_id == fact.exercise_id && existing.at == fact.at &&
+        existing.status == fact.status) {
+      duplicate = true;
+      return app::Result::success("重复进度提交已忽略");
+    }
+    return app::Result::failure("operationId 已用于不同进度事实");
+  }
+  if (index_snapshot_.record_count >= kMaxProgressRecords) {
+    return app::Result::failure("进度记录数量超过上限");
+  }
+  if (has_symlink_component(path().parent_path())) return app::Result::failure("进度目录路径不能经过符号链接");
+  std::error_code error;
+  std::filesystem::create_directories(path().parent_path(), error);
+  if (error) return app::Result::failure("创建进度目录失败");
+  const auto destination = path();
+  const auto destination_status = std::filesystem::symlink_status(destination, error);
+  if (!error && (std::filesystem::is_symlink(destination_status) ||

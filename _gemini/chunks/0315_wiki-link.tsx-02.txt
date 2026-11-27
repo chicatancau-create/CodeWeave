@@ -1,0 +1,103 @@
+    if (!previewOpen) return
+    closeButton.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault()
+        close()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previewOpen, close])
+
+  const flag = (text: string) => (
+    <span className="md-wikilink-flag" style={FLAG_STYLE}>
+      {text}
+    </span>
+  )
+
+  if (decision.kind === 'rejected') {
+    return (
+      <span className="md-wikilink md-wikilink--rejected" role="note" title={decision.tooltip}>
+        {decision.display}
+        {flag(`（已拒绝：${decision.reason}）`)}
+      </span>
+    )
+  }
+
+  if (decision.kind === 'unresolved') {
+    return (
+      <span className="md-wikilink md-wikilink--unresolved" role="note" title={decision.tooltip}>
+        {decision.display}
+        {flag(`（${decision.reason}）`)}
+      </span>
+    )
+  }
+
+  // 就地展开有层级上限；宿主接管跳转时不受该限制
+  if (!onNavigate && depth >= MAX_MARKDOWN_DEPTH) {
+    return (
+      <span className="md-wikilink md-wikilink--target-nested" role="note" title={`嵌套层级已达上限（${MAX_MARKDOWN_DEPTH}）`}>
+        {decision.display}
+        {flag(`（已达 ${MAX_MARKDOWN_DEPTH} 层，请关闭预览卡或从课程列表进入）`)}
+      </span>
+    )
+  }
+
+  const expanded = preview !== 'closed' && !onNavigate
+  const button = (
+    <button
+      ref={triggerButton}
+      type="button"
+      className="md-wikilink md-wikilink--target"
+      style={LINK_BUTTON_STYLE}
+      title={decision.tooltip}
+      aria-label={decision.tooltip}
+      aria-expanded={expanded}
+      onClick={() => void open()}
+    >
+      {decision.display}
+    </button>
+  )
+
+  if (!expanded) return <span className="md-wikilink-host">{button}</span>
+
+  return (
+    <span className="md-wikilink-host">
+      {button}
+      {createPortal(
+        <div className="md-wikilink-card" role="dialog" aria-modal="false" aria-label={`已发布主题：${decision.title}`} style={CARD_STYLE}>
+          <div className="md-wikilink-card-head" style={CARD_HEAD_STYLE}>
+            <span className="md-wikilink-card-title">{decision.title}</span>
+            <button
+              ref={closeButton}
+              type="button"
+              className="md-wikilink-card-close"
+              style={LINK_BUTTON_STYLE}
+              aria-label="关闭该主题的原文预览"
+              onClick={close}
+            >
+              关闭
+            </button>
+          </div>
+          {preview === 'loading' ? <span className="md-wikilink-card-note">正在读取该主题的已发布原文…</span> : null}
+          {preview === 'error' ? (
+            <span className="md-wikilink-card-note">
+              该主题详情读取失败{detailMessage ? `：${detailMessage}` : ''}（快照可能已更新），请稍后重试或在课程列表中打开。
+            </span>
+          ) : null}
+          {preview === 'empty' ? <span className="md-wikilink-card-note">该主题已发布，但快照里没有可显示的正文。</span> : null}
+          {preview === 'ready' && target?.reading?.markdown ? (
+            renderBody ? (
+              renderBody(target.reading.markdown)
+            ) : (
+              <span className="md-wikilink-card-note">正文需在教材视图内渲染（缺少安全渲染上下文）。</span>
+            )
+          ) : null}
+          {target?.source?.path ? <span className="md-wikilink-card-source" style={CARD_SOURCE_STYLE}>来源：{target.source.path}</span> : null}
+        </div>,
+        document.body,
+      )}
+    </span>
+  )
+}

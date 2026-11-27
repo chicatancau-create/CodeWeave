@@ -1,0 +1,99 @@
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const paths: string[] = []
+    route({ queue: { pending: [stagedRecord()], synced: [] }, onPost: (path) => paths.push(path) })
+
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /导出待保存 Markdown/ }))
+
+    expect(await screen.findByText(/导出不等于已同步/)).toBeTruthy()
+    expect(paths).toContain('/api/learning/evidence-export')
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(click).toHaveBeenCalled()
+  })
+
+  it('未绑定拥有者时不渲染面板（没有可写回的目标）', () => {
+    route({ learningStatus: null })
+    renderPanel()
+    expect(screen.queryByLabelText('学习证据写回')).toBeNull()
+  })
+})
+
+describe('LINK-09 写回界面：不实证据与次要分支', () => {
+  it('运行者选 AI 助手时禁用「独立完成」，并按非独立提交', async () => {
+    let posted: Record<string, unknown> | null = null
+    route({ onPost: (path, body) => { if (path === '/api/learning/evidence') posted = body as Record<string, unknown> } })
+    renderPanel()
+    await screen.findByText(/没有待写回证据/)
+
+    fireEvent.change(screen.getByLabelText('运行者'), { target: { value: 'ai_assistant' } })
+    const independent = screen.getByLabelText(/由我独立完成/) as HTMLInputElement
+    expect(independent.disabled).toBe(true)
+
+    await stageOne()
+    expect(await screen.findByText(/已暂存为待写回证据/)).toBeTruthy()
+    expect(posted).toMatchObject({ ranBy: 'ai_assistant', independent: false })
+  })
+
+  it('提示等级选 L3 时同样禁用「独立完成」', async () => {
+    route()
+    renderPanel()
+    await screen.findByText(/没有待写回证据/)
+    fireEvent.change(screen.getByLabelText('提示等级'), { target: { value: 'L3' } })
+    expect((screen.getByLabelText(/由我独立完成/) as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('删除暂存证据会调用删除接口并刷新队列', async () => {
+    const paths: string[] = []
+    route({ queue: { pending: [stagedRecord()], synced: [] }, onPost: (path) => paths.push(path) })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+
+    fireEvent.click(screen.getByRole('button', { name: /删除/ }))
+    await waitFor(() => expect(paths).toContain('/api/learning/evidence/remove'))
+  })
+
+  it('进度无需变更、索引已存在、没有日志目标时如实说明，不伪造变更', async () => {
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      preview: () =>
+        json({
+          data: {
+            ...PREVIEW,
+            targets: [
+              { path: '全栈工程师学习计划/进度追踪.md', kind: 'progress', exists: true, expectedHash: 'abc', preview: { edits: [], masteryBlocked: [] } },
+              { path: '全栈工程师学习计划/全栈竞赛长期冲刺总计划.md', kind: 'index', exists: true, expectedHash: 'def', preview: { changed: false, reason: '索引里已存在当天日志链接' } },
+            ],
+          },
+        }),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+
+    expect(screen.getByText(/进度追踪无需变更/)).toBeTruthy()
+    expect(screen.getByText(/索引里已存在当天日志链接/)).toBeTruthy()
+    expect(screen.queryByText('将追加到日志的小节')).toBeNull()
+  })
+
+  it('导出在没有勾选任何条目时也可用（导出全部暂存）', async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = []
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      onPost: (path, body) => posts.push({ path, body: body as Record<string, unknown> }),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    // 取消默认勾选：队列全不选时导出应导出全部暂存证据
+    fireEvent.click(screen.getByLabelText(/Java Hello World/))
+    fireEvent.click(screen.getByRole('button', { name: /导出待保存 Markdown/ }))
+
+    await screen.findByText(/导出不等于已同步/)
+    const exportCall = posts.find((item) => item.path === '/api/learning/evidence-export')
+    expect(exportCall?.body).toEqual({ evidenceIds: [] })
+  })
+
+  it('已同步计数单独展示，不把已同步的条目混进待写回队列', async () => {
+    route({ queue: { pending: [], synced: [stagedRecord({ state: 'synced', evidenceId: 'ev-9' })] } })

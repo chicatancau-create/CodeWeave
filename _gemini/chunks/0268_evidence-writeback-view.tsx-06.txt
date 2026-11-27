@@ -1,0 +1,92 @@
+              学习主题
+              <input
+                value={form.topic}
+                maxLength={60}
+                placeholder="例如 Java Hello World"
+                onChange={(event) => setForm({ ...form, topic: event.target.value })}
+              />
+            </label>
+            <label className="field-label">
+              所属阶段
+              <input value={form.stage} placeholder="S0" onChange={(event) => setForm({ ...form, stage: event.target.value })} />
+            </label>
+            <label className="field-label">
+              内容 ID
+              <input value={form.contentId} onChange={(event) => setForm({ ...form, contentId: event.target.value })} />
+            </label>
+            <label className="field-label">
+              练习 ID
+              <input value={form.exerciseId} onChange={(event) => setForm({ ...form, exerciseId: event.target.value })} />
+            </label>
+            <label className="field-label">
+              运行者
+              <select
+                value={form.ranBy}
+                onChange={(event) => setForm({ ...form, ranBy: event.target.value as EvidenceRanBy })}
+              >
+                {RAN_BY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field-label">
+              提示等级
+              <select
+                value={form.hintLevel}
+                onChange={(event) => setForm({ ...form, hintLevel: event.target.value as typeof form.hintLevel })}
+              >
+                {HINT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="vault-binding-toggle evidence-independent">
+              <input
+                type="checkbox"
+                checked={form.independent}
+                disabled={form.ranBy !== 'learner' || form.hintLevel === 'L3' || form.hintLevel === 'L4'}
+                onChange={(event) => setForm({ ...form, independent: event.target.checked })}
+              />
+              由我独立完成（AI 运行、L3/L4 提示下不可勾选）
+            </label>
+            <label className="field-label evidence-wide">
+              预期结果
+              <textarea value={form.expected} onChange={(event) => setForm({ ...form, expected: event.target.value })} />
+            </label>
+            <label className="field-label evidence-wide">
+              实际结果
+              <textarea value={form.actual} onChange={(event) => setForm({ ...form, actual: event.target.value })} />
+            </label>
+            <label className="field-label evidence-wide">
+              产物引用（每行一条）
+              <textarea value={form.artifacts} onChange={(event) => setForm({ ...form, artifacts: event.target.value })} />
+            </label>
+            <label className="field-label evidence-wide">
+              未完成项（每行一条）
+              <textarea value={form.unfinished} onChange={(event) => setForm({ ...form, unfinished: event.target.value })} />
+            </label>
+            <div className="evidence-actions">
+              <button
+                className="primary-action"
+                disabled={stageDisabled}
+                onClick={() => void stage()}
+                {...ewbDisabledProps(stageDisabled, 'ewb-stage-disabled-hint')}
+              >
+                {busy ? '处理中…' : '暂存证据'}
+              </button>
+              <EwbDisabledHint id="ewb-stage-disabled-hint" reasons={stageBlockers} />
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {/* ③ 三类状态明确分开：待处理 / 部分成功 / 已同步（§5.2「证据回写」行） */}
+      <div className="evidence-queue ewb-states">
+        <h4 className="ewb-ledger-total">
+          ② 队列总账（
+          {queue === null
+            ? queuePhase === 'failed'

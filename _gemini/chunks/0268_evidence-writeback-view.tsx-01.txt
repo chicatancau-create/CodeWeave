@@ -1,0 +1,114 @@
+/**
+ * 学习证据写回界面（LINK-09，02 号方案 §7 写回）。
+ *
+ * 交互顺序与文案严格对应方案：
+ * 1. 暂存证据 → 明确写着「尚未修改资料库任何文件」；
+ * 2. 预览 → 展示将写入的日志小节与进度逐字段差异，**不写盘**；
+ * 3. 用户勾选确认后才提交；冲突时展示逐字段差异，不按时间戳覆盖；
+ * 4. 部分成功如实显示「日志已保存，进度待合并」并提供重试；
+ * 5. 未写回或离线可导出待保存 Markdown，导出不等于已同步。
+ *
+ * M3 视觉竖切（§5.2「证据回写」）只改呈现，不改判定：
+ * - 细线差异预览：目标清单 / 日志追加 / 进度逐字段 / 冲突逐字段一律走 ledger·specs 式
+ *   1px 发丝线表（模板 site.css L287-L307、L361-L379），黑场无卡片无投影（§5.1 形态行）；
+ * - 「待处理 / 部分成功 / 已同步」拆成三个独立区块，条目级也用同一套状态标识；
+ * - 语义状态 = 固定图标 + 文字双通道（§5.1 末段），颜色取 --ds-status-*，
+ *   永不与 --ds-scene-active 场景点缀联动；
+ *
+ * 本单（M3 复核挂账 ②③④⑤）改的是判定，不改呈现口径：
+ * - ② 队列读取按 加载中 / 读取失败（带原因 + 重试）/ 空 / 有数据 四态如实分开，
+ *   读取结果改由本面板直接取 `loadEvidenceQueueState()`：Provider 的
+ *   `loadEvidenceQueue()` 把失败压成 `null`，带不出原因（§11.2「缺失/损坏/断连」行）；
+ * - ③ 提交冲突后旧预览的指纹已失效，必须撤下预览区，不允许失效预览与冲突块并存；
+ * - ④ 冲突未重新预览前，页面上不再同时存在「确认写入」入口（消除误点）；
+ * - ⑤ 部分成功的重试沿用本次预览的**真实指纹**，不通过关闭校验把流程走通。
+ *
+ * 挂账 #35（本单）：把服务端早就有的**事务回读与回滚**接进界面。
+ * - 新增 06「事务账本」区：条目来自 `GET /api/learning/evidence-transactions`，
+ *   是磁盘上的事务记录而不是 React 状态——刷新界面后「刚才那次写回做了什么」仍然问得出；
+ * - 「部分成功的事务」横幅因此不再只活在这次会话里：本页没有指纹时，用
+ *   `GET /api/learning/evidence-transaction/:operationId` 取回**该笔事务自己的**预览基线指纹
+ *   再重试补齐（仍然带真实指纹，不是传 `{}` 关掉校验）；
+ * - 每笔事务的逐步明细说明「计划写入什么 / 实际做了什么 / 回滚怎么处置这一步」，
+ *   取代原来那句固定的「日志已保存，进度待合并」；
+ * - 回滚有显式确认步骤，把「用备份覆盖、本次新建的文件会被移除、写之前失败的那些步骤救不回来」
+ *   三件事说明白；`rollback_blocked` 的 409 与逐条 blockers 原样呈现，不吞掉，
+ *   回滚后一律以服务端读回的状态为准，不假设成功。
+ * - 边界：01 / 03 两区的行数与文案都不动（11 步取证闸门依赖它们），新区一律用新的
+ *   aria-label 与 `.ewb-tx-*` / `.ewb-rollback-*` 类名。
+ *
+ * M4 拆分（01 号方案 §4「把只读账本和危险写回动作隔离」）——本轮只搬运 + 记忆化，不改判定：
+ * - 04 差异预览 → `./evidence-writeback/EvidencePreview`；
+ * - 06 事务账本 → `./evidence-writeback/WritebackLedger`，其展开的逐步明细 →
+ *   `./evidence-writeback/TransactionDetail`，回滚入口与二次确认 →
+ *   `./evidence-writeback/RollbackDialog`；
+ * - 状态标识（图形 + 文字双通道）与账本折算的纯函数、常量 →
+ *   `./evidence-writeback/StateMark` 与 `./evidence-writeback/ledger-model`；
+ * - 取数、提交、重试与回滚的**调用序仍然只在本文件**：子组件只拿到事实与动作，
+ *   自己不发请求、也不改任何判定口径。
+ */
+import { Download, FileText, RefreshCw, Send, Trash2, UploadCloud } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  fetchWritebackTransaction,
+  loadEvidenceQueueState,
+  loadWritebackLedgerState,
+  readRollbackBlockers,
+  rollbackWriteback,
+} from '../content/api'
+import type {
+  WritebackTransactionDetail,
+  WritebackTransactionList,
+  WritebackTransactionSummary,
+} from '../content/api'
+import { useContent } from '../content/provider'
+import { getLocalDateKey } from '../utils/date-helpers'
+import type {
+  EvidenceHintLevel,
+  EvidenceInput,
+  EvidenceQueue,
+  EvidenceRanBy,
+  FieldDiff,
+  WritebackConflictDetails,
+  WritebackPreview,
+} from '../content/types'
+import { EvidencePreview } from './evidence-writeback/EvidencePreview'
+import { WritebackLedger } from './evidence-writeback/WritebackLedger'
+import { evidenceMeta, isResumable, recordTone } from './evidence-writeback/ledger-model'
+import type {
+  ExpectedHashes,
+  PartialTransaction,
+  QueuePhase,
+  RollbackOutcome,
+} from './evidence-writeback/ledger-model'
+import { StateMark } from './evidence-writeback/StateMark'
+import { EwbDisabledHint, ewbDisabledProps } from './evidence-writeback/DisabledNote'
+import './evidence-writeback-view.css'
+
+const HINT_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: '未使用或未记录' },
+  { value: 'L1', label: 'L1 方向提示' },
+  { value: 'L2', label: 'L2 思路提示' },
+  { value: 'L3', label: 'L3 关键步骤（不构成独立证据）' },
+  { value: 'L4', label: 'L4 对照答案（不构成独立证据）' },
+]
+
+const RAN_BY_OPTIONS: { value: EvidenceRanBy; label: string }[] = [
+  { value: 'learner', label: '学习者本人' },
+  { value: 'ai_assistant', label: 'AI 助手' },
+  { value: 'unknown', label: '未说明' },
+]
+
+/** STAT-01：日期键的算法只许有一份，这里只做转发——原来这套 pad 拼法是第二套实现。 */
+function todayLocal(): string {
+  return getLocalDateKey()
+}
+
+const toLines = (text: string) =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+export function EvidenceWritebackPanel() {
+  const content = useContent()

@@ -1,0 +1,48 @@
+          const auto lesson = std::find_if(lessons.cbegin(), lessons.cend(), [&](const QVariant& value) {
+            return value.toMap().value(QStringLiteral("id")).toString() == shell.documentId();
+          });
+          const bool draft_structure = drafts && drafts->property("visible").toBool() && name_field && description &&
+              lesson != lessons.cend() && name_field->property("readOnly").toBool() &&
+              name_field->property("text").toString() == lesson->toMap().value(QStringLiteral("title")).toString() &&
+              description->property("readOnly").toBool() &&
+              description->property("text").toString() == lesson->toMap().value(QStringLiteral("description")).toString() &&
+              file_list && file_name && file_name->property("text").toString() == QStringLiteral("main.py") &&
+              line_count && line_count->property("text").toString() ==
+                  QStringLiteral("%1 行").arg(shell.draftCode().isEmpty() ? 0 : shell.draftCode().count('\n') + 1) && snapshot &&
+              snapshot_status && snapshot_status->property("text").toString().contains(QStringLiteral("暂无历史快照")) &&
+              save_button && !save_button->property("enabled").toBool() && checkpoint_button &&
+              !checkpoint_button->property("enabled").toBool();
+          u3_record(*context, QStringLiteral("draft-structure-and-actual-capabilities"), draft_structure);
+          u3_record(*context, QStringLiteral("draft-loaded-success-hides-error-banner"),
+              error_banner && !error_banner->property("visible").toBool(), shell.contentStatus());
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts"));
+          shell.updateDraftCode({});
+          u3_record(*context, QStringLiteral("draft-empty-code-has-zero-lines"),
+              drafts && drafts->property("draftLineCount").toInt() == 0 &&
+              line_count && line_count->property("text").toString() == QStringLiteral("0 行"));
+          shell.updateDraftCode(QStringLiteral("print('draft page save')\n# 第二行"));
+          u3_record(*context, QStringLiteral("draft-line-count-updates-after-edit"),
+              drafts && drafts->property("draftLineCount").toInt() == 2 &&
+              save_button && save_button->property("enabled").toBool());
+          // Replace only the isolated fixture's saved file with a directory to force a real write failure.
+          const auto storage_id = QStringLiteral("lesson-") + QString::fromLatin1(QCryptographicHash::hash(
+              shell.documentId().toUtf8(), QCryptographicHash::Sha256).toHex());
+          context->blocked_draft_path = QDir(QString::fromStdWString(shell.nativeDataRoot().wstring()))
+              .filePath(QStringLiteral("accounts/") + shell.activeAccountId() + QStringLiteral("/drafts/") +
+                  storage_id + QStringLiteral(".txt"));
+          const auto blocked_path = std::filesystem::path(context->blocked_draft_path.toStdWString());
+          std::error_code error;
+          const bool removed = std::filesystem::remove(blocked_path, error);
+          const bool blocked = removed && !error && std::filesystem::create_directory(blocked_path, error);
+          u3_record(*context, QStringLiteral("draft-save-fault-fixture-created"), blocked && !error);
+          if (!blocked || error) { context->step = 99; return; }
+          const bool invoked = save_button && QMetaObject::invokeMethod(save_button, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("draft-save-action-starts-and-disables"),
+              invoked && shell.draftSaving() && !save_button->property("enabled").toBool());
+          context->step++;
+          return;
+        }
+        case 18: {
+          if (shell.draftSaving()) return;
+          auto* banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          auto* dismiss = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftDismissError"));

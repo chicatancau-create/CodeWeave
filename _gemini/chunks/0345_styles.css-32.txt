@@ -1,0 +1,150 @@
+html textarea:focus-visible,
+html summary:focus-visible,
+html [tabindex]:focus-visible {
+  /* 焦点环取值：暖白 α0.72（实测 9.45:1，远超非文本 3:1）+ 2px 环 + 2px 外偏
+     + 5px 处一圈 α0.18 分离环。原为 2px 蓝 + 4px 蓝 wash。 */
+  outline: var(--ds-focus-ring-width) solid var(--ds-focus-ring);
+  outline-offset: var(--ds-focus-offset);
+  box-shadow: 0 0 0 5px var(--focus-wash);
+}
+
+/* 跳转链接：键盘首次 Tab 时必须可见 */
+.skip-link:focus-visible {
+  outline: var(--ds-focus-ring-width) solid var(--ds-focus-ring);
+  outline-offset: var(--ds-focus-offset);
+}
+
+/* 减少动效下焦点不靠过渡或动画表达：环直接抬到 3px（高于 --ds-focus-ring-width）。
+   两条路径各写一份（系统偏好 + 应用内设置）。 */
+@media (prefers-reduced-motion: reduce) {
+  html button:focus-visible,
+  html a:focus-visible,
+  html input:focus-visible,
+  html select:focus-visible,
+  html textarea:focus-visible,
+  html [tabindex]:focus-visible {
+    outline-width: 3px;
+  }
+}
+.reduce-motion button:focus-visible,
+.reduce-motion a:focus-visible,
+.reduce-motion input:focus-visible,
+.reduce-motion select:focus-visible,
+.reduce-motion textarea:focus-visible,
+.reduce-motion [tabindex]:focus-visible {
+  outline-width: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   LINK-08 学习事实：拥有者绑定与正式进度只读卡片
+--------------------------------------------------------------------------- */
+.vault-binding {
+  margin: 0 0 var(--ds-space-14, 14px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--scrim);            /* 原 --glass（玻璃）已降级为遮光层 */
+}
+
+.vault-binding-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  color: var(--ink-strong);
+  font-size: var(--ds-size-control, 13px);
+}
+
+.vault-binding p {
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--muted);
+  font-size: var(--ds-size-body);
+  line-height: 1.65;
+}
+
+.vault-binding-warn {
+  color: var(--c-yellow);
+}
+
+.vault-binding .primary-action {
+  margin-top: var(--ds-space-10, 10px);
+}
+
+.vault-binding-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  flex-wrap: wrap;
+  margin-top: var(--ds-space-10, 10px);
+}
+
+.vault-binding-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);   /* 原 `font-size: 13`：无单位对 font-size 非法，整条被丢弃 */
+}
+
+.vault-binding-message {
+  display: block;
+  margin-top: var(--ds-space-8, 8px);
+  color: var(--c-green);
+  font-size: var(--ds-size-body);
+}
+
+.vault-progress-empty,
+.vault-progress-notice {   /* M4：.vault-progress-source 已随死规则清理删除 */
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--faint);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* 01 号方案 §4 的 loading / error 两行：绑定面板与进度卡片在取数期间不再整块塌陷，
+   这句话本身就是占位块，所以给它一个可读的下限高度（em 档，跟随用户字号；
+   骨架形状另由 .view-skeleton__* 撑高）。像素级高度是否与落地后的那一块相等，
+   只能在真实浏览器按 §5.4 的 CLS 原始 shift 取证，jsdom 量不到。 */
+.vault-progress-empty {
+  min-height: 3.5em;
+}
+
+.vault-progress-warn {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  border: var(--hair) solid rgba(255, 196, 87, 0.3);
+  border-radius: var(--radius);
+  color: var(--c-yellow);
+  font-size: var(--ds-size-body);
+}
+
+.vault-progress-subtitle {
+  margin: var(--ds-space-16, 16px) 0 var(--ds-space-6, 6px);
+  color: var(--ink-strong);
+  font-size: var(--ds-size-lead);
+}
+
+.vault-unparsed {
+  margin-top: var(--ds-space-12, 12px);
+  font-size: var(--editor-font-size);
+  color: var(--muted);
+}
+
+.vault-unparsed pre {
+  margin: var(--ds-space-6, 6px) 0 0;
+  padding: var(--ds-space-8, 8px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--scrim);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size);
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* --- LINK-09 学习证据写回（确认式） --- */

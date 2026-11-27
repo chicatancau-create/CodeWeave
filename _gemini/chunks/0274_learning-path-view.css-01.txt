@@ -1,0 +1,89 @@
+/* ============================================================================
+   学习路径页 · M3 视觉竖切（01 号方案 §3.3「学习路径和内容」/ §2.2 令牌表 / §8 验收清单）
+   ----------------------------------------------------------------------------
+   形态来源：staging/style-pack/source/css/site.css
+     - .ledger  L363-L381  细线清单（border-top + 每行 border-bottom，1px 发丝线）
+     - .specs   L286-L305  dt/dd 细线规格块
+     - .rail    L135-L182  编号轨道 + 1px 竖线（L176 用 .16 一档）
+     - .eyebrow L236-L249  编号眉标（0.24em 字距）
+     - .cue     L307-L331  48px 发丝引导线 + sweep 循环（本文件唯一持续动画）
+     - .backtop L383-L396  全站唯一药丸形状（100px 圆角）→ 只用于主操作 CTA
+   值全部经 --ds-* 令牌消费（app/src/design/tokens.css，含源码行号出处），
+   并逐条写兜底值：令牌尚未由 main.tsx 引入时外观一致。
+
+   刻意不用的模板做法（README §4「不适用于学习工作台的要素」）：
+     玻璃面板、渐变、backdrop-filter、mix-blend-mode、
+     隐藏滚动条、white-space:nowrap 的长中文标题、10px 以下正文。
+   本文件内不出现 backdrop-filter / linear-gradient / outline:none；box-shadow 只走
+   --lp-glow-* 别名（科技档反转，tokens §4.5：黑投影在黑场上等于没有，层级改由
+   冷色外发光承担），不许裸投影字面量。由 learning-path-view.m3.test.tsx 锁住。
+   ========================================================================== */
+
+.lp-view {
+  /* ── 局部别名：全部落到 --ds-* 令牌 + 兜底 ─────────────────────────────── */
+  --lp-canvas: var(--ds-canvas, #000);                            /* site.css L14 */
+  --lp-ink: var(--ds-text-primary, #f4f1ee);                      /* L15 */
+  --lp-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));  /* L16 · 对黑 5.86:1 */
+  --lp-faint: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* L17 · 仅装饰，不承载信息 */
+  --lp-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));      /* L18 */
+  --lp-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176 / L447 */
+  --lp-accent: var(--ds-scene-active, rgb(34, 211, 238));         /* 固定当前场景，不逐帧插值 */
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     与 --lp-accent 同族，都是装饰；语义状态一律不消费这三个值（状态靠色 + 文字 + 图形）。 */
+  --lp-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --lp-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --lp-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --lp-wash: rgba(220, 233, 251, 0.05);                           /* 行底色，纯层次，不单独表意 */
+  --lp-mono: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  --lp-body: var(--ds-size-body, 16px);                           /* §5.4 正文约 16px */
+  --lp-leading: var(--ds-leading-body, 1.7);                      /* §5.4 行高 1.6–1.75 */
+  --lp-meta: 12.5px;                                              /* 产品档：高于模板 10.5px，需承载信息 */
+  --lp-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L28 */
+  --lp-quick: var(--ds-dur-quick, 150ms);
+  --lp-base: var(--ds-dur-base, 220ms);
+  --lp-tap: var(--ds-tap-min, 44px);                              /* §5.4 触控目标下限 */
+  --lp-pad-x: clamp(14px, 2.6vw, 34px);
+  --lp-gutter: clamp(46px, 6vw, 92px);                            /* 编号栏 */
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-28, 28px), 3.6vw, var(--ds-space-48, 48px));
+  min-width: 0;
+  margin: 0 calc(var(--ds-space-12, 12px) * -1); /* 负外边距是出血，不是间距：向右借 12px 让发丝线与内容列对齐 */
+  padding: clamp(var(--ds-space-20, 20px), 3vw, var(--ds-space-40, 40px)) var(--lp-pad-x) clamp(var(--ds-space-28, 28px), 3.4vw, var(--ds-space-48, 48px));
+  background: var(--lp-canvas);
+  border: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--lp-ink);
+  font-family: var(--lp-mono);
+  font-size: var(--lp-body);
+  line-height: var(--lp-leading);
+  font-weight: var(--ds-weight-body, 400);
+}
+
+.lp-view *,
+.lp-view *::before,
+.lp-view *::after {
+  box-sizing: border-box;
+}
+
+.lp-view h2,
+.lp-view h3,
+.lp-view h4,
+.lp-view p,
+.lp-view dl,
+.lp-view dt,
+.lp-view dd,
+.lp-view ul,
+.lp-view li,
+.lp-view figure {
+  margin: 0;
+  padding: 0;
+}
+
+.lp-view ul {
+  list-style: none;
+}
+
+/* 长中文标题/长路径不得撑破版面（§5.4 长中文标题 + 320px 最小宽度） */

@@ -1,0 +1,138 @@
+  background: var(--ca-bad-wash);
+}
+
+/* 01 号方案 §4 的 disabled 行：共享层（styles.css）对 .primary-action:disabled 只写
+   `opacity: .5`，那是「只降低透明度」的根源——按钮名字被压到读不出，也没人说明条件。
+   这里按 challenges-view / 工作台 / 写回页已验证过的形态补齐：不透明度保持 1，
+   禁用交给**虚线描边**（颜色之外的第二通道），条件说明是一句渲染出来的真实文字。 */
+.cw-account .cw-account-btn:disabled,
+.cw-account .cw-account-btn[aria-disabled='true'] {
+  opacity: 1;
+  border-style: dashed;
+  border-color: var(--ca-edge);
+  cursor: not-allowed;
+}
+
+.cw-account .cw-account-disabled-hint {
+  margin: var(--ds-space-12, 12px) 0 0;
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  line-height: var(--ca-leading);
+  overflow-wrap: anywhere;
+}
+
+/* ── 5. 状态行：固定标识 + 文字，成功/失败不靠颜色单独区分 ────────────────── */
+.cw-account .cw-account-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: 32px;
+  padding: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  border: var(--ca-line) solid transparent;
+  border-radius: var(--ca-radius);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);            /* 状态与错误文字是必读信息（§5.4） */
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.cw-account .cw-account-status:empty {
+  padding: 0;
+  border-color: transparent;
+}
+.cw-account .cw-account-status-glyph {
+  flex: 0 0 auto;
+  font-family: var(--ca-mono);
+  font-weight: 700;
+}
+.cw-account .cw-account-status--ok {
+  color: var(--ca-ok);                   /* 11.07:1 */
+  border-color: var(--ca-ok);
+  border-style: solid;
+  background: var(--ca-ok-wash);
+}
+.cw-account .cw-account-status--error {
+  color: var(--ca-bad);                  /* 8.74:1 */
+  border-color: var(--ca-bad);
+  border-style: double;                  /* 与成功态在形状上也分得开 */
+  border-width: 3px;
+  background: var(--ca-bad-wash);
+}
+.cw-account .cw-account-status--notice {
+  color: var(--ca-ink-2);
+  border-color: var(--ca-hair);
+  border-style: dashed;
+  background: transparent;
+}
+
+/* ── 6. 细线表格（模板 .specs / .ledger 结构：上下 1px、无竖线、无底色） ──── */
+.cw-account .cw-account-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: var(--ca-line) solid var(--ca-hair-raised);
+  color: var(--ca-ink);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+  font-variant-numeric: tabular-nums;
+}
+.cw-account .cw-account-table th,
+.cw-account .cw-account-table td {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px) var(--ds-space-12, 12px) 0;
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  color: var(--ca-ink);
+  text-align: left;
+  vertical-align: top;
+  /* 表格单元格里 height 表现为最小高度：整行即 ≥44px 的命中区（§5.4） */
+  height: var(--ca-tap);
+}
+.cw-account .cw-account-table th {
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-transform: uppercase;
+}
+.cw-account .cw-account-table td[data-ca-meta='1'] {
+  color: var(--ca-ink-2);
+}
+/* 表内勾选行：整行高度即命中区（见上），勾选框本体 24px 细线直角 */
+.cw-account .cw-account-table input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin: 0 var(--ds-space-8, 8px) 0 0;
+  vertical-align: middle;
+  border: var(--ca-line) solid var(--ca-edge);
+  border-radius: var(--ca-radius);
+  background: var(--ca-canvas);
+  cursor: pointer;
+}
+.cw-account .cw-account-table input[type='checkbox']:checked {
+  border-color: var(--ca-ink);
+  background: var(--ca-ink);
+}
+.cw-account .cw-account-table input[type='checkbox']:checked::after {
+  content: '✓';
+  display: block;
+  color: var(--ca-canvas-solid);
+  font-family: var(--ca-mono);
+  font-size: 14px;
+  line-height: 22px;
+  text-align: center;
+}
+.cw-account .cw-account-table label {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ca-tap);
+  color: var(--ca-ink);
+  font-size: var(--ca-body);             /* 表格里的勾选项说明按正文档 */
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+

@@ -1,0 +1,21 @@
+        id: `loop:${source.node.id}->${target.node.id}`,
+        from: source,
+        to: target,
+        state: frame.loops > 0 ? 'done' : 'idle',
+        d: loopPath(source, target),
+        loop: true,
+        label: frame.loops > 0 ? `第 ${frame.loops} 圈` : undefined,
+        labelX: (source.x + target.x) / 2 + NODE_W / 2,
+        labelY: Math.max(source.y, target.y) + NODE_H + 44,
+      })
+    }
+  }
+
+  return {
+    width,
+    height,
+    nodes,
+    edges,
+    current: nodes.find((laid) => laid.node.state === 'now') ?? null,
+  }
+}

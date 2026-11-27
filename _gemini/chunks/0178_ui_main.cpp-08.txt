@@ -1,0 +1,64 @@
+      const auto origin = contents ? contents->mapToItem(view.rootObject(), QPointF()) : QPointF(-1, -1);
+      const bool passed = sidebar && sidebar->isVisible() && contents && contents->isVisible() &&
+          std::abs(origin.y() - 84.0) <= 0.5;
+      smoke_sidebar_geometry = QJsonObject{{"viewport", "1100x720"}, {"windowWidth", view.width()},
+          {"windowHeight", view.height()}, {"sidebarVisible", sidebar && sidebar->isVisible()},
+          {"contentY", origin.y()}, {"expectedTopMargin", 84}, {"passed", passed}};
+      if (!passed) {
+        diagnostic = QStringLiteral("Compact sidebar top margin mismatch: ") +
+            QString::fromUtf8(QJsonDocument(smoke_sidebar_geometry).toJson(QJsonDocument::Compact));
+        write_smoke_report();
+        return false;
+      }
+    }
+    if (QGuiApplication::platformName() == QStringLiteral("offscreen")) return true;
+    const auto popup_name = name == QStringLiteral("topbar-search") ? "searchPopup" :
+        name == QStringLiteral("topbar-quick") ? "quickPopup" :
+        name == QStringLiteral("topbar-notifications") ? "notificationPopup" :
+        name == QStringLiteral("topbar-account") ? "accountPopup" : nullptr;
+    if (popup_name) {
+      auto* popup = view.rootObject()->findChild<QObject*>(QString::fromLatin1(popup_name));
+      auto* anchor = popup ? qobject_cast<QQuickItem*>(popup->property("anchorItem").value<QObject*>()) : nullptr;
+      const auto x = popup ? popup->property("x").toReal() : -1;
+      const auto y = popup ? popup->property("y").toReal() : -1;
+      const auto width = popup ? popup->property("width").toReal() : 0;
+      const auto height = popup ? popup->property("height").toReal() : 0;
+      const auto origin = anchor ? anchor->mapToItem(view.rootObject(), QPointF(0, anchor->height())) : QPointF();
+      const auto gap = popup ? popup->property("anchorGap").toReal() : 0;
+      const bool right = popup && popup->property("alignRight").toBool();
+      const auto anchor_edge = origin.x() + (anchor && right ? anchor->width() : 0);
+      if (!anchor || x < 0 || y < 50 || x + width > view.width() + 1 || y + height > view.height() + 1 ||
+          std::abs(y - origin.y() - gap) > 1 || std::abs(x + (right ? width : 0) - anchor_edge) > 1) {
+        diagnostic = QStringLiteral("Capture %1 popup is not anchored: %2,%3 %4x%5 anchor %6,%7")
+            .arg(name).arg(x).arg(y).arg(width).arg(height).arg(origin.x()).arg(origin.y());
+        write_smoke_report();
+        return false;
+      }
+      smoke_popup_geometry.append(QJsonObject{{"name", name}, {"x", x}, {"y", y},
+          {"width", width}, {"height", height}, {"anchorBottom", origin.y()}, {"anchorEdge", anchor_edge}});
+      if (name == QStringLiteral("topbar-account")) {
+        auto* contact = view.rootObject()->findChild<QObject*>(QStringLiteral("accountContactLabel"));
+        if (!contact || contact->property("text").toString() != shell.accountContact()) {
+          diagnostic = QStringLiteral("Account popup contact does not match the active account");
+          write_smoke_report();
+          return false;
+        }
+      }
+    }
+    const auto image = view.grabWindow();
+    if (image.isNull() || image.size() != expected) {
+      diagnostic = QStringLiteral("Capture %1 expected image %2x%3, got %4x%5 (DPR %6)")
+          .arg(name).arg(expected.width()).arg(expected.height())
+          .arg(image.width()).arg(image.height()).arg(view.devicePixelRatio());
+      write_smoke_report();
+      return false;
+    }
+    const auto path = QFileInfo(report_path).dir().filePath(name + QStringLiteral(".png"));
+    if (!image.save(path)) {
+      diagnostic = QStringLiteral("Could not save screenshot: ") + path;
+      write_smoke_report();
+      return false;
+    }
+    smoke_screenshots.append(path);
+    smoke_geometry.append(QJsonObject{{"name", name}, {"width", view.width()}, {"height", view.height()},
+        {"pixelWidth", image.width()}, {"pixelHeight", image.height()},

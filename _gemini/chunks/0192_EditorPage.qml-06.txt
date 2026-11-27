@@ -1,0 +1,67 @@
+                                                : codeEditor.cursorRectangle.height;
+                                        }
+                                        text: {
+                                            const n = (uiShell.draftCode + "\n").split("\n").length;
+                                            let t = "";
+                                            for (let i = 1; i < n; ++i) t += i + "\n";
+                                            return t.slice(0, -1);
+                                        }
+                                        color: ds.muted
+                                        font.family: ds.mono
+                                        font.pixelSize: uiShell.editorFontSize
+                                        horizontalAlignment: Text.AlignRight
+                                        lineHeight: lineAdvance
+                                        lineHeightMode: Text.FixedHeight
+                                        Accessible.ignored: true
+                                    }
+                                }
+                                Rectangle {
+                                    visible: uiShell.editorLineNumbers
+                                    Layout.preferredWidth: 1
+                                    Layout.fillHeight: true
+                                    color: ds.line
+                                }
+                                ScrollView {
+                                    id: codeScroll
+                                    objectName: "codeScroll"
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                                    TextArea {
+                                        id: codeEditor
+                                        objectName: "codeEditor"
+                                        text: uiShell.draftCode
+                                        readOnly: uiShell.starterLanguage.length === 0
+                                                  || uiShell.contentBusy
+                                                  || uiShell.draftPersistenceBlocked
+                                        wrapMode: TextArea.NoWrap
+                                        color: ds.ink
+                                        selectionColor: ds.accent
+                                        selectedTextColor: ds.inkOnAccent
+                                        font.family: ds.mono
+                                        font.pixelSize: uiShell.editorFontSize
+                                        topPadding: ds.s12
+                                        leftPadding: ds.s12
+                                        background: null
+                                        onTextChanged: {
+                                            if (text !== uiShell.draftCode)
+                                                uiShell.updateDraftCode(text);
+                                        }
+                                        Accessible.name: "代码编辑器"
+                                    }
+                                }
+                            }
+                        }
+
+                        // div.code-footer
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 40
+                            color: ds.chrome
+                            RowLayout {
+                                anchors { fill: parent; leftMargin: ds.s14; rightMargin: ds.s14 }
+                                spacing: ds.s8
+                                Text {
+                                    text: {
+                                        const before = codeEditor.text.slice(0, codeEditor.cursorPosition);
+                                        const lines = before.split("\n");

@@ -1,0 +1,66 @@
+  it('表格单元格里出现 <script> 也只当文本（无 script 节点、无 on* 属性）', () => {
+    const md = ['| 反例 | 结果 |', '|---|---|', '| <script>alert(1)</script> | <img src=x onerror=alert(1)> |'].join('\n')
+    const { container } = render(<MarkdownView markdown={md} />)
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('td')?.textContent).toContain('<script>alert(1)</script>')
+    expect([...container.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => attr.name.startsWith('on')))).toBe(false)
+  })
+})
+
+describe('原始 HTML 与危险链接：只显示文本，永不执行', () => {
+  /** 渲染后允许出现的标签白名单：出现别的标签说明有内容被当 HTML 解析了。 */
+  const ALLOWED_TAGS = new Set(['DIV', 'P', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE', 'STRONG', 'SPAN', 'BUTTON', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD'])
+
+  const samples: [string, string][] = [
+    ['脚本标签', '<script>alert(1)</script>'],
+    ['图片事件', '<img src=x onerror=alert(1)>'],
+    ['未闭合标签', '<div class="x"><span>未闭合'],
+    ['js 协议链接', '[点我](javascript:alert(1))'],
+    ['vbscript 协议链接', '[x](vbscript:msgbox(1))'],
+    ['data 协议链接', '[y](data:text/html,<script>alert(1)</script>)'],
+    ['越界路径链接', '[z](../../../etc/passwd)'],
+    ['iframe 注入', '<iframe src="https://evil.example"></iframe>'],
+    ['svg onload', '<svg onload=alert(1)>'],
+  ]
+
+  for (const [label, source] of samples) {
+    it(`${label}：按文本渲染，DOM 内无脚本/外链元素与事件属性`, () => {
+      const { container } = render(<MarkdownView markdown={source} />)
+      for (const el of container.querySelectorAll('*')) expect(ALLOWED_TAGS.has(el.tagName), `${label}:${el.tagName}`).toBe(true)
+      expect(container.querySelector('script')).toBeNull()
+      expect(container.querySelector('img')).toBeNull()
+      expect(container.querySelector('iframe')).toBeNull()
+      expect(container.querySelector('svg')).toBeNull()
+      expect(container.querySelector('a')).toBeNull()
+      expect(container.querySelector('[href]')).toBeNull()
+      expect(container.innerHTML.toLowerCase()).not.toContain('<script')
+      expect([...container.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => /^on/i.test(attr.name)))).toBe(false)
+      expect(container.textContent).toContain(source.split('\n')[0] ?? '')
+    })
+  }
+
+  it('围栏代码块里的 HTML 与命令同样只显示，不解析成结构', () => {
+    const md = ['```html', '<script>alert(1)</script>', '| A | B |', '```'].join('\n')
+    const { container } = render(<MarkdownView markdown={md} />)
+    expect(container.querySelector('pre code')?.textContent).toContain('<script>alert(1)</script>')
+    expect(container.querySelector('table')).toBeNull()
+    expect(container.querySelector('script')).toBeNull()
+  })
+
+  it('双链里的危险协议与越界路径被拒绝：只渲染文本，不给跳转按钮', () => {
+    const md = ['[[javascript:alert(1)]]', '', '[[../../outside/未发布|越界引用]]', '', '[[C:\\Windows\\win.ini]]'].join('\n')
+    const { container } = render(<MarkdownView markdown={md} />)
+    expect(container.querySelectorAll('button.md-wikilink--target')).toHaveLength(0)
+    expect(container.querySelectorAll('.md-wikilink--rejected')).toHaveLength(3)
+    expect(container.textContent).toContain('已拒绝')
+    expect(container.querySelector('[href]')).toBeNull()
+  })
+
+  it('未连接内容快照时双链不猜发布状态：明确提示未连接', () => {
+    const { container } = render(<MarkdownView markdown={'见 [[Java 核心基础]]'} />)
+    const unresolved = container.querySelector('.md-wikilink--unresolved')
+    expect(unresolved?.textContent).toContain('未连接内容快照')
+    expect(container.querySelector('button')).toBeNull()
+  })
+})

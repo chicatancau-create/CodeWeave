@@ -1,0 +1,93 @@
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { once } from 'node:events'
+import { execFileSync, spawn } from 'node:child_process'
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { createServer } from 'node:net'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join, resolve } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
+
+const repository = resolve(import.meta.dirname, '..', '..', '..', '..')
+const source = join(repository, '工作区', '全栈工程师学习资料库', 'CodeWeave')
+const web = join(repository, '网页端', '项目')
+const temporary = await mkdtemp(join(tmpdir(), 'codeweave-unified-smoke-'))
+const vault = join(temporary, 'vault')
+const runtime = join(temporary, 'runtime')
+const logs = []
+let server
+let origin
+let servicePort
+let progress = '初始化'
+
+async function start() {
+  const portProbe = createServer()
+  portProbe.listen(0, '127.0.0.1')
+  await once(portProbe, 'listening')
+  const probePort = portProbe.address().port
+  const port = servicePort ??= probePort
+  await new Promise((done) => portProbe.close(done))
+  origin = `http://127.0.0.1:${port}`
+  server = spawn(process.execPath, [join(web, 'server', 'service', 'server.mjs')], {
+    cwd: web, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env, PORT: String(port), CODE_CANVAS_DATA_DIR: runtime, CODEWEAVE_VAULT_ROOT: vault,
+      CODEWEAVE_STATIC_DIR: join(web, 'dist'), CODE_CANVAS_NO_OPEN: '1', CODE_CANVAS_QUIET_LOGS: '1',
+      CODEWEAVE_ALLOW_REGISTRATION: '1',
+    },
+  })
+  server.stderr.on('data', (part) => logs.push(part.toString()))
+  server.stdout.resume()
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (server.exitCode !== null) throw new Error('服务提前退出')
+    const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(500) }).catch(() => null)
+    if (response?.ok) return
+    await delay(100)
+  }
+  throw new Error('服务未就绪')
+}
+
+async function stop() {
+  if (server && server.exitCode === null && server.signalCode === null) {
+    const exited = once(server, 'exit')
+    server.kill()
+    await exited
+  }
+}
+
+async function request(path, { cookie, body, key, method = body === undefined ? 'GET' : 'POST', status = 200 } = {}) {
+  const headers = new Headers()
+  if (cookie) headers.set('Cookie', cookie)
+  if (key) headers.set('Idempotency-Key', key)
+  if (body !== undefined) headers.set('Content-Type', 'application/json')
+  const response = await fetch(origin + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  const payload = await response.json()
+  assert.equal(response.status, status, `${method} ${path}: ${payload.code ?? '—'} ${payload.error ?? ''}`)
+  return { payload, cookie: response.headers.get('Set-Cookie')?.split(';')[0] }
+}
+
+async function submit(cookie, key, body, status = 202) {
+  return (await request('/api/content/sync', { cookie, key, body, status })).payload
+}
+
+async function awaitJob(cookie, id) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const job = (await request(`/api/content/sync/${id}`, { cookie })).payload.data
+    if (job.status !== 'scanning' && job.status !== 'validating') return job
+    await delay(50)
+  }
+  throw new Error('发布任务超时')
+}
+
+try {
+  await cp(source, join(vault, 'CodeWeave'), { recursive: true, errorOnExist: true, force: false })
+  await start()
+  progress = '合成账户登录、设置拥有者'
+  const owner = await request('/api/auth/register', {
+    body: { name: 'Fixture owner', email: 'owner@example.test', password: 'fixture-owner-17' }, status: 201,
+  })
+  const reader = await request('/api/auth/register', {
+    body: { name: 'Fixture reader', email: 'reader@example.test', password: 'fixture-reader-17' }, status: 201,
+  })
+  await request('/api/learning/owner', { cookie: owner.cookie, body: { confirm: true } })
+  await request('/api/learning/owner/visibility', { method: 'PATCH', cookie: owner.cookie, body: { publicContent: true } })

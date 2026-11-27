@@ -1,0 +1,93 @@
+    fireEvent.change(screen.getByRole('textbox', { name: /代码编辑器/ }), { target: { value: 'int keep = 1;' } })
+    first.unmount()
+
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={vi.fn()}
+        scope="user-m4"
+      />,
+    )
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    expect((screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement).value).toContain('int keep = 1')
+    expect(screen.getByRole('heading', { level: 2, name: 'B 关卡验收：Java 核心编程' })).toBeTruthy()
+  })
+
+  it('证据提交入口：外部关卡仍走结构化表单，提交后状态为待人工确认', () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByLabelText(/执行环境/), { target: { value: 'Windows 11 + JDK 17' } })
+    fireEvent.change(screen.getByLabelText(/执行命令/), { target: { value: 'java -version' } })
+    fireEvent.change(screen.getByLabelText(/结果摘要/), { target: { value: '四个工具链版本记录完整，并定位一次构建错误' } })
+    fireEvent.change(screen.getByLabelText(/复现日期/), { target: { value: '2026-09-01' } })
+    const submit = screen.getByRole('button', { name: /提交证据/ }) as HTMLButtonElement
+    expect(submit.disabled).toBe(false)
+    expect(document.querySelector('.challenge-zone--draft .challenge-submit')).toBeTruthy()
+    fireEvent.click(submit)
+    const [, submission] = onSubmit.mock.calls[0]!
+    expect(submission.passed).toBe(false)
+    expect(submission.tier).toBe('external')
+  })
+
+  it('外部关卡的结构化证据完成度写进草稿状态文字', () => {
+    renderView()
+    openDetail(/A 关：开发环境与基本操作/)
+    fireEvent.change(screen.getByLabelText(/执行环境/), { target: { value: 'Windows 11' } })
+    // reproducedOn 由 emptyEvidence() 预填今天，所以填完环境后是 2 / 5，不是 1 / 5
+    expect(document.querySelector('.challenge-draft-state--evidence')?.textContent).toContain('已填 2 / 5 项')
+  })
+})
+
+describe('M4 挑战页 · §5.4 可读性与降级', () => {
+  it('正文 16px、行高落在 1.6–1.75', () => {
+    const root = ruleBody('.challenges-view')
+    expect(root).toContain('--cv-body: var(--ds-size-body, 16px)')
+    expect(root).toContain('--cv-leading: var(--ds-leading-body, 1.7)')
+    expect(root).toContain('font-size: var(--cv-body)')
+    expect(root).toContain('line-height: var(--cv-leading)')
+    expect(mediaBlock('prefers-reduced-motion: reduce')).not.toBe('')
+  })
+
+  it('主要触控目标 ≥44px：卡片操作、标签页、筛选控件、分页、提交都在档内', () => {
+    expect(ruleBody('.challenges-view')).toContain('--cv-tap: var(--ds-tap-min, 44px)')
+    for (const selector of [
+      '.challenges-view .detail-tab',
+      '.challenges-view .challenge-back',
+      '.challenges-view .challenge-run-button',
+      '.challenges-view .challenge-submit.moving-border',
+      '.challenges-view .filter-chip',
+      '.challenges-view .challenge-filter select',
+      '.challenges-view .challenge-pagination .subtle-button',
+      '.challenges-view .external-evidence-input',
+    ]) {
+      expect(ruleBody(selector)).toContain('var(--cv-tap)')
+    }
+  })
+
+  it('焦点轮廓可见且不取消 outline', () => {
+    const focus = ruleBody('.challenges-view :focus-visible')
+    expect(focus).toContain('var(--ds-focus-ring, rgba(220, 233, 251, 0.72))')
+    expect(focus).toContain('outline-offset: var(--ds-focus-offset, 2px)')
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)\b/)
+  })
+
+  it('长代码行横向滚动而非挤压；长中文标题允许折行不 nowrap', () => {
+    const editor = ruleBody('.challenges-view .challenge-editor')
+    expect(editor).toContain('overflow-x: auto')
+    expect(editor).toContain('white-space: pre')
+    const result = ruleBody('.challenges-view .challenge-result')
+    expect(result).toContain('overflow-x: auto')
+    expect(ruleBody('.challenges-view .challenge-result > span')).toContain('white-space: pre')

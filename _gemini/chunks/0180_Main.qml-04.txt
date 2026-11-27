@@ -1,0 +1,71 @@
+                            implicitHeight: 34
+                            radius: ds.radiusSm
+                            color: root.page === modelData.p ? ds.accentSoft : "transparent"
+                            border.color: root.page === modelData.p ? ds.accentRing : "transparent"
+                            border.width: 1
+
+                            // 三态动画：静止 / 悬停 / 选中
+                            Behavior on color {
+                                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                            }
+
+                            // 底部青色下划线（仅选中态显示）
+                            Rectangle {
+                                anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
+                                width: parent.width - ds.s12
+                                height: 2
+                                color: ds.accent
+                                opacity: root.page === modelData.p ? 1.0 : 0.0
+                                Behavior on opacity {
+                                    NumberAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                }
+                            }
+
+                            Row {
+                                id: areaTabContent
+                                anchors.centerIn: parent
+                                spacing: ds.s6
+                                Text {
+                                    visible: modelData.icon === ""
+                                    text: modelData.icon
+                                    color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
+                                    font.family: Qt.platform.os === "windows" ? "Segoe UI Symbol" : ds.ui
+                                    font.pixelSize: 14
+                                }
+                                LucideIcon {
+                                    name: modelData.icon
+                                    size: 15
+                                    color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
+                                }
+                                Text {
+                                    id: atLabel
+                                    text: modelData.t
+                                    color: root.page === modelData.p ? ds.accent : (areaTabHover.hovered ? ds.ink : ds.muted)
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+
+                                    Behavior on color {
+                                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                    }
+                                }
+                            }
+                            HoverHandler { id: areaTabHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler { onTapped: uiShell.selectPage(modelData.p) }
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                id: breadcrumbs
+                objectName: "breadcrumbs"
+                readonly property string indexLabel: root.page === "编辑器" && uiShell.hasSelectedContent
+                    ? (root.selectedLesson && root.selectedLesson.id === uiShell.documentId
+                       ? String(root.safeSelectedLessonIndex + 1).padStart(2, "0") : "")
+                    : root.breadcrumbEntry.index
+                readonly property string entryLabel: root.page === "编辑器" && uiShell.hasSelectedContent
+                    ? (root.selectedLesson && root.selectedLesson.id === uiShell.documentId
+                       ? root.selectedLesson.title

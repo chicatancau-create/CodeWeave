@@ -1,0 +1,115 @@
+            <span className="view-skeleton__line view-skeleton__line--short" />
+            <span className="view-skeleton__panel" />
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="vault-binding cw-vault" role="group" aria-label="资料库拥有者绑定" data-vp-panel="error">
+        <div className="vault-binding-head">
+          <AlertTriangle size={14} aria-hidden />
+          <strong>读不到资料库绑定状态</strong>
+        </div>
+        <p className="vault-progress-empty vp-empty" role="status">
+          {`状态接口这一次没有返回绑定记录${content.error ? `：${content.error}` : '（内容服务未连接，或该项读取失败）'}。` +
+            '这里不说「尚未绑定」——没读到和没有是两件事；也不会用猜测值替代。'}
+        </p>
+        <button className="subtle-button vp-btn" onClick={() => void content.refresh()}>
+          <RefreshCw size={12} aria-hidden /> 重试读取绑定状态
+        </button>
+      </div>
+    )
+  }
+
+  const run = async (action: () => Promise<{ ok: boolean; message: string }>) => {
+    setBusy(true)
+    const result = await action()
+    setMessage(result.message)
+    setBusy(false)
+  }
+
+  if (!status.bound) {
+    return (
+      <div className="vault-binding cw-vault" role="group" aria-label="资料库拥有者绑定">
+        <div className="vault-binding-head">
+          <Link2 size={14} aria-hidden />
+          <strong>资料库拥有者尚未绑定</strong>
+          <StateMark tone="unknown" glyph="待" text="未绑定" />
+        </div>
+        <p className="vp-lead">
+          当前教材对已登录账户开放，但<strong>正式进度（当前阶段、掌握矩阵、下一步）不对任何账户开放</strong>。
+          绑定后只有你选择的那个账户能看到正式进度；其他账户仍可看教材（可在绑定后放开或收紧）。
+        </p>
+        <details className="vp-facts">
+          <summary className="vp-facts-summary">来源事实明细（5 项）</summary>
+          <SourceSpecs
+            className="vp-specs"
+            fields={[
+              { key: 'topic', label: '规范主题', value: '资料库拥有者绑定（本机账户 ↔ 资料库账户）' },
+              { key: 'source', label: '原文位置', value: '绑定记录保存在应用数据目录，不写入资料库' },
+              {
+                key: 'verification',
+                label: '核验状态',
+                value: '尚未绑定：无法核验本机账户与资料库拥有者的对应关系',
+                mark: <StateMark tone="unknown" glyph='待' text='未核验' />,
+              },
+              { key: 'sync', label: '同步时间', value: '未记录' },
+              { key: 'facts', label: '正式事实', value: '正式进度不对任何账户开放（含本账户）' },
+            ]}
+          />
+        </details>
+        {busy && busyHint}
+        <button
+          className="primary-action vp-btn"
+          disabled={busy}
+          aria-disabled={busy || undefined}
+          aria-describedby={busy ? busyHintId : undefined}
+          onClick={() => void run(content.bindOwner)}
+        >
+          {busy ? '绑定中…' : '将当前账户设为资料库拥有者'}
+        </button>
+        {message && <small className="vault-binding-message vp-message">{message}</small>}
+      </div>
+    )
+  }
+
+  const boundFields: SourceField[] = [
+    {
+      key: 'topic',
+      label: '规范主题',
+      value: status.vaultId ? `资料库 ${status.vaultId} 的正式学习事实` : '资料库标识未记录',
+    },
+    {
+      key: 'source',
+      label: '原文位置',
+      value: '正式进度来自资料库进度追踪文件与学习日志；本面板不显示绝对路径',
+    },
+    {
+      key: 'verification',
+      label: '核验状态',
+      value: status.vaultMatches
+        ? '当前连接的资料库与绑定记录一致'
+        : '当前连接的资料库与绑定记录不一致（换过资料库）',
+      mark: (
+        <StateMark
+          tone={status.vaultMatches ? 'ok' : 'warn'}
+          glyph={status.vaultMatches ? '符' : '异'}
+          text={status.vaultMatches ? '同库一致' : '不同库'}
+        />
+      ),
+    },
+    { key: 'sync', label: '同步时间', value: status.boundAt ? `绑定于 ${new Date(status.boundAt).toLocaleString()}` : '绑定时间未记录' },
+    {
+      key: 'facts',
+      label: '正式事实',
+      value: status.progressAccess
+        ? '仅拥有者本人可读；本面板不写回、不改动任何等级'
+        : '非拥有者：正式进度与学习日志不可读',
+    },
+  ]
+
+  return (
+    <div className="vault-binding cw-vault" role="group" aria-label="资料库拥有者绑定">
+      <div className="vault-binding-head">
+        <ShieldCheck size={14} aria-hidden />
+        <strong>{status.isOwner ? '你是本资料库的拥有者' : '资料库已绑定拥有者'}</strong>

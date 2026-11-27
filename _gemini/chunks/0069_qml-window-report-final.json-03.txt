@@ -1,0 +1,140 @@
+            "variant": "改成只累加偶数（2 + 4 + … + 100），提示：在循环体里加一个 if 判断。"
+        },
+        "description": "用 for 循环数一数 1 到 5",
+        "duration": "8 min",
+        "evidenceChecklist": [
+            "能不看示例写出循环累加，并解释任意一轮 total 的值。"
+        ],
+        "fileName": "main.py",
+        "flow": [
+            {
+                "id": "start",
+                "kind": "start",
+                "label": "开始",
+                "line": 1,
+                "tone": "purple"
+            },
+            {
+                "id": "init",
+                "kind": "process",
+                "label": "total = 0",
+                "line": 1,
+                "tone": "blue"
+            },
+            {
+                "id": "condition",
+                "kind": "decision",
+                "label": "i ≤ 5 ?",
+                "line": 2,
+                "tone": "yellow"
+            },
+            {
+                "id": "update",
+                "kind": "process",
+                "label": "total += i",
+                "line": 3,
+                "tone": "coral"
+            },
+            {
+                "id": "output",
+                "kind": "output",
+                "label": "输出 total",
+                "line": 0,
+                "tone": "green"
+            },
+            {
+                "id": "end",
+                "kind": "end",
+                "label": "结束",
+                "line": 0,
+                "tone": "purple"
+            }
+        ],
+        "id": "python-loop-sum",
+        "label": "01",
+        "language": "python",
+        "languageLabel": "Python",
+        "level": "入门",
+        "prerequisites": [
+            "知道什么是变量",
+            "会读写一行代码"
+        ],
+        "title": "循环是怎么工作的？"
+    },
+    "settingsRows": [
+        {
+            "control": "settingsPreferenceToggle0",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "fullyVisible": true,
+            "height": 87,
+            "index": 0,
+            "rowWidth": 493,
+            "textTruncated": false
+        },
+        {
+            "control": "settingsPreferenceToggle1",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "fullyVisible": true,
+            "height": 87,
+            "index": 1,
+            "rowWidth": 493,
+            "textTruncated": false
+        },
+        {
+            "control": "settingsPreferenceToggle2",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "fullyVisible": true,
+            "height": 87,
+            "index": 2,
+            "rowWidth": 493,
+            "textTruncated": false
+        },
+        {
+            "control": "settingsReducedMotionToggle",
+            "controlEnabled": true,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "fullyVisible": true,
+            "height": 87,
+            "index": 3,
+            "rowWidth": 493,
+            "textTruncated": false
+        },
+        {
+            "control": "settingsEditorFontSize",
+            "controlEnabled": true,
+            "controlHeight": 44,
+            "controlRightInset": 0,
+            "controlWidth": 81,
+            "controlX": 412,
+            "fullyVisible": true,
+            "height": 87,
+            "index": 4,
+            "rowWidth": 493,
+            "textTruncated": false
+        },
+        {
+            "control": "settingsPreferenceSelect5",
+            "controlEnabled": false,
+            "controlHeight": 44,
+            "controlRightInset": 0,
+            "controlWidth": 72,
+            "controlX": 421,
+            "fullyVisible": true,
+            "height": 114,
+            "index": 5,
+            "rowWidth": 493,

@@ -1,0 +1,117 @@
+          </th>
+          <th scope="col" className="vp-col">
+            原文值
+          </th>
+          <th scope="col" className="vp-col">
+            证据
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item, index) => (
+          <tr key={item.label}>
+            <th scope="row" className="vp-cell vp-cell-num">
+              <span className="vp-row-idx">{String(index + 1).padStart(2, '0')}</span>
+            </th>
+            <td className="vp-cell">{item.label}</td>
+            <td className="vp-cell vp-cell-value">{item.value || '原文未填写'}</td>
+            <td className="vp-cell vp-cell-evidence">{item.evidence || '原文未填写'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/** 个人中心的「资料库正式进度（只读）」卡片。 */
+export function VaultProgressCard() {
+  const content = useContent()
+  const [progress, setProgress] = useState<VaultProgress | null>(null)
+  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
+  /** 失败原因按次留下（01 号方案 §4 error 行）：HTTP 状态决定这一档能不能重试。 */
+  const [failure, setFailure] = useState<{ message: string; status: number } | null>(null)
+
+  const load = useCallback(async () => {
+    setState('loading')
+    const result = await content.loadVaultProgress()
+    if (result.ok) {
+      setProgress(result.progress)
+      setFailure(null)
+      setState('ready')
+      return
+    }
+    setProgress(null)
+    setFailure({ message: result.message, status: result.status })
+    setState('unavailable')
+  }, [content])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      await load()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [load])
+
+  const status = content.learningStatus
+  const unavailable = unavailableNotice(status, failure)
+  if (status && !status.isOwner) {
+    return (
+      <section className="profile-overview-card cw-vault" aria-label="资料库正式进度">
+        <h3 className="security-card-title">
+          <Database size={14} aria-hidden /> 资料库正式进度（只读）
+        </h3>
+        <p className="vault-progress-empty vp-empty" role="status">
+          {status.bound
+            ? '未授权：正式进度与学习日志只对资料库拥有者可见。本页下方显示的都是本机历史活动，不是资料库事实。'
+            : '资料库拥有者尚未绑定，正式进度暂不对任何账户开放。'}
+        </p>
+        <SourceSpecs
+          className="vp-specs"
+          fields={[
+            { key: 'topic', label: '规范主题', value: '资料库正式进度（对当前账户不可见）' },
+            { key: 'source', label: '原文位置', value: '未授权：不返回资料库文件路径与指纹' },
+            {
+              key: 'verification',
+              label: '核验状态',
+              value: '未授权：不显示任何核验结论',
+              mark: <StateMark tone="unknown" glyph='拒' text='未授权' />,
+            },
+            { key: 'sync', label: '同步时间', value: '未授权：不显示同步时间' },
+            { key: 'facts', label: '正式事实', value: '无：本卡片不使用 0 或猜测值占位' },
+          ]}
+        />
+      </section>
+    )
+  }
+
+  return (
+    <section className="profile-overview-card cw-vault" aria-label="资料库正式进度">
+      <h3 className="security-card-title">
+        <Database size={14} aria-hidden /> 资料库正式进度（只读）
+      </h3>
+
+      {state === 'loading' && (
+        <div className="vp-loading" data-vp-card="loading">
+          <p className="vault-progress-empty vp-empty" role="status">
+            正在读取进度追踪…读取期间不显示推测值，这一块保持占位不塌陷。
+          </p>
+          <div className="view-skeleton__shape" aria-hidden="true">
+            <span className="view-skeleton__line" />
+            <span className="view-skeleton__line view-skeleton__line--short" />
+            <span className="view-skeleton__panel" />
+          </div>
+        </div>
+      )}
+
+      {state === 'unavailable' && (
+        <div className="vp-loading" data-vp-card="unavailable">
+          <p className="vault-progress-empty vp-empty" role="status">
+            {unavailable.text}这里不会用 0 级或猜测值替代。
+          </p>
+          {unavailable.retryable && (
+            <div className="vp-actions">

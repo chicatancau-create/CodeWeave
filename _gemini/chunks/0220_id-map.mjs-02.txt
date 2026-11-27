@@ -1,0 +1,66 @@
+    if (!entry.toKey) continue
+    const prior = byTarget.get(entry.toKey)
+    if (prior && prior.topicId !== entry.topicId) {
+      problems.push({
+        code: 'id_map_conflict',
+        path: where,
+        message: `同一目标位置被两个 ID 声明：${prior.topicId} 与 ${entry.topicId} → ${entry.toKey}。必须指定归属。`,
+      })
+    }
+    byTarget.set(entry.toKey, entry)
+  }
+  return { entries, problems }
+}
+
+function safeLocation(value) {
+  if (!value) return null
+  const path = String(value.path ?? '').trim()
+  const headingPath = Array.isArray(value.headingPath) ? value.headingPath.map((t) => String(t).trim()).filter(Boolean) : []
+  return { path, headingPath }
+}
+
+/**
+ * 从登记表与扫描结果求解映射，产出「ID → 应落到哪个扫描主题」的应用计划。
+ * 任何对不上、指向不存在主题、或目标已被别的 ID 占用的情况都作为阻断项交回，
+ * 让维护者修映射，而不是静默重新分配 ID。
+ */
+export function planIdMap({ entries, registry, scanned }) {
+  const problems = []
+  const byId = new Map(registry.map((topic) => [topic.topicId, topic]))
+  const scannedByKey = new Map(scanned.map((topic) => [keyOf({ path: topic.path, headingPath: topic.headingPath }), topic]))
+  const claims = new Map()
+  const applied = []
+
+  for (const entry of entries) {
+    const registered = byId.get(entry.topicId)
+    if (!registered) {
+      problems.push({ code: 'id_map_unknown_topic', message: `映射引用了未登记的 topicId：${entry.topicId}（${entry.change}）` })
+      continue
+    }
+    const registeredKey = keyOf({ path: registered.path, headingPath: registered.headingPath })
+    if (registeredKey !== entry.fromKey && registered.status !== 'retired') {
+      problems.push({
+        code: 'id_map_from_mismatch',
+        message: `映射 ${entry.topicId} 的 from 与登记位置不符：映射 ${entry.fromKey} ≠ 登记 ${registeredKey}`,
+      })
+      continue
+    }
+    if (entry.change === 'retired') {
+      applied.push({ entry, topicId: entry.topicId, target: null })
+      continue
+    }
+    const target = scannedByKey.get(entry.toKey)
+    if (!target) {
+      problems.push({ code: 'id_map_target_missing', message: `映射 ${entry.topicId}（${entry.change}）的目标主题不存在：${entry.toKey}` })
+      continue
+    }
+    const prior = claims.get(entry.toKey)
+    if (prior && prior !== entry.topicId) {
+      problems.push({ code: 'id_map_conflict', message: `${entry.toKey} 同时被 ${prior} 与 ${entry.topicId} 声明，必须指定归属` })
+      continue
+    }
+    claims.set(entry.toKey, entry.topicId)
+    applied.push({ entry, topicId: entry.topicId, target })
+  }
+  return { applied, problems }
+}

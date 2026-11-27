@@ -1,0 +1,135 @@
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  box-shadow: var(--cv-glow-inset);                                /* 顶部内高光：概览区与下方列表的分界 */
+}
+
+.challenges-view .challenge-overview-text {
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+  text-align: right;
+}
+
+/* 进度：模板形态 = 1px 底线 + 实心档（site.css L447-L453），无渐变无泛光 */
+.challenges-view .challenge-progress {
+  width: min(240px, 100%);
+  height: 2px;
+  overflow: hidden;
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-hair-raised);
+}
+
+.challenges-view .challenge-progress span {
+  display: block;
+  height: 100%;
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scene);
+  box-shadow: var(--cv-glow-mark);                                 /* 进度条自发光：细线也要在黑场里读得出 */
+  transition: width var(--cv-base) var(--cv-ease);
+}
+
+
+/* ============================================================================
+   2. 筛选与排序（轻边界信息区：四周 1px 发丝线，直角，不铺玻璃）
+   ========================================================================== */
+
+.challenges-view .challenge-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--cv-gap);
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scrim);                                     /* 遮光层 + 顶部内高光 */
+  box-shadow: var(--cv-glow-inset);
+}
+
+.challenges-view .challenge-filters-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  align-self: center;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.challenges-view .challenge-filter select,
+.challenges-view .challenge-filter-search input,
+.challenges-view .external-evidence-input {
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);                /* 静止 3.13:1，关键输入边界高于发丝线 */
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: 1.5;
+}
+
+.challenges-view .challenge-filter select:focus-visible,
+.challenges-view .challenge-filter-search input:focus-visible,
+.challenges-view .external-evidence-input:focus-visible {
+  border-color: var(--cv-edge-active);                              /* 聚焦再抬一档 → 7.07:1 */
+}
+
+.challenges-view .challenge-filter-search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.challenges-view .challenge-filter-search input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.challenges-view .challenge-more-toggle,
+.challenges-view .challenge-filters .subtle-button,
+.challenges-view .challenge-grid-empty .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-more-toggle:hover:not(:disabled),
+.challenges-view .challenge-filters .subtle-button:hover:not(:disabled),
+.challenges-view .challenge-grid-empty .subtle-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .challenge-more-toggle svg {
+  transition: transform var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-more-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.challenges-view .challenge-more-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cv-gap);
+  width: 100%;
+  padding: var(--cv-pad);

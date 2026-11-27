@@ -1,0 +1,85 @@
+                            Shape {
+                                anchors.fill: parent
+                                antialiasing: true
+                                ShapePath {
+                                    fillColor: "transparent"
+                                    strokeColor: ds.lineRaised
+                                    strokeWidth: 1.5
+                                    PathAngleArc {
+                                        centerX: 22
+                                        centerY: 22
+                                        radiusX: 21.25
+                                        radiusY: 21.25
+                                        startAngle: 0
+                                        sweepAngle: 360
+                                    }
+                                }
+                                ShapePath {
+                                    fillColor: "transparent"
+                                    strokeColor: ds.accent
+                                    strokeWidth: 1.5
+                                    PathAngleArc {
+                                        centerX: 22
+                                        centerY: 22
+                                        radiusX: 21.25
+                                        radiusY: 21.25
+                                        startAngle: 135
+                                        sweepAngle: -180
+                                    }
+                                }
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                text: uiShell.progressSummary === "" ? "—" : "暂无"
+                                color: ds.ink
+                                font.family: ds.mono
+                                font.pixelSize: 11
+                                font.weight: Font.Bold
+                            }
+                        }
+                        ColumnLayout {
+                            spacing: ds.s4
+                            Layout.alignment: Qt.AlignVCenter
+                            Text {
+                                text: "挑战验收"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 12
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                text: uiShell.analysisSnapshot.verifiedPasses === undefined
+                                      ? "暂无进度数据"
+                                      : "近 7 天通过 " + uiShell.analysisSnapshot.verifiedPasses + " 次"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                            }
+                        }
+                    }
+                }
+            }
+
+            Loader {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                active: studyPage.showDetails
+                visible: active
+                sourceComponent: LearningDetailsPage {
+                    ds: studyPage.ds
+                    hostRoot: studyPage.hostRoot
+                    lessons: studyPage.subjectLessons
+                    catalogLessons: studyPage.allLessons
+                    subjects: studyPage.subjectOptions
+                    subjectIndex: studyPage.subjectFilter
+                    onSubjectChosen: function(index) { studyPage.selectSubject(index); }
+                    onBackRequested: { studyPage.showDetails = false; detailsButton.forceActiveFocus(); }
+                }
+            }
+
+            // .desktop-subjects — category pills
+            ScrollView {
+                visible: !studyPage.showDetails
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s24
+                implicitHeight: 37

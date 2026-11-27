@@ -1,0 +1,173 @@
+  color: var(--lp-dim);
+  max-width: 88ch;
+}
+
+/* ── 继续学习：细线区 + 全站唯一药丸 CTA（.backtop L383-L396） ───────────── */
+.lp-continue {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  justify-items: start;
+  padding-top: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-28, 28px));
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+}
+
+.lp-continue .lp-eyebrow {
+  margin-bottom: 0;
+}
+
+.lp-continue-title {
+  font-size: clamp(18px, 2.2vw, 26px);
+  line-height: var(--ds-leading-title, 1.15);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  max-width: var(--ds-measure-stage, min(52ch, 46vw));
+}
+
+.lp-continue-desc {
+  font-size: var(--lp-meta);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+  max-width: var(--ds-measure-lead, 44ch);
+}
+
+.lp-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-12, 12px);
+  min-height: var(--lp-tap);
+  padding: var(--ds-space-12, 12px) var(--ds-space-24, 24px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-radius: var(--ds-shape-pill, 100px);
+  color: var(--lp-ink);
+  font-family: inherit;
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  transition: color var(--lp-base) var(--lp-ease), border-color var(--lp-base) var(--lp-ease),
+    gap var(--lp-base) var(--lp-ease);
+}
+
+.lp-cta:hover {
+  color: var(--lp-accent);
+  border-color: var(--lp-accent);
+  gap: var(--ds-space-20, 20px);
+  box-shadow: var(--lp-glow-near);               /* 主行动抬起：冷色近档 */
+}
+
+.lp-cta:active {
+  color: var(--lp-ink);
+  border-color: var(--lp-ink);
+  gap: var(--ds-space-20, 20px);
+}
+
+.lp-cta-arrow {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── 响应式：窄屏收编号栏，表格保持 table 语义不降级为 div ────────────────── */
+@media (max-width: 900px) {
+  .lp-stage {
+    --lp-gutter: 56px;
+  }
+}
+
+@media (max-width: 679px) {
+  .lp-view {
+    margin: 0;
+    --lp-gutter: 0px;
+  }
+  .lp-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-4, 4px);
+  }
+  .lp-stage-rail {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--ds-space-10, 10px);
+    padding-top: 0;
+  }
+  .lp-stage-hair {
+    flex: 1;
+    width: auto;
+    height: 1px;
+    min-height: 0;
+  }
+  .lp-stage-num {
+    font-size: 20px;
+  }
+  .lp-spec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-2, 2px);
+  }
+  .lp-col-num {
+    width: 3.2em;
+  }
+  .lp-col-status {
+    width: 5.4em;
+  }
+  .lp-status-bar {
+    display: none; /* 窄屏只留文字与百分比，去掉装饰条 */
+  }
+}
+
+/* 320px 最小宽度：字号收一档、编号列变窄，长中文标题继续换行不破版 */
+@media (max-width: 399px) {
+  .lp-view {
+    --lp-body: 15px;
+    --lp-meta: 12px;
+    padding-left: var(--ds-space-10, 10px);
+    padding-right: var(--ds-space-10, 10px);
+  }
+  .lp-title {
+    font-size: clamp(1.4rem, 8vw, 2rem);
+  }
+  .lp-subject {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--ds-space-8, 8px);
+  }
+  .lp-subject-idx {
+    display: none; /* 序号是装饰；科目名与计数仍在 */
+  }
+  /* 两列网格下「当前」徽记换到正文列，避免与科目简称挤同一行 */
+  .lp-subject .lp-mark--selected {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .lp-cell-num {
+    font-size: 12px;
+  }
+  .lp-col-num {
+    width: 2.8em;
+  }
+  .lp-col-status {
+    width: 4.8em;
+  }
+  /* #95（普查实测 113px≈7.5 字/行）：给课程单元列一个可读下限，
+     多出来的宽度交给 .lp-table-scroll，而不是让长中文课名一行一个字。 */
+  .lp-ledger {
+    min-width: 340px;
+  }
+  .lp-cell-main {
+    min-width: 12em;
+  }
+  .lp-continue-title {
+    max-width: 100%;
+  }
+}
+
+/* ── §5.3.3 持续动画真正停止（模板只减慢流速，此处必须停） ─────────────────
+   两道开关各自完整生效，不依赖 tokens.css 是否被引入：
+   1) 系统偏好 prefers-reduced-motion；2) 应用内「减少动效」设置的根级 .reduce-motion。
+   这里用 animation: none（不是把 duration 压短），扫过装饰直接不渲染运动。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .lp-view .lp-eyebrow-rule::after {
+    animation: none;
+    display: none;
+  }
+  .lp-view *,
+  .lp-view *::before,
+  .lp-view *::after {

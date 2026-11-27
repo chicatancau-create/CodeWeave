@@ -1,0 +1,87 @@
+ * 而「标记不通过」不另造记录（不通过的事实由挑战记录自己承载）。
+ */
+describe('实战挑战的人工复核入口（LEARN-01 第 4 条接线）', () => {
+  const CHALLENGE_KEY = `code-canvas.challenge-progress.v2:${testUser.id}`
+  const MASTERY_KEY = `code-canvas.mastery.v1:${testUser.id}`
+
+  beforeEach(() => {
+    // CHAL-01 把「列表 / 详情 / 页码」存进 sessionStorage：不清就会带着上一条测试的详情页进来，
+    // 这一条找不到卡片只找得到返回按钮。
+    sessionStorage.clear()
+  })
+
+  const read = <T,>(key: string): T | null => {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : null
+  }
+  const progressData = () =>
+    read<{ data: Record<string, { status?: string; evidence?: string }> }>(CHALLENGE_KEY)?.data ?? {}
+  const masteryEvidence = () =>
+    read<{ data: Record<string, { evidence?: { passed: boolean; note: string; kind: string }[] }> }>(MASTERY_KEY)
+      ?.data?.['stage-a']?.evidence ?? []
+
+  async function openSubmissionTab() {
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+    localStorage.setItem(
+      CHALLENGE_KEY,
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSION,
+        data: {
+          'stage-a': {
+            completedAt: '2026-09-13T00:00:00.000Z',
+            evidence: '执行环境：Windows 11\n执行命令：java -version',
+            status: 'submitted',
+            tier: 'external',
+          },
+        },
+      }),
+    )
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+    await screen.findAllByText(/小明/)
+    fireEvent.click(screen.getByRole('button', { name: /实战挑战/ }))
+    // 卡片的可访问名带序号与状态（`01 · A 关：…，已通过，难度…`），按文本认卡片更稳。
+    const card = await waitFor(() => {
+      const el = Array.from(document.querySelectorAll<HTMLElement>('.stage-card')).find((node) =>
+        (node.textContent || '').includes('开发环境与基本操作'),
+      )
+      if (!el) throw new Error('挑战列表里没有 A 关卡片')
+      return el
+    })
+    fireEvent.click(card)
+    fireEvent.click(await screen.findByRole('tab', { name: /提交记录/ }))
+  }
+
+  it('确认通过：状态推到 verified，并补一条 passed 的掌握度证据', async () => {
+    await openSubmissionTab()
+    fireEvent.click(await screen.findByRole('button', { name: /确认通过（人工复核）/ }))
+    await waitFor(() => expect(progressData()['stage-a']?.status).toBe('verified'))
+    const entries = masteryEvidence()
+    expect(entries.filter((item) => item.passed).length, '人工确认要计入掌握度，否则「计入完成数与掌握度」只兑了一半').toBe(1)
+    expect(entries[0]?.note).toContain('人工复核通过')
+    expect(entries[0]?.note).toContain('非本机自动验证')
+  })
+
+  it('标记不通过：状态退回 rejected，不凭空造一条掌握度记录', async () => {
+    await openSubmissionTab()
+    fireEvent.click(await screen.findByRole('button', { name: /标记不通过/ }))
+    await waitFor(() => expect(progressData()['stage-a']?.status).toBe('rejected'))
+    expect(masteryEvidence().length, '不通过的事实由挑战记录承载，记一条 passed:false 反而造出平行真相').toBe(0)
+  })
+
+  it('复核入口只对 submitted 存在：确认之后按钮撤下，不留重复入口', async () => {
+    await openSubmissionTab()
+    const button = await screen.findByRole('button', { name: /确认通过（人工复核）/ })
+    fireEvent.click(button)
+    await waitFor(() => expect(progressData()['stage-a']?.status).toBe('verified'))
+    // 状态一改，整行复核按钮就不再画（app.tsx 里还有一道 `status !== 'submitted'` 的守卫：
+    // 迟到或重复的点击不会写出第二条证据——练习次数是数出来的，多一条就是假数据）。
+    expect(screen.queryByRole('button', { name: /确认通过（人工复核）/ })).toBeNull()
+    fireEvent.click(button)
+    expect(masteryEvidence().filter((item) => item.passed).length).toBe(1)
+    expect(progressData()['stage-a']?.status).toBe('verified')
+  })
+})

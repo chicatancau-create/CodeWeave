@@ -1,0 +1,9 @@
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-learning-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-learning-details.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-learning-details-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-learning-details-selected.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-review-nonempty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-review-updated.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-4-20261107/verified-evidence/u3-analysis.png"
+    ]
+}

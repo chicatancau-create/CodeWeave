@@ -1,0 +1,86 @@
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_ ||
+      !hasActiveAccount() || selected_content_id_.isEmpty() || content_busy_ || draft_saving_) {
+    setOperationStatus(QStringLiteral("请先登录并选择课程"));
+    return;
+  }
+  const auto root = data_root_;
+  const auto document = selected_content_id_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto unique = QUuid::createUuid().toString(QUuid::Id128).toStdString();
+  const auto operation_id = "op-" + unique.substr(0, 20) + "-" + unique.substr(26);
+  const auto evidence_id = "qt-evidence-" + unique;
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-evidence-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Evidence;
+  request.work = [root, document, environment, command, summary, artifactRef, reproducedOn,
+      operation_id, evidence_id](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("外部证据提交已取消");
+    codeweave::learning::EvidenceStore store(root);
+    const codeweave::learning::ExternalEvidenceFields fields{
+        environment.toUtf8().toStdString(), command.toUtf8().toStdString(),
+        summary.toUtf8().toStdString(), artifactRef.toUtf8().toStdString(),
+        reproducedOn.toUtf8().toStdString()};
+    return codeweave::learning::save_external_evidence(store, document.toStdString(), fields,
+        operation_id, evidence_id);
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, task_name,
+            result = std::move(result)]() mutable {
+          if (task_name != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          setOperationStatus(result.cancelled ? QStringLiteral("外部证据提交已取消")
+                                              : QString::fromUtf8(result.result.message));
+          if (result.result.ok && !result.cancelled) refreshReviewSummary();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::configureExecutionTool(const QString& language, const std::filesystem::path& tool) {
+  const auto key = language.toStdString();
+  if (key != "cpp" && key != "java" && key != "python" && key != "javascript") return;
+  if (tool.empty()) {
+    execution_tools_.erase(key);
+    return;
+  }
+  const auto validation = codeweave::execution::validate_process_request(
+      {tool, {}, tool.parent_path(), key});
+  std::error_code error;
+  if (!validation.ok || !tool.is_absolute() || !std::filesystem::is_regular_file(tool, error)) {
+    execution_tools_.erase(key);
+    return;
+  }
+  execution_tools_[key] = tool;
+}
+
+void UiShell::runCode() {
+  if (closing_ || operation_busy_ || account_busy_ || content_busy_ || draft_saving_ ||
+      draft_persistence_blocked_ || !hasActiveAccount() || execution_busy_ || starter_language_.isEmpty() ||
+      execution_policy_ != QStringLiteral("native")) {
+    setOperationStatus(QStringLiteral("当前课程不可在应用内运行，或尚未登录/读取代码"));
+    return;
+  }
+  const auto tool_entry = execution_tools_.find(starter_language_.toStdString());
+  if (tool_entry == execution_tools_.end()) {
+    setOperationStatus(QStringLiteral("尚未配置该语言的执行工具"));
+    return;
+  }
+  execution_busy_ = true;
+  execution_trace_.clear();
+  execution_output_.clear();

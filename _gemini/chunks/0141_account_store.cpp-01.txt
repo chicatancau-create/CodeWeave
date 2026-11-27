@@ -1,0 +1,94 @@
+#include "account_store.hpp"
+#include "password_crypto.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <fstream>
+#include <random>
+#include <system_error>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::account {
+namespace {
+
+constexpr std::uintmax_t kMaxAccountFileBytes = 16 * 1024 * 1024;
+constexpr std::size_t kMaxAccountLineBytes = 256 * 1024;
+
+std::string encode_hex(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string encoded; encoded.reserve(value.size() * 2);
+  for (const unsigned char byte : value) { encoded.push_back(digits[byte >> 4]); encoded.push_back(digits[byte & 0x0f]); }
+  return encoded;
+}
+
+bool decode_hex(std::string_view value, std::string& output) {
+  if (value.size() % 2 != 0) return false;
+  const auto digit = [](char value) -> int {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    return -1;
+  };
+  output.clear(); output.reserve(value.size() / 2);
+  for (size_t index = 0; index < value.size(); index += 2) {
+    const int high = digit(value[index]); const int low = digit(value[index + 1]);
+    if (high < 0 || low < 0) return false;
+    output.push_back(static_cast<char>((high << 4) | low));
+  }
+  return true;
+}
+
+bool split(std::string_view line, std::vector<std::string_view>& fields) {
+  fields.clear(); size_t start = 0;
+  while (start <= line.size()) {
+    const auto end = line.find('\t', start);
+    fields.push_back(line.substr(start, end == std::string_view::npos ? line.size() - start : end - start));
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  return fields.size() == 5;
+}
+
+bool parse(std::string_view line, Record& record) {
+  if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+  std::vector<std::string_view> fields; if (!split(line, fields)) return false;
+  std::vector<std::string> values(5);
+  for (size_t index = 0; index < values.size(); ++index) if (!decode_hex(fields[index], values[index])) return false;
+  record = {std::move(values[0]), std::move(values[1]), std::move(values[2]), std::move(values[3]), std::move(values[4])};
+  return validate(record).ok;
+}
+
+std::string temporary_suffix() {
+  return ".tmp." + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "." + std::to_string(std::random_device{}());
+}
+
+app::Result write_atomically(const std::filesystem::path& destination, std::string_view contents) {
+  auto temporary = destination; temporary += temporary_suffix();
+  {
+    std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+    if (!output) return app::Result::failure("无法创建账户临时文件");
+    output.write(contents.data(), static_cast<std::streamsize>(contents.size())); output.flush();
+    if (!output) { std::error_code ignored; std::filesystem::remove(temporary, ignored); return app::Result::failure("写入账户文件失败"); }
+  }
+#ifdef _WIN32
+  const auto temporary_handle = CreateFileW(
+      temporary.wstring().c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
+      nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (temporary_handle == INVALID_HANDLE_VALUE || !FlushFileBuffers(temporary_handle)) {
+    if (temporary_handle != INVALID_HANDLE_VALUE) CloseHandle(temporary_handle);
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return app::Result::failure("刷盘账户文件失败");
+  }
+  CloseHandle(temporary_handle);
+#endif
+  std::error_code error;
+#ifdef _WIN32
+  if (!MoveFileExW(temporary.wstring().c_str(), destination.wstring().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+#else
+  std::filesystem::rename(temporary, destination, error);
+#endif
+  if (error) { std::error_code ignored; std::filesystem::remove(temporary, ignored); return app::Result::failure("提交账户文件失败"); }

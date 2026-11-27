@@ -1,0 +1,105 @@
+        anchors.fill: parent
+        z: 0
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = "rgba(140,175,220,0.045)";
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= width; x += 44) {
+                ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); ctx.stroke();
+            }
+            for (let y = 0; y <= height; y += 44) {
+                ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); ctx.stroke();
+            }
+        }
+    }
+
+    // ── Topbar ──────────────────────────────────────────────────────────────
+    Rectangle {
+        id: topbar
+        anchors { top: parent.top; left: parent.left; right: parent.right; leftMargin: root.width <= 1200 ? ds.sidebarW : 0 }
+        visible: !root.workspaceCodeMode
+        height: visible ? (root.width <= 1200 ? 64 : ds.topbarH) : 0
+        color: ds.chrome
+        z: 30
+
+        Rectangle {
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            height: 1
+            color: ds.line
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: ds.s24
+            anchors.rightMargin: ds.s24
+            spacing: ds.s20
+
+            // .desktop-brand
+            RowLayout {
+                objectName: "topbarBrand"
+                visible: root.width > 1200
+                spacing: ds.s10
+                Layout.alignment: Qt.AlignVCenter
+                Rectangle {
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    radius: ds.radiusSm
+                    color: ds.markBg
+                    border.color: ds.accentRing
+                    border.width: 1
+                    LucideIcon {
+                        anchors.centerIn: parent
+                        name: "CodeXml"
+                        size: 20
+                        color: ds.accent
+                    }
+                }
+                Text {
+                    text: "CodeCanvas"
+                    color: ds.ink
+                    font.family: ds.shellUi
+                    font.pixelSize: 21
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0
+                }
+                Rectangle {
+                    implicitWidth: desktopTag.implicitWidth + ds.s12
+                    implicitHeight: 20
+                    radius: 3
+                    color: ds.accentSoft
+                    border.color: ds.accentRing
+                    border.width: 1
+                    Layout.alignment: Qt.AlignVCenter
+                    Text {
+                        id: desktopTag
+                        anchors.centerIn: parent
+                        text: "APP"
+                        color: ds.accent
+                        font.family: ds.mono
+                        font.pixelSize: 10
+                        font.letterSpacing: 1
+                    }
+                }
+            }
+
+            // .desktop-areas — 工作区 / 个人中心
+            Rectangle {
+                objectName: "topbarAreas"
+                visible: root.width > 1200
+                Layout.alignment: Qt.AlignVCenter
+                implicitWidth: areaRow.implicitWidth + ds.s8
+                implicitHeight: 44
+                radius: ds.radius
+                color: ds.topbarAreaBg
+                border.color: ds.line
+                border.width: 1
+                RowLayout {
+                    id: areaRow
+                    anchors.centerIn: parent
+                    spacing: ds.s4
+                    Repeater {
+                        model: [{ t: "工作区", p: "学习", icon: "PanelsTopLeft" }, { t: "个人中心", p: "账户", icon: "UserRound" }]
+                        delegate: Rectangle {
+                            required property var modelData
+                            implicitWidth: areaTabContent.implicitWidth + ds.s24

@@ -1,0 +1,117 @@
+/**
+ * LEARN-01 第 4 条 · 六种学习状态的派生规则。
+ *
+ * 这一份测试钉的是「状态从哪来」：六态必须由已有的掌握度记录折出，两条新信号
+ * （已阅读 / 已练习）必须以 `passed:false` 落盘且不推进等级。
+ * 外部证据那一格是对着 `summarizeExternalEvidence` 的**真实输出**判的，
+ * 不是照抄一份字符串 —— 序列化格式一改，这里当场红。
+ */
+import { describe, expect, it } from 'vitest'
+import { applyEvidence, type MasteryEvidence, type MasteryRecord } from '../data/mastery'
+import { summarizeExternalEvidence, type ExternalEvidence } from './external-evidence'
+import {
+  deriveLessonEvidenceStates,
+  hasCompletionEvidence,
+  hasExternalEvidenceInNote,
+  hasLessonSignal,
+  heldLessonStates,
+  holdsCompletion,
+  isCompletedPracticeRun,
+  lessonAcceptancePoints,
+  lessonSignalNote,
+  lessonSignalOf,
+  type LessonEvidenceStates,
+} from './lesson-evidence'
+
+const evidenceOf = (overrides: Partial<MasteryEvidence> = {}): MasteryEvidence => ({
+  id: 'e-1',
+  kind: 'lesson',
+  refId: 'vault-s0-1',
+  note: '',
+  at: '2026-09-13T08:00:00.000Z',
+  passed: false,
+  ...overrides,
+})
+
+const recordOf = (evidence: MasteryEvidence[], level = 0): MasteryRecord => ({
+  refId: 'vault-s0-1',
+  kind: 'lesson',
+  level: level as MasteryRecord['level'],
+  evidence,
+  updatedAt: '2026-09-13T08:00:00.000Z',
+  reviewStep: 0,
+})
+
+describe('lessonSignalNote / lessonSignalOf（信号写进 note，再原样读回）', () => {
+  it('两种信号都能读回，且 note 里写明「不是完成证明、不推进等级」', () => {
+    for (const kind of ['read', 'practice'] as const) {
+      const note = lessonSignalNote(kind, '开发环境清点')
+      expect(
+        lessonSignalOf(evidenceOf({ kind: 'lesson', passed: false, note })),
+      ).toBe(kind)
+      expect(note).toContain(kind === 'read' ? '已阅读' : '已练习')
+      expect(note).toContain('不构成完成证明')
+      expect(note).toContain('不推进掌握等级')
+      expect(note).toContain('开发环境清点')
+    }
+  })
+
+  it('完成证据与旧记录不会被误读成信号；别的 kind 也不算信号', () => {
+    expect(lessonSignalOf(evidenceOf({ note: '自行声明完成：完成课程「X」（本课无结构化验收点）' }))).toBeNull()
+    expect(
+      lessonSignalOf(evidenceOf({ kind: 'challenge', note: lessonSignalNote('read', 'X') })),
+    ).toBeNull()
+  })
+
+  it('hasLessonSignal 只认这一课记过的那一种', () => {
+    const record = recordOf([evidenceOf({ note: lessonSignalNote('practice', 'X') })])
+    expect(hasLessonSignal(record, 'practice')).toBe(true)
+    expect(hasLessonSignal(record, 'read')).toBe(false)
+    expect(hasLessonSignal(undefined, 'read')).toBe(false)
+  })
+})
+
+/**
+ * 第 4 条的硬要求：这两条不许上调级别。
+ * `applyEvidence` 只在 passed 时 +1，所以这里同时钉「落盘 passed:false」与「等级真的没动」。
+ */
+describe('学习信号不推进掌握等级', () => {
+  it('已阅读 / 已练习各记一次，等级仍是 0', () => {
+    let record = recordOf([])
+    for (const kind of ['read', 'practice'] as const) {
+      const note = lessonSignalNote(kind, 'X')
+      const evidence = evidenceOf({ id: `e-${kind}`, note })
+      expect(evidence.passed).toBe(false)
+      record = applyEvidence(record, evidence)
+    }
+    expect(record.level).toBe(0)
+    expect(record.evidence).toHaveLength(2)
+  })
+
+  it('已有等级的记录上再加信号，等级与复测节点都不动', () => {
+    const before = recordOf([evidenceOf({ note: '自动验证通过：完成课程「X」', passed: true, verification: 'auto-verified' })], 1)
+    const after = applyEvidence(before, evidenceOf({ note: lessonSignalNote('read', 'X') }))
+    expect(after.level).toBe(1)
+    expect(after.reviewDueKey).toBeUndefined()
+  })
+})
+
+describe('hasCompletionEvidence（有记录 ≠ 已完成）', () => {
+  it('只有 lesson 类且 passed 的证据算完成', () => {
+    expect(hasCompletionEvidence(recordOf([evidenceOf({ note: lessonSignalNote('read', 'X') })]))).toBe(false)
+    expect(hasCompletionEvidence(recordOf([evidenceOf({ passed: true })]))).toBe(true)
+    // 挑战类通过证据不构成「这一课已完成」
+    expect(hasCompletionEvidence(recordOf([evidenceOf({ kind: 'challenge', passed: true })]))).toBe(false)
+    expect(hasCompletionEvidence(undefined)).toBe(false)
+  })
+})
+
+describe('外部证据是否留在 note 里', () => {
+  const evidence: ExternalEvidence = {
+    environment: 'Windows 11 + JDK 17.0.9',
+    command: 'java -version',
+    resultSummary: '三个工具链版本全部打印，并定位一次构建错误',
+    artifactRef: 'logs/java-version.txt',
+    reproducedOn: '2026-09-10',
+  }
+

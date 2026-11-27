@@ -1,0 +1,132 @@
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "B",
+        "explanation": [
+          "mid = Math.floor((left + right) / 2)；arr[mid] 与目标的三种比较决定指针怎么移。",
+          "arr[mid] < target → 目标在右侧，left = mid + 1；反之 right = mid - 1。",
+          "循环条件是 left <= right：漏掉等号会在区间收缩到单个元素时漏查。"
+        ],
+        "examples": [
+          {
+            "good": "在 [1,3,5,7,9,11] 查 7：mid=2(5<7)→left=3；mid=4(9>7)→right=3；mid=3 命中",
+            "bad": "left = mid（没有 +1）且条件 left < right → 相邻元素时死循环",
+            "why": "指针不越过 mid，区间就无法收缩"
+          }
+        ],
+        "guidedSteps": [
+          "运行示例确认输出 2（索引）。",
+          "查找不存在的值 5，确认返回 -1。",
+          "在每次循环打印 left/right/mid，手抄一遍指针变化。"
+        ],
+        "exercise": "独立实现 findFirst(arr, target)：有重复元素时返回第一次出现的位置（findFirst([1,2,2,2,3], 2) === 1）。",
+        "variant": "查找插入位置：返回目标应插入的索引，保持数组有序。",
+        "projectTask": "二分是 C 阶段“查找与边界”题族的模板；findFirst 变式直接对应 OJ 上的左边界题。",
+        "mistakes": [
+          "在无序数组上直接二分",
+          "指针移动写成 left = mid 导致死循环",
+          "空数组未处理（right = -1 时应直接返回 -1）"
+        ],
+        "runCommand": "运行按钮（浏览器沙箱真实执行）",
+        "completion": "找到/找不到/空数组三种情况输出正确，能解释有序前提与指针越界规则。",
+        "runEnvironment": "teaching",
+        "estimatedMinutes": 40,
+        "acceptanceCriteria": [
+          "找到目标返回正确索引",
+          "找不到返回 -1",
+          "空数组返回 -1"
+        ],
+        "evidenceChecklist": [
+          "三种边界情况的运行输出",
+          "指针移动的手写推演"
+        ]
+      }
+    },
+    {
+      "id": "d1-html-semantics",
+      "language": "javascript",
+      "languageLabel": "HTML",
+      "label": "D1",
+      "title": "HTML 语义化：不只是 div 和 span",
+      "description": "用结构标签表达内容含义",
+      "duration": "30 min",
+      "level": "入门",
+      "code": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>语义化练习</title>\n</head>\n<body>\n  <!-- 用 nav / main / article / footer 完成结构 -->\n</body>\n</html>",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "搭建骨架",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "内容属于哪类？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "选择语义标签",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "浏览器验证",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "语义化是给搜索引擎和屏幕阅读器看的结构说明；div 没有含义。",
+      "fileName": "semantics.html",
+      "runtime": "外部环境 · 浏览器 + VSCode",
+      "content": {
+        "objective": "独立完成一个含导航、两篇文章和页脚的语义化页面，并解释为什么不用全 div。",
+        "prerequisites": [
+          "java-env-a1（A1 环境清点）"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "D",
+        "explanation": [
+          "header/nav/main/footer 表达页面结构；article/section 表达内容分块。",
+          "button 自带键盘访问与语义，div onclick 两者都没有。",
+          "label 的 for 与 input 的 id 关联后，点击文字即可聚焦输入框。"
+        ],
+        "examples": [
+          {
+            "good": "<article><h2>标题</h2><p>正文</p></article>，label for=\"email\" 关联邮箱输入框",
+            "bad": "全部用 div class=\"title\"/div class=\"content\"，结构含义全丢",
+            "why": "辅助工具和搜索引擎读不懂无语义的 div 堆"
+          }
+        ],
+        "guidedSteps": [
+          "在 VSCode 中建 HTML 文件并写出页面骨架。",
+          "用 nav 包裹 3 个导航链接，main 内放 2 篇 article。",
+          "浏览器打开检查结构，再用读屏模式或元素面板核对语义。"
+        ],
+        "exercise": "独立创建注册表单：用户名、密码、邮箱、性别（单选）、兴趣（多选）与提交按钮，每个输入都有 label。",
+        "variant": "为表单补齐 aria-label / aria-required 属性（无障碍变式）。",

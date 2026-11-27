@@ -1,0 +1,137 @@
+  border: var(--cw-line-width) solid currentColor;
+  box-shadow: var(--cw-glow-inset);
+  font-variant-numeric: tabular-nums;
+}
+.cw-workspace .cw-verify-cases li.is-hit {
+  color: var(--cw-ok);
+  border-inline-start-color: var(--cw-ok);
+}
+.cw-workspace .cw-verify-cases li.is-miss {
+  color: var(--cw-fg);
+  border-inline-start-color: var(--cw-err);
+}
+.cw-workspace .cw-verify-cases li.is-miss .cw-verify-glyph {
+  color: var(--cw-err);
+  border-style: dashed;
+}
+.cw-workspace .cw-verify-cases li.is-extra {
+  color: var(--cw-fg-dim);
+  border-inline-start-style: dotted;
+}
+.cw-workspace .cw-verify-cases code {
+  color: var(--cw-fg);
+  font-family: inherit;
+  font-size: inherit;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* 引导线：把「期望值」牵到「为什么」上，中间的点不承载信息，只是把两段缝在一起。 */
+.cw-workspace .cw-verify-reason {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .cw-verify-reason::before {
+  content: '';
+  flex: 0 1 auto;
+  min-width: var(--ds-space-16, 16px);
+  align-self: center;
+  border-bottom: var(--cw-line-width) dotted var(--cw-line);
+}
+.cw-workspace .cw-verify-none {
+  margin: var(--ds-space-10, 10px) 0 0;
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* ── LEARN-01 第 5a 条：外部课程的结构化证据表单 ─────────────────────────
+   字段清单与校验都来自 utils/external-evidence.ts（与挑战页同一份），这里的类名
+   与挑战页同名但一律带 .cw-workspace 前缀，两边互不覆写。
+   证据没填齐时按钮是锁住的，缺哪一项写在对应字段下面（不只靠禁用表达）。 */
+.cw-workspace .external-evidence-form {
+  flex: 1 1 100%;
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+  margin: 0 0 var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) dashed var(--cw-line-raised);
+  border-radius: var(--ds-radius-panel, 0);
+}
+.cw-workspace .external-evidence-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  color: var(--cw-info);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .external-evidence-hint svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+.cw-workspace .external-evidence-field {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+}
+.cw-workspace .external-evidence-required {
+  margin-left: var(--ds-space-6, 6px);
+  padding: var(--ds-space-hair, 1px) var(--ds-space-8, 8px);
+  color: var(--cw-err);
+  border: var(--cw-line-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.06em;
+}
+.cw-workspace .external-evidence-input,
+.cw-workspace .cw-evidence-textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--cw-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--cw-fg);
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-radius-control, 0);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  line-height: 1.6;
+}
+.cw-workspace .cw-evidence-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.cw-workspace .external-evidence-input.invalid,
+.cw-workspace .cw-evidence-textarea.invalid {
+  border-color: var(--cw-err);
+}
+.cw-workspace .external-evidence-error {
+  color: var(--cw-err);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .external-evidence-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.cw-workspace .external-evidence-keywords code {
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  color: var(--cw-fg);
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-radius-panel, 0);
+  font-family: var(--cw-mono);

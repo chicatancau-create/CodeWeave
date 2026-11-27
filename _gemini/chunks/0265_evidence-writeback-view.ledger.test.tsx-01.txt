@@ -1,0 +1,145 @@
+// @vitest-environment jsdom
+/**
+ * 挂账 #35 的界面半边：事务账本、逐步明细与回滚入口。
+ *
+ * 与另两个写回测试文件的分工：`evidence-writeback-view.test.tsx` 管业务流转，
+ * `.m3.test.tsx` 管 §5.1/§5.2 的结构与状态标识，`.write.test.tsx` 管写路径上下文。
+ * 本文件只测**新接上的读口**（GET evidence-transactions / evidence-transaction/:id）
+ * 与**回滚出口**（POST evidence-rollback），并把 #35 的四条主张逐条钉住：
+ * 1. 「部分成功」不再只活在 React 状态里：刷新后凭服务端账本仍能说出是哪一笔、还差哪一步；
+ * 2. 补齐时的指纹必须是真的：重新载入后从**这笔事务自己的记录**里读回基线再提交，
+ *    不通过传空对象关掉服务端校验（挂账⑤ 的同一条红线）；
+ * 3. 回滚要显式确认，回来后一律以服务端读回的状态为准；`rollback_blocked` 逐条呈现，
+ *    服务端没给结构化 blockers 时**不编**一份清单；
+ * 4. 「读不到」永远不等于「没有」：账本的空态与失败态各有自己的标识与文字。
+ *
+ * 另有一条契约是给取证闸门的：06 区不得改动 01/03 两区的行类名与行数
+ * （`tools/visual/visual-states.mjs` 的 `sectionWriteback` 数 `[aria-label="已同步记录"] .ewb-row--synced`）。
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ContentProvider } from '../content/provider'
+import { EvidenceWritebackPanel } from './evidence-writeback-view'
+
+type Reply = { ok: boolean; status?: number; json: () => Promise<unknown> }
+
+const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body })
+
+const LEARNING_STATUS_OWNER = {
+  bound: true,
+  isOwner: true,
+  vaultId: 'ob-test',
+  vaultMatches: true,
+  publicContent: false,
+  contentAccess: { allowed: true, reason: 'owner' },
+  progressAccess: true,
+  boundAt: '2026-09-19T00:00:00.000Z',
+  recordCorrupt: false,
+  notice: '资料库已绑定拥有者。',
+}
+
+const EMPTY_SNAPSHOT = {
+  bundleId: 'b-test',
+  schemaVersion: 1,
+  buildTime: '2026-09-19T00:00:00.000Z',
+  rules: { status: 'missing' },
+  stages: [],
+  milestones: [],
+  masteryLevels: [],
+  hintLevels: [],
+  reviewOffsetsDays: [],
+  lessons: [],
+  counts: null,
+}
+
+const CONTENT_STATUS = {
+  state: 'ready',
+  vaultConfigured: true,
+  vaultReason: null,
+  bundleId: 'b-test',
+  buildTime: '2026-09-19T00:00:00.000Z',
+  publishedAt: '2026-09-19T00:00:00.000Z',
+  counts: null,
+  rulesStatus: 'missing',
+  stale: false,
+  lastError: null,
+  lastReport: null,
+}
+
+const LOG_REL = '全栈工程师学习计划/学习日志/2026-09/2026-09-19-账本主题.md'
+const PROGRESS_REL = '全栈工程师学习计划/进度追踪.md'
+const INDEX_REL = '全栈工程师学习计划/全栈竞赛长期冲刺总计划.md'
+
+const stagedRecord = (overrides: Record<string, unknown> = {}) => ({
+  schemaVersion: 1,
+  evidenceId: 'ev-1',
+  userId: 'u-1',
+  state: 'pending',
+  createdAt: '2026-09-19T00:00:00.000Z',
+  operationId: null,
+  syncedAt: null,
+  logPath: null,
+  at: '2026-09-19',
+  topic: '账本主题',
+  stage: 'S0',
+  contentId: null,
+  exerciseId: null,
+  bundleId: null,
+  expected: 'Hello',
+  actual: 'Hello',
+  ranBy: 'learner',
+  independent: true,
+  hintLevel: 'L1',
+  artifacts: [],
+  unfinished: [],
+  notes: '',
+  ...overrides,
+})
+
+/** 账本一行的桩：字段与 `toLedgerRow()` 输出一一对应。 */
+const ledgerRow = (overrides: Record<string, unknown> = {}) => ({
+  operationId: 'op-partial-aaaa11',
+  state: 'partial',
+  topic: '账本主题',
+  at: '2026-09-19',
+  createdAt: '2026-09-19T03:00:00.000Z',
+  syncedAt: null,
+  rolledBackAt: null,
+  message: '日志已保存，进度待合并：写入失败（人工制造的取证条件）',
+  evidenceCount: 2,
+  targets: [
+    { kind: 'log', path: LOG_REL, applied: true },
+    { kind: 'progress', path: PROGRESS_REL, applied: false },
+    { kind: 'index', path: INDEX_REL, applied: false },
+  ],
+  ...overrides,
+})
+
+/** 单笔试图（明细）的桩：与 `transactionStatus()` 输出一一对应。 */
+const detailRecord = (overrides: Record<string, unknown> = {}) => ({
+  operationId: 'op-partial-aaaa11',
+  state: 'partial',
+  at: '2026-09-19',
+  topic: '账本主题',
+  createdAt: '2026-09-19T03:00:00.000Z',
+  syncedAt: null,
+  rolledBackAt: null,
+  logSaved: true,
+  message: '日志已保存，进度待合并：写入失败（人工制造的取证条件）',
+  evidenceCount: 2,
+  targets: [
+    {
+      path: LOG_REL,
+      kind: 'log',
+      applied: true,
+      appliedAt: '2026-09-19T03:00:04.000Z',
+      skipped: false,
+      backupPresent: false,
+      createdNew: true,
+      expectedHash: null,
+    },
+    {
+      path: PROGRESS_REL,
+      kind: 'progress',
+      applied: true,
+      appliedAt: '2026-09-19T03:00:05.000Z',

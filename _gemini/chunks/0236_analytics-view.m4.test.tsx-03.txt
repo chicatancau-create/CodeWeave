@@ -1,0 +1,78 @@
+    expect(challengeRow?.querySelector('.an-cell-den')?.textContent).toContain('无分母')
+  })
+
+  it('学习时长与到期任务完成率保持「未统计」，不用活动次数推算', () => {
+    renderView()
+    const untranslated = [...document.querySelectorAll('.an-cell-value')]
+      .filter((cell) => cell.textContent === '未统计')
+      .map((cell) => cell.closest('.an-row')?.querySelector('.an-cell-name')?.textContent)
+    expect(untranslated).toContain('学习时长（近 7 天）')
+    expect(untranslated).toContain('到期任务完成率')
+    expect(screen.getByText('学习时长按 STAT-01 第 6 条保持「未统计」：本机没有时长数据源，不用活动次数推算。')).toBeTruthy()
+  })
+
+  /**
+   * 01 号方案 §4 的 empty 行：说明为空的原因**和下一步动作**。
+   * 改版前这三格只有「样本不足 / 未统计」+ 原因，看完不知道该做什么。
+   */
+  it('§4 empty：样本不足与未统计三格都给出下一步，且不引入任何百分比或新口径', () => {
+    renderView({ reviewsPassed: 0, reviewsFailed: 0, reviewRate: null })
+    const actions = [...document.querySelectorAll('.an-cell-action')].map((node) => node.textContent ?? '')
+    expect(actions).toHaveLength(3)
+    expect(actions.every((text) => text.startsWith('下一步：'))).toBe(true)
+    const rateRow = [...document.querySelectorAll('.an-row')].find((row) => row.textContent?.includes('复测完成率'))
+    expect(rateRow?.querySelector('.an-cell-action')?.textContent).toContain('到复习中心完成一次复测')
+    const dueRow = [...document.querySelectorAll('.an-row')].find((row) => row.textContent?.includes('到期任务完成率'))
+    expect(dueRow?.querySelector('.an-cell-action')?.textContent).toContain('不提供手填任务数的入口')
+    const durationRow = [...document.querySelectorAll('.an-row')].find((row) => row.textContent?.includes('学习时长（近 7 天）'))
+    expect(durationRow?.querySelector('.an-cell-action')?.textContent).toContain('不拿活动次数折算时长')
+    // 下一步的话术不许把「未统计」变成另一种指标：整页仍然没有百分比
+    expect(document.body.textContent).not.toContain('%')
+    // 比率出现时不再催用户去复测（那一档不是空态）；另外两格的「未统计」照旧带下一步
+    cleanup()
+    renderView({ reviewsPassed: 3, reviewsFailed: 1, reviewRate: 75 })
+    const rateRowAfter = [...document.querySelectorAll('.an-row')].find((row) => row.textContent?.includes('复测完成率'))
+    expect(rateRowAfter?.querySelector('.an-cell-action')).toBeNull()
+    expect(document.querySelectorAll('.an-cell-action').length).toBe(2)
+  })
+
+  it('旧版迁移口径的通过数单列一行，不混入本机已验证的通过', () => {
+    renderView({ challengesPassed: 2, challengesLegacyPassed: 3 })
+    expect(screen.getByText('挑战通过（旧版迁移口径）')).toBeTruthy()
+    const legacy = [...document.querySelectorAll('.an-row')].find((item) =>
+      item.textContent?.includes('挑战通过（旧版迁移口径）'),
+    )
+    expect(legacy?.querySelector('.an-cell-value')?.textContent).toBe('3')
+    expect(legacy?.querySelector('.an-cell-basis')?.textContent).toContain('不混入上一行')
+  })
+
+  it('完成单元与练习次数是两个口径，各自成行且分母同源', () => {
+    renderView({ lessonsCompleted: 2, lessonPracticeCount: 5 })
+    const dedup = [...document.querySelectorAll('.an-row')].find((item) => item.textContent?.includes('完成课程单元'))
+    const practice = [...document.querySelectorAll('.an-row')].find((item) => item.textContent?.includes('课程练习次数'))
+    expect(dedup?.querySelector('.an-cell-value')?.textContent).toBe('2')
+    expect(practice?.querySelector('.an-cell-value')?.textContent).toBe('5')
+    expect(practice?.querySelector('.an-cell-basis')?.textContent).toContain('两个口径')
+  })
+
+  it('统计周期整句逐字保留，打卡事实按本地日期判定', () => {
+    renderView({}, { streak: 0, checkedInToday: false })
+    expect(screen.getByText('统计周期：近 7 天（2026-09-14 至 2026-09-20，按学习证据时间）。')).toBeTruthy()
+    expect(screen.getByText('未打卡')).toBeTruthy()
+    const streakRow = [...document.querySelectorAll('.an-row')].find((item) =>
+      item.textContent?.includes('连续打卡天数'),
+    )
+    expect(streakRow?.querySelector('.an-cell-value')?.textContent).toBe('0')
+  })
+})
+
+describe('M4 学习分析 · CSS 源码不变式', () => {
+  it('样式表原文确实读到，且全局裸选择器数量为 0', () => {
+    expect(cssText.length).toBeGreaterThan(3000)
+    expect(selectorParts(cssCode).length).toBeGreaterThan(30)
+    const bare = selectorParts(cssCode).filter(
+      (selector) => !selector.startsWith('.cw-analytics') && !selector.startsWith('.reduce-motion'),
+    )
+    expect(bare).toEqual([])
+  })
+

@@ -1,0 +1,96 @@
+  it('承载 44px 命中区与细线形态的类名都渲染出来了', () => {
+    const { container } = render(<AuthView {...baseProps} mode="register" />)
+    for (const selector of [
+      '.cv-auth__content',
+      '.cv-auth__title',
+      '.cv-auth__lead',
+      '.cv-auth__field',
+      '.cv-auth__input',
+      '.cv-auth__select',
+      '.cv-auth__password',
+      '.cv-auth__toggle',
+      '.cv-auth__submit',
+      '.cv-auth__switch',
+      '.cv-auth__link',
+      '.cv-auth__foot',
+    ]) {
+      expect(container.querySelectorAll(selector).length, selector).toBeGreaterThan(0)
+    }
+    // 兼容钩子：旧测试与旧语义类仍指向同一批元素
+    expect(container.querySelector('.auth-submit')).toBe(container.querySelector('.cv-auth__submit'))
+  })
+
+  it('组件自带样式表，不 import 设计令牌文件（令牌接入归共享层，值全部带兜底）', () => {
+    expect(componentSource).toMatch(/^import '\.\/auth-view\.css'$/m)
+    expect(componentSource).not.toMatch(/design\/tokens/)
+  })
+
+  it('不使用 dangerouslySetInnerHTML / innerHTML 注入', () => {
+    expect(componentSource).not.toMatch(/dangerouslySetInnerHTML|innerHTML\s*=|eval\(/)
+  })
+})
+
+describe('M3-LOGIN 键盘路径（§5.4 Tab / Enter / Esc）', () => {
+  it('Tab 顺序＝DOM 顺序：先表单再操作，装饰场景不可聚焦', () => {
+    const { container } = render(<AuthView {...baseProps} mode="register" />)
+    const focusables = Array.from(container.querySelectorAll<HTMLElement>('input, select, button')).filter(
+      (node) => !node.hasAttribute('disabled'),
+    )
+    const order = focusables.map(
+      (node) => node.getAttribute('name') ?? node.getAttribute('aria-label') ?? node.textContent!.trim(),
+    )
+    // 播放按钮移到左列后在 DOM 顺序里先出现，但测试的意图是「表单字段在前、操作按钮在后」
+    expect(order.slice(0, 5)).toEqual(['暂停背景动画', 'name', 'contactType', 'contact', 'password'])
+    expect(order.slice(5)).toEqual(['密码可见性', '创建账户', '返回登录'])
+  })
+
+  it('Enter 的等价路径：表单 submit 被接管并 preventDefault（不触发整页刷新）', () => {
+    const onSubmit = vi.fn()
+    const { container } = render(<AuthView {...baseProps} onSubmit={onSubmit} />)
+    const form = container.querySelector('form')!
+    const event = new Event('submit', { bubbles: true, cancelable: true })
+    form.dispatchEvent(event)
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(event.defaultPrevented).toBe(true)
+    expect(submitButton().getAttribute('type')).toBe('submit')
+  })
+
+  it('Esc：明文密码收回、焦点回到第一个输入，不清凭据、不提交、不外溢', () => {
+    const onSubmit = vi.fn()
+    const { container } = render(<AuthView {...baseProps} onSubmit={onSubmit} />)
+    const identifier = screen.getByLabelText('邮箱或手机号') as HTMLInputElement
+    const password = screen.getByLabelText('密码') as HTMLInputElement
+    fireEvent.change(identifier, { target: { value: 'a@b.com' } })
+    fireEvent.change(password, { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: '密码可见性' }))
+    expect(password.getAttribute('type')).toBe('text')
+    password.focus()
+
+    const onDocument = vi.fn()
+    document.addEventListener('keydown', onDocument)
+    fireEvent.keyDown(container.querySelector('form')!, { key: 'Escape' })
+    document.removeEventListener('keydown', onDocument)
+
+    expect(password.getAttribute('type')).toBe('password')
+    expect(document.activeElement).toBe(identifier)
+    expect(identifier.value).toBe('a@b.com')
+    expect(password.value).toBe('password123')
+    expect(onSubmit).not.toHaveBeenCalled()
+    // stopPropagation：外层的「Esc 关弹层」监听不会收到这次按键
+    expect(onDocument).not.toHaveBeenCalled()
+  })
+
+  it('忙态标 aria-busy，但 Esc 仍可用（不锁键盘）', () => {
+    const { container } = render(<AuthView {...baseProps} busy />)
+    const form = container.querySelector('form')!
+    expect(form.getAttribute('aria-busy')).toBe('true')
+    fireEvent.keyDown(form, { key: 'Escape' })
+    expect(form.getAttribute('aria-busy')).toBe('true')
+    expect(submitButton().disabled).toBe(true)
+  })
+})
+
+describe('M3-LOGIN 改造后业务行为仍完整可达', () => {
+  it('登录：填两项即提交 identifier + password', () => {
+    const onSubmit = vi.fn()
+    render(<AuthView {...baseProps} onSubmit={onSubmit} />)

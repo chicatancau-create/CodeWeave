@@ -1,0 +1,11 @@
+      "std::this_thread::sleep_for(std::chrono::seconds(10));\n}\n",
+      !cpp_tool.empty() && std::filesystem::is_regular_file(cpp_tool.parent_path() / "gdb.exe") &&
+          ascii_path(cpp_tool) && ascii_path(std::filesystem::temp_directory_path()));
+  test_streaming_output_keeps_utf8_and_crlf_together(python_tool);
+  test_trace_store_paginates_and_summarizes();
+  std::cout << "native core tests passed\n";
+  return 0;
+}
+
+
+

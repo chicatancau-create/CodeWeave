@@ -1,0 +1,76 @@
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 1
+                    clip: true
+                    contentWidth: availableWidth
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ColumnLayout {
+                        width: labScroll.availableWidth
+                        spacing: ds.s12
+                        Text {
+                            text: "编写与运行"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: uiShell.selectedChallenge.runner === "external"
+                                  ? "本关需要在本地外部环境完成。"
+                                  : "运行检查尚未提交，不影响学习进度。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            text: "代码草稿"
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        TextArea {
+                            objectName: "challengeStarterCode"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 240
+                            readOnly: uiShell.selectedChallenge.runner === "external" || uiShell.challengeRunBusy
+                            selectByMouse: true
+                            text: uiShell.challengeCode
+                            onTextChanged: if (!readOnly && text !== uiShell.challengeCode) uiShell.updateChallengeCode(text)
+                            color: ds.codeInk
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            wrapMode: TextEdit.WrapAnywhere
+                            background: Rectangle {
+                                color: ds.inset
+                                border.color: ds.lineStrong
+                                border.width: 1
+                            }
+                        }
+                        QuietButton {
+                            objectName: "challengeRunUnavailable"
+                            ds: challengePage.ds
+                            implicitHeight: 44
+                            label: uiShell.challengeRunBusy ? "取消运行" : "运行检查"
+                            enabled: uiShell.selectedChallenge.runner !== "external"
+                                     && !uiShell.executionBusy && !uiShell.operationBusy
+                            onClicked: uiShell.challengeRunBusy ? uiShell.cancelChallenge() : uiShell.runChallenge()
+                            Layout.alignment: Qt.AlignRight
+                        }
+                        MotionAwareBusyIndicator {
+                            ds: challengePage.ds
+                            busy: uiShell.challengeRunBusy
+                            accessibleName: "正在运行挑战"
+                            Layout.alignment: Qt.AlignRight
+                            Layout.preferredHeight: 28
+                            Layout.preferredWidth: 28
+                        }
+                        ColumnLayout {
+                            objectName: "challengeJudgement"
+                            Layout.fillWidth: true
+                            spacing: ds.s8
+                            visible: Object.keys(uiShell.challengeRunResult).length > 0
+                            Text {
+                                objectName: "challengeJudgementStatus"

@@ -1,0 +1,127 @@
+        ],
+        "evidenceChecklist": [
+          "store 代码",
+          "Vitest 通过的运行输出"
+        ]
+      }
+    },
+    {
+      "id": "f1-webpack-entry-loader",
+      "language": "javascript",
+      "languageLabel": "Webpack 5",
+      "label": "F1",
+      "title": "手工搭建：Entry、Output 与 Loader",
+      "description": "从零配置跑通第一个打包",
+      "duration": "50 min",
+      "level": "基础",
+      "code": "// webpack.config.js（在本地工程验证）\nconst path = require(\"path\");\nmodule.exports = {\n  mode: \"development\",\n  entry: \"./src/index.js\",\n  output: { path: path.resolve(__dirname, \"dist\"), filename: \"bundle.js\" },\n  module: { rules: [{ test: /\\.css$/, use: [\"style-loader\", \"css-loader\"] }] },\n};",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "定位 entry",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "逐模块转译",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "套用 loader",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "输出 bundle",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "Webpack 的本质是“从 entry 出发的依赖图遍历”，loader 负责把非 JS 资源转成模块。",
+      "fileName": "webpack.config.js",
+      "runtime": "外部环境 · Node + Webpack",
+      "content": {
+        "objective": "手工搭建最小 Webpack 工程并解释 entry/output/loader 各自的职责。",
+        "prerequisites": [
+          "b1-array-basics"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "F",
+        "explanation": [
+          "entry 是依赖图的起点；output 定义产物位置与命名。",
+          "loader 作用于“文件内容”的转换（css → JS 字符串模块），从右向左执行。",
+          "mode 决定内置优化：development 不压缩，production 自动压缩与作用域提升。"
+        ],
+        "examples": [
+          {
+            "good": "use: [\"style-loader\", \"css-loader\"] 从右到左：先 css-loader 再注入样式",
+            "bad": "顺序写反成 [\"css-loader\", \"style-loader\"]，css-loader 收到的是非 CSS 输入直接报错",
+            "why": "loader 链的方向决定了转换是否成立"
+          }
+        ],
+        "guidedSteps": [
+          "npm init 后安装 webpack/webpack-cli，写最小配置。",
+          "建 index.js 引入一个样式文件，跑 npx webpack。",
+          "打开 dist 产物，找到被转成模块的 CSS 内容。"
+        ],
+        "exercise": "独立增加图片资源规则（asset/resource），在页面里引用一张图片。",
+        "variant": "增加 html-webpack-plugin，让打包自动生成带 hash 引用的 index.html。",
+        "projectTask": "这套手工配置是 F 阶段验收（Webpack 5 工程搭建 + 体积对比）的底稿。",
+        "mistakes": [
+          "output.path 用相对路径导致产物位置诡异",
+          "loader 写在 plugins 里（职责混淆）"
+        ],
+        "runCommand": "npx webpack（本地工程）",
+        "completion": "构建成功且产物在浏览器可用，能解释三要素职责。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 50,
+        "acceptanceCriteria": [
+          "npx webpack 构建成功",
+          "产物在浏览器正确加载样式",
+          "能解释 loader 执行顺序"
+        ],
+        "evidenceChecklist": [
+          "构建日志",
+          "配置文件",
+          "产物加载截图"
+        ]
+      }
+    },
+    {
+      "id": "f2-webpack-plugin-devserver",
+      "language": "javascript",
+      "languageLabel": "Webpack 5",
+      "label": "F2",
+      "title": "Plugin、DevServer 与 Source Map",
+      "description": "开发体验三件套",
+      "duration": "40 min",
+      "level": "基础",
+      "code": "// 在本地工程验证：\n// const HtmlWebpackPlugin = require(\"html-webpack-plugin\");\n// module.exports = {\n//   plugins: [new HtmlWebpackPlugin({ template: \"./src/index.html\" })],\n//   devServer: { hot: true, port: 8080 },\n//   devtool: \"source-map\",\n// };",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",

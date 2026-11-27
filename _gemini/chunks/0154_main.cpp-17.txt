@@ -1,0 +1,87 @@
+          SWP_NOZORDER | SWP_NOACTIVATE);
+      return 0;
+    }
+    case WM_CLOSE:
+      if (g_draft_dirty && !persist_draft()) {
+        if (MessageBoxW(window, L"草稿尚未保存。是否放弃本次编辑并关闭？", L"CodeWeave", MB_YESNO | MB_ICONQUESTION) != IDYES) return 0;
+      }
+      DestroyWindow(window);
+      return 0;
+    case WM_DESTROY:
+      g_window_closing.store(true);
+      g_execution_cancelled.store(true);
+      if (g_execution_thread.joinable()) g_execution_thread.join();
+      {
+        std::lock_guard lock(g_result_mutex);
+        g_result_queue.clear();
+      }
+      g_personal_core.close_workspace();
+      g_core.close_workspace();
+      g_account_service.reset();
+      g_account_store.reset();
+      g_challenge_service.reset();
+      g_trace_store.reset();
+      g_progress_store.reset();
+      g_evidence_store.reset();
+      PostQuitMessage(0);
+      return 0;
+    default: return DefWindowProcW(window, message, wparam, lparam);
+  }
+}
+
+int run_window(HINSTANCE instance, bool smoke = false, bool interaction_smoke = false) {
+  wchar_t executable_path[32768]{};
+  const auto executable_length = GetModuleFileNameW(nullptr, executable_path, static_cast<DWORD>(std::size(executable_path)));
+  if (!executable_length || executable_length >= std::size(executable_path)) return 1;
+  g_executable_directory = std::filesystem::path(executable_path).parent_path();
+  CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  // Prefer per-monitor DPI awareness without requiring a newer SDK at link time.
+  if (auto* user32 = GetModuleHandleW(L"user32.dll")) {
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+    using SetProcessDpiAwarenessContextFn = BOOL (WINAPI*)(HANDLE);
+    const auto set_context = reinterpret_cast<SetProcessDpiAwarenessContextFn>(
+        GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+    if (!set_context || !set_context(reinterpret_cast<HANDLE>(-4))) SetProcessDPIAware();
+  }
+  g_single_instance = CreateMutexW(nullptr, FALSE, L"Local\\CodeWeave.Native.SingleInstance.v1");
+  if (!g_single_instance) return 1;
+  if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (const auto existing = FindWindowW(kClassName, nullptr)) { ShowWindow(existing, SW_RESTORE); SetForegroundWindow(existing); }
+    CloseHandle(g_single_instance);
+    g_single_instance = nullptr;
+    return 0;
+  }
+  g_gui_smoke = smoke;
+  g_gui_interaction_smoke = interaction_smoke;
+  g_gui_smoke_ok = false;
+  WNDCLASSW klass{}; klass.hInstance = instance; klass.lpfnWndProc = window_proc; klass.lpszClassName = kClassName; klass.hCursor = LoadCursorW(nullptr, IDC_ARROW); klass.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+  if (!RegisterClassW(&klass)) {
+    CloseHandle(g_single_instance);
+    g_single_instance = nullptr;
+    return 1;
+  }
+  HWND window = CreateWindowExW(0, kClassName, L"CodeWeave", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1240, 760, nullptr, nullptr, instance, nullptr);
+  if (!window) {
+    CloseHandle(g_single_instance);
+    g_single_instance = nullptr;
+    return 1;
+  }
+  const auto menu = CreateMenu();
+  const auto data_menu = CreatePopupMenu();
+  AppendMenuW(data_menu, MF_STRING, kBackupId, L"备份本地数据…");
+  AppendMenuW(data_menu, MF_STRING, kRestoreId, L"从备份恢复到新目录…");
+  AppendMenuW(data_menu, MF_STRING, kImportUsersId, L"导入旧版账户…");
+  AppendMenuW(data_menu, MF_STRING, kImportLearningId, L"导入旧版学习导出…");
+  AppendMenuW(data_menu, MF_STRING, kOpenDataId, L"打开数据目录");
+  AppendMenuW(data_menu, MF_STRING, kExternalEvidenceId, L"记录外部实践证据…");
+  AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(data_menu), L"数据");
+  SetMenu(window, menu);
+  NONCLIENTMETRICSW metrics{}; metrics.cbSize = sizeof(metrics);
+  if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0)) {
+    g_ui_font = CreateFontIndirectW(&metrics.lfMessageFont);

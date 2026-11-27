@@ -1,0 +1,88 @@
+    const tables = [...document.querySelectorAll<HTMLTableElement>('table.rv-ledger')]
+    expect(tables.length).toBe(3)
+    for (const table of tables) {
+      const wrap = table.parentElement
+      expect(wrap?.className).toBe('rv-table-scroll')
+      // 滚动容器必须键盘可达：拿不到焦点的滚动区会把列藏在够不着的地方
+      expect(wrap?.getAttribute('tabindex')).toBe('0')
+      expect(wrap?.getAttribute('role')).toBe('region')
+      expect(wrap?.getAttribute('aria-label')).toContain('可横向滚动')
+    }
+    // 表本体不再靠压列宽迁就视口：窄屏有可读下限（320 档实测挤到 24px 就是没有这条时的样子）
+    expect(cssCode).toMatch(/\.cw-review \.rv-table-scroll\s*\{[^}]*overflow-x:\s*auto/)
+    const narrow = cssCode.slice(cssCode.indexOf('@media (max-width: 679px)'))
+    expect(narrow).toMatch(/\.cw-review \.rv-ledger\s*\{[^}]*min-width:\s*4[0-9]{2}px/)
+  })
+})
+
+describe('M4 复习中心 · 业务行为无回归', () => {
+  it('开始自评回顾展开判定按钮，未通过上抛 passed=false', () => {
+    const props = renderView({ overdue: [record()] })
+    fireEvent.click(screen.getByRole('button', { name: '开始自评回顾' }))
+    fireEvent.click(screen.getByRole('button', { name: '未通过' }))
+    expect(props.onReview).toHaveBeenCalledTimes(1)
+    expect(props.onReview.mock.calls[0]?.[1]).toBe(false)
+  })
+
+  it('通过按钮上抛 true，并带原记录对象', () => {
+    const props = renderView({ today: [record({ refId: 'lesson-s1-2' })] })
+    fireEvent.click(screen.getByRole('button', { name: '开始自评回顾' }))
+    fireEvent.click(screen.getByRole('button', { name: '通过' }))
+    expect(props.onReview).toHaveBeenCalledTimes(1)
+    expect(props.onReview.mock.calls[0]?.[1]).toBe(true)
+    expect(props.onReview.mock.calls[0]?.[0]).toMatchObject({ refId: 'lesson-s1-2' })
+  })
+
+  it('稍后提醒按 refId 上抛；查看原课程仍走 onOpenLesson', () => {
+    const props = renderView({ today: [record({ refId: 'lesson-s1-2' })] })
+    fireEvent.click(screen.getByRole('button', { name: /稍后提醒/ }))
+    expect(props.onSnooze).toHaveBeenCalledWith('lesson-s1-2')
+    fireEvent.click(screen.getByRole('button', { name: /查看原课程/ }))
+    expect(props.onOpenLesson).toHaveBeenCalledWith('lesson-s1-2')
+  })
+
+  /**
+   * 这条改的是**改版前写反的口径**，不是保真断言。
+   *
+   * 旧实现 `isLesson = tone !== 'overdue' && !refId.startsWith('stage-')` 把「逾期」整组排除在外，
+   * 于是最需要回到原课的逾期项反而没有「查看原课程」；而 REVIEW-01 第 2 条要求的正是
+   * 「按显式实体类型或数据查找确定，不能由逾期状态和 ID 前缀猜测」。
+   * 现在按 `lessonIds`（当前真实存在的课程单元）判：逾期课程给入口，阶段复测不给。
+   */
+  it('查看原课程按数据判定：逾期课程照样可打开，阶段复测不给入口', () => {
+    renderView({
+      overdue: [record()],
+      today: [record({ refId: 'stage-S3', reviewDueKey: '2026-09-20' })],
+    })
+    const open = screen.getAllByRole('button', { name: /查看原课程/ })
+    expect(open).toHaveLength(1)
+    expect(open[0]?.closest('tr')?.getAttribute('data-ref-id')).toBe('lesson-s0-1')
+    expect(screen.getByText('逾期')).toBeTruthy()
+  })
+
+  it('稍后提醒把实际顺延到的那一天写在按钮上，与 mastery 的调度规则同源', () => {
+    renderView({
+      overdue: [record({ reviewDueKey: '2026-09-18' })],
+      today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })],
+    })
+    const labels = [...document.querySelectorAll('.rv-snooze-date')].map((el) => el.textContent)
+    // todayKey=2026-09-20：逾期那条从「今天」起算 → 09-21；今天到期那条同样 +1 天。
+    expect(labels).toEqual(['到 2026-09-21', '到 2026-09-21'])
+  })
+
+  it('已排到未来的复测，顺延是在它自己的计划日之后，而不是今天之后', () => {
+    renderView({ upcoming: [record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-27' })] })
+    expect(document.querySelector('.rv-snooze-date')?.textContent).toBe('到 2026-09-28')
+  })
+
+  it('复测是自评：按钮写明「自评回顾」，记完一条就退出答题态并留到下一次计划', () => {
+    const onReview = vi.fn()
+    renderView({ today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })] }, { onReview })
+    const start = screen.getByRole('button', { name: '开始自评回顾' })
+    expect(start).toBeTruthy()
+    fireEvent.click(start)
+    fireEvent.click(screen.getByRole('button', { name: '通过' }))
+    expect(onReview).toHaveBeenCalledTimes(1)
+    expect(onReview.mock.calls[0]?.[1]).toBe(true)
+    // 判完回到非答题态：不能一直停在 通过/未通过 两枚按钮上
+    expect(screen.getByRole('button', { name: '开始自评回顾' })).toBeTruthy()

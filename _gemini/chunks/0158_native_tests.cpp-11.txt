@@ -1,0 +1,86 @@
+    constexpr char digits[] = "0123456789abcdef";
+    std::string encoded;
+    for (const unsigned char byte : value) {
+      encoded.push_back(digits[byte >> 4]);
+      encoded.push_back(digits[byte & 0x0f]);
+    }
+    return encoded;
+  };
+  bool duplicate = false;
+  assert(store.append_idempotent(original, duplicate).ok && !duplicate);
+  std::ofstream ledger(data_root / "learning" / "progress.v1.log",
+      std::ios::binary | std::ios::trunc);
+  ledger << hex(replacement.fact_id) << '\t' << hex(replacement.content_id) << '\t'
+      << hex(replacement.exercise_id) << '\t' << hex(replacement.at) << '\t'
+      << hex(replacement.status) << '\t' << hex(replacement.operation_id) << '\n';
+  ledger.close();
+  duplicate = false;
+  assert(store.append_idempotent(original, duplicate).ok && !duplicate);
+  std::vector<codeweave::learning::ProgressFact> facts;
+  assert(store.read_all(facts).ok && facts.size() == 2);
+}
+
+void test_progress_append_transaction_recovers_or_fails_closed() {
+  Fixture fixture;
+  const auto learning_root = fixture.root / "data" / "runtime" / "native" / "learning";
+  std::filesystem::create_directories(learning_root);
+  const auto ledger = learning_root / "progress.v1.log";
+  const auto pending = ledger.string() + ".append.txn";
+  const auto hex = [](std::string_view value) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result;
+    for (const unsigned char byte : value) {
+      result.push_back(digits[byte >> 4]);
+      result.push_back(digits[byte & 0x0f]);
+    }
+    return result;
+  };
+  const auto line = hex("fact-txn") + '\t' + hex("lesson-01") + '\t' + hex("exercise-01") + '\t' +
+      hex("2026-10-05") + '\t' + hex("completed") + '\t' + hex("op-txnabc-0123ab") + '\n';
+  const auto transaction = [&] (std::uintmax_t base_size, std::string_view encoded_line) {
+    std::ofstream output(pending, std::ios::binary | std::ios::trunc);
+    output << base_size << '\n' << hex(encoded_line);
+  };
+
+  transaction(0, line);
+  codeweave::learning::ProgressStore store(fixture.root / "data" / "runtime" / "native");
+  std::vector<codeweave::learning::ProgressFact> facts;
+  assert(store.read_all(facts).ok && facts.size() == 1 && facts[0].fact_id == "fact-txn");
+  assert(!std::filesystem::exists(pending));
+  const codeweave::learning::ProgressFact recovered_fact{
+      "fact-txn", "lesson-01", "exercise-01", "2026-10-05", "completed", "op-txnabc-0123ab"};
+  bool duplicate = false;
+  assert(store.append_idempotent(recovered_fact, duplicate).ok && duplicate);
+
+  std::ofstream(ledger, std::ios::binary | std::ios::trunc) << line;
+  transaction(0, line);
+  facts.clear();
+  assert(store.read_all(facts).ok && facts.size() == 1 && !std::filesystem::exists(pending));
+
+  const auto different_line = hex("fact-other") + '\t' + hex("lesson-01") + '\t' + hex("exercise-01") + '\t' +
+      hex("2026-10-05") + '\t' + hex("completed") + '\t' + hex("op-other-0123ab") + '\n';
+  std::ofstream(ledger, std::ios::binary | std::ios::trunc) << different_line;
+  transaction(0, line);
+  facts.clear();
+  assert(!store.read_all(facts).ok && std::filesystem::exists(pending));
+
+  std::ofstream(pending, std::ios::binary | std::ios::trunc) << "not-a-transaction";
+  facts.clear();
+  assert(!store.read_all(facts).ok && std::filesystem::exists(pending));
+}
+
+void test_operation_index_rejects_symlink_shard() {
+  Fixture fixture;
+  const auto data_root = fixture.root / "data" / "runtime" / "native";
+  const auto index_dir = data_root / "learning" / "progress-index.v1";
+  const auto ledger = data_root / "learning" / "progress.v1.log";
+  const auto operation_id = std::string("op-index-0123ab");
+  std::uint32_t hash = 2166136261u;
+  for (const unsigned char byte : operation_id) {
+    hash ^= byte;
+    hash *= 16777619u;
+  }
+  char suffix[3]{};
+  std::snprintf(suffix, sizeof(suffix), "%02x", static_cast<unsigned>(hash & 0xffu));
+  std::filesystem::create_directories(index_dir);
+  std::filesystem::create_directories(ledger.parent_path());

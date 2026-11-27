@@ -1,0 +1,91 @@
+                    if process.pid != self.parent.pid:
+                        self.seen_children.add((process.pid, process.name()))
+                    if 'electron' in process.name().lower():
+                        self.violations.append('Electron process observed')
+                    for connection in process.net_connections(kind='tcp'):
+                        self.violations.append(f'TCP activity from process {process.name()}: {connection.status}')
+            except psutil.NoSuchProcess:
+                pass
+            except psutil.AccessDenied:
+                self.violations.append('Process inspection denied')
+
+    def control(self, identifier):
+        control = user32.GetDlgItem(self.window, identifier)
+        if not control:
+            raise AssertionError(f'Control not found: {identifier}')
+        return control
+
+    def text(self, identifier):
+        control = self.control(identifier)
+        size = message(control, 0x000E)
+        buffer = ctypes.create_unicode_buffer(size + 1)
+        message(control, 0x000D, len(buffer), ctypes.addressof(buffer))
+        return buffer.value
+
+    def set(self, identifier, value):
+        buffer = ctypes.create_unicode_buffer(value)
+        assert message(self.control(identifier), 0x000C, 0, ctypes.addressof(buffer))
+
+    def click(self, identifier):
+        message(self.window, 0x0111, identifier, self.control(identifier))
+
+    def select(self, index):
+        message(self.control(1010), 0x0186, index)
+        message(self.window, 0x0111, 1010 | (1 << 16), self.control(1010))
+
+    def find_content(self, content_id):
+        listing = self.control(1010)
+        for index in range(message(listing, 0x018B)):
+            size = message(listing, 0x018A, index)
+            buffer = ctypes.create_unicode_buffer(size + 1)
+            message(listing, 0x0189, index, ctypes.addressof(buffer))
+            if f'[{content_id}]' in buffer.value:
+                return index
+        raise AssertionError(f'Missing content: {content_id}')
+
+    def register(self, email, name):
+        self.set(1012, email)
+        self.set(1013, name)
+        self.set(1014, 'Native-Smoke-Password-123!')
+        self.click(1015)
+        assert '注册成功' in self.text(1018), self.text(1018)
+
+    def run_code(self, language, code, expected):
+        self.set(1005, language)
+        self.set(1001, code)
+        self.click(1007)
+        until(lambda: self.text(1031).strip().replace('\r\n', '\n') == expected, f'{language} execution output did not match {expected!r}')
+        until(lambda: '个事件' in self.text(1027), 'execution trace did not render')
+        return self.text(1004)
+
+    def close(self):
+        user32.PostMessageW(self.window, 0x0010, 0, 0)
+        self.process.wait(timeout=15)
+        self.stop.set()
+        self.monitor.join(timeout=2)
+        assert self.process.returncode == 0, self.process.returncode
+        assert not self.violations, self.violations
+
+    def cleanup(self):
+        if self.process.poll() is None:
+            for child in self.parent.children(recursive=True):
+                child.terminate()
+            self.process.terminate()
+            self.process.wait(timeout=10)
+        self.stop.set()
+        self.monitor.join(timeout=2)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--exe', required=True, type=Path)
+    parser.add_argument('--content', type=Path, default=Path(__file__).resolve().parents[1] / 'native/content')
+    parser.add_argument('--screenshot', type=Path, default=Path(__file__).resolve().parents[1] / 'evidence/native-product.png')
+    args = parser.parse_args()
+    exe = args.exe.resolve(strict=True)
+    content = args.content.resolve(strict=True)
+    report = {'exe_sha256': hashlib.sha256(exe.read_bytes()).hexdigest(), 'checks': []}
+    app = None
+    with tempfile.TemporaryDirectory(prefix='cw-native-product-') as temporary:
+        root = Path(temporary)
+        workspace, data = root / 'workspace', root / 'data'

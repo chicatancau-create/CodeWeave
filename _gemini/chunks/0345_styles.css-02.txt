@@ -1,0 +1,77 @@
+  --accent-gradient: linear-gradient(135deg, var(--ds-scene-active), var(--ds-scene-tides)); /* 科技档：渐变按钮/渐变条恢复 */
+  --glow-accent: 0 0 20px rgba(34, 211, 238, 0.35);  /* 科技档：泛光恢复（黑场上唯一的层级手段） */
+  --glow-soft: 0 0 12px rgba(34, 211, 238, 0.18);
+  /* 场景族的两档浅底：与上列 --accent-soft / --accent-ring 同一性质（模板无对应物、
+     只在产品里用的派生档），但基色是 02 潮汐 / 01 星云而不是当前场景。
+     提出来的理由与 tokens §4.5 那一批完全相同 —— 同一个值在两处以上重复写：
+       · 潮汐 0.1  出现在 flow-node.blue、stage-status 就绪、execution-tier 教学档；
+       · 潮汐 0.12 出现在通知里程碑徽标、变量面板的蓝档图标。
+     定义行不计入色值棘轮（见 tests/design.tokens.discipline.test.mjs：定义处就是值的出处），
+     所以这一步只减不增。 */
+  --accent-2-soft: rgba(63, 240, 200, 0.1);    /* 潮汐浅底（选中/就绪分区的底色） */
+  --accent-2-wash: rgba(63, 240, 200, 0.12);   /* 潮汐遮光档（徽标、图标底） */
+  --accent-3-soft: rgba(255, 95, 210, 0.1);    /* 星云浅底，同上 */
+  --glow-nav: 0 0 10px var(--accent);          /* 当前入口指示条的泛光，与条同色 */
+
+  /* 滚动条滑块：场景族的两档渐变（静止 / 悬停）。四个色值只在这里出现一次，
+     之所以仍提成变量，是因为它们成对出现且必须成对改动 —— 分开写在两条规则里时，
+     改一档忘记另一档会得到「悬停反而更暗」这种只有手感能发现的缺陷。
+     冷青→薄荷的走向与 --accent-gradient 一致，保持整站冷色渐变的同一方向。 */
+  --thumb-gradient: linear-gradient(180deg, rgba(34, 211, 238, 0.45), rgba(46, 230, 200, 0.32));
+  --thumb-gradient-hover: linear-gradient(180deg, rgba(34, 211, 238, 0.7), rgba(46, 230, 200, 0.5));
+
+  /* 结构投影：黑场上的回落档。科技档主用冷色外发光，但侧栏/顶栏这类**压在内容之上**
+     的持久 chrome 仍需要一层黑色扩散把下面的正文压下去，否则滚动时文字会透过玻璃底
+     与装饰网格混在一起。两处（侧栏右缘、顶栏下缘）同值，故提到这里。 */
+  --shadow-chrome: rgba(0, 0, 0, 0.4);
+
+  /* ── 5. 语义状态：恒定，不参与场景插值（§5.1 末段硬要求） ───────────────── */
+  --c-cyan: var(--ds-scene-tides);             /* 以下四个是装饰/语法色，不携带状态语义 */
+  --c-pink: var(--ds-scene-nebula);
+  --c-purple: var(--ds-scene-nebula);          /* 旧紫不在模板四色内，并为品红 */
+  --c-orange: var(--ds-scene-firstlight);
+  --c-green: var(--ds-status-success);         /* 成功 11.07:1 */
+  --c-yellow: var(--ds-status-warning);        /* 警告 13.29:1 */
+  --c-coral: var(--ds-status-danger);          /* 错误 8.74:1 */
+  --c-info: var(--ds-status-info);             /* 中性信息 5.66:1 */
+  --ok-wash: var(--ds-status-success-wash);
+  --warn-wash: var(--ds-status-warning-wash);
+  --bad-wash: var(--ds-status-danger-wash);
+  --info-wash: var(--ds-status-info-wash);
+
+  /* ── 6. 形状与字体（§5.1：圆环与细线药丸保留，面板直角） ────────────────── */
+  --radius: var(--ds-radius-panel);            /* 0：面板/表格/弹层直角 */
+  --radius-sm: var(--ds-radius-control);       /* 0：按钮直角 */
+  --radius-pill: var(--ds-shape-pill);         /* 100px：仅主操作药丸（site.css L393） */
+  --radius-circle: var(--ds-shape-circle);     /* 50%：圆环与编号点（L118/L128/L431） */
+  /* 字体栈：app/ 内**未打包** Geist Mono（模板字体只在 staging/style-pack 里），所以
+     等宽气质由 ui-monospace / Consolas 命中，中文命中 Microsoft YaHei。
+     不得声称所附字体覆盖中文：Geist Mono 无 CJK 字形（site.css L21-L23 自陈）。 */
+  --font-ui: var(--ds-font-mono);
+  --font-display: var(--ds-font-mono);
+  --font-cjk-ui: var(--ds-font-cjk-ui);
+  --font-mono: var(--ds-font-mono);
+  --editor-font-size: var(--ds-size-control, 13px);                    /* §5.4：编辑器保留用户字号设置（app.tsx 内联覆写） */
+  --line-height-editor: 1.55;
+  /* 展示标题（§5.1：字重 200、负字距、较窄行高；site.css L258-L275） */
+  --weight-display: var(--ds-weight-display);
+  --track-display: var(--ds-track-display);
+  --track-title: var(--ds-track-title);
+  --leading-title: var(--ds-leading-title);
+  --leading-display: var(--ds-leading-display);
+  --leading-body: var(--ds-leading-body);
+  --size-body: var(--ds-size-body);
+
+  /* ── 7. 动效：缓动与时长（§5.1 cubic-bezier(0.22,1,0.36,1) + 150–300ms） ── */
+  --ease: var(--ds-ease-standard);
+  --anim-play-state: var(--ds-anim-play-state); /* §5.3：持续动画的开关，两条降级路径共用 */
+
+  /* ── 8. 布局 ───────────────────────────────────────────────────────────── */
+  --sidebar-w: 240px;
+  --topbar-h: 64px;
+  --pad-page: var(--ds-pad-page);              /* L27 clamp(20px, 4.4vw, 64px) 水平安全边距 */
+  --tap-min: var(--ds-tap-min);                /* §5.4 主要触控目标 ≥44px */
+
+  /* ── 9. z 层档位（geometry.md §5 三条裁定的产品落地） ─────────────────────
+     注意：tokens.css §7 的 `--ds-z-*`（0/1/4/6/8/20/22）是**模板自身**的档位，
+     产品不采用 —— 模板内容在 4、装饰在 6、chrome 在 8，而应用内容在 1、chrome 在 15，

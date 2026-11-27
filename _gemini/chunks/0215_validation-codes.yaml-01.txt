@@ -1,0 +1,129 @@
+# 内容管线校验码清单 —— 由 `node scripts/contract-validation.mjs --write` 生成，不要手改。
+#
+# 这些 code 属于「资料库哪里不合格」的判定标识（content-check 与快照发布的 blocking 列表），
+# 与 contracts/errors.yaml 里的 HTTP 错误码是两套口径。同一条出现在两处时以各自文件为准。
+# 抽取来源（逐文件）：
+#   - service/server/content/asset.mjs
+#   - service/server/content/compiler.mjs
+#   - service/server/content/id-map.mjs
+#   - service/server/content/index.mjs
+#   - service/server/content/markdown.mjs
+#   - service/server/content/snapshot.mjs
+#   - service/server/content/sources.mjs
+#   - service/server/content/topic-spec.mjs
+#   - service/server/content/vault-paths.mjs
+#   - service/server/learning/evidence.mjs
+#   - service/server/learning/index.mjs
+#   - service/server/learning/owner.mjs
+#   - service/server/learning/progress.mjs
+#   - service/server/learning/writeback.mjs
+schemaVersion: 1
+generatedFrom:
+  - service/server/content/**.mjs（不含 *.test.mjs）
+  - service/server/learning/**.mjs（不含 *.test.mjs）
+counts:
+  codes: 61
+codes:
+  - code: already_synced
+    module: server
+    messages:
+      - "已同步的证据不能删除；如需撤销请使用回滚"
+  - code: ambiguous_heading
+    module: server
+    messages:
+      - "同名标题必须用父标题链定位，当前重复：${volume.duplicateTitles.join('、')}"
+  - code: asset_not_found
+    module: server
+    messages:
+      - "附件路径不合法：只接受资料库根内的相对路径"
+  - code: asset_too_large
+    module: server
+    messages:
+      - "附件超过大小上限（5 MiB）"
+  - code: asset_type_forbidden
+    module: server
+    messages:
+      - "该类型不在附件白名单内（svg/html/js/css 等可执行可嵌入类型永不开放）"
+  - code: duplicate_content_id
+    module: server
+    messages:
+      - "contentId 重复：${unit.contentId}"
+  - code: duplicate_exercise_id
+    module: server
+    messages:
+      - "exerciseId 重复：${exercise.exerciseId}"
+  - code: duplicate_id_map_entry
+    module: server
+    messages:
+      - "${label}: 重复记录 ${topicId} / ${change}"
+  - code: empty_source
+    module: server
+    messages:
+      - "教学单元必须至少有一个来源引用"
+  - code: empty_volume
+    module: server
+    messages:
+      - "声明为正式正文但没有主题标题"
+  - code: evidence_not_found
+    module: server
+    messages:
+      - "暂存证据不存在"
+  - code: evidence_store_corrupt
+    module: server
+    messages: []
+  - code: forbidden
+    module: server
+    messages:
+      - "只有资料库拥有者才能提交学习证据与写回"
+      - "正式进度只对资料库拥有者可见"
+  - code: id_map_ambiguous
+    module: server
+    messages:
+      - "${topicKey(topic.path, topic.headingPath)} 有多个同标题链的候选 ID（${reusable.map((item) => item.topicId).join('、')}），必须由 topic-id-map.json 指定归属，不得靠相似标题继承"
+  - code: id_map_conflict
+    module: server
+    messages:
+      - "${entry.toKey} 同时被 ${prior} 与 ${entry.topicId} 声明，必须指定归属"
+      - "同一目标位置被两个 ID 声明：${prior.topicId} 与 ${entry.topicId} → ${entry.toKey}。必须指定归属。"
+  - code: id_map_from_mismatch
+    module: server
+    messages:
+      - "映射 ${entry.topicId} 的 from 与登记位置不符：映射 ${entry.fromKey} ≠ 登记 ${registeredKey}"
+  - code: id_map_required
+    module: server
+    messages:
+      - "${topic.path} 内标题改名后出现新主题 ${topicKey(topic.path, topic.headingPath)}，但 ${vanishedHere.map((e) =>"
+  - code: id_map_target_missing
+    module: server
+    messages:
+      - "映射 ${entry.topicId}（${entry.change}）的目标主题不存在：${entry.toKey}"
+  - code: id_map_unknown_topic
+    module: server
+    messages:
+      - "映射引用了未登记的 topicId：${entry.topicId}（${entry.change}）"
+  - code: invalid_evidence
+    module: server
+    messages:
+      - "${HINT_LEVEL_NAMES[hintLevel]}下的作答不能标记为「独立完成」"
+      - "AI 助手运行的记录不能标记为「学习者独立完成」"
+      - "学习日期必须是 YYYY-MM-DD"
+      - "未说明运行者时不能标记为「学习者独立完成」"
+      - "缺少学习主题"
+      - "证据必须是对象"
+      - "证据至少需要预期结果、实际结果或产物引用之一"
+  - code: invalid_exercise
+    module: server
+    messages:
+      - "练习文件必须声明 type: exercise"
+  - code: invalid_id_map
+    module: server
+    messages:
+      - "${label}: ${change} 的 successorIds 必须包含本 ID（指定由谁继承历史）"
+      - "${label}: change 必须是 ${ID_CHANGES.join('/')}，实际 ${change || '(空)'}"
+      - "${label}: reason 必填，映射必须说明为什么"
+      - "${label}: 只有 retired 允许 to 为 null"
+      - "${label}: 缺少 topicId"
+      - "缺少 entries 数组"
+  - code: invalid_legacy_map
+    module: server
+    messages:

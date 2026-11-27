@@ -1,0 +1,59 @@
+                                                font.family: ds.mono
+                                                font.pixelSize: 12
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 110
+                                                text: "第 " + (modelData.nextNodeIndex + 1) + " 次"
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 12
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 90
+                                                text: "等级 " + modelData.masteryLevel
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 12
+                                            }
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 310
+                                                spacing: ds.s4
+                                                QuietButton {
+                                                    ds: reviewPage.ds
+                                                    objectName: "reviewPass-" + modelData.itemId
+                                                    implicitHeight: 36
+                                                    label: "通过"
+                                                    enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
+                                                    onClicked: uiShell.reviewItem(modelData.itemId, true, "")
+                                                }
+                                                QuietButton {
+                                                    ds: reviewPage.ds
+                                                    objectName: "reviewSnooze-" + modelData.itemId
+                                                    implicitHeight: 36
+                                                    label: "稍后提醒"
+                                                    enabled: uiShell.hasActiveAccount && !uiShell.operationBusy
+                                                    onClicked: uiShell.snoozeReview(modelData.itemId)
+                                                }
+                                                QuietButton {
+                                                    ds: reviewPage.ds
+                                                    objectName: "reviewOpen-" + modelData.itemId
+                                                    implicitHeight: 36
+                                                    label: "查看课程"
+                                                    enabled: uiShell.publishedIds.indexOf(modelData.contentId) >= 0
+                                                    onClicked: uiShell.openPublishedContent(
+                                                        uiShell.publishedIds.indexOf(modelData.contentId))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s8
+                                visible: reviewPage.itemsForGroup(modelData.key).length === 0
+                                text: "此分组暂无复测项目。"

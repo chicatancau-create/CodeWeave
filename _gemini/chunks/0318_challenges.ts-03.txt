@@ -1,0 +1,24 @@
+export const challenges: Challenge[] = curriculumStages.map((stage) => {
+  const spec = specs[stage.id]!
+  return {
+    id: `stage-${stage.id.toLowerCase()}`,
+    stageId: stage.id,
+    track: stage.track,
+    title: spec.title,
+    description: `${spec.description} 本关聚焦：${stage.topics[0]}。`,
+    language: spec.language,
+    stack: spec.stack,
+    difficulty: spec.difficulty,
+    runner: spec.runner,
+    prerequisites: stage.prerequisites.map((id) => `stage-${id.toLowerCase()}`),
+    starterCode: spec.starterCode,
+    targetOutput: spec.targetOutput,
+    evidence: spec.evidence,
+    hint: spec.hint,
+    explanation: spec.explanation,
+  }
+})
+
+export function getChallenges(): Challenge[] {
+  return challenges
+}

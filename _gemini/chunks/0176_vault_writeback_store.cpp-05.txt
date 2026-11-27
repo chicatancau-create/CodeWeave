@@ -1,0 +1,66 @@
+      {"vaultRoot", QFileInfo(qpath(vault_root_)).canonicalFilePath()},
+      {"boundAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}}).toJson(QJsonDocument::Indented);
+  return file.open(QIODevice::WriteOnly) && file.write(data) == data.size() && file.commit()
+      ? Result::success("资料库已绑定当前账户") : Result::failure("资料库绑定保存失败");
+}
+
+Result VaultWritebackStore::readProgress(QVariantMap& projection) const {
+  projection.clear(); bool owner = false;
+  auto result = ownerStatus(owner); if (!result.ok) return result;
+  if (!owner) return Result::failure("仅资料库拥有者可查看正式进度");
+  QByteArray bytes; QString hash; bool exists = false;
+  if (!read_target(vault_root_, QString::fromUtf8(kProgressPath), bytes, hash, exists) || !exists)
+    return Result::failure("资料库进度追踪文件不可读");
+  const auto parsed = codeweave::learning::parse_progress(std::string_view(bytes.constData(), static_cast<size_t>(bytes.size())));
+  projection.insert("status", parsed.status == codeweave::learning::ProgressStatus::Ok ? "ok" :
+      parsed.status == codeweave::learning::ProgressStatus::Partial ? "partial" : "structure_unsupported");
+  projection.insert("sourcePath", QString::fromUtf8(kProgressPath));
+  projection.insert("fileHash", hash);
+  projection.insert("latestEvidenceOn", to_utf8(parsed.latest_evidence_on));
+  projection.insert("notice", to_utf8(parsed.read_only_notice));
+  QVariantList mastery;
+  for (const auto& row : parsed.mastery) mastery.push_back(QVariantMap{{"skill", to_utf8(row.skill)},
+      {"level", to_utf8(row.level.label)}, {"status", to_utf8(row.status)}, {"evidence", to_utf8(row.evidence)}});
+  QVariantList stages;
+  for (const auto& row : parsed.stages) stages.push_back(QVariantMap{{"id", to_utf8(row.id)},
+      {"name", to_utf8(row.name)}, {"status", to_utf8(row.status)}, {"note", to_utf8(row.note)}});
+  projection.insert("mastery", mastery); projection.insert("stages", stages);
+  return Result::success("资料库进度已读取");
+}
+
+Result VaultWritebackStore::readEvidence(QVariantList& pending, QVariantList& synced) const {
+  pending.clear(); synced.clear();
+  if (account_id_.empty()) return Result::failure("请先登录账户");
+  codeweave::learning::EvidenceStore store(account_root_);
+  std::vector<EvidenceRecord> records;
+  const auto loaded = store.read_all(records); if (!loaded.ok) return loaded;
+  QVariantList ledger;
+  bool owner = false;
+  const auto status = ownerStatus(owner);
+  if (!status.ok) return status;
+  if (owner) { const auto listed = transactions(ledger); if (!listed.ok) return listed; }
+  QSet<QString> synced_ids, partial_ids;
+  for (const auto& value : ledger) {
+    const auto tx = value.toMap();
+    for (const auto& id : tx.value("evidenceIds").toStringList()) {
+      if (tx.value("state") == "synced") synced_ids.insert(id);
+      else if (tx.value("state") == "writing" || tx.value("state") == "partial" || tx.value("state") == "rolling_back") partial_ids.insert(id);
+    }
+  }
+  for (const auto& record : records) {
+    const auto id = to_utf8(record.evidence_id);
+    const bool is_synced = synced_ids.contains(id) || record.state == EvidenceState::Synced;
+    const bool is_partial = partial_ids.contains(id) || record.state == EvidenceState::Partial;
+    QVariantMap item{{"evidenceId", to_utf8(record.evidence_id)}, {"contentId", to_utf8(record.content_id)},
+      {"exerciseId", to_utf8(record.exercise_id)}, {"at", to_utf8(record.at)},
+      {"expected", to_utf8(record.expected_result)}, {"actual", to_utf8(record.actual_result)},
+      {"independent", record.independent}, {"state", is_synced ? "synced" : is_partial ? "partial" : "pending"}};
+    (is_synced ? synced : pending).push_back(std::move(item));
+  }
+  return Result::success("暂存证据已读取");
+}
+
+Result VaultWritebackStore::preview(const QStringList& evidence_ids, QVariantMap& result) {
+  const auto lock = acquire_lock(owner_root_);
+  if (!lock) return Result::failure("另一个资料库操作正在进行");
+  result.clear(); bool owner = false; auto status = ownerStatus(owner);

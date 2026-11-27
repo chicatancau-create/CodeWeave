@@ -1,0 +1,95 @@
+#include "content_repository.hpp"
+
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cctype>
+#include <fstream>
+#include <sstream>
+#include <unordered_set>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <bcrypt.h>
+#endif
+
+namespace codeweave::content {
+namespace {
+
+constexpr std::size_t kMaxCatalogBytes = 16 * 1024 * 1024;
+constexpr std::size_t kMaxCatalogLineBytes = 256 * 1024;
+constexpr std::size_t kMaxBodyBytes = 8 * 1024 * 1024;
+
+bool valid_utf8_without_nul(std::string_view value) {
+  for (std::size_t index = 0; index < value.size();) {
+    const auto first = static_cast<unsigned char>(value[index]);
+    if (first == 0) return false;
+    if (first < 0x80) { ++index; continue; }
+    std::size_t width = 0;
+    std::uint32_t codepoint = 0;
+    if (first >= 0xC2 && first <= 0xDF) { width = 2; codepoint = first & 0x1F; }
+    else if (first >= 0xE0 && first <= 0xEF) { width = 3; codepoint = first & 0x0F; }
+    else if (first >= 0xF0 && first <= 0xF4) { width = 4; codepoint = first & 0x07; }
+    else return false;
+    if (index + width > value.size()) return false;
+    for (std::size_t offset = 1; offset < width; ++offset) {
+      const auto next = static_cast<unsigned char>(value[index + offset]);
+      if ((next & 0xC0) != 0x80) return false;
+      codepoint = (codepoint << 6) | (next & 0x3F);
+    }
+    if ((width == 3 && codepoint < 0x800) ||
+        (width == 4 && codepoint < 0x10000) ||
+        (codepoint >= 0xD800 && codepoint <= 0xDFFF) || codepoint > 0x10FFFF) {
+      return false;
+    }
+    index += width;
+  }
+  return true;
+}
+
+std::string sha256_bytes(std::string_view value) {
+#ifdef _WIN32
+  BCRYPT_ALG_HANDLE algorithm = nullptr;
+  BCRYPT_HASH_HANDLE hash = nullptr;
+  DWORD object_size = 0;
+  DWORD result_size = 0;
+  if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) != 0) return {};
+  bool ok = BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH,
+      reinterpret_cast<PUCHAR>(&object_size), sizeof(object_size), &result_size, 0) == 0;
+  std::vector<unsigned char> object(object_size);
+  std::array<unsigned char, 32> digest{};
+  ok = ok && BCryptCreateHash(algorithm, &hash, object.data(), object_size, nullptr, 0, 0) == 0;
+  if (ok) ok = BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char*>(value.data())),
+      static_cast<ULONG>(value.size()), 0) == 0;
+  if (ok) ok = BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0) == 0;
+  if (hash) BCryptDestroyHash(hash);
+  BCryptCloseAlgorithmProvider(algorithm, 0);
+  if (!ok) return {};
+  constexpr char digits[] = "0123456789abcdef";
+  std::string result; result.reserve(64);
+  for (const auto byte : digest) { result.push_back(digits[byte >> 4]); result.push_back(digits[byte & 0x0f]); }
+  return result;
+#else
+  (void)value; return {};
+#endif
+}
+
+bool decode_hex(std::string_view value, std::string& output) {
+  if (value.size() % 2 != 0) return false;
+  output.clear(); output.reserve(value.size() / 2);
+  const auto digit = [](char c) -> int { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'f') return c - 'a' + 10; if (c >= 'A' && c <= 'F') return c - 'A' + 10; return -1; };
+  for (size_t i = 0; i < value.size(); i += 2) { const int high = digit(value[i]), low = digit(value[i + 1]); if (high < 0 || low < 0) return false; output.push_back(static_cast<char>((high << 4) | low)); }
+  return true;
+}
+
+bool split_line(std::string_view line, std::vector<std::string_view>& fields) {
+  fields.clear(); size_t start = 0;
+  while (start <= line.size()) { const auto end = line.find('\t', start); fields.push_back(line.substr(start, end == std::string_view::npos ? line.size() - start : end - start)); if (end == std::string_view::npos) break; start = end + 1; }
+  return fields.size() == 6;
+}
+
+bool safe_content_id(std::string_view value) {
+  return !value.empty() && value.find("..") == std::string_view::npos &&
+      value.find('/') == std::string_view::npos && value.find('\\') == std::string_view::npos;
+}
+

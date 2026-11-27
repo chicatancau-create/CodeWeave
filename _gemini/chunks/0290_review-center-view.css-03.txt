@@ -1,0 +1,158 @@
+.cw-review .rv-cell-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-review .rv-row-idx {
+  display: block;
+  font-size: var(--ds-size-control, 13px);
+  color: var(--rv-dim);
+}
+
+.cw-review .rv-item-title {
+  display: block;
+  color: var(--rv-ink);
+  font-size: var(--rv-body);
+}
+
+.cw-review .rv-item-ref,
+.cw-review .rv-mastery-note,
+.cw-review .rv-plan-note,
+.cw-review .rv-plan-fail,
+.cw-review .rv-status-date {
+  display: block;
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--rv-meta);
+  line-height: 1.6;
+  color: var(--rv-dim);
+}
+
+.cw-review .rv-mastery-level,
+.cw-review .rv-plan-due {
+  display: block;
+  color: var(--rv-ink);
+  opacity: var(--ds-text-emphasis, 0.82); /* site.css L306 .specs dd */
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-review .rv-plan-fail {
+  color: var(--rv-ink);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* ── 语义标识：固定字符徽记 + 文字 + 边框样式，三通道（§5.1 末段） ─────────── */
+.cw-review .rv-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-4, 4px) var(--ds-space-8, 8px) var(--ds-space-4, 4px) var(--ds-space-4, 4px);
+  border: var(--ds-line-width, 1px) solid var(--rv-hair);
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--rv-meta);
+  line-height: 1.4;
+  color: var(--rv-dim);
+}
+
+.cw-review .rv-mark-glyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.7em;
+  height: 1.7em;
+  border: var(--ds-line-width, 1px) solid currentColor;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--rv-ink);
+}
+
+/* 逾期：点线框 + 加粗点线下划线（不跟场景色，也不跟 --c-coral 单通道） */
+.cw-review .rv-mark--overdue {
+  border-style: dotted;
+  border-color: var(--rv-hair-raised);
+  color: var(--rv-ink);
+}
+
+.cw-review .rv-mark--overdue .rv-mark-text {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* 今日到期：实线框 */
+.cw-review .rv-mark--today {
+  border-style: solid;
+  color: var(--rv-ink);
+}
+
+/* 未来 7 天：虚线框 */
+.cw-review .rv-mark--upcoming {
+  border-style: dashed;
+}
+
+/* 分组标题里的标识不需要重复外框，只留文字通道（表体每行仍带完整标识） */
+.cw-review .rv-block-heading .rv-mark {
+  border: 0;
+  padding-left: 0;
+}
+
+/* ── 操作：触控目标 ≥44px（§5.4），直角、细线，不做渐变按钮 ────────────────── */
+.cw-review .rv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px);
+}
+
+.cw-review .rv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--rv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--rv-field-line);
+  border-radius: var(--ds-radius-control, 0);
+  color: var(--rv-ink);
+  font-family: inherit;
+  font-size: var(--rv-meta);
+  line-height: 1.3;
+  text-align: center;
+  transition: color var(--rv-quick) var(--rv-ease), border-color var(--rv-quick) var(--rv-ease),
+    background-color var(--rv-quick) var(--rv-ease);
+}
+
+.cw-review .rv-btn:hover:not(:disabled) {
+  border-color: var(--rv-accent);
+  color: var(--rv-accent);
+  box-shadow: var(--rv-glow-near);              /* 抬起面：冷色近档 */
+}
+
+.cw-review .rv-btn:active:not(:disabled) {
+  border-color: var(--rv-accent);
+  color: var(--rv-accent);
+  background-color: var(--rv-wash);
+  box-shadow: var(--rv-glow-inset);             /* 按下回落到内高光，不再抬起 */
+}
+
+.cw-review .rv-btn:disabled {
+  color: var(--rv-dim);
+  border-color: var(--rv-hair);
+}
+
+/* ── 空态与脚注：细线分区，不是卡片 ───────────────────────────────────────── */
+.cw-review .review-center-empty.rv-empty,
+.cw-review .rv-empty {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  justify-items: start;
+  min-height: var(--rv-tap);
+  padding: var(--ds-space-16, 16px) 0;
+  background: transparent;
+  border: 0;
+  border-top: var(--ds-line-width, 1px) solid var(--rv-hair);
+  border-bottom: var(--ds-line-width, 1px) solid var(--rv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--rv-dim);
+  font-size: var(--rv-body);

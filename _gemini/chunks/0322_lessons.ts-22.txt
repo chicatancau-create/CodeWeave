@@ -1,0 +1,84 @@
+    flow: sumFlow('开始', '搭骨架', '最小 CRUD', '补登录', '部署验证'),
+    insight: '最小闭环优先：一个端到端能跑的丑应用，胜过三个写了一半的漂亮模块。', fileName: 'mvp-plan.md', runtime: '外部环境 · 完整技术栈',
+    content: unit(
+      '按限时节奏完成一个端到端最小闭环（数据库 + 接口 + 页面 + 部署），全程留时间戳。',
+      {
+        prerequisites: ['m1-requirement-modeling', 'l2-docker-compose'],
+        explanation: [
+          '闭环 = 用户能完成一条核心路径（注册 → 建任务 → 查看）。',
+          '每个阶段结束跑一次部署验证，问题在产生地解决，不积累到最后。',
+          '“暂时不做”清单与“做了”清单同样重要——防止临场加需求失控。',
+        ],
+        examples: [
+          { good: '30 分钟内 curl 能建任务、页面能显示，即使无样式', bad: '前两小时打磨登录页动画，核心链路未通', why: '评委（和用户）只验通整体链路' },
+        ],
+        guidedSteps: ['按节奏表搭骨架并设健康检查。', '完成核心 CRUD 后立即部署一次。', '补登录与权限，再次部署并跑验证清单。'],
+        exercise: '独立用 60 分钟完成一次最小闭环，记录每个阶段的时间戳。',
+        variant: '复盘：如果把 CRUD 换成搜索优先，节奏表要怎么改。',
+        projectTask: 'M 阶段验收的主体工程；时间戳记录就是答辩的节奏证据。',
+        mistakes: ['跳过中间部署，最后联调集中爆炸', '中途加需求导致核心链路延期'],
+        runCommand: '完整技术栈（本地或服务器）',
+        completion: '端到端闭环可演示，时间戳记录完整，未完成清单有取舍说明。',
+        runEnvironment: 'external',
+        estimatedMinutes: 60,
+        acceptanceCriteria: ['核心路径端到端可演示', '至少两次中间部署验证', '时间戳与取舍记录完整'],
+        evidenceChecklist: ['演示记录或录屏', '节奏时间戳表'],
+        reviewOffsetsDays: [1, 3, 7],
+      },
+      'M',
+    ),
+  },
+  {
+    id: 'm3-review-defense', language: 'java', languageLabel: '综合实战', label: 'M3',
+    title: 'Bug 修复、答辩与延迟复测', description: '能解释的交付才算完成', duration: '45 min', level: '进阶', progress: 0,
+    code: '# 答辩三问准备：\n# 1. 你的架构为什么这样分层？\n# 2. 遇到的最难的 Bug 是什么，怎么定位的？\n# 3. 如果再有 2 小时，你优先做什么，为什么？\n# Bug 记录模板：现象 / 复现步骤 / 根因 / 修复 / 复测结果',
+    flow: sumFlow('开始', '收集 Bug 清单', '逐个修复复测', '准备答辩三问', '延迟复测'),
+    insight: '答辩考的不是功能数量，而是每个决策能否被解释；Bug 修复记录就是你的深度证明。', fileName: 'defense-notes.md', runtime: '外部环境 · 文档 + 演示环境',
+    content: unit(
+      '独立完成 3 个 Bug 的完整修复记录，并准备答辩三问的书面回答。',
+      {
+        prerequisites: ['m2-timebox-mvp'],
+        explanation: [
+          'Bug 记录五要素：现象、复现步骤、根因、修复、复测——缺复测等于没修。',
+          '答辩的语言是“权衡”：为什么用 A 不用 B，代价是什么。',
+          '延迟复测（1/3/7 天后重做核心题）检验的是留存，不是当时会做。',
+        ],
+        examples: [
+          { good: '根因写到“N+1 查询导致列表接口 2s”，附修复前后耗时', bad: '根因写“代码有问题，已修复”', why: '不可复现的根因说明定位过程是猜的' },
+        ],
+        guidedSteps: ['从 M2 的验证清单收集 3 个真实 Bug 并按五要素记录。', '逐个修复并在演示环境复测。', '写答辩三问的回答并演练一遍。'],
+        exercise: '独立为其中一个 Bug 写“错误修复 vs 正确修复”的对比说明。',
+        variant: '把 Bug 清单里的两个知识点排进 1/3/7 天复测计划（本平台复测系统）。',
+        projectTask: '本单元输出是 M 阶段验收的答辩材料与最终提交物。',
+        mistakes: ['只修不复测，回归时旧问题复发', '答辩背功能清单而不讲权衡'],
+        runCommand: '演示环境 + 文档（人工产出）',
+        completion: '三个 Bug 五要素齐全且复测通过，答辩三问有书面回答。',
+        runEnvironment: 'external',
+        estimatedMinutes: 45,
+        acceptanceCriteria: ['3 个 Bug 五要素记录完整', '复测全部通过', '答辩三问书面回答就绪'],
+        evidenceChecklist: ['Bug 修复记录', '答辩问题回答', '复测计划'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'M',
+    ),
+  },
+]
+
+// J 阶段单元（J2 为沙箱可执行）归属 javascript 组；K/L/M 归属 java 组
+extraLessons.javascript.push(...stageJUnits)
+extraLessons.java.push(...stageKUnits, ...stageLUnits, ...stageMUnits)
+
+const pythonLessons: Lesson[] = [
+  createSumLesson(getLanguage(0)),
+  {
+    id: 'python-condition', language: 'python', languageLabel: 'Python', label: '02', title: '让程序做决定', description: '判断一个数字是奇数还是偶数', duration: '6 min', level: '入门', progress: 42,
+    code: 'number = 8\nif number % 2 == 0:\n    result = "偶数"\nelse:\n    result = "奇数"\nprint(result)',
+    flow: [
+      { id: 'start', label: '开始', kind: 'start', tone: 'purple', line: 1 },
+      { id: 'number', label: 'number = 8', kind: 'process', tone: 'blue', line: 1 },
+      { id: 'condition', label: '能被 2 整除？', kind: 'decision', tone: 'yellow', line: 2 },
+      { id: 'branch', label: 'result = 偶数', kind: 'process', tone: 'coral', line: 3 },
+      { id: 'output', label: '输出结果', kind: 'output', tone: 'green', line: 6 },
+      { id: 'end', label: '结束', kind: 'end', tone: 'purple' },
+    ],
+    insight: 'if 像一个岔路口：条件为真时执行上面的代码，否则执行 else 分支。', fileName: 'decision.py', runtime: 'Python 3.11',

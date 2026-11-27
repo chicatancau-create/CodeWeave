@@ -1,0 +1,90 @@
+          break;
+        case 5:
+          if (!require_focus(first)) return;
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 6:
+          if (quick->property("opened").toBool() || !require_focus(trigger)) {
+            diagnostic = QStringLiteral("Quick popup did not close or trigger did not regain focus");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          QMetaObject::invokeMethod(account, "open");
+          break;
+        case 7:
+          if (!require_focus(profile)) return;
+          if (!capture_topbar(QStringLiteral("topbar-account"))) { application.exit(1); return; }
+          send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+          break;
+        case 8:
+          if (!require_focus(shell.hasActiveAccount() ? logout_action : privacy)) return;
+          send_editor_shortcut(view, Qt::Key_Up, Qt::NoModifier);
+          break;
+        case 9:
+          if (!require_focus(shell.hasActiveAccount() ? export_action : security)) return;
+          send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+          break;
+        case 10:
+          if (!require_focus(profile)) return;
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 11:
+          if (account->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Account popup did not close on Escape");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!QMetaObject::invokeMethod(security, "clicked", Qt::DirectConnection)) {
+            diagnostic = QStringLiteral("Account security menu action could not be invoked");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          break;
+        case 12:
+          if (shell.currentPage() != QStringLiteral("账户安全")) {
+            diagnostic = QStringLiteral("Account menu did not navigate to security page");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!QMetaObject::invokeMethod(privacy, "clicked", Qt::DirectConnection)) {
+            diagnostic = QStringLiteral("Account privacy menu action could not be invoked");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          break;
+        case 13:
+          if (shell.currentPage() != QStringLiteral("数据与隐私")) {
+            diagnostic = QStringLiteral("Account menu did not navigate to privacy page");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          {
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            if (!breadcrumb || breadcrumb->property("text").toString() !=
+                    QStringLiteral("Code Canvas / 数据 / 数据与隐私") ||
+                !accessible_breadcrumb || accessible_breadcrumb->text(QAccessible::Name) !=
+                    QStringLiteral("当前位置：Code Canvas / 数据 / 数据与隐私")) {
+              diagnostic = QStringLiteral("Breadcrumb did not follow the current page");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          shell.selectPage(QStringLiteral("学习"));
+          if (!capture_topbar(QStringLiteral("topbar-shell"))) { application.exit(1); return; }
+          QMetaObject::invokeMethod(quick, "open");
+          break;
+        case 14:
+          if (!require_focus(first)) return;
+          if (!capture_topbar(QStringLiteral("topbar-quick"))) { application.exit(1); return; }
+          QMetaObject::invokeMethod(notification_button, "clicked");
+          break;
+        case 15:

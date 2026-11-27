@@ -1,0 +1,87 @@
+    const evil = preview.items.find((item) => item.key === 'evil.key')
+    expect(evil?.status).toBe('rejected')
+    applyImport(payload, ACCOUNT, { 'evil.key': 'import' })
+    expect(storage.getItem('evil.key')).toBeNull()
+  })
+
+  it('键的账户后缀与声明范围不一致时拒绝（防伪造他人账户槽位）', () => {
+    const payload = { ...buildExportPayload(ACCOUNT), data: { [`${STORAGE_KEYS.WORKSPACE}:victim`]: { data: {} } } }
+    const preview = previewImport(payload, ACCOUNT)
+    expect(preview.items).toHaveLength(1)
+    const [item] = preview.items
+    expect(item?.status).toBe('rejected')
+    expect(item?.reason).toContain('不一致')
+    applyImport(payload, ACCOUNT, { [`${STORAGE_KEYS.WORKSPACE}:victim`]: 'import' })
+    expect(storage.getItem(`${STORAGE_KEYS.WORKSPACE}:victim`)).toBeNull()
+  })
+
+  it('非对象 / 错 schema / 缺字段一律整体拒绝，且不写任何键', () => {
+    for (const bad of [null, 'text', [], { schema: 'other', version: 1, data: {} }, { schema: EXPORT_SCHEMA, version: 1 }]) {
+      const before = storage.getItem(WORKSPACE)
+      const preview = previewImport(bad, ACCOUNT)
+      expect(preview.ok).toBe(false)
+      expect(preview.errors.length).toBeGreaterThan(0)
+      expect(storage.getItem(WORKSPACE)).toBe(before)
+    }
+  })
+
+  it('拒绝未来版本，旧版本给出升级路径而不是猜测', () => {
+    const future = { ...buildExportPayload(ACCOUNT), version: EXPORT_VERSION + 1 }
+    expect(previewImport(future, ACCOUNT).errors[0]).toContain('更新的版本')
+    const older = { ...buildExportPayload(ACCOUNT), version: EXPORT_VERSION - 1 }
+    expect(previewImport(older, ACCOUNT).errors[0]).toContain('迁移路径')
+  })
+})
+
+describe('DATA-09 冲突与跨账户', () => {
+  it('目标已有不同内容时默认保留现有记录，显式选择才覆盖', () => {
+    const payload = buildExportPayload(ACCOUNT)
+    const kept = JSON.stringify({ savedAt: 'later', data: { 'cw-java-control-flow-001': '改过的代码' } })
+    storage.setItem(WORKSPACE, kept)
+
+    const preview = previewImport(payload, ACCOUNT)
+    expect(preview.items.find((item) => item.key === WORKSPACE)?.status).toBe('conflict')
+    expect(preview.items.find((item) => item.key === WORKSPACE)?.decision).toBe('skip')
+
+    expect(applyImport(payload, ACCOUNT).applied).toEqual([])
+    expect(storage.getItem(WORKSPACE)).toBe(kept)
+
+    const chosen = applyImport(payload, ACCOUNT, { [DRAFTS]: 'import', [WORKSPACE]: 'import' })
+    expect(chosen.applied).toContain(WORKSPACE)
+    expect(storage.getItem(WORKSPACE)).not.toBe(kept)
+  })
+
+  it('这份导出属于另一个账户时标为 cross-scope，默认不写入', () => {
+    const payload = buildExportPayload(ACCOUNT)
+    // 目标位置先放不同内容，覆盖「对面已有数据」这一支；空槽位见下一条用例
+    storage.setItem(WORKSPACE, JSON.stringify({ savedAt: 'x', data: { other: 1 } }))
+    storage.setItem(DRAFTS, JSON.stringify({ savedAt: 'x', data: { other: 2 } }))
+
+    const preview = previewImport(payload, 'user-other')
+    expect(preview.warnings.join(' ')).toContain(ACCOUNT)
+    expect(preview.items.length).toBe(2)
+    expect(preview.items.every((item) => item.status === 'cross-scope')).toBe(true)
+    expect(preview.items.every((item) => item.decision === 'skip')).toBe(true)
+    const before = storage.getItem(WORKSPACE)
+    expect(applyImport(payload, 'user-other').applied).toEqual([])
+    expect(storage.getItem(WORKSPACE)).toBe(before)
+  })
+
+  it('跨账户条目即使对面是空槽位也不判为「空位可恢复」，强制勾选同样不写', () => {
+    const payload = buildExportPayload(ACCOUNT)
+    storage.clear() // 换浏览器的全新机器：他人账户的槽位还没有数据
+
+    const preview = previewImport(payload, 'user-other')
+    expect(preview.counts.new).toBe(0)
+    expect(preview.counts['cross-scope']).toBe(2)
+
+    const forced = applyImport(payload, 'user-other', { [WORKSPACE]: 'import', [DRAFTS]: 'import' })
+    expect(forced.applied).toEqual([])
+    expect(storage.getItem(WORKSPACE)).toBeNull()
+    expect(storage.getItem(DRAFTS)).toBeNull()
+  })
+
+  it('跨账户条目即使被强制勾选也不写——导入不是伪造他人槽位的入口', () => {
+    const payload = buildExportPayload(ACCOUNT)
+    storage.setItem(WORKSPACE, JSON.stringify({ savedAt: 'x', data: { other: 1 } }))
+    storage.setItem(DRAFTS, JSON.stringify({ savedAt: 'x', data: { other: 2 } }))

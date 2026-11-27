@@ -1,0 +1,97 @@
+  const prerequisites = lesson.content?.prerequisites ?? []
+  const signals = stateMarksOf(states)
+  const code = lesson.label && lesson.label !== groupTitle && lesson.label !== '—' ? lesson.label : ''
+  return (
+    <tr className={`lp-row${isSelected ? ' is-selected' : ''}`} data-lesson-id={lesson.id}>
+      <th scope="row" className="lp-cell-num">
+        <span className="lp-row-idx">{ordinalOf(index)}</span>
+        {code ? <span className="lp-row-code">{code}</span> : null}
+      </th>
+      <td className="lp-cell-main">
+        <button type="button" className="lp-row-btn" aria-pressed={isSelected} onClick={onSelect}>
+          <span className="lp-row-head">
+            <span className="lp-row-title">{lesson.title}</span>
+            {isSelected ? (
+              <span className="lp-mark lp-mark--selected" data-lp-mark="selected">
+                <span className="lp-mark-glyph" aria-hidden="true">
+                  ✦
+                </span>
+                <span className="lp-mark-text">已选</span>
+              </span>
+            ) : null}
+          </span>
+          {lesson.description ? <span className="lp-row-desc">{lesson.description}</span> : null}
+          <span className="lp-row-meta">
+            {lesson.level ? <span className="lp-meta-item">{lesson.level}</span> : null}
+            <span className="lp-meta-item">{lessonDurationLabel(lesson)}</span>
+            {lesson.languageLabel ? <span className="lp-meta-item">{lesson.languageLabel}</span> : null}
+          </span>
+          {signals.length > 0 ? (
+            <span className="lp-row-states">
+              <span className="lp-row-states-key">证据</span>
+              <MarkList marks={signals} className="lp-marks lp-marks--states" />
+            </span>
+          ) : null}
+          <MarkList marks={marksOf(lesson, numbered)} />
+          <SourceLine lesson={lesson} />
+          {prerequisites.length > 0 ? (
+            <span className="lp-row-prereq">
+              <span className="lp-row-prereq-key">先备</span>
+              <span className="lp-row-prereq-value">{prerequisites.join('；')}</span>
+            </span>
+          ) : null}
+        </button>
+      </td>
+      <td className="lp-cell-status">
+        <span className="lp-status-text">{progressLabel(progress)}</span>
+        <span className="lp-status-bar" aria-hidden="true">
+          <span className="lp-status-fill" style={{ width: `${progress}%` }} />
+        </span>
+        <span className="lp-status-percent">{`${progress}%`}</span>
+      </td>
+    </tr>
+  )
+}
+
+export function LearningPathView({
+  subjectId,
+  subjects,
+  lessons,
+  lessonStates,
+  stages,
+  selectedLessonId,
+  recommended,
+  onSubjectChange,
+  onLessonChange,
+  onContinue,
+}: LearningPathViewProps) {
+  const selectedLesson = lessons.find((l) => l.id === selectedLessonId)
+  const currentSubject = subjects.find((s) => s.id === subjectId)
+  const groups = stageGroups(lessons)
+  const numberedGroups = groups.filter((g) => g.numbered)
+  const stageGaps = numberedGroups.filter((g) => g.lessons.length === 0)
+  const unitGaps = lessons.filter(hasAnyGap).length
+
+  return (
+    <section className="lp-view" data-lp-view="learning-path" aria-label="学习路径页">
+      <header className="lp-head">
+        <p className="lp-eyebrow">
+          <span className="lp-eyebrow-idx">PATH</span>
+          <span className="lp-eyebrow-rule" aria-hidden="true" />
+          交互式学习路径
+        </p>
+        {/* #77：路径页的文档标题归这一句（从前是 h2，页级 h1 由壳层问候语代持）。
+            字号档挂在 `.lp-title` 类上，换标签不动视觉。 */}
+        <h1 className="lp-title">选择科目和课程</h1>
+        <p className="lp-lead">
+          每个课程会可视化展示代码执行的每一步，帮助你理解程序的运行过程。清单按资料库的 S0—S9
+          编号阶段排列，来源与缺口逐条标明。
+        </p>
+        <dl className="lp-specs">
+          <div className="lp-spec">
+            <dt>当前科目</dt>
+            <dd>{currentSubject ? currentSubject.label : subjectId}</dd>
+          </div>
+          <div className="lp-spec">
+            <dt>课程单元</dt>
+            <dd>{`${lessons.length} 个`}</dd>

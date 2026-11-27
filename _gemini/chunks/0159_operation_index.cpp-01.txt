@@ -1,0 +1,130 @@
+#include "operation_index.hpp"
+
+#include "learning_contract.hpp"
+
+#include <array>
+#include <charconv>
+#include <chrono>
+#include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::learning::operation_index {
+namespace {
+
+constexpr std::string_view kHeader = "codeweave-operation-index-v1";
+constexpr std::size_t kShardCount = 256;
+constexpr std::size_t kMaxIndexBytes = 16 * 1024 * 1024;
+constexpr std::uint64_t kFnvPrime = 1099511628211ull;
+
+struct CachedIndex {
+  Snapshot snapshot;
+  std::unordered_map<std::string, Entry> entries;
+  std::filesystem::file_time_type ledger_time{};
+  std::filesystem::file_time_type metadata_time{};
+};
+
+std::mutex cache_mutex;
+std::unordered_map<std::string, CachedIndex> cache;
+
+std::string cache_key(const std::filesystem::path& index_dir) {
+  return index_dir.lexically_normal().generic_string();
+}
+
+bool missing(const std::error_code& error) {
+  if (error == std::make_error_code(std::errc::no_such_file_or_directory)) return true;
+#ifdef _WIN32
+  return error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND;
+#else
+  return false;
+#endif
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (missing(error)) {
+      error.clear();
+      continue;
+    }
+    if (error) return true;
+  }
+  return false;
+}
+
+bool valid_parent(const std::filesystem::path& path, const std::filesystem::path& data_root) {
+  return path.is_absolute() && !data_root.empty() && data_root.is_absolute() &&
+      !has_symlink_component(data_root) && !has_symlink_component(path.parent_path());
+}
+
+std::string hex_encode(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string result;
+  result.reserve(value.size() * 2);
+  for (const unsigned char byte : value) {
+    result.push_back(digits[byte >> 4]);
+    result.push_back(digits[byte & 15]);
+  }
+  return result;
+}
+
+bool hex_decode(std::string_view value, std::string& result) {
+  if (value.size() % 2 != 0) return false;
+  result.clear();
+  result.reserve(value.size() / 2);
+  const auto digit = [](char value) -> int {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    return -1;
+  };
+  for (std::size_t index = 0; index < value.size(); index += 2) {
+    const int high = digit(value[index]);
+    const int low = digit(value[index + 1]);
+    if (high < 0 || low < 0) return false;
+    result.push_back(static_cast<char>((high << 4) | low));
+  }
+  return true;
+}
+
+bool parse_uint(std::string_view text, std::uintmax_t& result) {
+  if (text.empty()) return false;
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
+  return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
+}
+
+std::vector<std::string_view> split(std::string_view line) {
+  std::vector<std::string_view> fields;
+  std::size_t start = 0;
+  while (start <= line.size()) {
+    const auto end = line.find('\t', start);
+    fields.push_back(line.substr(start,
+        end == std::string_view::npos ? line.size() - start : end - start));
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  return fields;
+}
+
+std::size_t shard_for(std::string_view operation_id) {
+  std::uint32_t hash = 2166136261u;
+  for (const unsigned char byte : operation_id) {
+    hash ^= byte;
+    hash *= 16777619u;
+  }
+  return static_cast<std::size_t>(hash & 0xffu);
+}
+

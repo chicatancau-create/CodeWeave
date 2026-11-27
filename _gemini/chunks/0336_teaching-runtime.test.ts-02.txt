@@ -1,0 +1,87 @@
+    it('官方样例返回 tier=teaching 且不含 unsupported', () => {
+      const code = 'count = 1\nwhile count <= 3:\n    print(count)\n    count = count + 1'
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.tier).toBe('teaching')
+      expect(result.unsupported).toBeUndefined()
+    })
+
+    it('括号错误优先于模板识别，返回语法错误', () => {
+      const result = simulateProgram('count = 1\nwhile count <= 3:\n    print(count', 'python', mockLesson)
+      expect(result.unsupported).toBeUndefined()
+      expect(result.error?.message).toContain('括号')
+    })
+  })
+
+  describe('R4：模板登记表', () => {
+    it('每个模板都声明输入语法与输出规则', () => {
+      expect(TEACHING_TEMPLATES.length).toBeGreaterThan(0)
+      for (const template of TEACHING_TEMPLATES) {
+        expect(template.id).toBeTruthy()
+        expect(template.title).toBeTruthy()
+        expect(template.inputSyntax).toBeTruthy()
+        expect(template.outputRule).toBeTruthy()
+      }
+    })
+
+    it('detectTemplate 对官方样例返回对应模板', () => {
+      expect(detectTemplate('total = 0\nfor i in range(1, 6):\n    total = total + i\nprint(total)', 'python')?.id).toBe('for-sum')
+      expect(detectTemplate('count = 1\nwhile count <= 3:\n    print(count)', 'python')?.id).toBe('while-loop')
+    })
+
+    it('detectTemplate 对任意文本返回 undefined', () => {
+      expect(detectTemplate('随便写点什么 random text here', 'python')).toBeUndefined()
+    })
+
+    it('每个模板都声明语言名单，名单里的语言都真实存在', () => {
+      const known = new Set(['python', 'c', 'csharp', 'java', 'javascript'])
+      for (const template of TEACHING_TEMPLATES) {
+        expect(template.languages.length).toBeGreaterThan(0)
+        for (const language of template.languages) expect(known.has(language)).toBe(true)
+      }
+    })
+
+    /**
+     * 子串匹配的三类巧合，改前都会被认领并交出模板算出来的假输出。
+     * 判据只写「认不出」这一侧：认不出是老实的，认错才会把 19 印成这段程序的结果。
+     */
+    it('标识符、注释、字符串里的巧合不再被认领', () => {
+      // message / language 里含着 age，console.log 又在
+      expect(detectTemplate('const message = "hi"\nconst language = "Python"\nconsole.log(message)', 'javascript')).toBeUndefined()
+      // 注释里写了 for 与 total，代码里一个都没有
+      expect(detectTemplate('# 这里不做 for 累加，total 也不出现\nprint("ok")', 'python')).toBeUndefined()
+      // %2 只出现在格式串里（printf("%2d")），不是取模
+      expect(detectTemplate('int n = 7;\nprintf("%2d", n);\nreturn 0;', 'c')).toBeUndefined()
+      // 字符串里写着「你好」，代码里没有输出语句
+      expect(detectTemplate('name = "你好"\nprint(name)', 'python')?.id).toBe('greeting-cn')
+    })
+
+    it('不在语言名单里的模板跳过：Python 里出现 int a 也只可能是巧合', () => {
+      expect(detectTemplate('int a = 3  # 这是注释里的 C 写法\nint b = 5\nif True:\n    print(max(a,b))', 'python')).toBeUndefined()
+      expect(detectTemplate('int a = 3;\nint b = 5;\nif (a > b) printf("%d", a);', 'c')?.id).toBe('max-of-two')
+    })
+
+    it('拆注释与字符串不改变行号：括号错仍报在原来那一行', () => {
+      const code = 'count = 1\n# 说明 "未闭合的引号\nwhile count <= 3:\n    print('
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.error?.line).toBe(4)
+      expect(result.error?.message).toContain('缺少一个结束括号')
+    })
+
+    /**
+     * S11 复现的那份 134 行 Python 参考实现（练习页 cw-py-loop-range-001-ex1）就是这个形状：
+     * while、for…total、`if a % 2 == 0` 三种结构都在里面，旧实现按登记表顺序认领第一个命中的 parity，
+     * 交出 `["偶数"]`，而它本机真跑是 22 行。单模板模拟器对多主题程序选哪一种都是假输出。
+     */
+    it('while 与 for 同时出现时两条循环模板都不认领（互斥）', () => {
+      const code = 'count = 1\ntotal = 0\nwhile count <= 3:\n    for i in range(1, 3):\n        total += i\n    print(count)'
+      expect(detectTemplates(code, 'python')).toEqual([])
+      expect(detectTemplate(code, 'python')).toBeUndefined()
+    })
+
+    it('命中两条模板时不选第一个，判「结构不唯一」并点名候选', () => {
+      const code = 'age = 18\nscore = 70\nif score > 60:\n    print(age)'
+      const hits = detectTemplates(code, 'python')
+      expect(hits.map((t) => t.id)).toEqual(['score-branch', 'age-increment'])
+      expect(detectTemplate(code, 'python')).toBeUndefined()
+      const result = simulateProgram(code, 'python', mockLesson)
+      expect(result.unsupported).toBe(true)

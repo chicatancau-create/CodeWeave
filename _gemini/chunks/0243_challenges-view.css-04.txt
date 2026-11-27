@@ -1,0 +1,122 @@
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scrim);
+}
+
+/* 已选筛选标签：药丸（100px，geometry.md §2 允许）+ 文字 + × 图形，三重表达 */
+.challenges-view .challenge-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  width: 100%;
+}
+
+.challenges-view .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-shape-pill, 100px);
+  background: var(--cv-scrim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  transition: border-color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .filter-chip:hover {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .filter-chip:active {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .filter-chip:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* 提示行（失效 focusChallengeId 等）：1px 发丝线 + 恒定警告色 + 文字，取消 3px 色条 */
+.challenges-view .challenge-notice {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+/* ============================================================================
+   3. 编号列表：真实文本序号 + 发丝线分行（§5.2 主形态）
+   ========================================================================== */
+
+.challenges-view .challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: var(--cv-hair-width) solid var(--cv-hair);            /* .ledger：容器顶线 + 每行底线 */
+}
+
+.challenges-view .challenge-list-item {
+  display: flex;
+  min-width: 0;
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+/* 奇偶行**不**做斑马纹（模板 .ledger 没有），行内间距靠 padding 撑 */
+.challenges-view .stage-card {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  width: 100%;
+  min-height: 148px;
+  padding: var(--ds-space-14, 14px) clamp(var(--ds-space-12, 12px), 1.6vw, var(--ds-space-20, 20px));
+  border: 0;
+  border-left: var(--cv-hair-width) solid transparent;              /* 状态竖条槽位：由 status-* 上色，恒定语义色 */
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;                                                 /* 黑场：分区由发丝线承担 */
+  box-shadow: var(--cv-glow-inset);                                 /* 卡片静止态：只留一层顶部内高光 */
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  text-align: left;
+  transition: background var(--cv-quick) var(--cv-ease), border-color var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-list-item + .challenge-list-item .stage-card {
+  border-left: var(--cv-hair-width) solid transparent;
+}
+
+.challenges-view .stage-card:hover {
+  background: var(--cv-scrim);
+  box-shadow: var(--cv-glow-inset);
+  transform: none;                                                  /* hover 不位移，只加顶部内高光 */
+}
+
+/* 按下只走底色这一路：不位移、不缩放，§5.3-A/§5.3-B 把 transform 压成 none 之后反馈仍在 */
+.challenges-view .stage-card:active {
+  background: var(--cv-scrim-raised);
+  box-shadow: var(--cv-glow-inset);
+  transform: none;
+}
+
+.challenges-view .stage-card.selected,
+.challenges-view .stage-card.selected:hover {
+  background: var(--cv-scrim-raised);
+  box-shadow: var(--cv-glow-near);                                  /* 选中态：冷色近档泛光，与状态竖条并存 */
+}
+
+.challenges-view .stage-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: 10px auto 10px 0;
+  width: 2px;

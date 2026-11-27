@@ -1,0 +1,75 @@
+    expect(payload.categories.every((c) => 'base' in c && 'category' in c)).toBe(true)
+  })
+
+  it('默认排除设备级与通知类数据（只导出账户学习数据）', () => {
+    localStorage.setItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'), '{"x":1}')
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, '{"theme":"dark"}')
+    localStorage.setItem(scopedKey(STORAGE_KEYS.NOTIFICATIONS, 'user-1'), '{"read":[]}')
+    const payload = buildExportPayload('user-1')
+    const keys = Object.keys(payload.data)
+    expect(keys.some((k) => k.includes('workspace'))).toBe(true)
+    expect(keys.some((k) => k.includes('settings'))).toBe(false)
+    expect(keys.some((k) => k.includes('notifications'))).toBe(false)
+  })
+
+  it('导出内容不含任何认证敏感字段（password / passwordHash / token / cookie）', () => {
+    localStorage.setItem(
+      scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'),
+      JSON.stringify({ schemaVersion: 2, data: { password: 'plain', token: 'abc' } }),
+    )
+    const payload = buildExportPayload('user-1')
+    const serialized = JSON.stringify(payload)
+    expect(serialized).not.toContain('"password"')
+    expect(serialized).not.toContain('"passwordHash"')
+    expect(serialized).not.toContain('"token"')
+    expect(serialized.toLowerCase()).not.toContain('set-cookie')
+  })
+
+  it('不导出其他账户的数据', () => {
+    localStorage.setItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'), '{"a":1}')
+    localStorage.setItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-2'), '{"b":2}')
+    const payload = buildExportPayload('user-1')
+    const keys = Object.keys(payload.data)
+    expect(keys.every((k) => !k.includes('user-2'))).toBe(true)
+  })
+
+  it('无 scope 时导出 guest 作用域', () => {
+    localStorage.setItem(scopedKey(STORAGE_KEYS.WORKSPACE, undefined), '{"g":1}')
+    const payload = buildExportPayload(undefined)
+    expect(Object.keys(payload.data).some((k) => k.includes('guest'))).toBe(true)
+  })
+})
+
+/**
+ * #62：预览表那一列写的是「大小 … B」，但实现取的是 `JSON.stringify(value).length`——
+ * 那是 UTF-16 码元数，不是字节数。浏览器内恢复复跑实测：界面报 327 B 的条目真实 UTF-8 是 417 B，
+ * 低报 21.6%；含中文的导出件必然偏小。
+ */
+describe('#62 预览条目的「大小」按 UTF-8 字节计，不是字符串长度', () => {
+  it('含中文的条目：字节数等于 TextEncoder 的结果，且大于码元数', () => {
+    localStorage.setItem(
+      scopedKey(STORAGE_KEYS.WORKSPACE, 'user-zh'),
+      JSON.stringify({ schemaVersion: 2, data: { code: '指针就是地址，内存单元是最小存储单位，每个单元都有唯一编号' } }),
+    )
+    const payload = buildExportPayload('user-zh')
+    const key = Object.keys(payload.data).find((k) => k.includes('workspace'))
+    expect(key).toBeTruthy()
+    const text = JSON.stringify((payload.data as Record<string, unknown>)[key as string])
+    const utf8Bytes = new TextEncoder().encode(text).length
+    const preview = previewImport(payload, 'user-zh')
+    const item = preview.items.find((entry) => entry.key === key)
+    expect(item, '预览表里应当有这一条').toBeTruthy()
+    expect(item?.bytes).toBe(utf8Bytes)
+    // 中文是多字节：按码元数计必然偏小，这一条就是缺陷本身的可判别断言
+    expect(utf8Bytes).toBeGreaterThan(text.length)
+  })
+
+  it('纯 ASCII 条目：字节数与码元数相等，改动不影响这一档', () => {
+    localStorage.setItem(scopedKey(STORAGE_KEYS.PROJECTS, 'user-zh'), JSON.stringify({ schemaVersion: 2, data: { code: 'print(1)' } }))
+    const payload = buildExportPayload('user-zh')
+    const key = Object.keys(payload.data).find((k) => k.includes('projects'))
+    const text = JSON.stringify((payload.data as Record<string, unknown>)[key as string])
+    const item = previewImport(payload, 'user-zh').items.find((entry) => entry.key === key)
+    expect(item?.bytes).toBe(text.length)
+  })
+})

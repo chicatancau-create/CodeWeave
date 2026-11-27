@@ -1,0 +1,122 @@
+  max-height: calc(100svh - var(--cw-chrome-h));
+  /* 闸门：没有它 max-height 只是建议，子项照样把整页顶下去。 */
+  overflow: hidden;
+}
+
+/* ── 顶栏：细线 + 极窄字重标题；返回路径任何视口都可见（§5.2 末段） ─────── */
+.cw-workspace .learning-header {
+  gap: var(--ds-space-12, 12px);
+  margin-bottom: var(--ds-space-14, 14px);
+  padding-bottom: var(--ds-space-14, 14px);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+  flex-wrap: wrap;
+}
+.cw-workspace .learning-title {
+  gap: var(--ds-space-6, 6px);
+  /* 基座是 `flex: 1`（= basis 0%）。在**可换行**的 flex 容器里，basis 0% 等于「永远算放得下」，
+     于是 flex-wrap 永不触发，标题只能吃同行剩下的宽度——320px 实测只剩 24px，
+     110 字的长课名被排成 69.5 行（≈1890px 高的一字一列，长文本补测 §4.12 量出来的）。
+     改成 basis auto 让换行算法看得见真实内容宽度：放不下就整段挪到自己那一行。 */
+  flex: 1 1 auto;
+}
+.cw-workspace .learning-title h1 {
+  /* #77：档从 strong 平移到页级 h1，字号字重一个字没改；h1 的 UA 外边距要归零。 */
+  margin: 0;
+  /* 展示标题 DNA（字重 200 + 负字距），但允许换行：长中文标题不裁切（§5.4） */
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: clamp(17px, 2vw, 24px);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+  overflow-wrap: anywhere;
+}
+.cw-workspace .learning-title span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+}
+/* 代码模式开关：与返回/图标按钮同一档细线药丸，但带文字（这个动作的后果是整页重排，
+   一个图标说不清）。它在页头动作组的最左一格——先「换摆法」，再是指南与帮助。
+   形态全部继承下面那条 `back-button, icon-button` 的组合规则，这里只写它多出来的部分：
+   图标 + 文字的横排、以及「已开启」那一档的着色。 */
+.cw-workspace .cw-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  min-height: var(--cw-tap);
+  padding: 0 var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-pill, 100px);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  transition: color var(--cw-dur) var(--cw-ease), border-color var(--cw-dur) var(--cw-ease);
+}
+/* 开启态：与 `.icon-button.active` 同一档（场景色线 + 场景色字），而不是新造一种强调。
+   只靠颜色之外的差异还不够——文字本身也从「代码模式」变成「退出代码模式」，
+   状态不单靠色相承载（00 号方案 §6「不能只靠颜色」）。 */
+.cw-workspace .cw-mode-toggle.is-on {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+}
+.cw-workspace .cw-mode-toggle:hover {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+}
+.cw-workspace .cw-mode-toggle:active {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+
+.cw-workspace .back-button,
+.cw-workspace .icon-button {
+  /* 细线药丸：无底色、无投影。
+     §5.4 触控目标 ≥44px：这里原先收在 40px 档，而同一条 ≤760px 媒体查询（本文件末）
+     又把同一批控件抬回 var(--cw-tap)=44 —— 也就是说 40 只是桌面档漏下的一档，
+     不是设计决定。统一回到令牌，观感仍是细线药丸，只是 pill 高 4px。
+     顶栏的视觉高度由 .icon-button（styles.css 给的 44 高）决定，因此本行不改
+     首屏行高，只改按钮自身。 */
+  min-height: var(--cw-tap);
+  padding: 0 var(--ds-space-16, 16px);
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-pill, 100px);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.14em;
+  transition: color var(--cw-dur) var(--cw-ease), border-color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .icon-button {
+  /* 与窄屏档一致（本文件末 `.cw-workspace .icon-button { width: var(--cw-tap) }`）：
+     高已经是 44（继承 styles.css 的 .icon-button），缺的是宽。 */
+  width: var(--cw-tap);
+  padding: 0;
+  justify-content: center;
+}
+.cw-workspace .back-button:hover,
+.cw-workspace .icon-button:hover,
+.cw-workspace .icon-button.active {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+}
+
+/* 按下：底色抬一档，不位移（§5.3 两条降级路径下都仍然成立） */
+.cw-workspace .back-button:active,
+.cw-workspace .icon-button:active {
+  color: var(--cw-scene);
+  border-color: var(--cw-scene);
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+.cw-workspace .learning-header-actions {
+  gap: var(--ds-space-8, 8px);
+}
+

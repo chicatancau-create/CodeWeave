@@ -1,0 +1,62 @@
+    assert(shell.challengeHistory().at(1).toMap().value("status") == "rejected");
+    shell.openChallenge(QStringLiteral("stage-j"));
+    shell.reviewChallengeSubmission(pending.value("id").toString(), false, {});
+    assert(!shell.challengeHistoryBusy());
+    assert(shell.challengeHistory().size() == 1 && shell.challengeHistory().first().toMap() == saved_challenge);
+    shell.openChallenge(QStringLiteral("stage-d"));
+    shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(!shell.challengeRunResult().value(QStringLiteral("passed")).toBool());
+    assert(shell.challengeRunResult().value(QStringLiteral("cases")).toList().size() == 3);
+    assert(shell.challengeRunResult().value(QStringLiteral("extraLines")).toList().size() == 1);
+    shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');\n"));
+    assert(shell.challengeRunResult().isEmpty());
+    shell.updateChallengeCode(QStringLiteral("console.log(typeof Qt, typeof require, typeof fetch, typeof process);"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("output")).toList().first().toString()
+        == QStringLiteral("undefined undefined undefined undefined"));
+    shell.updateChallengeCode(QStringLiteral("while (true) {}"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("超时")));
+    shell.runChallenge();
+    shell.cancelChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("取消")));
+    shell.updateChallengeCode(QStringLiteral("throw new Error('fixture failure')"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("fixture failure")));
+    assert(!shell.challengeRunResult().contains(QStringLiteral("cases")));
+    shell.openChallenge(QStringLiteral("stage-a"));
+    shell.runChallenge();
+    assert(!shell.challengeRunBusy() && shell.challengeRunResult().contains(QStringLiteral("error")));
+    shell.openChallenge(QStringLiteral("stage-d"));
+    shell.updateChallengeCode(QStringLiteral("while (true) {}"));
+    shell.runChallenge();
+    assert(shell.challengeRunBusy());
+    shell.closeChallenge();
+    shell.openChallenge(QStringLiteral("stage-d"));
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeDetailOpen() && shell.challengeRunResult().isEmpty());
+    shell.updateChallengeCode(QStringLiteral("for (let i = 0; i < 101; ++i) console.log(i);"));
+    shell.runChallenge();
+    wait_for([&] { return !shell.challengeRunBusy(); });
+    assert(shell.challengeRunResult().value(QStringLiteral("error")).toString().contains(QStringLiteral("输出超过上限")));
+    const auto retained_challenge_code = shell.challengeCode();
+    shell.closeChallenge();
+    shell.configureAccountStorage(workspace, data);
+    shell.openPublishedContent(0);
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.openChallenge(QStringLiteral("stage-d"));
+    assert(shell.challengeCode() == retained_challenge_code);
+    shell.closeChallenge();
+    // Opening a published unit must complete the body -> starter chain without
+    // requiring a second UI command. This is the regression for the broken
+    // interaction path that left the editor without a language or draft.
+    assert(!shell.starterLanguage().isEmpty());
+    // Run one native fixture per supported language through the Qt facade. The
+    // tools are trusted host inputs; QML never supplies executable paths.
+    const std::map<QString, QString> execution_cases{

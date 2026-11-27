@@ -1,0 +1,131 @@
+      "language": "javascript",
+      "languageLabel": "JavaScript",
+      "label": "B1",
+      "title": "数组遍历与访问",
+      "description": "掌握索引、边界与 length 的行为",
+      "duration": "25 min",
+      "level": "基础",
+      "code": "const nums = [3, 1, 4, 1, 5];\nfor (let i = 0; i < nums.length; i++) {\n  console.log(i + \": \" + nums[i]);\n}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "创建 nums",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "i < length ?",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "读 nums[i]",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "输出元素",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "索引从 0 开始、终止条件是 i < length：这两个约定决定了所有数组代码的安全边界。",
+      "fileName": "array-basics.js",
+      "runtime": "Browser JS 沙箱",
+      "content": {
+        "objective": "独立完成数组倒序输出，并解释为什么终止条件是 i < length 而不是 i <= length。",
+        "prerequisites": [
+          "java-algo-c2（C2 循环累加）"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "B",
+        "explanation": [
+          "JavaScript 数组索引从 0 开始，最后一个元素是 arr[arr.length - 1]。",
+          "循环条件 i < arr.length 恰好遍历全部元素；写成 i <= length 会访问到不存在的 nums[length]。",
+          "length 是动态属性：push 之后自动增长，循环中修改它会破坏边界。"
+        ],
+        "examples": [
+          {
+            "good": "const n = nums.length; for (let i = 0; i < n; i++) 边界清晰",
+            "bad": "for (let i = 0; i <= nums.length; i++) 会多跑一轮并输出 undefined",
+            "why": "长度为 3 的数组有效索引是 0、1、2，不存在 nums[3]"
+          }
+        ],
+        "guidedSteps": [
+          "运行示例，确认输出 5 行“索引: 元素”。",
+          "把循环条件改成 i <= nums.length，观察最后多出的 undefined。",
+          "改回正确边界，并用单步执行观察 i 的变化范围。"
+        ],
+        "exercise": "独立写 printReverse(arr)，从最后一个元素倒序输出（空数组不输出）。",
+        "variant": "统计 [-2, 3, -1, 5, 0] 中正数的个数；再实现 sum(arr) 求所有元素之和。",
+        "projectTask": "数组遍历是 C 阶段题解仓库中几乎所有 O(n) 算法的骨架。",
+        "mistakes": [
+          "用 arr[arr.length] 访问最后一个元素",
+          "在循环体内 push 导致 length 增长、边界失真"
+        ],
+        "runCommand": "运行按钮（浏览器沙箱真实执行）",
+        "completion": "倒序输出正确、能解释 i < length 的原因、空数组不输出任何内容。",
+        "runEnvironment": "teaching",
+        "estimatedMinutes": 25,
+        "acceptanceCriteria": [
+          "输出顺序与输入相反",
+          "每个元素单独一行",
+          "空数组不输出"
+        ],
+        "evidenceChecklist": [
+          "倒序输出的运行记录",
+          "对 i <= length 越界行为的一句话解释"
+        ]
+      }
+    },
+    {
+      "id": "b2-bubble-sort",
+      "language": "javascript",
+      "languageLabel": "JavaScript",
+      "label": "B2",
+      "title": "冒泡排序：从原理到实现",
+      "description": "相邻比较 + 交换，推导轮数与复杂度",
+      "duration": "35 min",
+      "level": "基础",
+      "code": "function bubbleSort(arr) {\n  const n = arr.length;\n  for (let i = 0; i < n - 1; i++) {\n    for (let j = 0; j < n - 1 - i; j++) {\n      if (arr[j] > arr[j + 1]) {\n        const tmp = arr[j];\n        arr[j] = arr[j + 1];\n        arr[j + 1] = tmp;\n      }\n    }\n  }\n  return arr;\n}\nconsole.log(bubbleSort([5, 2, 4, 1]));",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "n = length",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "还有下一轮？",

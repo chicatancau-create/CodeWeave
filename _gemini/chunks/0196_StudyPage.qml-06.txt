@@ -1,0 +1,79 @@
+                                    color: ds.accent
+                                    font.family: ds.mono
+                                    font.pixelSize: 34
+                                }
+                            }
+                            Rectangle {   // .art-tag.tag-top
+                                x: 116
+                                y: 43
+                                implicitWidth: tagTop.implicitWidth + ds.s16
+                                implicitHeight: 22
+                                radius: 4
+                                color: ds.heroTagBg
+                                border.color: ds.heroBadgeEd
+                                border.width: 1
+                                Text {
+                                    id: tagTop
+                                    anchors.centerIn: parent
+                                    text: "<learn />"
+                                    color: ds.ink
+                                    font.family: ds.mono
+                                    font.pixelSize: 10
+                                }
+                            }
+                            Rectangle {   // .art-tag.tag-bottom
+                                x: 0
+                                y: parent.height - 54
+                                implicitWidth: tagBottom.implicitWidth + ds.s16
+                                implicitHeight: 22
+                                radius: 4
+                                color: ds.heroTagBg
+                                border.color: ds.heroBadgeEd
+                                border.width: 1
+                                Text {
+                                    id: tagBottom
+                                    anchors.centerIn: parent
+                                    text: "build. understand."
+                                    color: ds.heroTagInk
+                                    font.family: ds.mono
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+
+                        // .desktop-course-copy
+                        ColumnLayout {
+                            anchors {
+                                left: parent.left
+                                top: parent.top
+                                bottom: parent.bottom
+                                right: heroArt.left
+                            }
+                            anchors.margins: ds.s24
+                            spacing: 0
+
+                            RowLayout {
+                                spacing: ds.s8
+                                Rectangle {
+                                    implicitWidth: heroTag1.implicitWidth + ds.s16
+                                    implicitHeight: 22
+                                    radius: 4
+                                    color: ds.heroBadge
+                                    border.color: ds.heroBadgeEd
+                                    border.width: 1
+                                    Text {
+                                        id: heroTag1
+                                        anchors.centerIn: parent
+                                    text: hostRoot.selectedLesson
+                                          ? (hostRoot.selectedLesson.languageLabel || hostRoot.selectedLesson.language || "")
+                                          : "暂无课程"
+                                        color: ds.accent
+                                        font.family: ds.ui
+                                        font.pixelSize: 11
+                                    }
+                                }
+                                Rectangle {
+                                    implicitWidth: heroTag2.implicitWidth + ds.s16
+                                    implicitHeight: 22
+                                    radius: 4
+                                    color: ds.heroBadge

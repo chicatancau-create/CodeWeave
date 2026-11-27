@@ -1,0 +1,112 @@
+ */
+export function stageEvidence(input: EvidenceInput): Promise<ApiResult<StagedEvidence>> {
+  return request<StagedEvidence>('/api/learning/evidence', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export function fetchEvidenceQueue(): Promise<ApiResult<EvidenceQueue>> {
+  return request<EvidenceQueue>('/api/learning/evidence')
+}
+
+/**
+ * 队列读取的**四态可判定**结果（M3 复核挂账②）。
+ *
+ * Provider 的 `loadEvidenceQueue()` 把「读取失败」压成 `null`，界面因此无法与
+ * 「还在读」区分，只能长期停在「正在读取暂存证据…」。这里保留服务端的错误码与
+ * 可读原因，供写回面板区分 加载中 / 读取失败（带原因与重试入口）/ 空 / 有数据。
+ * 面板因此自己持有一份队列读数并在暂存/删除/提交后重读；Provider 的
+ * `evidenceQueue` 仍是它那一侧的副本（本单不越界改 Provider）。
+ */
+export type EvidenceQueueLoad =
+  | { status: 'ready'; queue: EvidenceQueue }
+  | { status: 'failed'; code: string; reason: string }
+
+export async function loadEvidenceQueueState(): Promise<EvidenceQueueLoad> {
+  const result = await fetchEvidenceQueue()
+  if (result.ok) return { status: 'ready', queue: result.data }
+  return { status: 'failed', code: result.code, reason: result.message }
+}
+
+export function removeEvidence(evidenceId: string): Promise<ApiResult<{ removed: boolean }>> {
+  return request('/api/learning/evidence/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ evidenceId }),
+  })
+}
+
+/** 步骤 2：预览（只读）。返回将写入的日志小节、进度差异、掌握变更与被阻止项。 */
+export function previewWriteback(options: {
+  evidenceIds: string[]
+  masteryUpdates?: { skill: string; level: string; evidence?: string }[]
+}): Promise<ApiResult<WritebackPreview>> {
+  return request<WritebackPreview>('/api/learning/evidence-preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ evidenceIds: options.evidenceIds, masteryUpdates: options.masteryUpdates ?? [] }),
+  })
+}
+
+/**
+ * 步骤 3：确认后提交。
+ * expectedHashes 是预览给出的目标指纹：服务端据此判断页面是否基于旧预览。
+ * **重试也必须带同一批真实指纹**（挂账⑤）：传 `{}` 等于让服务端跳过这道校验，
+ * 是「用关掉校验来让流程走通」，本模块不接受这种写法。
+ */
+export function commitWriteback(options: {
+  operationId: string
+  expectedHashes: Record<string, string | null>
+}): Promise<ApiResult<WritebackCommitResult>> {
+  return request<WritebackCommitResult>('/api/learning/evidence-commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationId: options.operationId, expectedHashes: options.expectedHashes }),
+  })
+}
+
+/**
+ * 回滚一次确认式写回。
+ * 成功回执里 `targets[].action` 区分「用备份还原」与「移除本次新建」；
+ * 被 409 `rollback_blocked` 挡住时走 ApiResult 的失败分支，`details.blockers` 带逐条原因。
+ */
+export function rollbackWriteback(operationId: string): Promise<ApiResult<WritebackRollbackResult>> {
+  return request<WritebackRollbackResult>('/api/learning/evidence-rollback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationId }),
+  })
+}
+
+/**
+ * 单个事务的明细（挂账 #35）。
+ *
+ * 返回的是「计划了什么 / 实际做了什么」的逐步事实：每一步的 kind、库内相对路径、
+ * 是否已应用、什么时候落的、是不是本来就无需改动，以及回滚能不能还原这一步。
+ * 备份的绝对路径不出网关，只回 `backupPresent` 这个「有没有备份可还原」。
+ */
+export function fetchWritebackTransaction(operationId: string): Promise<ApiResult<WritebackTransactionDetail>> {
+  return request<WritebackTransactionDetail>(`/api/learning/evidence-transaction/${encodeURIComponent(operationId)}`)
+}
+
+/**
+ * 事务账本（挂账 #35）：当前用户在服务端留下的写回事务，新→旧、条数受限。
+ * 界面刷新后「部分成功」横幅与逐步明细靠它复原，不再依赖 React 状态里的 operationId。
+ */
+export function fetchWritebackTransactions(): Promise<ApiResult<WritebackTransactionList>> {
+  return request<WritebackTransactionList>('/api/learning/evidence-transactions')
+}
+
+/**
+ * 账本读取的四态结果，口径与 `loadEvidenceQueueState()` 一致：
+ * 「读不到」必须带原因回到界面，不能被显示成「还没有写回事务」。
+ */
+export type WritebackLedgerLoad =
+  | { status: 'ready'; ledger: WritebackTransactionList }
+  | { status: 'failed'; code: string; reason: string }
+
+export async function loadWritebackLedgerState(): Promise<WritebackLedgerLoad> {
+  const result = await fetchWritebackTransactions()
+  if (result.ok) return { status: 'ready', ledger: result.data }

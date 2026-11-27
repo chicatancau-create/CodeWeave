@@ -1,0 +1,151 @@
+.challenges-view .target-output code.hit {
+  border-left: var(--cv-hair-width) solid var(--cv-ok);
+  padding-left: var(--ds-space-8, 8px);
+  color: var(--cv-ok);
+}
+
+.challenges-view .target-output code.miss {
+  border-left: var(--cv-hair-width) dashed var(--cv-bad);
+  padding-left: var(--ds-space-8, 8px);
+  color: var(--cv-bad);
+}
+
+/* 执行等级：可信度事实，恒定 info 色 + 图形 + 文字 */
+.challenges-view .execution-tier {
+  align-self: flex-start;
+  padding: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--cv-info);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.challenges-view .execution-tier.tier-worker {
+  color: var(--cv-ok);
+  background: var(--cv-ok-wash);
+}
+
+.challenges-view .execution-tier.tier-teaching {
+  color: var(--cv-info);                                             /* 恒定 info，非场景青 */
+  background: var(--cv-info-wash);
+}
+
+.challenges-view .execution-tier.tier-external {
+  color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .execution-tier::before {
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  transform: none;
+}
+
+.challenges-view .execution-tier.tier-worker::before {
+  background: currentColor;
+}
+
+.challenges-view .execution-tier.tier-teaching::before {
+  border-radius: var(--ds-shape-circle, 50%);
+}
+
+.challenges-view .execution-tier.tier-external::before {
+  transform: rotate(45deg);
+}
+
+/* ---------------------------------------------------------------------------
+   6. 草稿区 / 提交区：§5.2「明确的提交与草稿状态」的落点
+   —— 草稿 = 虚线细边 + 「未提交」文字；已提交 = 实线细边 + 恒定语义色标识。
+      两者并排（≥1024px 双栏），一眼可分。
+   -------------------------------------------------------------------------- */
+.challenges-view .challenge-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-10, 10px);
+  padding: var(--cv-pad);
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-scrim);
+  min-width: 0;
+}
+
+.challenges-view .challenge-zone--draft {
+  border-style: dashed;                                             /* 形状通道 1：草稿 = 虚线边界 */
+  background: none;
+}
+
+.challenges-view .challenge-zone--submitted {
+  border-style: solid;                                              /* 形状通道 2：提交 = 实线边界 */
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-zone-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-zone-no {
+  color: var(--cv-scene);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.challenges-view .challenge-zone-title {
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.challenges-view .challenge-zone-scope {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.04em;
+}
+
+/* 草稿留痕：一句话说明「本机、未提交、何时存」 */
+.challenges-view .challenge-draft-state {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  line-height: 1.6;
+}
+
+.challenges-view .challenge-draft-state svg {
+  flex: 0 0 auto;
+  color: var(--cv-faint);
+}
+
+.challenges-view .challenge-draft-state-label {
+  color: var(--cv-faint);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .field-label {
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-4, 4px);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.challenges-view .field-label textarea,
+.challenges-view .field-label input {

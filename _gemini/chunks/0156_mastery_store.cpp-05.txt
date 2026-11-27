@@ -1,0 +1,11 @@
+  if (!transaction.ok) return transaction;
+  const auto appended = append_durable(path(), line);
+  if (!appended.ok) return appended;
+  error.clear();
+  if (!std::filesystem::remove(pending_path(path()), error) || error) {
+    return app::Result::failure("清理掌握度追加事务失败");
+  }
+  return app::Result::success("掌握度已追加保存");
+}
+
+}  // namespace codeweave::learning

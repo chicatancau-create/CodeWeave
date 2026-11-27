@@ -1,0 +1,87 @@
+                    QuietButton {
+                        objectName: "workspaceRetrySave"
+                        ds: editorPage.ds
+                        label: "重试保存"
+                        enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
+                        onClicked: uiShell.saveDraft()
+                    }
+                    QuietButton { objectName: "workspaceDismissError"; ds: editorPage.ds; label: "知道了"; onClicked: uiShell.dismissContentStatus() }
+                }
+            }
+
+            // Workspace header
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: ds.s12
+                QuietButton {
+                    objectName: "workspaceBack"
+                    ds: editorPage.ds; label: "←"
+                    onClicked: uiShell.selectPage("学习")
+                    Accessible.name: "返回课程列表"
+                    ToolTip.visible: backHover.hovered
+                    ToolTip.text: "返回课程列表"
+                    HoverHandler { id: backHover }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        textFormat: Text.PlainText
+                        objectName: "workspaceLessonTitle"
+                        text: (editorPage.currentLesson ? (editorPage.currentLesson.label || "") + " · " : "")
+                              + editorPage.currentTitle
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 20
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        visible: !editorPage.codeMode
+                        text: (editorPage.currentLesson && editorPage.currentLesson.level
+                               ? editorPage.currentLesson.level : "等级待定")
+                              + " · "
+                              + (editorPage.currentLesson && editorPage.currentLesson.duration
+                                 ? editorPage.currentLesson.duration : "时长待定")
+                              + " · "
+                              + (uiShell.starterLanguage !== "" ? uiShell.starterLanguage : "无代码练习")
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                    }
+                }
+                PreferenceToggle {
+                    objectName: "workspaceCodeModeToggle"
+                    ds: editorPage.ds
+                    text: "代码模式"
+                    checked: editorPage.codeMode
+                    onToggled: editorPage.codeMode = checked
+                    Accessible.name: "代码模式"
+                }
+                IconButton {
+                    id: guideButton
+                    objectName: "workspaceGuideButton"
+                    ds: editorPage.ds
+                    glyph: "▤"
+                    tip: "课程指南"
+                    enabled: editorPage.currentLesson !== null
+                    onClicked: courseGuide.open()
+                }
+                IconButton {
+                    id: workspaceHelpButton
+                    objectName: "workspaceHelpButton"
+                    ds: editorPage.ds
+                    glyph: "?"
+                    tip: "查看学习指南"
+                    onClicked: hostRoot.openLearningHelp(workspaceHelpButton)
+                }
+                QuietButton {
+                    objectName: "workspaceSaveDraft"
+                    ds: editorPage.ds
+                    label: uiShell.draftDirty ? "保存草稿 *" : "保存草稿"
+                    enabled: uiShell.hasSelectedContent && !uiShell.draftPersistenceBlocked && !uiShell.draftSaving
+                    onClicked: uiShell.saveDraft()
+                }
+                QuietButton {
+                    id: lessonEvidenceButton

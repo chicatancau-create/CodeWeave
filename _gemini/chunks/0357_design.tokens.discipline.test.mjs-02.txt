@@ -1,0 +1,89 @@
+  'lp-eyebrow', 'lp-block-idx', 'guide-block', 'eyebrow', 'cv-auth__scene-tag',
+  'cv-auth__foot', 'cv-auth__eyebrow', 'cv-auth__brand', 'code-footer',
+  'calendar-weekdays',
+  // 2026-09-29：登录页左栏的三条说明，序号 `01/02/03` 是纯装饰——父级本身就是
+  // 一个 `<ol>`，顺序由列表语义给，序号只是把它显式画出来。删掉序号，三条说明
+  // 一字不少，所以它不该占正文档。
+  'cv-auth__spec-no',
+])
+
+describe('§2.2/§8 必读文字不得占用模板的装饰微字档', () => {
+  it('没有第二份 10.5px / 10px / 9.5px 字面量（要就用令牌，要就升档）', () => {
+    const lit = []
+    for (const f of files) {
+      code(f).split('\n').forEach((line, i) => {
+        if (/font-size:\s*(?:10\.5|10|9\.5)px/.test(line)) lit.push(`${rel(f)}:${i + 1} ${line.trim()}`)
+      })
+    }
+    expect(lit).toEqual([])
+  })
+
+  it('装饰微字档只出现在白名单选择器里（棘轮：新增即红）', () => {
+    const offenders = []
+    let micro = 0
+    for (const f of files) {
+      if (rel(f).startsWith('design/')) continue
+      let sel = ''
+      code(f).split('\n').forEach((line, i) => {
+        const inline = line.match(/^\s*([^{}]+)\{/)
+        if (inline) sel = inline[1].trim()
+        else if (line.trim().endsWith('{')) sel = line.trim().replace(/\{.*$/, '')
+        if (!/font-size:\s*var\(\s*--ds-size-(?:meta|hud|rail)\b/.test(line)) return
+        micro++
+        const classes = [...sel.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((m) => m[1])
+        if (!classes.length || !classes.every((c) => DECOR_MICRO.has(c))) {
+          offenders.push(`${rel(f)}:${i + 1}  ${sel || '(未取到选择器)'}  { ${line.trim()} }`)
+        }
+      })
+    }
+    expect(micro).toBeGreaterThan(10)
+    expect(offenders).toEqual([])
+    expect(DECOR_MICRO.size).toBe(19)
+  })
+})
+
+/* 色值棘轮（§2.2「颜色只能从设计令牌读取」剩下的那一段）。
+   2026-09-27 现跑现计：黑场 / 暖白 / 发丝线 / 语义状态 / 焦点环这些**结构色**已全部走 `--ds-*`
+   或 styles.css :root 的别名，余下的是**一次性的 alpha 洗色**——场景点缀在某页当浅底、登录页的
+   径向泛光与黑幕渐隐、滚动条与内凹分区的暖白档。同一族色在两处以上重复写的（`.45` 描边一族与
+   暖白 0.06 / 0.1 / 0.22 一族，共 29 处）已提成 `--ds-*-edge` / `--ds-wash-*`（tokens.css §4.5）。
+   这张表是提完之后的余量，口径与上面几条一致：折掉 var 兜底、跳过自定义属性的定义行
+   （定义处就是这些值的出处）。每一格只许减不许增；减到 0 就把那一行删掉，第二条专门盯这件事。 */
+const COLOR_CEILING = {
+  'styles.css': 44,
+}
+
+function colorCountPerFile() {
+  const per = new Map()
+  for (const f of files) {
+    const key = rel(f)
+    if (key.startsWith('design/')) continue
+    let n = 0
+    for (const line of code(f).split('\n')) {
+      if (/^\s*--[a-z0-9-]+\s*:/.test(line)) continue
+      n += (line.replace(COLOR_NESTED, 'TOK').match(COLOR_LIT) || []).length
+    }
+    if (n) per.set(key, n)
+  }
+  return per
+}
+
+describe('§2.2 色值字面量只减不增（棘轮）', () => {
+  it('每个文件的剩余色值字面量不超过登记的余量', () => {
+    const per = colorCountPerFile()
+    expect([...per.values()].reduce((a, b) => a + b, 0)).toBeGreaterThan(10)
+    const over = []
+    for (const [file, n] of per) {
+      const ceiling = COLOR_CEILING[file]
+      if (ceiling === undefined) over.push(`${file}: ${n} 处，但没有登记余量（新页面在写硬编码色值？）`)
+      else if (n > ceiling) over.push(`${file}: ${n} > 登记余量 ${ceiling}`)
+    }
+    expect(over, `新增或回潮的硬编码色值：\n${over.join('\n')}`).toEqual([])
+  })
+
+  it('余量降到 0 就删掉那一行（棘轮不许留下可以回潮的空间）', () => {
+    const per = colorCountPerFile()
+    const dead = Object.keys(COLOR_CEILING).filter((f) => !per.has(f))
+    expect(dead.map((f) => `${f} 已经没有硬编码色值，删掉 COLOR_CEILING 里这一行`)).toEqual([])
+  })
+})

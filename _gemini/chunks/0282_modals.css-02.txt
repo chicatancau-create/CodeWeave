@@ -1,0 +1,133 @@
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.cw-modal.cw-modal--help {
+  width: min(460px, 100%);
+}
+
+/* 模态打开时滚动条不再压住发丝线边界 */
+.cw-modal-backdrop .cw-modal {
+  scrollbar-gutter: stable;
+}
+
+/* ── 2. 页眉：编号眉标 + 展示标题 + 细线下边界（与 §5.2 全站同一字体档） ──── */
+.cw-modal .cw-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-14, 14px);
+  padding-bottom: var(--ds-space-14, 14px);
+  border-bottom: var(--cm-line) solid var(--cm-hair-raised);
+}
+.cw-modal .cw-modal-eyebrow {
+  margin: 0 0 var(--ds-space-6, 6px);
+  color: var(--cm-ink-2);
+  font-family: var(--cm-mono);
+  font-size: var(--cm-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);
+  text-transform: uppercase;
+}
+.cw-modal .cw-modal-title {
+  margin: 0;
+  color: var(--cm-ink);
+  font-family: var(--cm-ui);
+  font-size: clamp(20px, 3.4vw, 26px);
+  font-weight: var(--ds-weight-display, 200);   /* §5.1 展示标题字重 */
+  letter-spacing: var(--ds-track-title, -0.02em); /* 负字距 */
+  line-height: var(--ds-leading-title, 1.15);     /* 中文多行走 1.15，不走 1 */
+}
+
+/* 关闭按钮：44×44 命中区（旧全局 .icon-button 为 34×34，不达 §5.4） */
+.cw-modal .cw-modal-close {
+  flex: 0 0 auto;
+  width: var(--cm-tap);
+  min-width: var(--cm-tap);
+  height: var(--cm-tap);
+  display: grid;
+  place-items: center;
+  color: var(--cm-ink-2);
+  border: var(--cm-line) solid var(--cm-hair);
+  border-radius: var(--cm-radius);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-close:hover {
+  color: var(--cm-ink);
+  border-color: var(--cm-edge-active);
+}
+
+.cw-modal .cw-modal-close:active {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+
+/* ── 3. 分区与行：细线分隔，不用卡片底色（§5.1 移除大面积玻璃卡） ─────────── */
+.cw-modal .cw-modal-section {
+  margin-top: var(--ds-space-24, 24px);
+}
+.cw-modal .cw-modal-section > .cw-modal-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  margin: 0 0 var(--ds-space-8, 8px);
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--cm-line) solid var(--cm-hair);
+  color: var(--cm-ink);
+  font-family: var(--cm-mono);
+  font-size: var(--cm-meta);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.cw-modal .cw-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-16, 16px);
+  min-height: calc(var(--cm-tap) + 12px); /* 整行即 label 命中区，远超 44px */
+  padding: var(--ds-space-12, 12px) 0;
+  border-top: var(--cm-line) solid var(--cm-hair);
+}
+.cw-modal .cw-modal-row:first-of-type {
+  border-top: 0;
+}
+.cw-modal .cw-modal-row > .cw-modal-row-text,
+.cw-modal .cw-modal-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+}
+.cw-modal .cw-modal-row strong {
+  color: var(--cm-ink);
+  font-size: var(--cm-body);           /* §5.4：主文字 16px（旧值 13px） */
+  font-weight: var(--ds-weight-body, 400);
+  line-height: var(--cm-leading);
+}
+.cw-modal .cw-modal-row small {
+  color: var(--cm-ink-2);              /* 0.56 档 = 5.86:1，过 §5.4 的 4.5:1 */
+  font-size: var(--cm-meta);
+  line-height: var(--cm-leading);
+}
+
+/* ── 4. 开关：细线轨 + 直角滑块；开/关由「位置 + 描边 + 原生 checked」三重表达 ─
+     颜色不是唯一通道：滑块位移 20px、DOM 里保留 role="checkbox" 的选中态，
+     读屏与高对比模式下都还能判定状态。 */
+.cw-modal .cw-modal-row input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--cm-tap) + 4px); /* 48px 宽，配合 28px 高保持可点 */
+  min-width: var(--cm-tap);
+  height: 28px;
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-canvas);
+  cursor: pointer;
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}

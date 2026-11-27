@@ -1,0 +1,128 @@
+                "visible": true,
+                "width": 396,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsPreferenceSelect5",
+            "controlEnabled": false,
+            "controlHeight": 44,
+            "controlRightInset": 0,
+            "controlWidth": 72,
+            "controlX": 421,
+            "descriptionText": "按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 389
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 405,
+                "x": 0,
+                "y": 45
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 83,
+            "index": 5,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "Tab 缩进宽度（待接入）",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "found": true,
+                "height": 29,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 153
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 405,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsPreferenceToggle6",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "descriptionText": "开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 299
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 45
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 83,
+            "index": 6,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "代码自动换行（待接入）",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "found": true,
+                "height": 29,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 28.8

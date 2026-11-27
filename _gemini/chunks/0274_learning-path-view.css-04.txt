@@ -1,0 +1,187 @@
+/* ── ledger 细线表格（site.css L363-L381 的结构语言） ────────────────────── */
+.lp-ledger {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+/* #95：窄屏下靠这个可聚焦的滚动区吃溢出，而不是把「课程单元」列挤到 113px */
+.lp-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+.lp-table-scroll:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: 2px;
+}
+
+.lp-ledger th,
+.lp-ledger td {
+  padding: var(--ds-space-14, 14px) var(--ds-space-8, 8px) var(--ds-space-16, 16px) 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: var(--ds-weight-body, 400);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-ledger thead th {
+  padding: var(--ds-space-10, 10px) var(--ds-space-8, 8px) var(--ds-space-8, 8px) 0;
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+.lp-col-num {
+  width: 3.6em;
+}
+
+.lp-col-status {
+  width: 7em;
+}
+
+.lp-cell-num {
+  font-size: var(--ds-size-control, 13px);
+  color: var(--lp-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-row-idx,
+.lp-row-code {
+  display: block;
+}
+
+.lp-row-code {
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-dim);
+}
+
+.lp-row.is-selected .lp-cell-num {
+  color: var(--lp-ink);
+}
+
+.lp-row-btn {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  width: 100%;
+  min-height: var(--lp-tap);
+  padding: var(--ds-space-2, 2px) var(--ds-space-4, 4px) var(--ds-space-2, 2px) 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-control, 0);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: var(--lp-leading);
+  text-align: left;
+  transition: color var(--lp-quick) var(--lp-ease);
+}
+
+.lp-row-btn:hover .lp-row-title {
+  color: var(--lp-accent);
+}
+
+.lp-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+}
+
+/* 正文 16px / 1.7；长中文标题换行不撑破（§5.4） */
+.lp-row-title {
+  font-size: var(--lp-body);
+  line-height: 1.5;
+  color: var(--lp-ink);
+}
+
+.lp-row-desc {
+  font-size: var(--lp-meta);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+}
+
+/* ── 标识：固定字符徽记 + 文字，边框样式各异 → 不依赖颜色（§5.1 末段） ─────── */
+.lp-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-6, 6px);
+  margin-top: var(--ds-space-2, 2px);
+}
+
+.lp-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-4, 4px) var(--ds-space-8, 8px) var(--ds-space-4, 4px) var(--ds-space-4, 4px);
+  border: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--lp-meta);
+  line-height: 1.4;
+  color: var(--lp-dim);
+}
+
+.lp-mark-glyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.65em;
+  height: 1.65em;
+  border: var(--ds-line-width, 1px) solid currentColor;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--lp-ink);
+}
+
+.lp-mark--vault {
+  border-style: solid;
+  color: var(--lp-ink);
+}
+
+.lp-mark--legacy {
+  border-style: dashed;
+}
+
+.lp-mark--unknown {
+  border-style: dashed;
+  color: var(--lp-dim);
+}
+
+/* 缺口：虚线框 + 下划线点线 + 加粗文字，三重非颜色冗余 */
+.lp-mark--gap {
+  border-style: dotted;
+  border-color: var(--lp-hair-raised);
+  color: var(--lp-ink);
+}
+
+.lp-mark--gap .lp-mark-text {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.lp-mark--reading {
+  border-style: solid;
+}
+
+.lp-mark--external {
+  border-style: solid double;
+}
+
+.lp-mark--selected {
+  border-color: var(--lp-accent);
+  color: var(--lp-ink);
+}
+
+.lp-mark--selected .lp-mark-glyph {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+}
+
+/* ── LEARN-01 第 4 条：学习状态行（已阅读 / 已练习 / 已提交证据 / 自评通过 / …）
+   只登记记录里已经成立的那几项，一条都不推断；徽记 ✓ 对读屏隐藏，语义由文字承载。

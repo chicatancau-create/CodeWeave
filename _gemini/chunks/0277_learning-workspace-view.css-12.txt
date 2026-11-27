@@ -1,0 +1,140 @@
+.cw-workspace .lesson-source-head {
+  gap: var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .lesson-source-head span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.16em;
+}
+.cw-workspace .lesson-source-head strong {
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .tag-vault,
+.cw-workspace .tag-legacy,
+.cw-workspace .tag-verification {
+  padding: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-pill, 100px);
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.1em;
+}
+.cw-workspace .tag-vault {
+  color: var(--cw-info);
+}
+.cw-workspace .tag-legacy {
+  color: var(--cw-warn);
+}
+.cw-workspace .tag-verification.ok {
+  color: var(--cw-ok);
+}
+.cw-workspace .tag-verification.warn {
+  color: var(--cw-err);
+}
+.cw-workspace .lesson-source-path,
+.cw-workspace .lesson-source-ids {
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  line-height: 1.6;
+  word-break: break-all;
+}
+.cw-workspace .lesson-source-actions {
+  margin-top: var(--ds-space-10, 10px);
+}
+.cw-workspace .lesson-source .md-view {
+  margin-top: var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  color: var(--cw-fg);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .lesson-guide {
+  gap: 0;
+  margin-top: var(--ds-space-16, 16px);
+  padding: 0;
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 761px) {
+  .cw-workspace .lesson-guide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1081px) {
+  .cw-workspace .lesson-guide {
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  }
+}
+.cw-workspace .guide-block {
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px);
+  border-right: var(--cw-line-width) solid var(--cw-line);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .guide-block > span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: none;
+}
+.cw-workspace .guide-block strong {
+  color: var(--cw-fg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: var(--cw-leading);
+}
+.cw-workspace .guide-block ul,
+.cw-workspace .guide-block ol {
+  margin: 0;
+  padding-left: var(--ds-space-20, 20px);
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .guide-block li::marker {
+  color: var(--cw-scene);
+}
+.cw-workspace .guide-block p {
+  margin: var(--ds-space-6, 6px) 0 0;
+  color: var(--cw-fg-dim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .guide-block small {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+}
+.cw-workspace .guide-block .guide-prereq small {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .guide-exercise strong {
+  color: var(--cw-fg);
+}
+.cw-workspace .guide-project strong {
+  color: var(--cw-fg);
+}
+/* 2026-09-30 单屏化：从「整块横幅」（实测 90px）收成**一行条**——这一块只有一句
+   「关键理解」，横幅的上下内衬与 16px 正文让它白占掉 90px。它是 always-mounted 的
+   （`.lesson-insight p` 必须在**无交互**的渲染里就含正文，m3 测试钉着），所以只能压
+   高度、不能折叠。正文降到 13px 等宽并允许换行：一句话通常一行放得下，长了就折。 */

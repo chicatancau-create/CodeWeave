@@ -1,0 +1,108 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "ExecutionStage.js" as Stage
+
+Rectangle {
+    id: panel
+    required property QtObject ds
+    required property var trace
+    required property bool busy
+    required property var draftRevision
+    readonly property var events: trace.events || []
+    readonly property int currentIndex: eventList.currentIndex
+    readonly property var currentEvent: currentIndex >= 0 && currentIndex < events.length
+                                         ? events[currentIndex] : null
+    readonly property var frame: Stage.frameAt(events, currentIndex)
+    property string viewedSession: ""
+    property bool followLatest: true
+    property int viewedSequence: 0
+    function selectEvent(index) {
+        if (index < 0 || index >= events.length) return;
+        followLatest = index === events.length - 1;
+        viewedSequence = events[index].sequence;
+        eventList.currentIndex = index;
+    }
+    readonly property string outputText: {
+        let result = "";
+        for (let i = 0; i <= currentIndex && i < events.length; ++i)
+            if (events[i].kind === "output") result += events[i].payload;
+        return result;
+    }
+    onEventsChanged: Qt.callLater(function() {
+        const session = panel.trace.sessionId || "";
+        if (panel.viewedSession !== session) {
+            panel.viewedSession = session;
+            panel.followLatest = true;
+        }
+        let target = panel.events.length - 1;
+        if (!panel.followLatest) {
+            for (let i = 0; i < panel.events.length; ++i) {
+                if (panel.events[i].sequence === panel.viewedSequence) {
+                    target = i;
+                    break;
+                }
+            }
+        }
+        eventList.currentIndex = target;
+    })
+    color: ds.stageBg
+    radius: ds.radiusSm
+    border.color: ds.line
+    clip: true
+    implicitHeight: traceContent.implicitHeight + panel.ds.s16
+
+    ColumnLayout {
+        id: traceContent
+        anchors.fill: parent
+        anchors.margins: panel.ds.s8
+        spacing: panel.ds.s6
+
+        Text {
+            objectName: "executionTraceVersion"
+            Layout.fillWidth: true
+            text: panel.events.length === 0
+                  ? (panel.busy ? "运行中，等待执行事件" : "暂无执行事件")
+                  : panel.trace.sourceRevision !== panel.draftRevision
+                    ? "上次运行版本 · 代码已修改"
+                    : "本次运行记录"
+            color: panel.trace.sourceRevision !== panel.draftRevision && panel.events.length > 0
+                   ? panel.ds.warning : panel.ds.muted
+            font.family: panel.ds.ui
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+        }
+
+        Text {
+            objectName: "executionTraceSourceLine"
+            Layout.fillWidth: true
+            visible: panel.currentEvent !== null && panel.currentEvent.kind === "source_step"
+            text: visible ? "源码第 " + panel.currentEvent.sourceLine + " 行" : ""
+            color: panel.ds.accent
+            font.family: panel.ds.mono
+            font.pixelSize: 12
+        }
+
+        Text {
+            objectName: "executionTraceVariables"
+            Layout.fillWidth: true
+            visible: panel.currentEvent !== null && panel.currentEvent.kind === "source_step"
+            text: {
+                if (!visible) return "";
+                const variables = panel.currentEvent.variables || {};
+                const names = Object.keys(variables);
+                if (names.length === 0) return "变量：无局部变量";
+                return "变量：" + names.map(function(name) {
+                    return name + " = " + variables[name];
+                }).join("  ·  ");
+            }
+            color: panel.ds.ink
+            font.family: panel.ds.mono
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+            maximumLineCount: 1
+            elide: Text.ElideRight
+        }
+
+        StageDiagram {
+            objectName: "executionStageDiagram"

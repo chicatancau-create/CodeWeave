@@ -1,0 +1,81 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: settings
+    required property QtObject ds
+    signal openPrivacy
+    spacing: 0
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.bottomMargin: settings.ds.s14
+        Text { Layout.fillWidth: true; text: "学习体验"; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13 }
+        QuietButton {
+            ds: settings.ds
+            label: "恢复默认"
+            objectName: "settingsRestoreDefaults"
+            implicitHeight: 44
+            enabled: uiShell.preferenceStorageReady
+                && (uiShell.reducedMotion || uiShell.editorFontSize !== 13 || !uiShell.editorLineNumbers)
+            ToolTip.text: "恢复已接入的偏好默认值"
+            onClicked: uiShell.restoreDefaultPreferences()
+        }
+    }
+    Repeater {
+        model: [
+            { title: "学习提醒", description: "在本机保留学习提醒状态", options: [] },
+            { title: "编辑器自动保存", description: "修改课程代码时自动保存到本机", options: [] },
+            { title: "紧凑工作区", description: "减少面板间距，显示更多代码内容", options: [] },
+            { title: "减弱动画", description: "关闭过渡与闪烁动画，保持静态界面", options: [] },
+            { title: "编辑器字号", description: "调整代码编辑区的字体大小", options: [12, 13, 14, 15, 16, 18] },
+            { title: "Tab 缩进宽度", description: "按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走", options: [2, 4] },
+            { title: "代码自动换行", description: "开着长行折进本栏；关着长行走横向滚动条（默认）", options: [] },
+            { title: "显示行号", description: "关掉只是不画左栏那一列，代码文本一个字都不变", options: [] }
+        ]
+        delegate: Item {
+            id: preferenceRow
+            required property var modelData
+            required property int index
+            readonly property bool supported: modelData.title === "减弱动画"
+                || modelData.title === "编辑器字号" || modelData.title === "显示行号"
+            objectName: "settingsPreferenceRow" + index
+            Layout.fillWidth: true
+            implicitHeight: Math.max(72, row.implicitHeight,
+                preferenceTextColumn.implicitHeight + settings.ds.s12 * 2)
+            Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: settings.ds.line }
+            RowLayout {
+                id: row
+                anchors.fill: parent
+                anchors.topMargin: settings.ds.s12
+                anchors.bottomMargin: settings.ds.s12
+                spacing: settings.ds.s16
+                ColumnLayout {
+                    id: preferenceTextColumn
+                    Layout.fillWidth: true
+                    spacing: settings.ds.s4
+                    Text {
+                        objectName: "settingsPreferenceTitle" + index
+                        Layout.fillWidth: true
+                        text: modelData.title + (preferenceRow.supported ? "" : "（待接入）")
+                        color: settings.ds.ink
+                        font.family: settings.ds.ui
+                        font.pixelSize: 14
+                        lineHeight: font.pixelSize * 1.6
+                        lineHeightMode: Text.FixedHeight
+                        wrapMode: Text.WrapAnywhere
+                    }
+                    Text {
+                        objectName: "settingsPreferenceDescription" + index
+                        Layout.fillWidth: true
+                        text: modelData.description
+                            + (preferenceRow.supported && !uiShell.preferenceStorageReady ? "（本机配置不可用）" : "")
+                        color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13
+                        lineHeight: font.pixelSize * 1.6
+                        lineHeightMode: Text.FixedHeight
+                        wrapMode: Text.WrapAnywhere
+                    }
+                }
+                Rectangle {
+                    id: preferenceToggle
+                    objectName: modelData.title === "减弱动画" ? "settingsReducedMotionToggle"

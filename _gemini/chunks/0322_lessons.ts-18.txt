@@ -1,0 +1,75 @@
+    flow: sumFlow('开始', '接收用户输入', '识别危险字符', '输出侧转义', '安全渲染'),
+    insight: 'XSS 的根因是“数据被当成代码执行”；转义发生在输出侧，且必须按输出上下文选择转义规则。', fileName: 'xss-sanitize.js', runtime: 'Browser JS 沙箱',
+    content: unit(
+      '独立实现 HTML 转义函数，在沙箱中验证恶意载荷被净化，并解释三条 XSS 防线。',
+      {
+        prerequisites: ['b1-array-basics', 'd3-dom-events'],
+        explanation: [
+          '存储型/反射型/DOM 型 XSS 的共同点：不可信数据进入了代码执行环境。',
+          '输出侧转义（& < > " \'）让标签变成普通文本；textContent 天然安全，innerHTML 危险。',
+          '防线叠加：CSP 响应头、HttpOnly Cookie、框架默认转义——任何一层都不能单独兜底。',
+        ],
+        examples: [
+          { good: 'escapeHtml 把 <img onerror=...> 变成不可执行的文本实体', bad: '把用户输入直接 innerHTML 或拼进模板', why: 'innerHTML 会解析并执行标签内的事件' },
+        ],
+        guidedSteps: ['在沙箱运行示例，观察净化前后差异。', '构造一个含 onclick 的载荷，验证转义后不再含活标签。', '把 map 扩展支持反引号，说明为什么模板字符串里也要防。'],
+        exercise: '独立实现 escapeHtml 并用三类载荷（img/onerror、script、javascript: 链接）验证。',
+        variant: '写一个「安全拼接 URL」函数：只允许 http/https 协议，拒绝 javascript:。',
+        projectTask: '净化函数接入 D 阶段待办应用的渲染层，形成“输入任意、输出安全”的示范。',
+        mistakes: ['只在输入侧过滤（绕过方式层出不穷），输出侧转义才是防线', '用正则删标签当“过滤”，属性事件仍可逃逸'],
+        runCommand: '运行按钮（浏览器沙箱真实执行）',
+        completion: '三类载荷全部被转义，能解释输出侧转义与 CSP/HttpOnly 的分层关系。',
+        runEnvironment: 'teaching',
+        estimatedMinutes: 35,
+        acceptanceCriteria: ['三类恶意载荷净化后不含活标签', '能说出 textContent 与 innerHTML 的区别', '能解释三层防线'],
+        evidenceChecklist: ['沙箱运行输出', '三类载荷验证记录'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'J',
+    ),
+  },
+  {
+    id: 'j3-csrf-cors-boundary', language: 'javascript', languageLabel: '安全', label: 'J3',
+    title: 'CSRF、CORS 与请求边界', description: '谁有权发起这个请求', duration: '35 min', level: '进阶', progress: 0,
+    code: '# CSRF 与 CORS 观察（本项目 API）：\n# 1. 从另一源（如 file:// 或其他端口页面）fetch 本项目 /api/profile\n# 2. 观察响应头是否含 Access-Control-Allow-Origin\n# 3. 带 Cookie 的跨站表单 POST：被 SameSite=Lax 拦截还是放行？',
+    flow: sumFlow('开始', '跨源请求', '浏览器 CORS 预检', '服务端响应头', '放行或拦截'),
+    insight: 'CORS 是浏览器对响应的放行规则，CSRF 是“借用户身份发请求”的攻击——两者常被混为一谈。', fileName: 'boundary-notes.md', runtime: '外部环境 · 浏览器 + curl',
+    content: unit(
+      '独立完成一次跨源请求观察，并解释 SameSite 与 CORS 各自拦截的是哪一类风险。',
+      {
+        prerequisites: ['j1-auth-session-flow'],
+        explanation: [
+          'CORS：浏览器允许跨源读取响应的前提是服务端返回正确的 Access-Control 头。',
+          'CSRF：攻击者诱导已登录用户的浏览器向目标站点发请求；SameSite/CSRF Token 是主要防线。',
+          '预检（OPTIONS）：非简单请求先问后发，服务端必须显式应答允许的方法与头。',
+        ],
+        examples: [
+          { good: '跨源 API 只放行已知来源列表并配合凭证策略', bad: 'Access-Control-Allow-Origin: * 同时 Allow-Credentials: true（浏览器会直接拒绝）', why: '凭证跨源必须指名来源' },
+        ],
+        guidedSteps: ['从不同源页面 fetch 本项目 API，记录预检与响应头。', '检查本项目 Cookie 的 SameSite 属性并解释其拦截范围。', '构造一个跨站表单 POST 场景（本地两端口），观察是否被拦。'],
+        exercise: '独立整理“CSRF vs CORS vs XSS”三者的攻击面与防线对照表。',
+        variant: '为本项目 API 设计一段 CORS 中间件配置，并说明为什么不能写星号。',
+        projectTask: '请求边界对照表进入 J 阶段验收的安全测试用例清单。',
+        mistakes: ['遇到跨域就加星号响应头', '认为 CORS 是服务端安全（它管的是浏览器读取，不是服务端鉴权）'],
+        runCommand: '浏览器跨源页面 + curl -H Origin（真实行为）',
+        completion: '三概念对照表完整，跨源实验有两源实测记录。',
+        runEnvironment: 'external',
+        estimatedMinutes: 35,
+        acceptanceCriteria: ['跨源请求预检与响应头记录完整', '能区分 CSRF 与 CORS 的拦截对象', 'SameSite 行为有实测'],
+        evidenceChecklist: ['跨源实验记录', '三者对照表'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'J',
+    ),
+  },
+]
+
+/** 阶段 K：Spring Cloud 与微服务（外部环境实验：多服务 + 网关） */
+const stageKUnits: Lesson[] = [
+  {
+    id: 'k1-service-discovery', language: 'java', languageLabel: 'Spring Cloud', label: 'K1',
+    title: '注册发现与服务调用', description: '两个服务如何找到彼此', duration: '50 min', level: '进阶', progress: 0,
+    code: '# 服务 A 与 B 都向注册中心注册：\n# spring.application.name=service-a / service-b\n# 服务 A 通过服务名调用 B（负载均衡由调用端解析）：\n# GET http://service-b/api/tasks',
+    flow: sumFlow('开始', '服务启动注册', '调用方按名查询', '负载均衡选实例', '发起调用'),
+    insight: '注册中心把“IP:端口”换成“服务名”：实例可以随起随停，调用方无感知。', fileName: 'bootstrap.yml', runtime: '外部环境 · Spring Cloud + 注册中心',
+    content: unit(

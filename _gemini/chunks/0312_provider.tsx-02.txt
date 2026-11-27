@@ -1,0 +1,113 @@
+  /** 步骤 3：确认后提交（按日志 → 进度 → 索引写入） */
+  commitEvidence: (operationId: string, expectedHashes: Record<string, string | null>) => Promise<ApiResult<WritebackCommitResult>>
+  /** 未写回或离线时导出待保存 Markdown */
+  exportEvidence: (evidenceIds?: string[]) => Promise<ApiResult<EvidenceExportResult>>
+}
+
+const ContentContext = createContext<ContentContextValue | null>(null)
+/**
+ * 导出容器本身：正文侧的双链需要「带内容目录的局部 Provider」来注入快照目录
+ * （渲染测试与宿主自建局部目录都用它；读取一律走 useContent / useOptionalContent）。
+ */
+export const ContentProviderHost = ContentContext
+
+export function useContent(): ContentContextValue {
+  const value = useContext(ContentContext)
+  if (!value) throw new Error('useContent 必须在 ContentProvider 内使用')
+  return value
+}
+
+/**
+ * 可选读取：教材正文里的双链需要判定「目标是否已发布」，
+ * 但正文组件允许在 Provider 之外渲染（例如未连接内容时的旧课程视图）。
+ * 因此这里不抛错，返回 null 由调用方退化为「无法判定发布状态」的提示。
+ */
+export function useOptionalContent(): ContentContextValue | null {
+  return useContext(ContentContext)
+}
+
+export function ContentProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  const [snapshot, setSnapshot] = useState<ContentSnapshot | null>(null)
+  const [status, setStatus] = useState<ContentStatusResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [state, setState] = useState<ContentState>('unconfigured')
+  const [loading, setLoading] = useState(false)
+  const [learningStatus, setLearningStatus] = useState<LearningStatus | null>(null)
+  /** 重新加载令牌：refresh() 只推进令牌，真正的加载在 effect 里执行并带取消保护。 */
+  const [reloadToken, setReloadToken] = useState(0)
+  const detailCache = useRef(new Map<string, Lesson>())
+  const lifetime = useRef<AbortController | null>(null)
+  const pendingJob = useRef<{ id: string; dryRun: boolean } | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    lifetime.current = controller
+    return () => controller.abort()
+  }, [])
+  const progressCache = useRef<VaultProgress | null>(null)
+
+  /**
+   * 首次加载与手动刷新共用同一段逻辑。
+   * 第一步就是 await（外部系统 I/O），因此 effect 体内不会同步 setState，
+   * 也不会出现「渲染期间调用远程接口」的 cascading render 问题。
+   */
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    const run = async () => {
+      if (!enabled) {
+        if (cancelled) return
+        setSnapshot(null)
+        setStatus(null)
+        setState('unconfigured')
+        setError(null)
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      const statusResult = await fetchStatus(controller.signal)
+      if (cancelled) return
+      if (!statusResult.ok) {
+        setStatus(null)
+        setState(statusResult.code === 'unauthorized' ? 'unavailable' : 'error')
+        setError(statusResult.message)
+        setLoading(false)
+        return
+      }
+      setStatus(statusResult.data)
+      setState(statusResult.data.state)
+      // 绑定状态与教材目录互不依赖，并行请求缩短首屏等待；两者共享本次加载的取消信号。
+      const [learningResult, catalogResult] = await Promise.all([
+        fetchLearningStatus(controller.signal),
+        fetchCatalog(controller.signal),
+      ])
+      if (cancelled) return
+      setLearningStatus(learningResult.ok ? learningResult.data : null)
+      if (!catalogResult.ok) {
+        setSnapshot(null)
+        setError(catalogResult.message)
+        setLoading(false)
+        return
+      }
+      setSnapshot(catalogResult.data)
+      detailCache.current.clear()
+      progressCache.current = null
+      setError(null)
+      setLoading(false)
+    }
+    void run()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [enabled, reloadToken])
+
+  const refresh = useCallback(async () => {
+    setReloadToken((token) => token + 1)
+  }, [])
+
+  const adapted = useMemo(() => (snapshot ? adaptCatalog(snapshot) : adaptFallback()), [snapshot])
+  const subjects = useMemo(() => collectSubjects(adapted.lessons), [adapted.lessons])
+
+  const sourceKind: ContentSourceKind = useMemo(() => {
+    if (snapshot) return 'vault'
+    return adapted.lessons.length > 0 ? 'legacy-fallback' : 'none'

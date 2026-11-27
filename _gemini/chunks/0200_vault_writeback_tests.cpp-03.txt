@@ -1,0 +1,61 @@
+  auto tx = QJsonDocument::fromJson(read_file(tx_path)).object();
+  auto steps = tx.value("targets").toArray(); auto first = steps[0].toObject();
+  const auto after = first.value("after").toString().toUtf8();
+  first["prepared"] = true;
+  first["postHash"] = QString::fromLatin1(QCryptographicHash::hash(after, QCryptographicHash::Sha256).toHex());
+  steps[0] = first; tx["targets"] = steps; tx["state"] = "writing";
+  write_file(tx_path, QJsonDocument(tx).toJson());
+  write_file(QDir(fixture.vault).filePath(first.value("path").toString()), after);
+  auto recovered = fixture.store();
+  assert(recovered.commit(operation, hashes(preview), result).ok);
+  assert(read_file(QDir(fixture.vault).filePath(first.value("path").toString())) == after);
+  const auto index = read_file(QDir(fixture.vault).filePath(index_path));
+  assert(index.contains("2026-11-08-lesson-a") && index.contains("2026-11-07-lesson-b"));
+  assert(recovered.rollback(operation, result).ok);
+  assert(read_file(QDir(fixture.vault).filePath(index_path)) == fixture.index);
+}
+
+void test_latest_progress_and_older_append() {
+  Fixture fixture; auto store = fixture.store();
+  fixture.evidence("older", "2026-11-07", "lesson-old");
+  fixture.evidence("newer", "2026-11-08", "lesson-new");
+  assert(store.bindOwner().ok);
+  QVariantMap preview, result;
+  assert(store.preview({"older", "newer"}, preview).ok);
+  assert(store.commit(preview.value("operationId").toString(), hashes(preview), result).ok);
+  const auto old_log = QDir(fixture.vault).filePath(
+      QStringLiteral("全栈工程师学习计划/学习日志/2026-11/2026-11-07-lesson-old.md"));
+  assert(read_file(old_log).startsWith(QStringLiteral("# 2026-11-07 学习日志 · lesson-old\n").toUtf8()));
+  const auto new_log = QDir(fixture.vault).filePath(
+      QStringLiteral("全栈工程师学习计划/学习日志/2026-11/2026-11-08-lesson-new.md"));
+  assert(read_file(new_log).startsWith(QStringLiteral("# 2026-11-08 学习日志 · lesson-new\n").toUtf8()));
+  const auto progress = read_file(QDir(fixture.vault).filePath(progress_path));
+  assert(progress.contains("2026-11-08-lesson-new"));
+  assert(progress.contains("| lesson-new |"));
+  assert(progress.contains("2026-11-08"));
+
+  fixture.evidence("backfill", "2026-11-06", "lesson-earlier");
+  assert(store.preview({"backfill"}, preview).ok);
+  assert(store.commit(preview.value("operationId").toString(), hashes(preview), result).ok);
+  assert(read_file(QDir(fixture.vault).filePath(progress_path)) == progress);
+  assert(read_file(QDir(fixture.vault).filePath(index_path)).contains("2026-11-06-lesson-earlier"));
+
+  const auto old_bytes = read_file(old_log);
+  fixture.evidence("append", "2026-11-07", "lesson-old");
+  assert(store.preview({"append"}, preview).ok);
+  assert(store.commit(preview.value("operationId").toString(), hashes(preview), result).ok);
+  assert(read_file(old_log).startsWith(old_bytes));
+  assert(read_file(QDir(fixture.vault).filePath(progress_path)) == progress);
+  assert(store.rollback(preview.value("operationId").toString(), result).ok);
+  assert(read_file(old_log) == old_bytes);
+}
+}  // namespace
+
+int main(int argc, char** argv) {
+  QCoreApplication app(argc, argv);
+  test_confirm_commit_and_rollback();
+  test_conflicts_corruption_and_cross_account();
+  test_multi_group_recovery_and_lock();
+  test_latest_progress_and_older_append();
+  std::cout << "Vault writeback: confirmation, hash conflicts, account boundaries, recovery and rollback passed\n";
+}

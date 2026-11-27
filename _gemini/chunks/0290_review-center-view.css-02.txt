@@ -1,0 +1,150 @@
+.cw-review .rv-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: var(--ds-space-seam, -1px);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  caption-side: top;
+}
+
+/* ── 焦点：黑场上高于发丝线一档（tokens §5 产品规则值） ────────────────────── */
+.cw-review :is(button, a, summary, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 页头：沿用共享 .module-heading / .eyebrow，只把正文抬到 16px 档 ───────── */
+.cw-review .module-heading {
+  align-items: flex-end;
+  gap: var(--ds-space-14, 14px);
+  margin-bottom: 0;
+}
+
+.cw-review .module-heading p:not(.eyebrow) {
+  font-size: var(--rv-body);
+  line-height: var(--rv-leading);
+  color: var(--rv-dim);
+  max-width: var(--ds-measure-lead, 44ch);
+}
+
+.cw-review .challenge-stats span {
+  font-size: var(--rv-meta);
+  color: var(--rv-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 分组标题：编号 01/02/03 + 发丝线，不用卡片 ───────────────────────────── */
+.cw-review .rv-block {
+  display: grid;
+  gap: clamp(var(--ds-space-10, 10px), 1.4vw, var(--ds-space-16, 16px));
+  min-width: 0;
+}
+
+.cw-review .rv-block-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  font-size: clamp(16px, 1.6vw, 20px);
+  line-height: var(--ds-leading-title, 1.15);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--rv-hair-raised);
+}
+
+.cw-review .rv-block-idx {
+  font-size: clamp(20px, 2.8vw, 32px);
+  line-height: 1;
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-display, -0.03em);
+  color: var(--rv-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-review .rv-block-title {
+  color: var(--rv-ink);
+}
+
+.cw-review .rv-block-note {
+  margin-left: auto;
+  font-size: var(--rv-meta);
+  letter-spacing: normal;
+  color: var(--rv-dim);
+}
+
+/* ── ledger 细线表格（site.css L363-L381 的结构语言） ─────────────────────── */
+/*
+ * 六列表格的横向滚动容器。320px 下内容宽只有约 231px：继续用 table-layout:auto 挤列，
+ * 实测「复习项 / 掌握等级 / 复测计划」会被压到 24px（一个字一行），而整张表仍然把页面
+ * 顶出 41px（`M6` §18.9 量的）。所以窄屏改为**给表一个可读下限 + 区域内滚动**，
+ * 而不是让列宽替页面买单。容器带 tabindex，键盘能进去滚（`:97` 那条焦点规则已覆盖 [tabindex]）。
+ */
+.cw-review .rv-table-scroll {
+  overflow-x: auto;
+}
+
+.cw-review .rv-ledger {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: var(--ds-line-width, 1px) solid var(--rv-hair);
+}
+
+.cw-review .rv-ledger th,
+.cw-review .rv-ledger td {
+  padding: var(--ds-space-14, 14px) var(--ds-space-10, 10px) var(--ds-space-16, 16px) 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: var(--ds-weight-body, 400);
+  font-size: var(--rv-body);
+  line-height: 1.55;
+  border-bottom: var(--ds-line-width, 1px) solid var(--rv-hair);
+  transition: background-color var(--rv-quick) var(--rv-ease);
+}
+
+.cw-review .rv-ledger thead th {
+  padding: var(--ds-space-10, 10px) var(--ds-space-10, 10px) var(--ds-space-8, 8px) 0;
+  font-size: var(--rv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--rv-dim);
+  border-bottom-color: var(--rv-hair-raised);
+}
+
+.cw-review .rv-ledger tbody tr th,
+.cw-review .rv-ledger tbody tr td {
+  transition: background-color var(--rv-quick) var(--rv-ease);
+}
+
+.cw-review .rv-ledger tbody tr:hover th,
+.cw-review .rv-ledger tbody tr:hover td {
+  background-color: var(--rv-wash);
+  box-shadow: var(--rv-glow-inset);             /* 悬停行：只给内高光，不动行高、不位移 */
+}
+
+/* 到期分组之间再加一道粗一点的发丝线，让三组在视觉上仍然是三组 */
+.cw-review .rv-block + .rv-block .rv-ledger {
+  border-top-color: var(--rv-hair-raised);
+}
+
+.cw-review .rv-col-num,
+.cw-review .rv-cell-num {
+  width: 3.2em;
+}
+
+.cw-review .rv-col-status,
+.cw-review .rv-cell-status {
+  width: 8.5em;
+}
+
+.cw-review .rv-col:nth-child(2),
+.cw-review .rv-cell-item {
+  width: 22%;
+}
+

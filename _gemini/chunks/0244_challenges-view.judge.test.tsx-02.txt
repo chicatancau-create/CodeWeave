@@ -1,0 +1,114 @@
+describe('CHAL-02 第 2 条 · 教学两关的起始代码在真 UI 里真能过', () => {
+  /**
+   * 「关卡可过」是 #91 那次没人在 UI 层钉住的不变式：D/J 两关在修前**永远**过不去，
+   * 而列表与详情界面看不出任何异常。这里只走真实路径：点卡片 → 切「编写与运行」→
+   * 点「运行检查」→ 读界面上那句判定，不桩运行器、不桩判题。
+   */
+  for (const [id, title] of [['stage-b', 'B 关：Java 核心编程'], ['stage-c', 'C 关：算法与复杂度']] as const) {
+    it(`${id}：起始代码点一次运行即「输出与验收点一致」`, async () => {
+      render(
+        <ChallengesView
+          challenges={challenges}
+          progress={{}}
+          unitsByStage={{}}
+          onOpenUnit={vi.fn()}
+          onSubmit={vi.fn()}
+        />,
+      )
+      const card = document.querySelector<HTMLButtonElement>(`.stage-card[data-challenge-id="${id}"]`)
+      expect(card, `第 1 页里没有这张卡：${id}`).toBeTruthy()
+      fireEvent.click(card!)
+      fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+      fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+      const found = await screen.findAllByText(/输出与验收点一致/)
+      expect(found.length, `${title} 的运行判定不是「一致」`).toBeGreaterThan(0)
+      // 判定明细也得真出现（只有一句总分就说明逐条那半没接上）
+      expect(document.querySelectorAll('.judge-cases li.hit').length, `${title} 的逐条命中数`).toBeGreaterThan(0)
+    })
+  }
+})
+
+describe('CHAL-02 · 提交与旧记录', () => {
+  it('提交带上判定口径，通过的那次写入 exact-lines', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={withTargets(['15'])}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    openAndRun()
+    expect((await screen.findAllByText(/输出与验收点一致/)).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), {
+      target: { value: '教学运行器输出 15，与验收点逐行相等。' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /提交答案/ }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    const [, submission] = onSubmit.mock.calls[0]!
+    expect(submission.passed).toBe(true)
+    expect(submission.judgeMode).toBe('exact-lines')
+  })
+
+  it('口径改成的假通过者无法提交：子串满足不再解锁提交按钮', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={withTargets(['1', '5'])}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    openAndRun()
+    await screen.findAllByText(/输出与验收点不一致/)
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), { target: { value: '输出里有 1 和 5。' } })
+    expect((screen.getByRole('button', { name: /提交答案/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('旧记录（无口径字段）如实标注为旧版示例匹配记录', () => {
+    renderWith(
+      withTargets(['15']),
+      { 'stage-b': { completedAt: '2026-09-13T00:00:00.000Z', evidence: '当时按示例匹配通过', status: 'passed', tier: 'teaching' } },
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    expect(screen.getByText(/判定口径：旧版示例匹配记录/)).toBeTruthy()
+  })
+
+  it('新记录读出当时口径：exact-lines 显示精确整行匹配', () => {
+    renderWith(
+      withTargets(['15']),
+      {
+        'stage-b': {
+          completedAt: '2026-09-24T00:00:00.000Z',
+          evidence: '逐行相等',
+          status: 'passed',
+          tier: 'teaching',
+          judgeMode: 'exact-lines',
+        },
+      },
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    expect(screen.getByText(/判定口径：精确整行匹配/)).toBeTruthy()
+  })
+
+  it('外部关卡记录不经输出判定，不显示判定口径行', () => {
+    render(
+      <ChallengesView
+        challenges={[challenges[0]!]}
+        progress={{
+          'stage-a': { completedAt: '2026-09-13T00:00:00.000Z', evidence: '执行环境：Windows 11', status: 'submitted', tier: 'external' },
+        }}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )

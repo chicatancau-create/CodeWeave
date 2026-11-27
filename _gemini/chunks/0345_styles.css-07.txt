@@ -1,0 +1,112 @@
+.calendar-day.today { box-shadow: inset 0 0 0 var(--hair) var(--accent); color: var(--ink-strong); }
+.checkin-calendar > small { display: block; margin-top: var(--ds-space-10, 10px); color: var(--muted); font-size: var(--ds-size-control, 13px); }
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: var(--tap-min);   /* M4 §5.4：账户入口是主要触控目标，桌面/折叠两态都按 44 收下 */
+  margin: var(--ds-space-4, 4px) var(--ds-space-6, 6px) 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-6, 6px) var(--ds-space-10, 10px) 0;
+  border-top: var(--hair) solid var(--line);
+}
+.profile > div:nth-child(2) { min-width: 0; display: flex; flex-direction: column; gap: var(--ds-space-2, 2px); }
+.profile strong { color: var(--ink-strong); font-size: var(--ds-size-control, 13px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile span { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+/* 头像：黑场上的细线圆环 + 场景色首字母（原为蓝紫渐变方块 + 白字，白字压蓝只有 3.71:1） */
+.avatar, .topbar-avatar, .profile-large-avatar {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  border-radius: var(--radius-circle);
+  background: var(--inset);
+  box-shadow: inset 0 0 0 var(--hair) var(--accent-ring);
+  font-weight: 700;
+}
+.avatar { width: 30px; height: 30px; flex: 0 0 30px; font-size: var(--ds-size-control, 13px); }
+
+/* ---------------------------------------------------------------------------
+   顶栏（科技档：半透明玻璃 + 背景模糊 + 底部冷色发光边）
+   ------------------------------------------------------------------------- */
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--pad-page);
+  border-bottom: var(--hair) solid var(--line-hair, rgba(34, 211, 238, 0.2));
+  background: var(--chrome);
+  backdrop-filter: blur(14px) saturate(1.4);   /* 科技档：玻璃回归（原 §5.1 明确移除） */
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 1px 0 var(--accent-soft), 0 8px 24px var(--shadow-chrome); /* 底部冷色描光 */
+  position: sticky;
+  top: 0;
+  z-index: var(--z-chrome);            /* M4 裁定 2：与侧栏同档 */
+}
+
+/* 全局搜索（N1） */
+.global-search {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.global-search__icon {
+  position: absolute;
+  left: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.global-search__input {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px) var(--ds-space-8, 8px) var(--ds-space-32, 32px);
+  color: var(--ink);
+  border: var(--hair) solid var(--field-line);   /* 关键输入边界 ≥3:1（0.38 → 3.13:1） */
+  border-radius: var(--radius);
+  outline: 0;
+  background: var(--inset);
+  font-size: var(--size-body);
+}
+.global-search__input:focus { border-color: var(--field-line-active); }
+.global-search__input::placeholder { color: var(--muted); }
+.global-search__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: var(--z-popover);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--ds-space-6, 6px);
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--overlay);
+  box-shadow: var(--ds-shadow-panel); /* 模板零投影（site.css 全文；tokens §7）：浮层用实底黑 + 发丝线分离 */
+}
+.global-search__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--tap-min);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--ink);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-body);
+  text-align: left;
+}
+.global-search__row.active { background: var(--accent-soft); }
+.global-search__type {
+  flex: 0 0 auto;
+  padding: var(--ds-space-2, 2px) var(--ds-space-6, 6px);
+  color: var(--accent-hover);
+  border: var(--hair) solid rgba(34, 211, 238, 0.35);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 800;
+}
+.global-search__label {

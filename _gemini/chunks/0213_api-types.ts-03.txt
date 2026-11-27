@@ -1,0 +1,55 @@
+  { method: 'POST', path: '/api/sync/push', requiresSession: true, bodyless: false, summary: "幂等推送单事件" },
+  { method: 'GET', path: '/api/sync/conflicts', requiresSession: true, bodyless: false, summary: "读取本账户保留的冲突双方" },
+  { method: 'GET', path: '/api/learning/status', requiresSession: true, bodyless: false, summary: "拥有者绑定与可见范围状态" },
+  { method: 'POST', path: '/api/learning/owner', requiresSession: true, bodyless: false, summary: "把自己绑定为该资料库的拥有者" },
+  { method: 'DELETE', path: '/api/learning/owner', requiresSession: true, bodyless: true, summary: "解除拥有者绑定" },
+  { method: 'PATCH', path: '/api/learning/owner/visibility', requiresSession: true, bodyless: false, summary: "切换教材对其它账户的可见性" },
+  { method: 'GET', path: '/api/learning/vault-progress', requiresSession: true, bodyless: false, summary: "正式学习进度只读投影" },
+  { method: 'GET', path: '/api/learning/evidence', requiresSession: true, bodyless: false, summary: "读取暂存证据队列" },
+  { method: 'POST', path: '/api/learning/evidence', requiresSession: true, bodyless: false, summary: "暂存一条学习证据" },
+  { method: 'POST', path: '/api/learning/evidence/remove', requiresSession: true, bodyless: false, summary: "删除一条尚未同步的暂存证据" },
+  { method: 'POST', path: '/api/learning/evidence-preview', requiresSession: true, bodyless: false, summary: "预览将写入资料库的内容（不落盘）" },
+  { method: 'POST', path: '/api/learning/evidence-commit', requiresSession: true, bodyless: false, summary: "确认写回（事务提交）" },
+  { method: 'POST', path: '/api/learning/evidence-rollback', requiresSession: true, bodyless: false, summary: "回滚一次写回事务（用写入前的备份覆盖回来）" },
+  { method: 'POST', path: '/api/learning/evidence-export', requiresSession: true, bodyless: false, summary: "把暂存证据导出为可核对的 Markdown" },
+  { method: 'GET', path: '/api/learning/evidence-transactions', requiresSession: true, bodyless: false, summary: "列出拥有者的写回事务账本（新→旧）" },
+  { method: 'GET', path: '/api/learning/evidence-transaction/{operationId}', requiresSession: true, bodyless: false, summary: "单个事务的状态与明细" },
+] as const
+
+export type ApiOperation = (typeof API_OPERATIONS)[number]
+
+/** 会话 Cookie 名与固定属性，端侧只读参考：真正的属性由服务端下发。 */
+export const SESSION_COOKIE = 'code_canvas_session'
+export const SESSION_COOKIE_ATTRIBUTES = ['HttpOnly', 'SameSite=Lax', 'Path=/', 'Max-Age=604800'] as const
+
+// --- components.schemas ---------------------------------------------------
+export type Error = {
+  error: string
+  message: string
+  details?: unknown
+  [key: string]: unknown
+}
+
+export type User = {
+  id: string
+  email?: null
+  phone?: null
+  name: string
+  bio: string
+  createdAt: string
+}
+
+export type EvidenceRecord = {
+  evidenceId: string
+  topic: string
+  stage?: null
+  createdAt: string
+  [key: string]: unknown
+}
+
+export type WritebackOutcome = {
+  operationId?: string
+  status?: string
+  targets?: Record<string, unknown>[]
+  [key: string]: unknown
+}

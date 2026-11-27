@@ -1,0 +1,89 @@
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "revision " + uiShell.draftRevision
+                                    color: ds.faint
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                        HoverHandler { id: draftHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: uiShell.selectPage("编辑器") }
+                    }
+
+                    // .empty-state — dashed border, radius 8
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: emptyCol.implicitHeight + ds.s32
+                        visible: !uiShell.hasSelectedContent
+                        radius: ds.radius
+                        color: "transparent"
+                        border.color: ds.lineStrong
+                        border.width: 1
+                        ColumnLayout {
+                            id: emptyCol
+                            anchors { fill: parent; margins: ds.s16 }
+                            spacing: ds.s8
+                            Text {
+                                text: "<>"
+                                color: ds.faint
+                                font.family: ds.mono
+                                font.pixelSize: 22
+                                Layout.alignment: Qt.AlignLeft
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "未选择课程草稿"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "选择课程后可查看并保存练习代码"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+
+                // .project-detail — bordered panel, transparent fill
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: detailContent.implicitHeight + 2 * ds.s20
+                    radius: ds.radius
+                    color: "transparent"
+                    border.color: ds.line
+                    border.width: 1
+
+                    ColumnLayout {
+                        id: detailContent
+                        anchors.fill: parent
+                        anchors.margins: ds.s20
+                        spacing: ds.s16
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s12
+                            Text {
+                                Layout.fillWidth: true
+                                text: uiShell.hasSelectedContent ? "课程草稿" : "未选择草稿"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 16
+                                font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                            }
+                            QuietButton {
+                                ds: draftsPage.ds

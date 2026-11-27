@@ -1,0 +1,125 @@
+#include "ui_shell.hpp"
+
+#include <QCryptographicHash>
+#include <QMetaObject>
+#include <QStringDecoder>
+
+namespace {
+std::string storage_id(const QString& document) {
+  // Same mapping as the existing Win32 product, including long content IDs.
+  return "lesson-" + QCryptographicHash::hash(document.toUtf8(), QCryptographicHash::Sha256)
+      .toHex().toStdString();
+}
+
+struct LoadedDraft {
+  QString code;
+};
+}  // namespace
+
+void UiShell::setStatus(const QString& status) {
+  content_status_ = status;
+  emit contentStatusChanged();
+}
+
+void UiShell::dismissContentStatus() {
+  if (content_status_.isEmpty()) return;
+  content_status_.clear();
+  emit contentStatusChanged();
+}
+
+bool UiShell::allowDocumentChange() {
+  if (closing_ || operation_busy_ || execution_busy_ || challenge_run_busy_ ||
+      (challenge_history_busy_ && challenge_history_write_) ||
+      (checkin_busy_ && checkin_write_) || account_busy_) return false;
+  if (vault_busy_ && vault_write_) return false;
+  if (!draftDirty()) return true;
+  setStatus(QStringLiteral("请先保存草稿，或明确放弃未保存的修改"));
+  return false;
+}
+
+void UiShell::clearDraft(bool accountChange) {
+  lesson_expected_output_.clear();
+  lesson_contract_ready_ = false;
+  lesson_run_succeeded_ = false;
+  independent_attempt_ = false;
+  hints_viewed_ = false;
+  emit independentAttemptChanged();
+  hints_.clear();
+  execution_output_.clear();
+  execution_output_error_ = false;
+  execution_trace_.clear();
+  emit executionTraceChanged();
+  // Account aggregates survive document changes, but never cross accounts.
+  if (accountChange) {
+    progress_summary_.clear();
+    review_summary_.clear();
+    review_items_.clear();
+    analysis_snapshot_.clear();
+    emit reviewSummaryChanged();
+    emit reviewItemsChanged();
+  }
+  emit hintsChanged();
+  emit executionOutputChanged();
+  starter_language_.clear();
+  starter_code_.clear();
+  execution_policy_.clear();
+  draft_code_.clear();
+  draft_baseline_.clear();
+  draft_saved_code_.clear();
+  ++draft_revision_;
+  saved_revision_ = draft_revision_;
+  draft_persistence_blocked_ = false;
+  emit starterCodeChanged();
+  emit draftChanged();
+  emit draftDirtyChanged();
+  emit draftPersistenceBlockedChanged();
+}
+
+void UiShell::clearChallengeDrafts() {
+  closeChallenge();
+  challenge_drafts_.clear();
+  challenge_run_result_.clear();
+  challenge_submissions_.clear();
+  challenge_history_status_.clear();
+  challenge_history_task_id_.clear();
+  challenge_history_busy_ = false;
+  emit challengeHistoryChanged();
+  emit challengeCodeChanged();
+  emit challengeRunResultChanged();
+}
+
+bool UiShell::setAccountContext(const codeweave::account::AccountService& session,
+    const std::filesystem::path& workspace, const std::filesystem::path& nativeDataRoot) {
+  if (draft_saving_ || !allowDocumentChange()) return false;
+  std::filesystem::path account_root;
+  const auto resolved = session.learning_data_root(nativeDataRoot, account_root);
+  if (!resolved.ok) { setStatus(QString::fromUtf8(resolved.message)); return false; }
+  active_account_id_ = QString::fromUtf8(session.current()->id);
+  native_data_root_ = nativeDataRoot;
+  lesson_evidence_states_.clear();
+  lesson_evidence_ready_ = false;
+  ++account_generation_;
+  execution_output_.clear();
+  execution_output_error_ = false;
+  emit executionOutputChanged();
+  // Reads belong to the previous account/document. Invalidate their callbacks
+  // before resetting the visible state; the worker may finish later.
+  content_task_id_.clear();
+  draft_task_id_.clear();
+  content_busy_ = false;
+  emit contentBusyChanged();
+  workspace_root_ = workspace;
+  data_root_ = account_root;
+  // All core I/O runs on the serial worker. The previous core is idle here.
+  personal_core_ = std::make_shared<codeweave::app::ApplicationCore>();
+  clearCheckin();
+  clearVaultWriteback();
+  clearChallengeDrafts();
+  clearDraft(true);
+  emit accountChanged();
+  if (hasSelectedContent()) loadStarterCode();
+  refreshChallengeHistory();
+  refreshCheckin();
+  return true;
+}
+

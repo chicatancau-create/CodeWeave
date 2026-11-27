@@ -1,0 +1,89 @@
+        codeweave::learning::RanBy::Learner, false, "L4", operation_id};
+    bool duplicate = false;
+    codeweave::learning::MasterySnapshot snapshot;
+    return codeweave::learning::MasteryService(store).record_evidence(
+        evidence, codeweave::learning::ReviewPlan{}, duplicate, snapshot);
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, task_name,
+            result = std::move(result)]() mutable {
+          if (task_name != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          setOperationStatus(result.cancelled ? QStringLiteral("复习延期已取消")
+                                              : QString::fromUtf8(result.result.message));
+          if (result.result.ok) refreshReviewSummary();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::loadHints() {
+  if (closing_ || content_busy_ || operation_busy_ || selected_content_id_.isEmpty() || content_root_.isEmpty()) return;
+  content_busy_ = true;
+  emit contentBusyChanged();
+  const auto root = std::filesystem::path(content_root_.toStdWString());
+  const auto document = selected_content_id_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto hints = std::make_shared<QString>();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-hints-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Read;
+  request.work = [root, document, hints](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("提示读取已取消");
+    std::string value;
+    const auto result = codeweave::content::ContentRepository(root).read_hints(
+        document.toStdString(), value);
+    if (result.ok) *hints = QString::fromUtf8(value);
+    return result;
+  };
+  content_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, hints, account, generation, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, hints, account, generation,
+            task_name, result = std::move(result)]() mutable {
+          if (task_name != content_task_id_) return;
+          content_task_id_.clear();
+          content_busy_ = false;
+          emit contentBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) {
+            return;
+          }
+          if (result.cancelled) {
+            setOperationStatus(QStringLiteral("提示读取已取消"));
+            return;
+          }
+          if (result.result.ok) {
+            hints_ = *hints;
+            hints_viewed_ = true;
+            setIndependentAttempt(false);
+            emit hintsChanged();
+            setOperationStatus(QStringLiteral("提示已读取；使用提示不会自动计入独立完成"));
+          } else {
+            setOperationStatus(QString::fromUtf8(result.result.message));
+          }
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    content_task_id_.clear();
+    content_busy_ = false;
+    emit contentBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::saveExternalEvidence(const QString& environment, const QString& command,
+    const QString& summary, const QString& artifactRef, const QString& reproducedOn) {

@@ -1,0 +1,76 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: panel
+    required property QtObject ds
+    readonly property var assessment: uiShell.lessonAssessment
+    readonly property var states: uiShell.lessonEvidenceStates[uiShell.documentId] || ({})
+    readonly property string documentId: uiShell.documentId
+    readonly property bool busy: uiShell.operationBusy || uiShell.executionBusy || uiShell.contentBusy
+                                 || uiShell.accountBusy || uiShell.draftSaving
+    readonly property bool fieldsFilled: environment.text.trim() !== "" && command.text.trim() !== ""
+                                         && summary.text.trim() !== "" && date.text.trim() !== ""
+    spacing: ds.s12
+
+    function resetForm() {
+        environment.text = "";
+        command.text = "";
+        summary.text = "";
+        artifact.text = "";
+        date.text = Qt.formatDate(new Date(), "yyyy-MM-dd");
+    }
+    function fields() {
+        return { environment: environment.text, command: command.text, resultSummary: summary.text,
+                 artifactRef: artifact.text, reproducedOn: date.text };
+    }
+    onDocumentIdChanged: resetForm()
+    Connections {
+        target: uiShell
+        function onAccountChanged() { panel.resetForm(); }
+    }
+    Text {
+        Layout.fillWidth: true
+        text: uiShell.hasSelectedContent ? uiShell.documentId : "尚未选择课程"
+        textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere
+        color: panel.ds.muted; font.family: panel.ds.mono; font.pixelSize: 12
+    }
+    Text {
+        Layout.fillWidth: true
+        text: panel.assessment.completed ? "本单元已完成（" + panel.assessment.completionSource + "）"
+              : panel.assessment.buttonLabel
+        textFormat: Text.PlainText; wrapMode: Text.WordWrap
+        color: panel.assessment.completed ? panel.ds.success : panel.ds.ink
+        font.family: panel.ds.ui; font.pixelSize: 14
+    }
+    Text {
+        Layout.fillWidth: true
+        visible: panel.assessment.external === true
+        text: "外部证据提交后待人工确认；标记完成只代表学习者自行声明，系统未验证真实环境。"
+        color: panel.ds.warning; font.family: panel.ds.ui; font.pixelSize: 12
+        wrapMode: Text.WordWrap
+    }
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: panel.assessment.external === true
+        spacing: panel.ds.s6
+        Text { text: "执行环境"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12 }
+        ShellField { id: environment; objectName: "lessonExternalEnvironment"; ds: panel.ds; Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 600; Accessible.name: "执行环境" }
+        Text { text: "执行命令"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12 }
+        ShellField { id: command; objectName: "lessonExternalCommand"; ds: panel.ds; Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 600; Accessible.name: "执行命令" }
+        Text { text: "结果摘要"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12 }
+        TextArea {
+            id: summary; objectName: "lessonExternalSummary"
+            Layout.fillWidth: true; Layout.preferredHeight: 88
+            enabled: !panel.busy; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
+            color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12
+            background: Rectangle { color: panel.ds.inset; border.color: panel.ds.lineStrong }
+            Accessible.name: "结果摘要"
+        }
+        Text { text: "日志 / 截图引用（可选）"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12 }
+        ShellField { id: artifact; objectName: "lessonExternalArtifact"; ds: panel.ds; Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 300; Accessible.name: "日志或截图引用" }
+        Text { text: "复现日期"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12 }
+        ShellField {
+            id: date; objectName: "lessonExternalDate"; ds: panel.ds
+            Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 10

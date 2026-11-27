@@ -1,0 +1,104 @@
+.primary-action:disabled, .subtle-button:disabled, .danger-button:disabled, .challenge-run-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.subtle-button {
+  color: var(--muted);
+  border-color: var(--line);             /* 次级按钮：发丝线档 */
+}
+.subtle-button:hover:not(:disabled) { color: var(--ink-strong); border-color: var(--line-strong); background: var(--scrim); }
+.subtle-button:active:not(:disabled) { background: var(--scrim-raised); }
+
+.empty-state, .empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-28, 28px) var(--ds-space-14, 14px);
+  color: var(--muted);                   /* 空态是必读信息，不用 0.34 装饰档 */
+  font-size: var(--ds-size-control, 13px);
+  text-align: center;
+}
+
+/* 「学习路径视图」整节已删除（M4 死规则核对：.path-view / .path-hero / .picker-hint /
+   .language-picker / .language-grid / .language-card / .language-icon / .lesson-list /
+   .lesson-card / .lesson-number(.filled) / .lesson-info / .lesson-meta / .lesson-progress /
+   .progress-bar / .lesson-arrow / .path-lessons / .path-continue 在全仓（src/**.tsx、
+   组件 CSS、tests、index.html）实测 0 引用；该页改版后由 components/learning-path-view.css
+   的 .lp-* 前缀承担形态）。核对脚本与逐条命中清单见 M4 执行报告 §1。 */
+
+/* ---------------------------------------------------------------------------
+   学习工作台
+   ------------------------------------------------------------------------- */
+.learning-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-14, 14px);
+  margin-bottom: var(--ds-space-16, 16px);
+}
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--tap-min);
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  color: var(--muted);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  font-size: var(--ds-size-control, 13px);   /* 原 `font-size: 13`：无单位对 font-size 非法，整条被丢弃 */
+  font-weight: 600;
+  transition: color var(--ds-dur-quick) var(--ease), border-color var(--ds-dur-quick) var(--ease),
+    background var(--ds-dur-quick) var(--ease);
+}
+.back-button:hover { color: var(--ink-strong); border-color: var(--line-strong); }
+.back-button:active { border-color: var(--accent); }
+.learning-title { flex: 1; display: flex; flex-direction: column; gap: var(--ds-space-4, 4px); }
+.learning-title strong {
+  color: var(--ink-strong);
+  font-size: 19px;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--track-title);
+  line-height: var(--leading-title);
+}
+.learning-title span { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+.learning-header-actions { display: flex; gap: var(--ds-space-6, 6px); }
+
+.learning-view { display: grid; grid-template-columns: 1.35fr 1fr; gap: var(--ds-space-14, 14px); align-items: start; }
+
+.workspace {
+  padding: var(--ds-space-20, 20px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.workspace-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--ds-space-14, 14px); }
+.workspace-header strong { color: var(--ink-strong); font-size: var(--ds-size-control, 13px); }
+.workspace-header span { display: block; margin-top: var(--ds-space-4, 4px); color: var(--muted); font-size: var(--ds-size-control, 13px); }
+
+.code-editor {
+  position: relative;
+  min-height: 300px;
+  max-height: 60vh;
+  display: flex;
+  padding: var(--ds-space-14, 14px) 0;
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--inset);
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size);
+  line-height: var(--line-height-editor);
+}
+.line-numbers {
+  z-index: 1;
+  width: 44px;
+  flex: 0 0 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: var(--ds-space-10, 10px);
+  overflow: hidden;
+  color: var(--faint);
+  font-family: var(--font-mono);

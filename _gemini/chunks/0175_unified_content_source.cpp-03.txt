@@ -1,0 +1,87 @@
+  if (!idempotencyKey.isEmpty()) request.setRawHeader("Idempotency-Key", idempotencyKey);
+  if (!body.isEmpty()) request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+  auto* reply = body.isEmpty() ? network_.get(request) : network_.post(request, body);
+  connect(reply, &QNetworkReply::downloadProgress, reply, [reply](qint64 received, qint64) {
+    if (received > 8 * 1024 * 1024) reply->abort();
+  });
+  connect(reply, &QNetworkReply::finished, this, [this, token, callback = std::move(callback), reply] {
+    reply->deleteLater();
+    if (token != generation_) return;
+    callback(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), reply->readAll(), *reply);
+  });
+}
+
+void UnifiedContentSource::connectAccount(const QString& origin, const QString& identifier, const QString& password) {
+  if (busy_) return;
+  const auto address = localOrigin(origin);
+  if (address.isEmpty()) {
+    finish(QStringLiteral("请输入 http://127.0.0.1:端口"));
+    return;
+  }
+  clearAccount();
+  origin_ = address;
+  busy_ = true;
+  status_ = QStringLiteral("正在登录");
+  emit changed();
+  const auto login = QJsonDocument(QJsonObject{{"identifier", identifier.trimmed()}, {"password", password}}).toJson(QJsonDocument::Compact);
+  run(QStringLiteral("/api/auth/login"), login, [this](int status, const QByteArray& bytes, const QNetworkReply& reply) {
+    const auto session = QNetworkCookie::parseCookies(reply.rawHeader("Set-Cookie"));
+    if (status != 200 || session.isEmpty()) { finish(QStringLiteral("无法登录统一服务")); return; }
+    account_ = responseData(bytes).value("id").toString();
+    if (account_.isEmpty()) { finish(QStringLiteral("服务未返回账户标识")); return; }
+    cookie_ = session.first().toRawForm(QNetworkCookie::NameAndValueOnly);
+    saveSession();
+    busy_ = false;
+    loadCatalog();
+  });
+}
+
+bool UnifiedContentSource::acceptCatalog(const QByteArray& bytes) {
+  auto data = responseData(bytes);
+  if (data.value("contractVersion").toInt() != 1 || data.value("bundleId").toString().isEmpty() ||
+      data.value("serviceInstance").toString().isEmpty() || data.value("vaultId").toString().isEmpty() ||
+      data.value("manifestHash").toString().size() != 64) return false;
+  catalog_ = std::move(data);
+  return true;
+}
+
+void UnifiedContentSource::loadCatalog() {
+  if (!connected() || busy_) return;
+  busy_ = true;
+  page_.clear();
+  status_ = QStringLiteral("正在读取课程目录");
+  emit changed();
+  run(QStringLiteral("/api/content/catalog"), {}, [this](int status, const QByteArray& bytes, const QNetworkReply&) {
+    if (status == 200 && acceptCatalog(bytes)) {
+      saveSession();
+      saveCache(QStringLiteral("catalog"), bytes);
+      finish(QStringLiteral("已连接"));
+      refreshLearningFacts();
+    } else if (status == 0) {
+      QVariantMap pointer;
+      if (!verifiedOfflineBundle(&pointer).isEmpty()) {
+        catalog_ = pointer.value("catalog").toMap();
+        finish(QStringLiteral("离线只读"));
+      } else if (acceptCatalog(readCache(QStringLiteral("catalog")))) {
+        finish(QStringLiteral("离线只读"));
+      } else {
+        finish(QStringLiteral("请使用内置课程"));
+      }
+    } else {
+      if (status == 401 || status == 403) clearAccount();
+      finish(QStringLiteral("无法读取统一课程目录"));
+    }
+  });
+}
+
+void UnifiedContentSource::openLesson(const QString& contentId) {
+  if (!connected() || busy_ || catalog_.isEmpty() || contentId.isEmpty()) return;
+  const auto bundle = catalog_.value("bundleId").toString();
+  const auto key = contextKey() + "/lesson/" + contentId;
+  const auto path = QStringLiteral("/api/content/lessons/") + parameter(contentId) + "?bundleId=" + parameter(bundle);
+  busy_ = true;
+  status_ = QStringLiteral("正在读取课程");
+  emit changed();
+  run(path, {}, [this, bundle, key, contentId](int status, const QByteArray& body, const QNetworkReply& reply) {
+    const auto bytes = status == 0 ? readCache(key) : body;
+    auto data = status == 0 ? offlineLesson(contentId) : QVariantMap{};

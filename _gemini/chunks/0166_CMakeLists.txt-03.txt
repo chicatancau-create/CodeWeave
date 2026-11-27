@@ -1,0 +1,24 @@
+    facade/ui_shell_writeback.cpp facade/vault_writeback_store.cpp
+    facade/checkin_store.cpp facade/challenge_submission_store.cpp facade/ui_shell.hpp)
+  qt_add_resources(codeweave-qt-facade-tests challenge_runtime_test_resource PREFIX "/challenge"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES "${CHALLENGE_TEACHING_RUNTIME}")
+  target_include_directories(codeweave-qt-facade-tests PRIVATE facade)
+  target_link_libraries(codeweave-qt-facade-tests PRIVATE Qt6::Core Qt6::Qml codeweave-content-qt)
+  if (MSVC)
+    set_property(TARGET codeweave-qt-facade-tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    target_compile_options(codeweave-qt-facade-tests PRIVATE /UNDEBUG /utf-8 /W4)
+  endif()
+  if (CODEWEAVE_QT_TEST_CPP_TOOL AND CODEWEAVE_QT_TEST_JAVA_TOOL AND
+      CODEWEAVE_QT_TEST_PYTHON_TOOL AND CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL)
+    add_test(NAME qt-facade COMMAND ${CMAKE_COMMAND} -E env
+      "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-qt-facade-tests>
+      "${CODEWEAVE_CONTENT_DIR}" "${CODEWEAVE_QT_TEST_CPP_TOOL}"
+      "${CODEWEAVE_QT_TEST_JAVA_TOOL}" "${CODEWEAVE_QT_TEST_PYTHON_TOOL}"
+      "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}")
+  else()
+    add_test(NAME qt-facade COMMAND ${CMAKE_COMMAND} -E env
+      "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-qt-facade-tests>
+      "${CODEWEAVE_CONTENT_DIR}" "" "" "" "")
+    set_tests_properties(qt-facade PROPERTIES LABELS "tools-unavailable")
+  endif()
+endif()

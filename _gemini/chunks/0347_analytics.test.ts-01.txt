@@ -1,0 +1,121 @@
+import { describe, expect, it } from 'vitest'
+import { computeWeeklyStats } from './analytics'
+import { getLocalDateKey, shiftDateKey, toLocalDateKey } from './date-helpers'
+import type { MasteryEvidence, MasteryRecord } from '../data/mastery'
+import type { ChallengeRecord } from '../types/lesson'
+
+const record = (refId: string, evidences: { kind: 'lesson' | 'review'; at: string; passed: boolean }[]): MasteryRecord => ({
+  refId,
+  kind: 'lesson',
+  level: 1,
+  evidence: evidences.map((e, i) => ({ id: `e-${i}`, refId, note: '', ...e })),
+  updatedAt: evidences[0]?.at ?? '',
+  reviewStep: 0,
+})
+
+/** 允许课程/挑战/复测/Bug 修复四类证据，用于跨类型去重口径测试。 */
+const recordOf = (refId: string, kind: MasteryRecord['kind'], evidences: MasteryEvidence[]): MasteryRecord => ({
+  refId,
+  kind,
+  level: 1,
+  evidence: evidences,
+  updatedAt: evidences[0]?.at ?? '',
+  reviewStep: 0,
+})
+
+const evidenceOf = (
+  refId: string,
+  kind: MasteryEvidence['kind'],
+  at: string,
+  passed: boolean,
+): MasteryEvidence => ({ id: `${refId}-${kind}-${at}`, kind, refId, note: '', at, passed })
+
+const challenge = (completedAt: string, status?: ChallengeRecord['status']): ChallengeRecord => ({
+  completedAt,
+  evidence: '',
+  ...(status ? { status } : {}),
+})
+
+describe('computeWeeklyStats（F5 学习分析）', () => {
+  const todayKey = '2026-09-13'
+
+  it('只统计近 7 天内的证据', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [
+        record('a', [
+          { kind: 'lesson', at: '2026-09-13T08:00:00.000Z', passed: true },
+          { kind: 'lesson', at: '2026-09-01T08:00:00.000Z', passed: true }, // 窗口外
+        ]),
+      ],
+      challengeRecords: {
+        // STAT-01：无 status 的历史记录按旧版迁移语义单列为 challengesLegacyPassed，
+        // 不再混入 challengesPassed（后者只认 passed / verified）。
+        s1: { completedAt: '2026-09-12T08:00:00.000Z', evidence: '' },
+        s2: { completedAt: '2026-08-12T08:00:00.000Z', evidence: '' }, // 窗口外
+      },
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(1)
+    expect(stats.challengesPassed).toBe(0)
+    expect(stats.challengesLegacyPassed).toBe(1)
+    expect(stats.periodStartKey).toBe('2026-09-07')
+  })
+
+  it('复测完成率 = 通过/(通过+未通过)；无复测为 null', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [
+        record('a', [
+          { kind: 'review', at: '2026-09-13T08:00:00.000Z', passed: true },
+          { kind: 'review', at: '2026-09-13T09:00:00.000Z', passed: true },
+          { kind: 'review', at: '2026-09-13T10:00:00.000Z', passed: false },
+        ]),
+      ],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.reviewsPassed).toBe(2)
+    expect(stats.reviewsFailed).toBe(1)
+    expect(stats.reviewRate).toBe(67)
+
+    const empty = computeWeeklyStats({ masteryRecords: [], challengeRecords: {}, todayKey })
+    expect(empty.reviewRate).toBeNull()
+  })
+})
+
+/**
+ * STAT-01：日期口径与统计口径统一。
+ *
+ * 旧实现用 `iso.slice(0, 10)` 取日期键，等于把 UTC 日期当作当地日期：
+ * - UTC+8 的凌晨（当地已是次日、UTC 仍是前一日）会漏统计；
+ * - UTC 负时区的深夜（当地仍是当日、UTC 已是次日）会多统计一天。
+ * 正确口径是 `getLocalDateKey(new Date(iso))`，且已经是本地日期键的输入不得二次转换。
+ *
+ * 断言不写死期望字符串，而是与该时刻的真实本地日期比较——
+ * 这样用例在任意时区运行都成立，且确实能捕获 slice 口径的时区漂移。
+ */
+describe('STAT-01 日期口径：ISO 瞬间按本地时区归日', () => {
+  it('toLocalDateKey 把 ISO 瞬间转成本地日期键，而非 UTC 日期', () => {
+    const iso = '2026-09-12T18:30:00.000Z'
+    const localKey = getLocalDateKey(new Date(iso))
+    expect(toLocalDateKey(iso)).toBe(localKey)
+  })
+
+  it('toLocalDateKey 对已是本地日期键的输入原样返回（不二次时区转换）', () => {
+    expect(toLocalDateKey('2026-09-13')).toBe('2026-09-13')
+  })
+
+  it('toLocalDateKey 对空值与非法输入返回 null，不静默算成今天', () => {
+    expect(toLocalDateKey(undefined)).toBeNull()
+    expect(toLocalDateKey(null)).toBeNull()
+    expect(toLocalDateKey('')).toBeNull()
+    expect(toLocalDateKey('not-a-date')).toBeNull()
+  })
+
+  /**
+   * 把某个本地日期键转成“该日当地 00:30”的 ISO 瞬间。
+   *
+   * 换算依据 `getTimezoneOffset()`：它返回「UTC − 本地」的分钟数（东正时区为负数）。
+   * 因此本地 D 日 00:30 对应的 UTC 毫秒 = UTC(D 日 00:00) + 30 分钟 + offset。
+   *
+   * 这类瞬间正是旧口径出错的场合：本地已是 D 日，UTC 日期却仍是 D−1 日。
+   */

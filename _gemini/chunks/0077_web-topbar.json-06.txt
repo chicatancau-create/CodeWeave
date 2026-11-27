@@ -1,0 +1,126 @@
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        }
+      ],
+      "search": {
+        "text": "",
+        "geometry": {
+          "x": 501.109375,
+          "y": 9.5,
+          "width": 362.890625,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "actions": {
+        "text": "本机工作空间R",
+        "geometry": {
+          "x": 864,
+          "y": 9.5,
+          "width": 212,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "breadcrumbs": [
+        {
+          "text": "Code Canvas/课程",
+          "geometry": {
+            "x": 264,
+            "y": 20.296875,
+            "width": 130.640625,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "Code Canvas",
+          "geometry": {
+            "x": 264,
+            "y": 20.296875,
+            "width": 81.171875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "600",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 353.171875,
+            "y": 20.296875,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",

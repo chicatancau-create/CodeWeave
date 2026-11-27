@@ -1,0 +1,130 @@
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsReducedMotionToggle",
+            "controlEnabled": true,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "descriptionText": "关闭过渡与闪烁动画，保持静态界面",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 208
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 45
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 83,
+            "index": 3,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "减弱动画",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "found": true,
+                "height": 29,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 56
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsEditorFontSize",
+            "controlEnabled": true,
+            "controlHeight": 44,
+            "controlRightInset": 0,
+            "controlWidth": 81,
+            "controlX": 412,
+            "descriptionText": "调整代码编辑区的字体大小",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 156
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 396,
+                "x": 0,
+                "y": 45
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 83,
+            "index": 4,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "编辑器字号",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "found": true,
+                "height": 29,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 70
+                },

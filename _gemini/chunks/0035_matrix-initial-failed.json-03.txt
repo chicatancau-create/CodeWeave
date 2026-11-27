@@ -1,0 +1,146 @@
+            "name": "challenge-rejection-preserves-previous-review",
+            "passed": true
+        },
+        {
+            "name": "account-profile-page-and-sibling-links",
+            "passed": true
+        },
+        {
+            "name": "profile-to-security-navigation",
+            "passed": true
+        },
+        {
+            "name": "account-security-page-and-disabled-boundaries",
+            "passed": true
+        },
+        {
+            "name": "security-to-privacy-navigation",
+            "passed": true
+        },
+        {
+            "name": "account-privacy-page-and-data-actions",
+            "passed": true
+        },
+        {
+            "name": "privacy-to-security-navigation",
+            "passed": true
+        },
+        {
+            "name": "security-to-profile-navigation",
+            "passed": true
+        },
+        {
+            "name": "account-logout",
+            "passed": true
+        },
+        {
+            "name": "account-login-intro-visible-for-guest",
+            "passed": true
+        },
+        {
+            "name": "account-login",
+            "passed": true
+        },
+        {
+            "name": "draft-course-selection",
+            "passed": true
+        },
+        {
+            "name": "draft-structure-and-actual-capabilities",
+            "passed": true
+        },
+        {
+            "detail": "草稿已读取",
+            "name": "draft-loaded-success-hides-error-banner",
+            "passed": true
+        },
+        {
+            "name": "draft-empty-code-has-zero-lines",
+            "passed": true
+        },
+        {
+            "name": "draft-line-count-updates-after-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-fault-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "draft-save-action-starts-and-disables",
+            "passed": true
+        },
+        {
+            "name": "draft-save-failure-visible-and-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-error-dismiss-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "name": "page-drafts",
+            "passed": true
+        },
+        {
+            "name": "draft-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-completion-evidence-loaded",
+            "passed": true
+        },
+        {
+            "name": "learning-selection-updates-hero-plan-and-code",
+            "passed": true
+        },
+        {
+            "name": "learning-completed-filter-empty-state",
+            "passed": true
+        },
+        {
+            "name": "learning-empty-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-isolated-evidence-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "learning-all-subject-status-combinations-and-original-indices",
+            "passed": true
+        },
+        {
+            "name": "learning-reading-and-challenge-not-completion",
+            "passed": true
+        },
+        {
+            "name": "learning-filtered-sequence-starts-at-one-and-count-is-subject-scoped",
+            "passed": true
+        },
+        {
+            "name": "learning-completed-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-enter-selected-course-action",
+            "passed": true
+        },
+        {
+            "name": "learning-enter-resolves-published-id-and-syncs-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-changing-course-preserves-unsaved-draft",

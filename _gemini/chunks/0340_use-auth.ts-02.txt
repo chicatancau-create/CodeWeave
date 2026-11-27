@@ -1,0 +1,96 @@
+      .then((result) => {
+        if (cancelled) return
+        setUser(result)
+        setConnectionError(null)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        // 401 表示未登录（正常）；连接失败表示服务不可达（需要提示用户）。
+        setUser(null)
+        if (err instanceof AuthError && err.kind !== 'unauthorized') setConnectionError(err.kind)
+      })
+      .finally(() => {
+        if (!cancelled) setChecked(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleSubmit = useCallback(
+    async (credentials: AuthCredentials) => {
+      // 同步防重入：必须在任何 await 之前完成判断与置位，否则同一 tick 的第二次调用会穿透。
+      if (inFlightRef.current) return
+      inFlightRef.current = true
+      const requestId = ++requestIdRef.current
+
+      setBusy(true)
+      setError('')
+      try {
+        // 登录与注册返回的都是用户对象；成功载荷必须通过最小结构校验。
+        const raw = await authRequest(`/api/auth/${mode}`, 'POST', credentials)
+        if (requestId !== requestIdRef.current) return
+        if (!isAuthUser(raw)) {
+          throw new AuthError('服务返回的账户数据不完整，请稍后重试。', 'bad_response')
+        }
+        setUser(raw)
+        setConnectionError(null)
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return
+        const message = err instanceof Error ? err.message : '请求失败，请稍后再试'
+        const hint =
+          err instanceof AuthError && err.kind === 'unavailable'
+            ? '：请使用 CodeCanvas-OneClick.cmd 或 pnpm run start 启动完整服务。'
+            : ''
+        setError(message + hint)
+      } finally {
+        // busy 只由当前有效请求负责：旧请求结束时不得解除新请求的忙态。
+        if (requestId === requestIdRef.current) {
+          inFlightRef.current = false
+          setBusy(false)
+        }
+      }
+    },
+    [mode],
+  )
+
+  /**
+   * 登出：即使服务端请求失败也必须在本地清除登录态。
+   * 否则用户会卡在“点登出没反应”的状态；服务端的会话过期本身有时限。
+   */
+  const handleLogout = useCallback(async () => {
+    let failure = ''
+    try {
+      await authRequest('/api/auth/logout', 'POST')
+    } catch (err) {
+      failure = err instanceof Error ? err.message : '登出请求失败'
+    } finally {
+      setUser(null)
+    }
+    return failure
+  }, [])
+
+  const updateUser = useCallback(async (updates: Partial<Pick<AuthUser, 'name' | 'bio'>>) => {
+    const result = await authRequest('/api/profile', 'PATCH', updates as Record<string, string>)
+    if (result && !isAuthUser(result)) {
+      throw new AuthError('服务返回的账户数据不完整，请稍后重试。', 'bad_response')
+    }
+    if (result) setUser(result)
+    return result
+  }, [])
+
+  return {
+    user,
+    checked,
+    mode,
+    error,
+    busy,
+    connectionError,
+    setMode,
+    setError,
+    handleSubmit,
+    handleLogout,
+    updateUser,
+    setUser,
+  }
+}

@@ -1,0 +1,85 @@
+    expect(total).toBeGreaterThan(0)
+    expect(total).toBe(reduceMotionImportantCount())
+  })
+})
+
+describe('M4 账户域 · #95 数据与隐私台账的列地板', () => {
+  it('「最后保存」列有地板且不拆词，nowrap 只出现在容器真会横滚的地方', () => {
+    // 320 档普查实测这一列 97px：`2026/9/25 16:48:29` 被折成约 3 行。时间戳是原子值，给下限 + 不拆词。
+    const time = declarationBlock('.cw-privacy .cw-ca-time')
+    expect(time).toMatch(/min-width:\s*1[0-9]em/)
+    expect(time).toContain('white-space: nowrap')
+    // 地板写成 em，就要把换算基数一起钉住：这一格走 --ca-meta 13px ⇒ 10em = 130px ≥ 本库 120px 关键列下限
+    expect(declarationBlock('.cw-account')).toContain('--ca-meta: 13px')
+    // #55 的教训：nowrap 撑破过个人页 1px。这里只允许它建立在「容器自己横滚」之上。
+    const scroll = declarationBlock('.cw-privacy .cw-privacy-scroll')
+    expect(scroll).toMatch(/overflow-x:\s*auto/)
+    expect(scroll).toContain('min-width: 0')
+    expect(declarationBlock('.cw-privacy .cw-privacy-scroll > .cw-account-table')).toContain('min-width: 460px')
+  })
+
+  it('清单由存储注册表生成，类名真的挂在时间戳那一列上', () => {
+    renderPrivacy(okClear)
+    const rows = [...document.querySelectorAll('.cw-privacy .cw-account-table tbody tr')]
+    const timed = [...document.querySelectorAll<HTMLTableCellElement>('.cw-privacy td.cw-ca-time')]
+    // DATA-01 第 1 条：以前这张表是手写的第三份类别清单（漏两类、还给设备级键加了账户后缀）。
+    expect(timed).toHaveLength(STORAGE_REGISTRY.length)
+    expect(rows).toHaveLength(STORAGE_REGISTRY.length + 1) // +1：服务端 users.json 那一行
+    for (const cell of timed) expect(cell.textContent?.trim()).not.toBe('')
+    // 末行那句说明不是时间戳，不该被 nowrap 顶成一整行不拆的词
+    expect(timed.every((cell) => !cell.textContent?.includes('由服务端'))).toBe(true)
+    // 第 2 条：没写过的键说「未写入过」，不许说「从未保存」——那是在编造一个不存在的事实
+    expect(document.body.textContent).not.toContain('从未保存')
+    expect(document.body.textContent).toContain('未写入过')
+    // 设备级那一行不许再被拼上账户后缀（旧版对 SETTINGS 也 scopedKey，于是恒显「从未保存」）
+    const deviceRow = rows.find((row) => row.textContent?.includes('工作台偏好设置'))
+    expect(deviceRow?.textContent).toContain('设备级，与本账户无关')
+  })
+})
+
+describe('M4 账户域 · 无障碍结构（axe-core）', () => {
+  it('账户安全页无 axe 违规', async () => {
+    const { container } = renderSecurity()
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } },
+    })
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([])
+  })
+
+  it('数据与隐私页（含导入预览表格）无 axe 违规', async () => {
+    renderPrivacy(okClear)
+    await chooseFile(payloadFor(ACCOUNT, { [`${STORAGE_KEYS.PROJECTS}:${ACCOUNT}`]: { savedAt: 'x', data: { a: 1 } } }))
+    expect(await screen.findByText(/空位可恢复/)).toBeTruthy()
+    const results = await axe.run(document.body, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false }, region: { enabled: false } },
+    })
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([])
+  })
+})
+
+/**
+ * #63：全站补测（50 格）量出 `security@320x844` 整页溢出 18px——
+ * `SECTION.security-card` 右边界 338 而视口只有 320，父容器 `.security-layout` 右边界 304。
+ * 根因是网格最小轨道写死 260px：`repeat(auto-fit, minmax(260px, 1fr))` 在 320 档
+ * （内容宽约 226px）永远缩不回去。钉住「最小轨道必须带 min(...,100%)」这一条。
+ */
+describe('#63 账户安全页的网格在 320px 必须能缩进容器', () => {
+  it('三张细线卡的最小轨道是 min(260px, 100%)，不是裸 260px', () => {
+    const block = declarationBlock('.cw-security .security-layout')
+    expect(block).toMatch(/grid-template-columns:\s*repeat\(\s*auto-fit\s*,\s*minmax\(\s*min\(\s*260px\s*,\s*100%\s*\)\s*,\s*1fr\s*\)\s*\)/)
+    // 本文件里其余固定 px 最小轨道：140px 那档在 320 下仍小于可用宽度（50 格实测溢出 0），
+    // 所以只禁「大于 320 档可用宽度」的这一种写法。
+    const tooWide = [...cssCode.matchAll(/minmax\(\s*(\d{3,})px\s*,\s*1fr\s*\)/g)]
+      .map((m) => Number(m[1]))
+      .filter((px) => px > 240)
+    expect(tooWide, `不该再有裸 px 且宽到缩不回去的最小轨道：${JSON.stringify(tooWide)}`).toEqual([])
+  })
+})
+
+/**
+ * 账户安全页上关于「会话」的三句说明，以前每一句都与 `server.mjs` 的实际行为不符：
+ * 写的是「有效期 7 天 / 同一账号最多 500 个 / 淘汰最早登录的设备」，
+ * 实况是按最近使用的**滑动**过期（:285-292）、500 是**整个实例**的上限（:306 判 sessions.size）、
+ * 淘汰的是**最久未使用**（:307-310 配 :296-299 的 LRU 重排）。
+ * 这一条钉住改后的措辞，并把三种错写法钉回不去——界面文案是用户唯一的知情来源。
+ */

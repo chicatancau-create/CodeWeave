@@ -1,0 +1,43 @@
+              </div>
+              <div className="calendar-weekdays">
+                {CALENDAR_WEEKDAYS.map((day) => (
+                  <span key={day}>{day}</span>
+                ))}
+              </div>
+              <div className="calendar-grid">
+                {monthGrid.map((dateKey, index) =>
+                  dateKey ? (
+                    <span
+                      key={dateKey}
+                      className={`calendar-day ${checkedDates.has(dateKey) ? 'checked' : ''} ${
+                        dateKey === checkin.todayKey ? 'today' : ''
+                      }`}
+                    >
+                      {checkedDates.has(dateKey) ? <Check size={10} /> : Number(dateKey.slice(-2))}
+                    </span>
+                  ) : (
+                    <span key={`empty-${index}`} className="calendar-empty" />
+                  ),
+                )}
+              </div>
+              <small>累计打卡 {checkin.checkinDates.length} 天 · 日期按本机系统计算</small>
+            </div>
+          )}
+        </div>
+
+        <button
+          className="profile"
+          onClick={() => onNavigate('profile')}
+          title="打开个人中心"
+          aria-label="打开个人中心"
+        >
+          <div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div>
+          <div>
+            <strong>{user.name}</strong>
+          </div>
+        </button>
+      </div>
+    </aside>
+  )
+}
+

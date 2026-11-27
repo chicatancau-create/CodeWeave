@@ -1,0 +1,79 @@
+      ['flow-chart.css', '.flow-node-kind.tone-coral'],
+      ['flow-chart.css', '.flow-node-kind.tone-green'],
+    ]
+    for (const [file, key] of statusSelectors) {
+      const decls = declarationsOf(file, key)
+        .filter((decl) => /(color|background|border-color|box-shadow|outline)\s*:/.test(decl))
+        .filter((decl) => !/:\s*(none|transparent|0)\b/.test(decl)) // 关掉形态的声明不参与取色核对
+      expect(decls.length, `${file} ${key}`).toBeGreaterThan(0)
+      for (const decl of decls) {
+        // 状态标识不得用场景**色**（--ds-scene-glow-ring 只是环宽档，允许）
+        expect(decl, `${file} ${key}`).not.toMatch(/--ds-scene-(active|singularity|nebula|tides|firstlight)|--accent/)
+        expect(decl, `${file} ${key}`).toMatch(/--ds-(status|text)-/)
+      }
+    }
+  })
+
+  it('缓动只有 --ds-ease-standard；出现的交互时长落在 150–300ms', () => {
+    for (const file of BASE_FILES) {
+      const text = cssText.get(file) ?? ''
+      for (const easing of text.match(/(cubic-bezier|linear|ease-in-out|ease-out|ease-in|steps)\(/g) ?? []) {
+        expect(text.includes(`var(--ds-ease-standard, ${easing}`), `${file}: ${easing}`).toBe(true)
+      }
+      for (const raw of text.match(/(?:transition|animation):[^;]+/g) ?? []) {
+        for (const ms of raw.match(/\b\d+ms\b/g) ?? []) {
+          const value = Number.parseInt(ms, 10)
+          expect(value, `${file}: ${raw}`).toBeGreaterThanOrEqual(150)
+          expect(value, `${file}: ${raw}`).toBeLessThanOrEqual(300)
+        }
+      }
+    }
+  })
+})
+
+/* ─────────────── 5. §5.3：基座不含持续动画，两路径真停 ─────────────── */
+
+describe('M4 子组件基座 · 动效降级', () => {
+  it('六个基座文件都没有 infinite；动画声明要么 none 要么「播放 1 次」', () => {
+    for (const file of BASE_FILES) {
+      const text = cssText.get(file) ?? ''
+      expect(text, file).not.toMatch(/\binfinite\b/)
+      const animations = rulesOf(file)
+        .filter((rule) => !rule.insideKeyframes && !isMotionGuard(rule))
+        .flatMap((rule) => rule.block.split(';').map((item) => item.trim()))
+        .filter((item) => /^animation\s*:/.test(item))
+      for (const decl of animations) {
+        if (/^animation:\s*none\b/.test(decl)) continue
+        expect(decl, `${file}: ${decl}`).toMatch(/ 1$/) // 非 none 的必须显式「播放 1 次」
+      }
+    }
+    const keyframes = rulesOf('variable-panel.css').filter((rule) => rule.insideKeyframes)
+    expect((cssText.get('variable-panel.css') ?? '').match(/@keyframes\s+[\w-]+/g)).toEqual(['@keyframes cw-variable-flash'])
+    expect(keyframes.map((rule) => rule.selector)).toEqual(['from', 'to'])
+    expect(keyframes.map((rule) => rule.block).join(';')).not.toMatch(/scale|translate/)
+    expect(keyframes[1]?.block).toContain('opacity: 1') // 终态可读（geometry.md §3）
+  })
+
+  it('blink 这类继承自 styles.css 的循环动画被基座掐掉：运行中的圆点是静态终态', () => {
+    const shared = rulesOf(STYLESHEET).find((rule) => rule.selector.includes('.run-indicator.running span') && rule.block.includes('blink'))
+    expect(shared, 'styles.css 的 blink 必须确实存在，否则本条断言没意义').toBeTruthy()
+    const running = declarationsOf('runtime-controls.css', '.run-indicator.running span')
+    expect(running).toContain('animation: none')
+    expect(running.some((decl) => /^background:\s*var\(--ds-status-info/.test(decl))).toBe(true)
+    expect(declarationsOf('runtime-controls.css', '.run-indicator span')).toContain('animation: none')
+  })
+
+  it('两条降级路径（系统偏好与应用内根类）各自成文，写的是真停止', () => {
+    for (const file of BASE_FILES) {
+      const text = cssText.get(file) ?? ''
+      expect(text, file).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
+      expect(text, file).toMatch(/\.reduce-motion\s/)
+      expect((text.match(/animation: none !important/g) ?? []).length, file).toBe(2)
+      expect((text.match(/transition: none !important/g) ?? []).length, file).toBe(2)
+      expect(text, file).not.toMatch(/animation-duration|transition-duration|\*\s*0\.35/) // 放慢不算停止
+      const guardStart = text.indexOf('@media (prefers-reduced-motion: reduce)')
+      expect(text.slice(0, guardStart), file).not.toContain('!important')
+    }
+  })
+})
+

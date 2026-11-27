@@ -1,0 +1,62 @@
+          u3_record(*context, QStringLiteral("security-to-profile-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 13: {
+          if (shell.accountBusy() || shell.operationBusy() || shell.contentBusy()) return;
+          shell.logout();
+          const bool logged_out = !shell.hasActiveAccount();
+          u3_record(*context, QStringLiteral("account-logout"), logged_out);
+          shell.selectPage(QStringLiteral("账户"));
+          context->step++;
+          return;
+        }
+        case 14: {
+          auto* intro = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("accountLoginIntro"));
+          const bool intro_visible = !shell.hasActiveAccount() && shell.currentPage() == QStringLiteral("账户") &&
+              intro && intro->property("visible").toBool() &&
+              intro->width() > view.width() / 2;
+          u3_record(*context, QStringLiteral("account-login-intro-visible-for-guest"), intro_visible);
+          u3_screenshot(*context, view, QStringLiteral("u3-login-intro"));
+          shell.login(QStringLiteral("qt-u3@example.test"), QStringLiteral("Qt-U3-Test-Password-123!"));
+          context->step++;
+          return;
+        }
+        case 15:
+          if (shell.accountBusy() || shell.contentBusy() || shell.draftSaving() || shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("account-login"), shell.hasActiveAccount());
+          if (!shell.hasActiveAccount()) { context->step = 99; return; }
+          shell.discardDraftChanges();
+          u3_record(*context, QStringLiteral("account-login-keeps-saved-draft-clean"), !shell.draftDirty());
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+            if (index < 0) { u3_record(*context, QStringLiteral("draft-course-selection"), false); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step++;
+          return;
+        case 16:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("draft-course-selection"),
+              shell.hasSelectedContent() && shell.documentId() == QStringLiteral("python-loop-sum"),
+              QStringLiteral("selected=%1 document=%2 status=%3 dirty=%4")
+                  .arg(shell.hasSelectedContent()).arg(shell.documentId(), shell.contentStatus())
+                  .arg(shell.draftDirty()));
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 17: {
+          if (shell.contentBusy() || shell.starterLanguage().isEmpty()) return;
+          shell.selectPage(QStringLiteral("草稿"));
+          auto* drafts = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftsPageRoot"));
+          auto* name_field = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftNameField"));
+          auto* description = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftDescription"));
+          auto* file_list = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftFileList"));
+          auto* file_name = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftFileName"));
+          auto* line_count = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftLineCount"));
+          auto* snapshot = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSnapshotPanel"));
+          auto* snapshot_status = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSnapshotStatus"));
+          auto* save_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveButton"));
+          auto* checkpoint_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftCheckpointButton"));
+          auto* error_banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          const auto lessons = shell.lessonMeta();

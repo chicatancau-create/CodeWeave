@@ -1,0 +1,72 @@
+            auto* line_actions = line_interface ? line_interface->actionInterface() : nullptr;
+            if (!line_actions || !line_actions->actionNames().contains(QAccessibleActionInterface::toggleAction())) {
+              diagnostic = QStringLiteral("Loaded editor line number toggle action is unavailable");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            line_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+          }
+          break;
+        case 26:
+          {
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* line_numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            auto* code_scroll = u3_find_item(view.rootObject(), QStringLiteral("codeScroll"));
+            auto* restore = u3_find_item(settings_scroll, QStringLiteral("settingsRestoreDefaults"));
+            if (!editor || !line_numbers || !code_scroll || !restore || !line_numbers->parentItem() ||
+                !code_scroll->parentItem() ||
+                editor->property("font").value<QFont>().pixelSize() != 16 ||
+                line_numbers->property("font").value<QFont>().pixelSize() != 16 ||
+                line_numbers->parentItem()->isVisible() || std::abs(code_scroll->x()) > 1 ||
+                std::abs(code_scroll->width() - code_scroll->parentItem()->width()) > 1 ||
+                shell.draftCode() != smoke_preference_draft || shell.draftRevision() != smoke_preference_revision ||
+                editor->property("text").toString() != smoke_preference_draft) {
+              diagnostic = QStringLiteral("Editor preferences did not change font and gutter without changing the draft");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Loaded editor defaults action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+          }
+          break;
+        case 27:
+          {
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* line_numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            auto* code_scroll = u3_find_item(view.rootObject(), QStringLiteral("codeScroll"));
+            if (!editor || !line_numbers || !code_scroll || !line_numbers->parentItem() ||
+                shell.editorFontSize() != 13 ||
+                !shell.editorLineNumbers() || editor->property("font").value<QFont>().pixelSize() != 13 ||
+                line_numbers->property("font").value<QFont>().pixelSize() != 13 ||
+                !line_numbers->parentItem()->isVisible() || std::abs(code_scroll->x() - 45) > 1 ||
+                shell.draftCode() != smoke_preference_draft || shell.draftRevision() != smoke_preference_revision ||
+                editor->property("text").toString() != smoke_preference_draft) {
+              diagnostic = QStringLiteral("Restoring loaded editor defaults changed the draft or missed its layout");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          QMetaObject::invokeMethod(settings, "close");
+          diagnostic = QStringLiteral("passed");
+          write_smoke_report();
+          application.exit(0);
+          break;
+        default:
+          diagnostic = QStringLiteral("Unexpected topbar smoke step");
+          write_smoke_report();
+          application.exit(1);
+      }
+    });
+    qml_smoke_timer.start(200);
+  }
+  QTimer comparison_timer;
+  if (comparison >= 0) {

@@ -1,0 +1,32 @@
+   用户从最初就点名要「首页流动科技风背景」。那套动效**一直在 `styles.css` 里**
+   （`.shell-decor::after` 的七层背景 + `cw-bg-drift` 34s / `cw-bg-sheen` 26s 两条
+   无限循环），但本文件第 65 行 `.app-shell .shell-decor { display: none }` 整层关了它
+   ——实测首页 `decorDisplay: "none"`，动画根本不在场。这是「交付了但看不见」的典型：
+   样式写完了，没被挂上。
+
+   为什么当初关掉：那一层 `z-index: var(--z-decor)=10`，**高于内容列（1）**，
+   而它的 `::after` 带一块不透明底色（`--ds-canvas-deep` #03050a，见 styles.css:314
+   的注释——它要压住 `--page` 才能让光晕像「从背景里透出来」）。原样放开，
+   那块不透明底会盖在正文上，整页只见背景不见字。
+
+   所以放开的同时**把它压到内容之下**（`z-index: -1`）。`.shell-decor` 挂在
+   `.main-content`（`position: relative` + `z-index: var(--z-content)`）里，
+   `-1` 在那一层栈上下文内位于正文之下、`.main-content` 自己的背景之上，
+   于是它成为**页面最底的那一层**：光晕与网格在字后面流动，正文照旧在前。
+   背景色仍然压得住 `.app-shell` 的 `--page`，观感与设计意图一致。
+
+   两条既有开关不用动，它们仍然生效：
+     · `.app-shell.is-immersive .shell-decor { display: none }`（styles.css:373）——
+       学习工作台那一屏保持低动态；
+     · 代码模式下那条（styles.css:3606）同理。
+   所以这一放开只影响首页、挑战、项目、复习、分析这些**内容页**，
+   正好是用户要的那几屏。取景框（`::before` 的发丝线）在桌面主题里额外收掉：
+   那一圈内缩描边在窄窗口下会被顶栏与侧栏切掉一截，看着像没画完。 */
+.app-shell .shell-decor {
+  display: block;
+  z-index: var(--z-decor);
+}
+.app-shell .shell-decor::before {
+  display: block;
+}
+}

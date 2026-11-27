@@ -1,0 +1,103 @@
+    const colHeaders = [...(table?.querySelectorAll('thead th[scope="col"]') ?? [])]
+    expect(colHeaders.map((th) => th.textContent)).toEqual(['次', '课程单元', '状态'])
+    const rowHeaders = [...(table?.querySelectorAll('tbody th[scope="row"]') ?? [])]
+    expect(rowHeaders).toHaveLength(2)
+    expect(rowHeaders[0]?.textContent).toContain('01')
+    expect(table?.querySelectorAll('tbody tr')).toHaveLength(2)
+  })
+
+  it('#95 每张台账住在可 Tab 到、有名字的横向滚动区里（列地板靠它吃溢出，不靠压字）', () => {
+    renderView([baseLesson(), baseLesson({ id: 'vault-s0-2', title: '第二个单元' })])
+    const tables = [...document.querySelectorAll<HTMLTableElement>('table.lp-ledger')]
+    expect(tables).toHaveLength(1)
+    for (const table of tables) {
+      const wrap = table.parentElement
+      expect(wrap?.className).toBe('lp-table-scroll')
+      expect(wrap?.getAttribute('role')).toBe('region')
+      expect(wrap?.getAttribute('tabindex')).toBe('0')
+      expect(wrap?.getAttribute('aria-label')).toContain('可横向滚动')
+    }
+    // 滚动区是包的表格那一层，不是包整块阶段区——否则标题与缺口说明也会被推走
+    expect(tables[0]?.parentElement?.parentElement?.className).toContain('lp-stage-body')
+  })
+
+  it('未标阶段的旧口径单元仍以同一表格结构列出，行表头保留旧编号', () => {
+    renderView([
+      baseLesson({
+        id: 'java-env-a1',
+        title: '旧内置单元',
+        label: 'A1',
+        contentId: undefined,
+        legacy: true,
+        source: undefined,
+        content: { ...baseLesson().content, stageId: undefined },
+      }),
+    ])
+    const rowHeader = document.querySelector('tbody th[scope="row"]')
+    expect(rowHeader?.textContent).toContain('A1')
+    expect(document.querySelector('caption')?.textContent).toContain('未并入 S0—S9 编号阶段的课程清单')
+  })
+})
+
+describe('M3 学习路径 · 保留的业务行为', () => {
+  it('前置关系：单元先备清单来自 content.prerequisites 并成行展示', () => {
+    renderView([baseLesson()])
+    const prereq = screen.getByText('JDK 安装；PATH 配置')
+    expect(prereq).toBeTruthy()
+    expect(prereq.closest('.lp-row-prereq')?.textContent).toContain('先备')
+  })
+
+  it('前置关系：无先备数据时不编造，整行不出现先备', () => {
+    renderView([baseLesson({ content: { ...baseLesson().content, prerequisites: [] } })])
+    expect(document.querySelector('.lp-row-prereq')).toBeNull()
+  })
+
+  it('继续学习：已选单元成块出现，进入学习按钮调用 onContinue', () => {
+    const props = renderView([baseLesson()])
+    // #77：继续区块的标题随层级序列从 h3 升到 h2（页级 h1 之下的第二层）。
+    expect(screen.getByRole('heading', { level: 2, name: '开发环境清点' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /进入学习/ }))
+    expect(props.onContinue).toHaveBeenCalledTimes(1)
+  })
+
+  it('继续学习：未选中单元时不出现继续区块', () => {
+    renderView([baseLesson()], { selectedLessonId: 'none' })
+    expect(screen.queryByRole('button', { name: /进入学习/ })).toBeNull()
+  })
+
+  it('课程行仍通过 onLessonChange 上抛整个 lesson 对象（选中语义不变）', () => {
+    const lesson = baseLesson()
+    const props = renderView([lesson])
+    fireEvent.click(screen.getByRole('button', { name: /开发环境清点/ }))
+    expect(props.onLessonChange).toHaveBeenCalledTimes(1)
+    expect(props.onLessonChange).toHaveBeenCalledWith(lesson)
+  })
+
+  it('已选行标记为 aria-pressed 与文字「已选」，不只靠底色', () => {
+    renderView([baseLesson(), baseLesson({ id: 'vault-s0-2', title: '第二个单元' })])
+    const selected = document.querySelector('.lp-row.is-selected [aria-pressed="true"]')
+    expect(selected?.textContent).toContain('已选')
+    expect(document.querySelector('.lp-row:not(.is-selected) [aria-pressed="true"]')).toBeNull()
+  })
+
+  it('阅读单元：带主题原文时标为阅读单元，并给出原文位置与核验状态', () => {
+    renderView([
+      baseLesson({
+        id: 'vault-s0-read',
+        level: '阅读',
+        reading: {
+          markdown: '# 原文',
+          path: '资料库/Java/并发模型.md',
+          headingPath: ['Java', '并发模型'],
+          verificationStatus: '待核验',
+          headings: [],
+        },
+        source: {
+          path: '资料库/Java/并发模型.md',
+          headingPath: ['Java', '并发模型'],
+          verificationStatus: '待核验',
+          sourceIds: ['src-9'],
+        },
+      }),
+    ])
+    expect(screen.getByText('阅读单元 · 主题原文可读')).toBeTruthy()

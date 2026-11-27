@@ -1,0 +1,72 @@
+> 2026-11-06 目录规则：本端外层只留一个启动链接；源码在 `项目/`，工程说明在 `工程文件/`。当前入口和命令以仓库根 `AGENTS.md`、`工程文件/项目结构索引.md` 为准。下文旧根 EXE、旧构建树、旧备份目录及其历史测试记录不再作为当前操作指令，不得据此重建旧布局。
+
+# 能力解剖与对照：DeepTutor ↔ CodeWeave 应用端
+
+**取证时间**：2026-10-11 15:20（本文所有数字都是这一刻自己跑的，不引用任何历史结论）
+**CodeWeave 基准**：HEAD `e70b868`，工作树 6 个文件脏（4 份新文档 + Main.qml + Phase2）
+**门禁实测**：`G:/CodeWeave/.local/qt/gate-1011.cmd` → `gate-1011-build`，**CTest 8/8 全绿**（native-core 3.13s、qt-facade 4.10s），日志 `G:/CodeWeave/.local/qt/gate-1011.log`
+**DeepTutor 基准**：浅克隆 `6cf793b` = **v1.6.14**，位于 `G:/CodeWeave/.local/prep/ref-deeptutor`（101 MiB，仓库外，不进版本库）
+**本文用途**：交给后端执行 AI 的实施依据。**不是**界面计划——界面台账沿用 `UI复刻计划-Phase4.md` 的 P0/P1/P2/P3 编号，本文只回答「P2 那九项该补成什么样、按谁的语义补」。
+
+---
+
+## 0. 读这份文档的三条前置约束（不可协商）
+
+| # | 约束 | 出处 | 违反的后果 |
+|---|---|---|---|
+| C1 | 应用端**不得引入网络栈**。`应用端/项目/native/src/` 全量 grep `openai\|llm\|embedding\|fetch(\|http\|winhttp\|InternetOpen` = **0 命中**，这是事实基线，不是暂时状态 | 本轮实测 | 破掉「无服务器 · 无端口」的产品主张 |
+| C2 | 不得引入需要常驻端口的服务（DeepTutor 自身要 3782/8001/8090 三个） | 同上 | 同上 |
+| C3 | 每次性能结论必须同机同负载实测；只有原理排序时写「未证实」 | 总工程 §101 | 文档说谎 |
+
+**借鉴分级标记**（第 3 节每一项都带）：
+`[移植-无LLM]` 纯算法/纯数据模型，可直接翻译成 C++；`[借设计]` 只借概念与字段命名，实现自己写；`[禁]` 依赖 LLM 编排，碰了就违反 C1。
+
+---
+
+## 1. CodeWeave 应用端能力解剖
+
+### 1.1 规模（实测）
+
+| 层 | 路径 | 行数 | 文件 |
+|---|---|---|---|
+| 原生业务库 `codeweave-core` | `应用端/项目/native/src/` | 29 个 .cpp | — |
+| 应用端 C++ 合计 | `应用端/项目/native/` | 11,953 | 73 |
+| Qt facade | `应用端/项目/native/ui-qt/facade/` | 4 个 .cpp：385 / 242 / 480 / 142 | 4 |
+| Qt 界面 | `应用端/项目/native/ui-qt/qml/Main.qml` | **4,705** | 1（未拆分） |
+| 网页端（**功能规格的唯一来源，不再改动**） | `网页端/项目/src/` | 43,372 TS/TSX + 17,207 CSS | 199 |
+| 内容包 | `content/` | `curriculum.v1.json`：61 课程 / 13 挑战 / 13 阶段；`catalog.v1.tsv`：74 条已发布记录；4 语言工具 | — |
+| 测试断言 | native 435（61 个测试函数）· content-delivery 11 · facade 82 | — | — |
+
+### 1.2 后端 31 模块 × 是否被 facade 暴露
+
+「暴露」三档：✅ QML 可达 · ◐ facade 有但 QML 不引用（死面） · ❌ facade 完全没有
+
+| 模块 | LOC(.cpp/.hpp) | 职责 | 暴露 |
+|---|---|---|---|
+| app_core | 271/45 | 工作区打开/加锁、草稿原子读写 | ◐ 只在 loadAccountDraft 里 open |
+| account / account_store / account_service | 88/23 · 260/34 · 116/35 | 账户记录、TSV 台账、会话与独立数据根 | ✅ |
+| password_crypto | 87/15 | scrypt N=16384 r=8 p=1 dkLen=64 | ✅（间接） |
+| content_contract / content_repository | 84/31 · 353/31 | 内容契约校验、只读发布内容与 exercises/starter/hints | ✅ |
+| content_access | 151/40 | 资料库只读绑定 + 附件 sha256 完整性 | ❌ 0 引用 |
+| learning_contract | 159/45 | 掌握度**解析**、证据记录校验、operation_id 格式 | ✅（间接） |
+| evidence_store | 206/24 | 只追加证据台账，幂等 | ◐ 只经 save_external_evidence |
+| progress_store | 229/35 | 只追加正式进度台账，幂等 | ❌ read_all 无 UI 消费者 |
+| challenge_service | **39/41** | 执行→证据→（有条件）进度 | ◐ 藏在 runCode 内 |
+| external_evidence_service | 117/23 | 外部环境证据，强制 Pending | ◐ 弹窗从未 open（见 G3） |
+| progress_projection | 247/45 | markdown→掌握/阶段投影，**严格只读** | ❌ **0 引用**（分析页因此写死数据） |
+| review_service | **56/44** | 证据+进度聚合计数 | ✅ 但字段太少（见 4.3） |
+| manifest_dry_run / migration_dry_run / migration_staging / migration_contract | 109/56 · 67/32 · 206/33 · 93/49 | 四类「先看不改」预检与隔离暂存回滚 | ❌ 全部 0 引用（合计 63 条断言在保护没人用的功能） |
+| legacy_import | 308/22 | Electron JSON → 原生台账，只读源 | ◐ action 从不发出 |
+| backup_service | 336/42 | 全树备份/恢复，FNV 逐文件校验 + 时点复验 | ✅（无守卫，见 4.4） |
+| backend_task_service | 198/70 | 单 worker 有界可取消队列（queue_limit=8） | ✅ |
+| execution_contract / process_contract / execution_plan / process_runner / execution_service | 89/61 · 69/20 · 53/22 · 287/56 · 216/31 | 请求校验→白名单→参数构造→CreateProcess+Job Object 强杀→编译运行轨迹 | ✅ |
+| trace_contract / trace_store | 18/35 · 309/44 | 有序事件流 + 原子落盘 + 分页 | ◐ **read_page/summarize 完全没暴露 → 运行记录页无数据源** |
+| output_comparison | —/19 | 整段 trim 相等比较 | ✅（粒度太粗，见 P2.3） |
+| **掌握度存储 / 复习调度器** | **缺失** | **原生端没有这两个模块** | — |
+
+> **本节最重要的一行**：`MasteryLevel` 只有 `parse_mastery_level()`（解析），`MasteryRow` 来自只读 markdown 投影。**原生后端没有任何掌握度计算，也没有任何复习调度**。`ReviewItem` 的字段是 `content_id / exercise_id / latest_at / latest_result / passed / independent / hint_level / evidence_count` —— **没有到期日、没有节点下标、没有等级、没有分组**。这正是 Phase 4 P2.1 要补的东西。
+
+### 1.3 数据层与强不变量（你最值钱的资产，改后端不许破坏）
+
+落盘布局（全部从代码读出，非文档转述）：
+

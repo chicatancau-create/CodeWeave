@@ -1,0 +1,87 @@
+ * 改版前它们只被共享层 `styles.css` 的 `:disabled{opacity:.5}` 压淡——
+ * 「正在提交」「没勾选」「不是拥有者」「没确认预览」四种不同的事实是同一种灰。
+ *
+ * 两处判据写法要说清：
+ * - 说明按 **id 定位**，不能按 `.ewb-disabled-hint` 类名：同一屏可以同时有两颗按钮禁用，
+ *   类名查询会抓到别人的那一条（本文件第一版就是这么错的）。
+ * - 队列行**默认是勾好的**，所以「当前 0 项」这一档必须先点掉勾选才成立。
+ */
+describe('§4 disabled · 按不动时要说清条件，条件消失时说明与属性一起撤下', () => {
+  const hintOf = (container: HTMLElement, button: HTMLElement) => {
+    const hintId = button.getAttribute('aria-describedby')
+    expect(hintId, '禁用却没有 describe 目标 = 只有视觉通道').toBeTruthy()
+    return container.querySelector(`#${hintId}`) as HTMLElement
+  }
+
+  it('主题名没填：暂存按钮说「先填主题名」，填上之后说明与属性一起撤下', async () => {
+    route()
+    const { container } = renderPanel()
+    await screen.findByText(/没有待写回证据/)
+
+    const stage = screen.getByRole('button', { name: '暂存证据' }) as HTMLButtonElement
+    expect(stage.disabled).toBe(true)
+    expect(stage.getAttribute('aria-disabled')).toBe('true')
+    const hint = hintOf(container, stage)
+    expect(hint.textContent).toContain('先填这条证据的主题名')
+    // 条件说明是静态文字：本页的播报权属于结果那一行（写入结果 / 失败原因），
+    // 多挂一个活区域只会和它抢播报。
+    expect(hint.hasAttribute('role')).toBe(false)
+
+    fireEvent.change(screen.getByLabelText('学习主题'), { target: { value: 'Java Hello World' } })
+    const ready = screen.getByRole('button', { name: '暂存证据' }) as HTMLButtonElement
+    expect(ready.disabled).toBe(false)
+    expect(ready.hasAttribute('aria-disabled'), '可点之后不许留着 aria-disabled').toBe(false)
+    expect(ready.hasAttribute('aria-describedby')).toBe(false)
+    expect(container.querySelector('#ewb-stage-disabled-hint')).toBeNull()
+  })
+
+  it('把默认勾选点掉：预览按钮说明「当前 0 项」，重新勾上就解禁', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    const { container } = renderPanel()
+    await screen.findByText('Java Hello World')
+
+    const preview = screen.getByRole('button', { name: /③ 预览将写入的内容/ }) as HTMLButtonElement
+    expect(preview.disabled, '队列行默认已勾好，这一颗本该可点').toBe(false)
+
+    fireEvent.click(screen.getByLabelText(/Java Hello World/))
+    const blocked = screen.getByRole('button', { name: /③ 预览将写入的内容/ }) as HTMLButtonElement
+    expect(blocked.disabled).toBe(true)
+    expect(hintOf(container, blocked).textContent).toContain('上面还没勾出要写回的条目（当前 0 项）')
+
+    fireEvent.click(screen.getByLabelText(/Java Hello World/))
+    expect((screen.getByRole('button', { name: /③ 预览将写入的内容/ }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('不是拥有者：理由说的是权限本身，同时不牵连「导出待保存 Markdown」那颗', async () => {
+    route({ learningStatus: LEARNING_STATUS_OTHER, queue: { pending: [stagedRecord()], synced: [] } })
+    const { container } = renderPanel()
+    await screen.findByText(/当前账户不是资料库拥有者/)
+
+    const preview = screen.getByRole('button', { name: /③ 预览将写入的内容/ }) as HTMLButtonElement
+    expect(preview.disabled).toBe(true)
+    expect(hintOf(container, preview).textContent).toContain('写回资料库只有拥有者能做')
+
+    const exportButton = screen.getByRole('button', { name: /导出待保存 Markdown/ }) as HTMLButtonElement
+    expect(exportButton.disabled, '导出走的是本机数据，不该被同一条权限理由禁掉').toBe(false)
+  })
+
+  it('确认写入：没勾确认时说「还没勾」，勾上之后说明撤下', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    const { container } = renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+
+    const commit = screen.getByRole('button', { name: '确认写入' }) as HTMLButtonElement
+    expect(commit.disabled).toBe(true)
+    expect(hintOf(container, commit).textContent).toContain('还没勾「我已核对以上将写入的内容」')
+
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    const ready = screen.getByRole('button', { name: '确认写入' }) as HTMLButtonElement
+    expect(ready.disabled).toBe(false)
+    expect(container.querySelector('#ewb-commit-disabled-hint')).toBeNull()
+  })
+
+  it('CSS 不变式：本页按钮禁用档不靠透明度，改走虚线描边', async () => {
+    const fsSpecifier: string = 'node:fs'
+    const { readFileSync } = (await import(fsSpecifier)) as {

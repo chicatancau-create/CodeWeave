@@ -1,0 +1,87 @@
+    expect(text(confirm)).toContain('把已写入、且有备份的步骤，用写入前的备份覆盖回来')
+    expect(text(confirm)).toContain('把这笔事务新建的文件移出资料库')
+    expect(text(confirm)).toContain('回滚救不回从来没写到磁盘的步骤')
+
+    const before = calls.length
+    fireEvent.click(screen.getByRole('button', { name: /确认回滚这一笔/ }))
+    await screen.findByText(/服务端已还原 2 个文件、移出本次新建的 1 个/)
+    expect(rollbacks).toBe(1)
+    // 回执之后必须重读：账本与这一笔的明细各一次，加上下方那句「重新从服务端读回的」。
+    const after = calls.slice(before)
+    expect(after.filter((call) => call.path === '/api/learning/evidence-transactions').length).toBeGreaterThanOrEqual(1)
+    expect(after.filter((call) => call.path === '/api/learning/evidence-transaction/op-partial-aaaa11').length).toBeGreaterThanOrEqual(1)
+    expect(text(document.querySelector('.ewb-tx-outcome--done'))).toContain('不是界面自己推断的')
+  })
+
+  it('rollback_blocked：逐条 blockers 原样呈现，回执停在 blocked', async () => {
+    renderPanel({
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+      rollback: () =>
+        json(
+          {
+            error: '检测到第三方新改动或备份缺失，已停止回滚；请人工合并',
+            code: 'rollback_blocked',
+            details: {
+              blockers: [
+                { path: PROGRESS_REL, kind: 'progress', reason: '第三方新改动' },
+                { path: INDEX_REL, kind: 'index', reason: '缺少备份文件' },
+              ],
+            },
+          },
+          409,
+        ),
+    })
+    await ledgerLoaded()
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /回滚这一笔写回/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /确认回滚这一笔/ }))
+    const outcome = await screen.findByRole('alert')
+    expect(text(outcome)).toContain('检测到第三方新改动或备份缺失')
+    expect(outcome.querySelectorAll('.ewb-tx-blockers li').length).toBe(2)
+    expect(text(outcome)).toContain('进度追踪.md')
+    expect(text(outcome)).toContain('缺少备份文件')
+  })
+
+  it('rollback_blocked 但没带结构化 blockers：只复述服务端那句话，不编逐条清单', async () => {
+    renderPanel({
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+      rollback: () => json({ error: '检测到第三方新改动或备份缺失，已停止回滚；请人工合并', code: 'rollback_blocked' }, 409),
+    })
+    await ledgerLoaded()
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /回滚这一笔写回/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /确认回滚这一笔/ }))
+    const outcome = await screen.findByRole('alert')
+    expect(text(outcome)).toContain('检测到第三方新改动或备份缺失')
+    expect(outcome.querySelector('.ewb-tx-blockers')).toBeNull()
+    expect(text(outcome)).toContain('上面就是它给的全部原因')
+  })
+
+  it('回滚被别的错误挡住（不是 blocked）：给失败档，同样不凭空长出逐条清单', async () => {
+    renderPanel({
+      ledger: json({ data: { transactions: [ledgerRow()], total: 1, unreadable: 0, capped: 20 } }),
+      rollback: () => json({ error: '资料库根不可用：路径未配置', code: 'vault_unavailable' }, 503),
+    })
+    await ledgerLoaded()
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /回滚这一笔写回/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /确认回滚这一笔/ }))
+    const outcome = await screen.findByRole('alert')
+    expect(text(outcome)).toContain('资料库根不可用')
+    expect(outcome.querySelector('.ewb-tx-blockers')).toBeNull()
+    expect(text(outcome.querySelector('.ewb-mark-text'))).toContain('失败')
+  })
+
+  it('一步都没写的事务不给回滚入口：回滚无从谈起', async () => {
+    renderPanel({
+      ledger: json({
+        data: {
+          transactions: [ledgerRow({ state: 'partial', targets: ledgerRow().targets.map((step) => ({ ...step, applied: false })) })],
+          total: 1,
+          unreadable: 0,
+          capped: 20,
+        },
+      }),
+      detail: () => json({ data: detailRecord({ targets: detailRecord().targets.map((step) => ({ ...step, applied: false, appliedAt: null })) }) }),
+    })
+    await ledgerLoaded()

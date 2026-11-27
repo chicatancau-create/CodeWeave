@@ -1,0 +1,16 @@
+  if (!valid_observation(observation)) return Result::failure("学习状态标注无效");
+  return mutate_document(root_, records, [&](QVariantList& next) {
+    for (auto& existing : next) {
+      auto item = existing.toMap();
+      if (item.value("id").toString() != id) continue;
+      if (item.value("status") != "submitted" || item.value("tier") != "external")
+        return Result::failure("仅待确认的外部证据可人工复核");
+      item["status"] = passed ? "verified" : "rejected";
+      item["observation"] = observation;
+      item["reviewedAt"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+      existing = item;
+      return Result::success(passed ? "已人工确认通过（非系统自动验证）" : "已人工标记不通过");
+    }
+    return Result::failure("找不到待复核的挑战提交");
+  });
+}

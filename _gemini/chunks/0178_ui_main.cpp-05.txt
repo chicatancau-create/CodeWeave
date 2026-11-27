@@ -1,0 +1,71 @@
+    const auto available = screen->availableGeometry();
+    view.resize(qMin(1440, static_cast<int>(available.width() * 0.92)),
+        qMin(900, static_cast<int>(available.height() * 0.92)));
+  }
+  if (comparison >= 0) {
+    view.setFlags(Qt::Window | Qt::FramelessWindowHint);
+    view.setMinimumSize(QSize(1440, 900));
+    view.setMaximumSize(QSize(1440, 900));
+    view.resize(1440, 900);
+  }
+  if (qml_smoke) {
+    view.setFlags(Qt::Window | Qt::FramelessWindowHint);
+    view.setMinimumSize(QSize(1440, 900));
+    view.setMaximumSize(QSize(1440, 900));
+    view.resize(1440, 900);
+  }
+  view.setTitle(shell.appTitle());
+  view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);
+  view.rootContext()->setContextProperty(QStringLiteral("unifiedContent"), &unifiedContent);
+  view.setResizeMode(QQuickView::SizeRootObjectToView);
+  QStringList qml_warnings;
+  if (qml_smoke || unified_smoke || isolated_window) {
+    QObject::connect(view.engine(), &QQmlEngine::warnings, &application,
+        [&](const QList<QQmlError>& warnings) {
+          for (const auto& warning : warnings) qml_warnings.append(warning.toString());
+        });
+  }
+  view.loadFromModule(QStringLiteral("CodeWeave.Ui"), QStringLiteral("Main"));
+  if (view.status() == QQuickView::Error) return 1;
+  view.show();
+  if (!qml_smoke && !unified_smoke && !isolated_window && benchmark < 0) unifiedContent.restoreAccount();
+  if (unified_smoke) {
+    auto* dialog = view.rootObject()->findChild<QObject*>(QStringLiteral("unifiedContentDialog"));
+    if (!dialog || !QMetaObject::invokeMethod(dialog, "open")) return 1;
+    const auto requestedId = qEnvironmentVariable("CODEWEAVE_SMOKE_CONTENT_ID");
+    const auto expectedCheckin = qEnvironmentVariable("CODEWEAVE_SMOKE_CHECKIN");
+    const auto report = arguments.at(unified_smoke_arg + 1);
+    const auto login = qEnvironmentVariable("CODEWEAVE_SMOKE_LOGIN");
+    const auto password = qEnvironmentVariable("CODEWEAVE_SMOKE_PASSWORD");
+    const auto disconnectMarker = qEnvironmentVariable("CODEWEAVE_SMOKE_DISCONNECT");
+    const bool outboxTest = qEnvironmentVariableIsSet("CODEWEAVE_SMOKE_OUTBOX") && !disconnectMarker.isEmpty();
+    const bool restoreRequested = arguments.contains(QStringLiteral("--restore-unified-session"));
+    if (requestedId.isEmpty() || (!restoreRequested && (login.isEmpty() || password.isEmpty()))) return 2;
+    QTimer timer;
+    int ticks = 0;
+    bool requested = false;
+    bool downloading = false;
+    bool offlineRequested = false;
+    bool queued = false;
+    bool reconnectionRequested = false;
+    QObject::connect(&timer, &QTimer::timeout, &application, [&] {
+      if (!requested && !unifiedContent.catalog().isEmpty() && !unifiedContent.busy()) {
+        requested = true;
+        unifiedContent.openLesson(requestedId);
+      }
+      const auto page = unifiedContent.page();
+      const auto lesson = page.value("lesson").toMap();
+      auto* body = dialog->findChild<QObject*>(QStringLiteral("unifiedLessonBody"));
+      auto* checkin = dialog->findChild<QObject*>(QStringLiteral("unifiedCheckinDates"));
+      const bool shown = body && body->property("visible").toBool() && !body->property("text").toString().isEmpty();
+      const bool synchronized = expectedCheckin.isEmpty() ||
+          (checkin && checkin->property("visible").toBool() && unifiedContent.checkinDates().count(expectedCheckin) == 1);
+      const bool ready = shown && synchronized && !unifiedContent.busy() && qml_warnings.isEmpty();
+      bool syncedOutbox = !outboxTest;
+      if (ready && outboxTest && offlineRequested && unifiedContent.status() == QStringLiteral("离线只读")) {
+        if (!queued) {
+          queued = true;
+          unifiedContent.recordCheckin();
+        } else if (!reconnectionRequested && unifiedContent.syncStatus() == QStringLiteral("待同步打卡已保留")) {
+          if (QFile::exists(disconnectMarker + QStringLiteral(".online"))) {
+            reconnectionRequested = true;

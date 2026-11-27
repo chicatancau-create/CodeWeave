@@ -1,0 +1,129 @@
+    warnings.push(`这份数据属于账户「${scope}」，当前登录的是「${currentScope}」；跨账户条目默认跳过，需逐项确认`)
+  }
+
+  for (const [key, value] of Object.entries(data)) {
+    const descriptor = key.startsWith(STORAGE_PREFIX) ? descriptorOf(key) : undefined
+    // 「大小」要的是字节数，不是字符串长度：JSON.stringify(...).length 数的是 UTF-16 码元，
+    // 一份含中文的导出件会被低报两成（实测界面 327 B 对真实 417 B，差 21.6%）。
+    // 落盘与恢复比较都按 UTF-8 字节走，这里也用 TextEncoder 取同一口径。
+    const bytes = (() => {
+      try {
+        return new TextEncoder().encode(JSON.stringify(value ?? null)).length
+      } catch {
+        return 0
+      }
+    })()
+    const push = (status: ImportStatus, reason?: string): void => {
+      items.push({
+        key,
+        base: descriptor ? baseOf(key) : '',
+        label: descriptor ? labelOf(key) : key,
+        category: descriptor?.scope ?? 'unknown',
+        status,
+        bytes,
+        decision: status === 'new' ? 'import' : 'skip',
+        ...(reason ? { reason } : {}),
+      })
+    }
+
+    if (!descriptor) {
+      push('rejected', '未注册的键名，拒绝写入（导入文件不得指定任意 localStorage 键）')
+      continue
+    }
+    if (descriptor.exportPolicy === 'never') {
+      push('rejected', '该类别被标记为永不导入')
+      continue
+    }
+    if (scopeOf(key) !== scope) {
+      push('rejected', '键的账户后缀与导出声明的范围不一致')
+      continue
+    }
+    if (value === undefined) {
+      push('rejected', '条目为空')
+      continue
+    }
+    // 跨账户判定必须先于目标槽位状态：文件声明的账户与当前登录不一致时，这些键是「别人的槽位」，
+    // 无论对面是空位、相同还是不同内容，都不算本账户的可恢复项（空槽位也不写，见 applyImport 硬约束）。
+    if (scope !== currentScope) {
+      push('cross-scope', '目标账户与当前登录账户不同')
+      continue
+    }
+    const existing = localStorage.getItem(key)
+    if (existing === null) {
+      push('new')
+      continue
+    }
+    if (existing === JSON.stringify(value)) {
+      push('identical', '与目标现有内容相同，重复导入无意义')
+      continue
+    }
+    push('conflict', '目标已有不同内容，默认保留现有记录')
+  }
+
+  const counts = items.reduce(
+    (acc, item) => {
+      acc[item.status] += 1
+      return acc
+    },
+    { ...emptyCounts },
+  )
+  return {
+    ok: true,
+    errors,
+    warnings,
+    source: { scope, exportedAt: String(root.exportedAt ?? ''), version },
+    items,
+    counts,
+  }
+}
+
+/**
+ * 应用导入决策。只写被显式标为 'import' 且状态允许的键。
+ * localStorage 不具备事务：中途失败时尝试把已写入的键恢复原值，
+ * 恢复不成功就如实列进 unresolved，不宣称成功。
+ */
+export function applyImport(payload: unknown, currentScope: string, decisions: Record<string, ImportDecision> = {}): ImportResult {
+  const preview = previewImport(payload, currentScope)
+  const result: ImportResult = { applied: [], skipped: [], failed: [], rolledBack: false, unresolved: [] }
+  if (!preview.ok) {
+    result.failed = preview.items.map((item) => item.key)
+    return result
+  }
+  const data = asRecord(asRecord(payload)?.data) ?? {}
+  const originals = new Map<string, string | null>()
+
+  for (const item of preview.items) {
+    if (item.status === 'rejected' || item.status === 'identical') {
+      result.skipped.push(item.key)
+      continue
+    }
+    // 跨账户的导出件不是「目标键」，即使界面被强制勾选也不写：
+    // 换浏览器/换 origin 恢复用的是同一个账户 ID 的文件，写别人的槽位不是导入而是伪造。
+    if (item.status === 'cross-scope') {
+      result.skipped.push(item.key)
+      continue
+    }
+    // 未显式选择时沿用预览给出的默认决策：空位可直接恢复，冲突与跨账户默认不写。
+    if ((decisions[item.key] ?? item.decision) !== 'import') {
+      result.skipped.push(item.key)
+      continue
+    }
+    originals.set(item.key, localStorage.getItem(item.key))
+    try {
+      localStorage.setItem(item.key, JSON.stringify(data[item.key]))
+      result.applied.push(item.key)
+    } catch (error) {
+      result.failed.push(item.key)
+      console.warn(`[code-canvas] 导入 ${item.key} 失败：`, error)
+    }
+  }
+
+  if (result.failed.length > 0 && result.applied.length > 0) {
+    const restored: string[] = []
+    for (const key of result.applied) {
+      const before = originals.get(key) ?? null
+      try {
+        if (before === null) localStorage.removeItem(key)
+        else localStorage.setItem(key, before)
+        restored.push(key)
+      } catch (error) {

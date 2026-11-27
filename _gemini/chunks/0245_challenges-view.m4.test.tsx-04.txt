@@ -1,0 +1,86 @@
+    expect(chip.querySelector('svg')).toBeTruthy() // 图形通道（lucide 徽记）
+  })
+
+  it('难度是分类不是成败：中性细线，不借用语义色与场景色', () => {
+    const body = ruleBody('.challenges-view .difficulty')
+    expect(body).not.toMatch(/--cv-ok|--cv-warn|--cv-bad|--ds-scene|--cv-scene/)
+    for (const level of ['入门', '基础', '进阶']) {
+      expect(ruleBody(`.challenges-view .difficulty.${level}`)).not.toMatch(
+        /--cv-ok|--cv-warn|--cv-bad|--ds-scene|--cv-scene/,
+      )
+    }
+  })
+
+  it('取消 3px 彩色左条与 2px 强调条：提示区统一 1px 发丝线', () => {
+    expect(ruleBody('.challenges-view .challenge-notice')).toContain('border: var(--cv-hair-width) solid var(--cv-warn)')
+    expect(cssCode).not.toMatch(/border-(left|top|right|bottom)(-width)?:\s*[2-9]px/)
+  })
+})
+
+describe('M4 挑战页 · 提交与草稿一眼分开（§5.2）', () => {
+  it('详情里有两个分区：01 本地草稿（未提交）/ 02 已提交记录', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    const draft = document.querySelector('.challenge-zone--draft')
+    const submitted = document.querySelector('.challenge-zone--submitted')
+    expect(draft?.textContent).toContain('本地草稿')
+    expect(draft?.textContent).toContain('未提交')
+    expect(submitted?.textContent).toContain('已提交记录')
+    expect(submitted?.textContent).toContain('不随上面的草稿改变')
+  })
+
+  it('草稿区虚线边、提交区实线边：形状即通道（不靠颜色单传）', () => {
+    expect(ruleBody('.challenges-view .challenge-zone--draft')).toContain('border-style: dashed')
+    expect(ruleBody('.challenges-view .challenge-zone--submitted')).toContain('border-style: solid')
+    expect(ruleBody('.challenges-view .challenge-zone')).toContain('border: var(--cv-hair-width) solid var(--cv-hair)')
+  })
+
+  it('未提交时：提交入口在草稿区，提交区写明「尚无提交记录」', () => {
+    renderView()
+    openDetail(/B 关：Java 核心编程/)
+    const draft = document.querySelector('.challenge-zone--draft')!
+    const submitted = document.querySelector('.challenge-zone--submitted')!
+    expect(draft.querySelector('.challenge-submit')).toBeTruthy()
+    expect(submitted.querySelector('.challenge-submit')).toBeNull()
+    expect(submitted.textContent).toContain('尚无提交记录')
+  })
+
+  it('已通过：提交入口消失，事实在提交区（固定标识 + 文字）', () => {
+    renderView({ progress: passedRecord })
+    openDetail(/B 关：Java 核心编程/)
+    expect(screen.queryByRole('button', { name: /提交答案/ })).toBeNull()
+    const done = document.querySelector('.challenge-zone--submitted .challenge-done-note')
+    expect(done?.textContent).toContain('已通过')
+    expect(done?.textContent).toContain('已于')
+    expect(done?.querySelector('svg')).toBeTruthy()
+    expect(document.querySelector('.challenge-zone--submitted .challenge-submitted-evidence')?.textContent).toContain(
+      '输出与验收点一致',
+    )
+  })
+
+  it('待人工确认：文字明说「未计入已通过」，与草稿区不同处', () => {
+    renderView({ progress: submittedRecord })
+    openDetail(/A 关：开发环境与基本操作/)
+    const pending = document.querySelector('.challenge-zone--submitted .challenge-pending-note')
+    expect(pending?.textContent).toContain('待人工确认（未计入已通过）')
+    expect(pending?.textContent).toContain('待确认')
+    expect(pending?.querySelector('svg')).toBeTruthy()
+  })
+
+  it('草稿状态用文字写清「本机 / 未提交 / 何时存」，代码与证据各一条', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    fireEvent.change(screen.getByRole('textbox', { name: /代码编辑器/ }), {
+      target: { value: 'int total = 42;\n// 第二行' },
+    })
+    const codeState = document.querySelector('.challenge-draft-state--code')
+    expect(codeState?.textContent).toContain('代码草稿')
+    expect(codeState?.textContent).toContain('本机代码草稿已保存')
+    expect(codeState?.textContent).toContain('2 行')
+    expect(codeState?.textContent).toContain('尚未提交')
+
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), { target: { value: '跑通并留档' } })
+    const evidenceState = document.querySelector('.challenge-draft-state--evidence')
+    expect(evidenceState?.textContent).toContain('证据草稿')

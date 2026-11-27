@@ -1,0 +1,90 @@
+                QStringList next_ids;
+                for (const auto& item : *listed) {
+                  next_ids.push_back(item.id);
+                  next_titles.push_back(item.title);
+                }
+                if (published_titles_ != next_titles) {
+                  published_titles_ = next_titles;
+                  emit publishedTitlesChanged();
+                }
+                if (published_ids_ != next_ids) {
+                  published_ids_ = next_ids;
+                  emit publishedIdsChanged();
+                }
+                selected_content_index_ = -1;
+                selected_content_id_.clear();
+                selected_content_body_.clear();
+                closeChallenge();
+                clearDraft();
+                emit selectedContentChanged();
+                emit selectedContentBodyChanged();
+                content_status_ = QStringLiteral("已读取 %1 门已发布课程")
+                    .arg(published_titles_.size());
+              } else {
+                content_status_ = QString::fromUtf8(result.result.message);
+              }
+              emit contentStatusChanged();
+            }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    content_task_id_.clear();
+    content_busy_ = false;
+    content_status_ = QString::fromUtf8(submitted.message);
+    emit contentBusyChanged();
+    emit contentStatusChanged();
+  }
+}
+
+void UiShell::openPublishedContent(int index) {
+  if (content_busy_ || draft_saving_ || index < 0 || index >= published_ids_.size() || !allowDocumentChange()) return;
+  content_busy_ = true;
+  content_status_ = QStringLiteral("正在读取课程正文…");
+  emit contentBusyChanged();
+  emit contentStatusChanged();
+  const auto root = std::filesystem::path(content_root_.toStdWString());
+  const auto content_id = published_ids_.at(index).toStdString();
+  selected_content_id_ = published_ids_.at(index);
+  const auto selection_changed = selected_content_index_ != index;
+  selected_content_index_ = index;
+  selected_content_body_.clear();
+  emit selectedContentBodyChanged();
+  closeChallenge();
+  clearDraft();
+  if (selection_changed) emit selectedContentChanged();
+  const auto body = std::make_shared<QString>();
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto expected_id = selected_content_id_;
+  codeweave::backend::TaskRequest request;
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Read;
+  request.work = [root, content_id, body](const codeweave::backend::CancellationToken& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
+    codeweave::content::LoadedUnit unit;
+    const auto result = codeweave::content::ContentRepository(root).read_published(content_id, unit);
+    if (result.ok) *body = QString::fromUtf8(unit.body);
+    return result;
+  };
+  const auto task_name = QStringLiteral("qt-body-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  content_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, body, account, generation, expected_id, task_name](codeweave::backend::TaskResult result) mutable {
+        QMetaObject::invokeMethod(this, [this, body, account, generation, expected_id, task_name,
+            result = std::move(result)]() mutable {
+          if (task_name != content_task_id_) return;
+          content_task_id_.clear();
+          content_busy_ = false;
+          emit contentBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_ ||
+              expected_id != selected_content_id_) {
+            return;
+          }
+          if (result.cancelled) {
+            content_status_ = QStringLiteral("课程正文读取已取消");
+            emit contentStatusChanged();
+            return;
+          }
+          if (result.result.ok) {
+            selected_content_body_ = *body;

@@ -1,0 +1,101 @@
+      "sha256": "2a93307b54dcc111c30e8d7d3f3da54e35e379bf558424eb05ea3f317545df05"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-cpp-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e0110b191cc071a3859378696822a64f912254f30747e7d31e8307ade1103ea4"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-live.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "bb573284a9ad162987c9004458146431951aaf01ff00fb7b4ddc3d68f01c1396"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-cancelled.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "72985ca8da2516e9905f80949ec8badce0369cbe28b86e431b9c8aea1119be70"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-failed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "b20d972194057d8b13c5465ff9f7453099ec1c5eb5c40d3ede05351f34954187"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "50202cfb84537e19017c7abb8fb35df61de4ddfce7b27e462a03dfc157918844"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-detail.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e9f50e100c531c22af817bf08768eb6c94e09cb07a86c9d56b916b36e5eeeeca"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-detail-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "aa7198c5744c125f56df0ac096e1ed0b774380f83e61023c218989ef3b491fae"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5cdbeb19836b27c4a9ff64876ce1044cf78c0743bcce8d5014f976eb602a84fd"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-judgement-passed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "1f96da2fc31f2b1c354f3cbdd5ce344b67020fb6df799538fa3c369d3f7323fe"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-judgement-failed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "59e9a48fc31900d95ecd6509270336eab13fc003b758f71ebbcde859381eddd9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-submitted.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "10356c6ade6aaa6219c8b1d31994791340d36c42c163210b3e3b2434c4874042"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-submitted-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "e7ae6bad46d33645bba746ba6fa0228816f479acc35189c70a55767dfeda10c9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-pending-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "4f1e911ba60bfdea35abeb37ee84cf7348f4ba05298b6f04731c3e9fd811cb7c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-verified-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "444c276e50bb906fa4a259517e09a88b8ce69ea92876237b5f7fc502305acb57"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-challenge-review-history.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "338ac7a55e28dac10b01d4505fa6aba33ab30a689dba8365571f5e2528196233"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-profile.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "fd56b0dc1ff9e9aadabf15fa7bed42ac13de27bdf2dbf062fc848f68129db795"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-security.png",
+      "width": 1440,

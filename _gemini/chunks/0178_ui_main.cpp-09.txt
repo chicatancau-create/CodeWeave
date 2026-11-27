@@ -1,0 +1,80 @@
+        {"devicePixelRatio", view.devicePixelRatio()}});
+    return true;
+  };
+  if (qml_smoke) {
+    QObject::connect(&qml_smoke_timer, &QTimer::timeout, &application, [&] {
+      if (++qml_smoke_ticks > 200) {
+        diagnostic = QStringLiteral("QML smoke timed out while waiting for its viewport or popup transition at step %1").arg(qml_smoke_page);
+        write_smoke_report();
+        application.exit(1);
+        return;
+      }
+      if (shell.accountBusy() || shell.contentBusy()) return;
+      if (topbar_reference >= 0 && !smoke_reference_ready) {
+        if (!shell.hasActiveAccount()) {
+          if (!smoke_reference_registration_started) {
+            smoke_reference_registration_started = true;
+            shell.registerAccount(QStringLiteral("Reference"), QStringLiteral("topbar@example.test"),
+                QStringLiteral("Topbar-Reference-123!"));
+          }
+          return;
+        }
+        int selected = -1;
+        const auto lessons = shell.lessonMeta();
+        for (qsizetype index = 0; index < lessons.size(); ++index)
+          if (lessons.at(index).toMap().value("id").toString() == QStringLiteral("python-loop-sum"))
+            selected = static_cast<int>(index);
+        if (selected < 0) {
+          diagnostic = QStringLiteral("Isolated reference account or python-loop-sum content is missing");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+        view.rootObject()->setProperty("selectedLessonIndex", selected);
+        auto* study = view.rootObject()->findChild<QObject*>(QStringLiteral("studyPageRoot"));
+        const auto subjects = study ? study->property("subjectOptions").value<QJSValue>().toVariant().toList() : QVariantList{};
+        int python = -1;
+        for (qsizetype index = 0; index < subjects.size(); ++index)
+          if (subjects.at(index).toString() == QStringLiteral("Python")) python = static_cast<int>(index);
+        if (python < 0 || !QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection,
+                Q_ARG(QVariant, python))) {
+          diagnostic = QStringLiteral("Python reference filter is unavailable");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+        QCoreApplication::processEvents();
+        const auto filtered = study->property("filteredLessons").value<QJSValue>().toVariant().toList();
+        const bool selected_in_filter = std::any_of(filtered.cbegin(), filtered.cend(), [&](const QVariant& lesson) {
+          return lesson.toMap().value("id").toString() == QStringLiteral("python-loop-sum");
+        });
+        if (study->property("subjectFilter").toInt() != python || filtered.size() != 6 || !selected_in_filter) {
+          diagnostic = QStringLiteral("Python reference filter did not apply to the initial visible state");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+        smoke_reference_ready = true;
+      }
+      if (view.windowState() != Qt::WindowNoState || view.size() != smoke_expected_size) {
+        view.setWindowState(Qt::WindowNoState);
+        view.setMinimumSize(smoke_expected_size);
+        view.setMaximumSize(smoke_expected_size);
+        view.resize(smoke_expected_size);
+        return;
+      }
+      if (!qml_warnings.isEmpty()) {
+        diagnostic = QStringLiteral("QML warning: ") + qml_warnings.join(QLatin1Char('\n'));
+        write_smoke_report();
+        qWarning("QML smoke: %s", qPrintable(qml_warnings.join(QLatin1Char('\n'))));
+        application.exit(1);
+        return;
+      }
+      const auto loaders = view.rootObject()->findChildren<QObject*>(QStringLiteral("pageLoader"));
+      if (loaders.size() != 9) {
+        diagnostic = QStringLiteral("Expected 9 page Loaders, found %1").arg(loaders.size());
+        write_smoke_report();
+        qWarning("QML smoke: expected 9 page Loaders, found %d", static_cast<int>(loaders.size()));
+        application.exit(1);
+        return;
+      }

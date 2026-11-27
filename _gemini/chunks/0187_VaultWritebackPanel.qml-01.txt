@@ -1,0 +1,120 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: panel
+    property QtObject ds
+    readonly property var state: uiShell.vaultWriteback
+    property var selectedIds: []
+    property int viewIndex: 0
+    property string rollbackId: ""
+    readonly property var preview: state.preview || ({})
+    objectName: "vaultWritebackPanel"
+    spacing: ds.s12
+
+    component VaultCheckBox: CheckBox {
+        id: choice
+        palette.windowText: panel.ds.ink
+        palette.base: panel.ds.page
+        palette.mid: panel.ds.line
+        palette.text: panel.ds.accent
+        palette.highlight: panel.ds.accent
+        palette.light: panel.ds.panel
+        font.family: panel.ds.ui
+        font.pixelSize: 12
+        contentItem: Text {
+            text: choice.text
+            textFormat: Text.PlainText
+            leftPadding: choice.indicator.width + choice.spacing
+            color: choice.palette.windowText
+            font: choice.font
+            wrapMode: Text.WrapAnywhere
+        }
+    }
+
+    function hashes(targets) {
+        const result = {};
+        for (const target of targets || []) result[target.path] = target.expectedHash || null;
+        return result;
+    }
+    function toggleId(id, checked) {
+        const next = selectedIds.filter(value => value !== id);
+        if (checked) next.push(id);
+        selectedIds = next;
+    }
+    Connections {
+        target: uiShell
+        function onAccountChanged() {
+            panel.selectedIds = [];
+            panel.rollbackId = "";
+            panel.viewIndex = 0;
+            bindConsent.checked = false;
+            commitConsent.checked = false;
+            if (uiShell.hasActiveAccount) uiShell.refreshVaultWriteback();
+        }
+    }
+    Component.onCompleted: uiShell.refreshVaultWriteback()
+
+    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
+    RowLayout {
+        Layout.fillWidth: true
+        Text { text: "证据与资料库"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+        Item { Layout.fillWidth: true }
+        MotionAwareBusyIndicator {
+            ds: panel.ds
+            implicitWidth: 24; implicitHeight: 24
+            busy: panel.state.busy === true
+            accessibleName: "正在同步资料库"
+        }
+        QuietButton {
+            ds: panel.ds
+            objectName: "vaultChooseRoot"
+            label: panel.state.connected ? "更换资料库" : "连接资料库"
+            enabled: !panel.state.busy
+            onClicked: { panel.selectedIds = []; uiShell.requestVaultSelection(); }
+        }
+        QuietButton {
+            ds: panel.ds
+            objectName: "vaultRefresh"
+            label: "刷新"
+            enabled: !panel.state.busy
+            onClicked: { panel.selectedIds = []; uiShell.refreshVaultWriteback(); }
+        }
+    }
+    Text {
+        Layout.fillWidth: true
+        objectName: "vaultConnectedName"
+        visible: panel.state.connected === true
+        text: panel.state.vaultName || "所选资料库"
+        textFormat: Text.PlainText
+        color: ds.ink
+        font.family: ds.ui
+        font.pixelSize: 13
+        wrapMode: Text.WrapAnywhere
+    }
+    Text {
+        Layout.fillWidth: true
+        objectName: "vaultWritebackStatus"
+        text: panel.state.status || "尚未读取证据"
+        textFormat: Text.PlainText
+        color: ds.muted
+        font.family: ds.ui
+        font.pixelSize: 12
+        wrapMode: Text.WrapAnywhere
+    }
+    RowLayout {
+        Layout.fillWidth: true
+        visible: panel.state.connected && !panel.state.isOwner
+        VaultCheckBox {
+            id: bindConsent
+            Layout.fillWidth: true
+            objectName: "vaultBindConsent"
+            text: "确认“" + (panel.state.vaultName || "所选资料库") + "”属于当前账户"
+            enabled: !panel.state.busy
+        }
+        PrimaryButton {
+            ds: panel.ds
+            objectName: "vaultBindOwner"
+            label: "绑定拥有者"
+            enabled: bindConsent.checked && !panel.state.busy

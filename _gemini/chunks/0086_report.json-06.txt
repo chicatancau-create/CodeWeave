@@ -1,0 +1,126 @@
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 208
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "减弱动画",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 56
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsEditorFontSize",
+            "controlEnabled": true,
+            "controlHeight": 44,
+            "controlRightInset": 0,
+            "controlWidth": 81,
+            "controlX": 412,
+            "descriptionText": "调整代码编辑区的字体大小",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 156
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 396,
+                "x": 0,
+                "y": 39
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "编辑器字号",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 70
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 396,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsPreferenceSelect5",
+            "controlEnabled": false,
+            "controlHeight": 44,
+            "controlRightInset": 0,
+            "controlWidth": 72,
+            "controlX": 421,
+            "descriptionText": "按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,

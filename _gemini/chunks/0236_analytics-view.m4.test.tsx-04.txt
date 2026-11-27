@@ -1,0 +1,72 @@
+  it('不声明 :root / html / body，不覆写别人页面的类', () => {
+    const selectors = selectorParts(cssCode)
+    expect(selectors.some((selector) => /(^|[\s,])(:root|html|body)(\s|,|$)/.test(selector))).toBe(false)
+  })
+
+  it('零 !important；发光走别名、无渐变玻璃；圆角只有令牌档', () => {
+    expect(cssCode).not.toContain('!important')
+    // 科技档反转（tokens §4.5）：发光代替黑投影承担层级；仍不许裸字面量。
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((m) => m[1]!.trim())
+    for (const value of shadows) {
+      expect(/^var\(--an-glow-(near|panel|inset)\)$/.test(value), `未走发光令牌：${value}`).toBe(true)
+    }
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('正文 16px、行高 1.6–1.75，长中文换行不撑破表格', () => {
+    const root = declarationBlock('.cw-analytics')
+    expect(root).toContain('--an-body: var(--ds-size-body, 16px)')
+    const leading = Number(/--an-leading:\s*var\(--ds-leading-body,\s*([\d.]+)\)/.exec(root)?.[1])
+    expect(leading).toBeGreaterThanOrEqual(1.6)
+    expect(leading).toBeLessThanOrEqual(1.75)
+    expect(declarationBlock('.cw-analytics :is(h1, h2, p, span, dt, dd, td, th, caption)')).toContain(
+      'overflow-wrap: anywhere',
+    )
+    expect(cssCode.match(/white-space:\s*nowrap/g)?.length ?? 0).toBeLessThanOrEqual(1)
+  })
+
+  it('焦点轮廓可见、触控 44px 令牌就位（本页无按钮，行仍按 tap 档留白）', () => {
+    expect(declarationBlock('.cw-analytics')).toContain('--an-tap: var(--ds-tap-min, 44px)')
+    expect(declarationBlock('.cw-analytics :is(button, a, summary, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring, rgba(220, 233, 251, 0.72))',
+    )
+  })
+
+  it('320px 最小宽度有专门降级规则', () => {
+    expect(mediaBlock('max-width: 399px')).toContain('padding-left: var(--ds-space-10, 10px)')
+    expect(cssCode).toContain('min-width: 0')
+    expect(mediaBlock('max-width: 679px')).toContain('table-layout: auto')
+  })
+
+  it('本页零持续动画，且两条降级通道都真停止', () => {
+    expect(cssCode).not.toMatch(/animation[^;]*\binfinite\b/)
+    expect(cssCode).not.toMatch(/@keyframes/)
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('.cw-analytics')
+    expect(system).toContain('animation: none')
+    expect(system).toContain('transition: none')
+    expect(
+      declarationBlock(
+        '.reduce-motion .cw-analytics, .reduce-motion .cw-analytics *, .reduce-motion .cw-analytics *::before, .reduce-motion .cw-analytics *::after',
+      ),
+    ).toContain('animation: none')
+  })
+})
+
+describe('M4 学习分析 · 无障碍（axe-core）', () => {
+  it('三张指标表格无 axe 违规', async () => {
+    const { container } = render(
+      <AnalyticsView stats={stats({ reviewsPassed: 0, reviewsFailed: 0, reviewRate: null })} streak={0} checkedInToday={false} />,
+    )
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } },
+    })
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+  })
+})

@@ -1,0 +1,108 @@
+  import('./components/review-center-view').then((m) => ({ default: m.ReviewCenterView })),
+)
+const AnalyticsView = lazy(() => import('./components/analytics-view').then((m) => ({ default: m.AnalyticsView })))
+const DataPrivacyView = lazy(() =>
+  import('./components/data-privacy-view').then((m) => ({ default: m.DataPrivacyView })),
+)
+const AccountSecurityView = lazy(() =>
+  import('./components/account-security-view').then((m) => ({ default: m.AccountSecurityView })),
+)
+const ProfileView = lazy(() => import('./components/profile-view').then((m) => ({ default: m.ProfileView })))
+
+type ViewId = 'path' | 'workspace' | 'challenges' | 'projects' | 'reviews' | 'analytics' | 'data' | 'profile' | 'security'
+
+const VIEW_META: Record<ViewId, { label: string; breadcrumb: string }> = {
+  workspace: { label: '学习工作台', breadcrumb: '课程' },
+  path: { label: '学习路径', breadcrumb: '课程' },
+  challenges: { label: '实战挑战', breadcrumb: '挑战' },
+  projects: { label: '代码草稿', breadcrumb: '项目' },
+  profile: { label: '个人中心', breadcrumb: '账户' },
+  reviews: { label: '复习中心', breadcrumb: '复习' },
+  analytics: { label: '学习分析', breadcrumb: '分析' },
+  data: { label: '数据与隐私', breadcrumb: '数据' },
+  security: { label: '账户安全', breadcrumb: '账户' },
+}
+
+const NAV_ITEMS: { id: ViewId; icon: typeof BookOpen }[] = [
+  { id: 'path', icon: BookOpen },
+  { id: 'challenges', icon: Trophy },
+  { id: 'projects', icon: FolderKanban },
+  { id: 'reviews', icon: CalendarCheck },
+  { id: 'analytics', icon: Activity },
+]
+
+/**
+ * §5.2「编号主导航」的编号来源：导航项在 NAV_ITEMS 里的真实序号（01—05）。
+ * 必须是渲染进 DOM 的文本，不能用 CSS `counter()` 注入 —— counter 生成的内容会
+ * 出现在辅助技术的朗读顺序里，却没有任何语义承载（01 号方案 §5 要求装饰
+ * 文字不得进入朗读顺序）。文本化之后它成为导航项名称的一部分，朗读顺序 = DOM 顺序；
+ * 真正的装饰（图标、发丝线、状态圆点）另走 aria-hidden / 伪元素，不进朗读树。
+ * 编号口径与学习路径的 S0—S9 阶段编号是两回事，互不借用。
+ */
+const navIndex = (position: number) => String(position + 1).padStart(2, '0')
+
+const CALENDAR_WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
+
+/**
+ * #49 那道加载门的等待预算（毫秒）。取 §5.4 给 LCP 的同一条预算（2.5s）：
+ * 门控最多占用一格性能预算，超了就放弃等待、照常画外壳 —— 本机接口卡死时
+ * 用户至少还能看见界面（登出、设置都在壳里），不会永远停在一行加载文字上。
+ * 实测三个接口合计 20—30ms（server 日志 status 7ms / learning 3ms / catalog 7ms），
+ * 这里是 ~80 倍余量：预算内的正常路径永远是「等到位再画」，CLS 才成立。
+ */
+const BOOT_WAIT_BUDGET_MS = 2500
+
+/**
+ * §5.4「验证加载」所说的加载态：整屏占位，只说在等什么，不画任何依赖数据的东西。
+ *
+ * 版式复用 `.auth-loading`（styles.css 里既有的一条：满屏、居中、次级文字色、
+ * `var(--page)` 黑场），不新增尺寸档也不新增颜色 —— 首屏占位与登录后占位本就该同形。
+ */
+function BootNotice({ children }: { children: ReactNode }) {
+  return (
+    <div className="auth-loading" role="status">
+      {children}
+    </div>
+  )
+}
+
+/**
+ * 01 号方案 §4 状态矩阵里的 loading 行：懒加载区域在 chunk 到达前先占住高度，
+ * 「不造成内容落地跳动」。
+ *
+ * 为什么不是转圈的 spinner：改版前切页是同步的，没有这一段空窗；拆 chunk 之后
+ * 本机首访会有一个「什么都没画」的空帧，正文区如果按内容自适应高度，那一帧之后
+ * 整页往下顶——正是 §6 要求记录的 CLS 原始 shift。这里给一个与页面结构同形的
+ * 骨架（标题条 + 两行正文 + 一块内容面），高度用视口比例而不是猜某个页面的像素：
+ * 猜死高度在 375 那一档必然猜不准（与 #49 的结论同源，见上面 contentSettled 注释）。
+ *
+ * `role="status"` + 文字让读屏器知道「正在载入 X 页」，不只靠形状（00 号方案 §6
+ * 「loading 状态有文本或结构提示，不能只靠颜色」）。骨架本身是装饰形状，
+ * `aria-hidden` 不进朗读顺序。
+ */
+function ViewFallback({ view }: { view: ViewId }) {
+  return (
+    <div className="view-skeleton" role="status">
+      <p className="view-skeleton__label">正在载入{VIEW_META[view].label}…</p>
+      <div className="view-skeleton__shape" aria-hidden="true">
+        <span className="view-skeleton__title" />
+        <span className="view-skeleton__line" />
+        <span className="view-skeleton__line view-skeleton__line--short" />
+        <span className="view-skeleton__panel" />
+      </div>
+    </div>
+  )
+}
+
+/** 导出当前账户学习数据（R2-C：显式 schema + 版本 + 类别，不含设备设置与通知）。 */
+function exportLocalData(scope?: string): void {
+  const payload = buildExportPayload(scope)
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `codeweave-learning-data-${getLocalDateKey()}.json`  // STAT-01：文件名上的日期也是日期键，取本地日不是 UTC 日
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+

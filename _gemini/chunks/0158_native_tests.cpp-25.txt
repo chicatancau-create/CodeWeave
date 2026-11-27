@@ -1,0 +1,53 @@
+      " std::cout << total << '\\n';\n return 0;\n}\n");
+  assert(success.process->exit_code == 0 && success.process->error_code.empty());
+  assert(success.process->output == "9\r\n");
+  const auto warning = run("#warning compiler-warning-not-learner-output\n#include <iostream>\n"
+      "int main() { std::cout << \"learner-only\"; }\n");
+  assert(warning.process->exit_code == 0 && warning.process->output == "learner-only");
+  std::string warning_output;
+  for (const auto& event : warning.trace->events())
+    if (event.kind == codeweave::execution::EventKind::Output) warning_output += event.payload;
+  assert(warning_output == "learner-only");
+  assert(std::any_of(success.trace->events().begin(), success.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":4") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  assert(std::any_of(success.trace->events().begin(), success.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":5") != std::string::npos &&
+        event.payload.find("\"total\":\"9\"") != std::string::npos;
+  }));
+  const auto failure = run("#include <iostream>\nint main() {\n std::cerr << \"cpp trace failure\\n\";\n return 7;\n}\n");
+  assert(failure.process->exit_code == 7 && failure.process->error_code == "process_exit_nonzero");
+  assert(failure.process->output.find("cpp trace failure") != std::string::npos);
+  assert(failure.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  const auto crash = run("#include <windows.h>\nint main() {\n"
+      "SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);\n"
+      "TerminateProcess(GetCurrentProcess(), 0xC0000005);\n}\n");
+  assert(crash.process->exit_code == 0xC0000005UL && !crash.process->timed_out);
+  assert(crash.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  const auto objects = run("#include <iostream>\n#include <string>\n"
+      "struct Object {};\nstd::ostream& operator<<(std::ostream& stream, const Object&) { throw 1; }\n"
+      "int main() {\nObject object;\nstd::string text = \"hello\";\nstd::string embedded(\"a\\0b\", 3);\n"
+      "int total = 7;\nstd::cout << text << '\\n';\nreturn total == 7 ? 0 : 1;\n}\n");
+  assert(objects.process->exit_code == 0 && objects.process->output == "hello\r\n");
+  assert(std::any_of(objects.trace->events().begin(), objects.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"object\":\"<object>\"") != std::string::npos &&
+        event.payload.find("hello") != std::string::npos && event.payload.find("0000b") != std::string::npos;
+  }));
+  const auto limited = run("#include <iostream>\nint main() {\n"
+      "for (int i = 0; i < 100000; ++i) std::cout << 'x';\n}\n");
+  assert(limited.process->output_truncated && limited.process->output.size() == 4096);
+  assert(limited.process->error_code == "output_limit_exceeded");
+  const auto source_location = run("#include <iostream>\nint main() { std::cout << __FILE__; }\n");
+  assert(source_location.process->exit_code == 0);
+  const auto generated_source = std::filesystem::path(source_location.process->output);
+  assert(generated_source.is_absolute() && generated_source.filename() == "codeweave-source-cpp-trace-boundary.cpp");
+  assert(!std::filesystem::exists(generated_source.parent_path()));
+  const auto relative_root = fixture.root / L"中文 relative inputs";
+  assert(std::filesystem::create_directory(relative_root));
+  std::ofstream(relative_root / "local.hpp") << "constexpr int answer = 42;\n";
+  const auto relative = service.run({"cpp-trace-relative", "cpp",
+      "#include \"local.hpp\"\n#include <fstream>\n#include <iostream>\n"

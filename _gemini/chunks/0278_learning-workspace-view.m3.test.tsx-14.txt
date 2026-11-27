@@ -1,0 +1,8 @@
+    expect(container.querySelector('section.right-panels')?.getAttribute('aria-label')).toBe('运行观察区')
+    expect(container.querySelector('div.cw-pane-nav')).toBeNull()
+    expect(container.querySelector('nav.cw-pane-nav')).toBeTruthy()
+    const decorative = container.querySelectorAll('.cw-pane-no')
+    expect(decorative.length).toBe(4)
+    for (const node of Array.from(decorative)) expect(node.getAttribute('aria-hidden')).toBe('true')
+  })
+})

@@ -1,0 +1,125 @@
+          "name": "learning-completed-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-preserves-header-and-vertical-statistics",
+          "passed": false
+        },
+        {
+          "name": "learning-details-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-small-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-selected-unit-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-nonempty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-row-hover-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-updated-screenshot",
+          "passed": false
+        },
+        {
+          "name": "lesson-workspace-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "workspace-save-error-screenshot",
+          "passed": false
+        },
+        {
+          "name": "analytics-values-screenshot",
+          "passed": false
+        },
+        {
+          "name": "checkin-narrow-calendar-framed",
+          "passed": false
+        },
+        {
+          "name": "vault-narrow-ledger-screenshot",
+          "passed": false
+        },
+        {
+          "detail": "0",
+          "name": "page-challenge-lesson-evidence-execution-trace-and-vault-screenshots",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-windows-visible",
+      "passed": true,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": []
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "f34009e59bfa29f80bca17339e7d0ff359e86df371ff36555a083c5d16d065ac"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-course.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "034b5525f11d6f6546d622840b7d04f6d5a56a60983d998e17876f24979ad28a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-editor.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5bd5f3264a6812d666ef8b520f46bcbc788b5cc50fa4032c1a101e9d5bcaf52d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-workspace-breadcrumb-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "09c00ab07b9243f5ad1e0281f703b0fdb4c06eead488302246b5255d269a70da"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-completed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e3fbac40c36dbffabcd3211cb4ac9b076a594165e17946bc7aa14277adf323a7"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "37e95c599112240597de050814e1308282d7629952856b4feed0f8c7790068b7"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-execution-trace-stale.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "9a88c5e2b54c7a1c4bf55563d5b2a93545e2b65046357d66265565f66560e9f6"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-java-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "21d63d6314c6bb688e3f76d850c1a94e1a161fd0eda6fef9b87e4c3472a021fc"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-javascript-source-snapshot.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "71df95f12ea89fac493b8e9ae636237ff06d4920a16823a4313102b96b901aca"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-javascript-module-source-snapshot.png",
+      "width": 1440,
+      "height": 900,

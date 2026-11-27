@@ -1,0 +1,99 @@
+  HandleGuard input_read_guard{input_read};
+  HandleGuard input_write_guard{input_write};
+  if (!SetHandleInformation(raw_read, HANDLE_FLAG_INHERIT, 0)) {
+    result.error_code = "pipe_configure_failed";
+    return result;
+  }
+  if (!SetHandleInformation(input_write, HANDLE_FLAG_INHERIT, 0)) {
+    result.error_code = "stdin_open_failed";
+    return result;
+  }
+
+  std::wstring command = quote_argument(plan.process.executable.wstring());
+  for (const auto& argument : plan.process.arguments) {
+    command.push_back(L' ');
+    command += quote_argument(argument);
+  }
+  std::vector<wchar_t> command_buffer(command.begin(), command.end());
+  command_buffer.push_back(L'\0');
+
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdInput = input_read;
+  startup.hStdOutput = raw_write;
+  startup.hStdError = raw_write;
+  PROCESS_INFORMATION process_info{};
+  auto environment = compiler_environment(plan);
+  const BOOL created = CreateProcessW(
+      plan.process.executable.wstring().c_str(), command_buffer.data(), nullptr, nullptr, TRUE,
+      CREATE_NO_WINDOW | CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
+      environment.empty() ? nullptr : environment.data(),
+      plan.process.working_directory.wstring().c_str(), &startup, &process_info);
+  if (!created) {
+    result.error_code = "process_create_failed";
+    return result;
+  }
+  HandleGuard process_guard{process_info.hProcess};
+  HandleGuard thread_guard{process_info.hThread};
+  HandleGuard job_guard{CreateJobObjectW(nullptr, nullptr)};
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+  limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  if (!job_guard.value ||
+      !SetInformationJobObject(job_guard.value, JobObjectExtendedLimitInformation,
+          &limits, sizeof(limits)) ||
+      !AssignProcessToJobObject(job_guard.value, process_info.hProcess)) {
+    TerminateProcess(process_info.hProcess, 1);
+    WaitForSingleObject(process_info.hProcess, 5000);
+    result.error_code = "job_assign_failed";
+    return result;
+  }
+  if (ResumeThread(process_info.hThread) == static_cast<DWORD>(-1)) {
+    TerminateJobObject(job_guard.value, 1);
+    WaitForSingleObject(process_info.hProcess, 5000);
+    result.error_code = "process_resume_failed";
+    return result;
+  }
+  std::mutex control_events_mutex;
+  std::vector<ControlEvent> control_events;
+  if (control) {
+    control->attach([&](ControlCommand command) -> app::Result {
+      auto record = [&](ControlCommand event) {
+        std::lock_guard lock(control_events_mutex);
+        control_events.push_back({event});
+      };
+      if (command == ControlCommand::Pause) {
+        if (control->is_paused()) return app::Result::failure("执行已经暂停");
+        if (SuspendThread(process_info.hThread) == static_cast<DWORD>(-1)) {
+          return app::Result::failure("暂停执行进程失败");
+        }
+        control->set_paused(true);
+        record(command);
+        return app::Result::success("执行已暂停");
+      }
+      if (command == ControlCommand::Resume) {
+        if (!control->is_paused()) return app::Result::failure("执行当前未暂停");
+        if (ResumeThread(process_info.hThread) == static_cast<DWORD>(-1)) {
+          return app::Result::failure("继续执行进程失败");
+        }
+        control->set_paused(false);
+        record(command);
+        return app::Result::success("执行已继续");
+      }
+      if (!control->is_paused()) return app::Result::failure("单步前必须先暂停执行");
+      if (ResumeThread(process_info.hThread) == static_cast<DWORD>(-1)) {
+        return app::Result::failure("单步继续执行失败");
+      }
+      control->set_paused(false);
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      if (SuspendThread(process_info.hThread) == static_cast<DWORD>(-1)) {
+        return app::Result::failure("单步暂停执行失败");
+      }
+      control->set_paused(true);
+      record(command);
+      return app::Result::success("已执行一个受控步");
+    });
+  }
+
+  CloseHandle(raw_write);
+  write_guard.value = nullptr;

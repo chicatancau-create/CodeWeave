@@ -1,0 +1,110 @@
+            "name": "review-nonempty-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-pass-row-action",
+            "passed": true
+        },
+        {
+            "detail": "{\"contentId\":\"python-loop-sum\",\"dueKey\":\"2026-11-12\",\"evidenceCount\":4,\"exerciseId\":\"\",\"forgettingRisk\":\"low\",\"group\":\"upcoming\",\"hintLevel\":\"L1\",\"independent\":true,\"itemId\":\"python-loop-sum\",\"latestAt\":\"2026-11-09T10:58:59.892Z\",\"latestResult\":\"\",\"masteryLevel\":2,\"nextNodeIndex\":1,\"passed\":true,\"planSource\":\"fallback\"}",
+            "name": "review-pass-refreshes-level-step-and-due-date",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-refreshes-date-without-changing-mastery",
+            "passed": true
+        },
+        {
+            "name": "review-updated-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-open-course-row-action",
+            "passed": true
+        },
+        {
+            "detail": "page=复习与进度 document=java-loop-sum selected=1 body=1",
+            "name": "review-open-course-resolves-published-id",
+            "passed": true
+        },
+        {
+            "detail": "document=stage-d selected=1 index=64 title=D 关卡验收：JavaScript 数据处理 header=D 关卡验收：JavaScript 数据处理 breadcrumb=Code Canvas / 课程 / stage-d accessible=当前位置：Code Canvas / 课程 / stage-d",
+            "name": "published-document-workspace-header-matches-catalog",
+            "passed": true
+        },
+        {
+            "detail": "document=stage-d selected=1 index=64 title=D 关卡验收：JavaScript 数据处理 header=D 关卡验收：JavaScript 数据处理 breadcrumb=Code Canvas / 课程 / stage-d accessible=当前位置：Code Canvas / 课程 / stage-d",
+            "name": "published-document-breadcrumb-visible-and-accessible-with-index",
+            "passed": false
+        },
+        {
+            "name": "lesson-workspace-breadcrumb-narrow-screenshot",
+            "passed": true
+        },
+        {
+            "name": "lesson-workspace-missing-metadata-clears-previous-flow",
+            "passed": true
+        },
+        {
+            "name": "lesson-evidence-opens-from-workspace",
+            "passed": true
+        },
+        {
+            "name": "lesson-contract-unrun-blocks-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-mark-read-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-read-is-persisted-without-completing",
+            "passed": true
+        },
+        {
+            "name": "lesson-run-miss-from-workspace",
+            "passed": true
+        },
+        {
+            "name": "lesson-successful-process-is-practice-not-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-current-code-all-cases-hit",
+            "passed": true
+        },
+        {
+            "name": "lesson-explicit-completion-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-completion-reloads-verified-fact",
+            "passed": true
+        },
+        {
+            "name": "lesson-dialog-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "detail": "doc=csharp-loop-sum title=01 · 让 C# 输出一句话 expected=让 C# 输出一句话 flow=6 expectedFlow=6 breadcrumb=Code Canvas / 编辑器 / 04 · 让 C# 输出一句话",
+            "name": "lesson-workspace-external-document-updates-title-and-flow",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-form-filled-with-required-date",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-submit-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-submitted-without-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-self-declaration-action",

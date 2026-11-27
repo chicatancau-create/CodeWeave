@@ -1,0 +1,76 @@
+                ShellMenuItem { id: profileAction; objectName: "profileAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "UserRound"; label: "个人中心"; onClicked: { accountPopup.close(); uiShell.selectPage("账户"); } }
+                ShellMenuItem { id: securityAction; objectName: "securityAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "ShieldCheck"; label: "账户安全"; onClicked: { accountPopup.close(); uiShell.selectPage("账户安全"); } }
+                ShellMenuItem { id: privacyAction; objectName: "privacyAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "Database"; label: "数据与隐私"; onClicked: { accountPopup.close(); uiShell.selectPage("数据与隐私"); } }
+                ShellMenuItem { id: exportAction; objectName: "exportAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "FolderKanban"; label: "导出学习数据"; enabled: uiShell.hasActiveAccount && !uiShell.operationBusy; onClicked: { accountPopup.close(); uiShell.requestDataAction("backup"); } }
+                ShellMenuItem { id: logoutAction; objectName: "logoutAction"; ds: root.designSystem; Layout.fillWidth: true; iconName: "LogOut"; label: "退出登录"; enabled: uiShell.hasActiveAccount; onClicked: { accountPopup.close(); uiShell.logout(); } }
+            }
+        }
+
+    // ── Sidebar ─────────────────────────────────────────────────────────────
+    Rectangle {
+        objectName: "compactSidebarBrand"
+        visible: root.width <= 1200 && !root.workspaceCodeMode
+        width: ds.sidebarW; height: 64
+        color: ds.sidebarBg
+        z: 16
+        Row {
+            anchors.left: parent.left; anchors.leftMargin: ds.s24
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: ds.s10
+            LucideIcon { name: "CodeXml"; size: 28; color: ds.accent }
+            Text { text: "codecanvas"; color: ds.ink; font.family: ds.shellUi; font.pixelSize: 16; font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
+        }
+    }
+    Rectangle {
+        id: sidebar
+        objectName: "sidebar"
+        anchors { top: root.width <= 1200 ? parent.top : topbar.bottom; left: parent.left; bottom: parent.bottom }
+        visible: !root.workspaceCodeMode
+        width: visible ? ds.sidebarW : 0
+        color: ds.sidebarBg
+        z: 15
+
+        Rectangle {
+            anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
+            width: 1
+            color: ds.line
+        }
+
+        ColumnLayout {
+            objectName: "sidebarContents"
+            anchors.topMargin: root.width <= 1200 ? ds.topbarH + ds.s16 : ds.s20
+            anchors.leftMargin: ds.s12
+            anchors.rightMargin: ds.s12
+            anchors.bottomMargin: ds.s14
+            anchors.fill: parent
+            spacing: 0
+
+            // .workspace-switcher
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: ds.s8
+                Layout.rightMargin: ds.s8
+                Layout.bottomMargin: ds.s24
+                spacing: ds.s10
+                Rectangle {
+                    implicitWidth: 27
+                    implicitHeight: 27
+                    radius: 6
+                    color: ds.subjectOn
+                    border.color: ds.accentRing
+                    border.width: 1
+                    Text {
+                        anchors.centerIn: parent
+                        text: uiShell.hasActiveAccount && uiShell.accountName.length > 0
+                              ? uiShell.accountName.charAt(0) : "学"
+                        color: ds.accent
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                        font.weight: Font.ExtraBold
+                    }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Text {
+                        Layout.fillWidth: true

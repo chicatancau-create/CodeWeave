@@ -1,0 +1,102 @@
+            anchors.leftMargin: root.workspaceCodeMode ? ds.s8 : ds.s24
+            anchors.rightMargin: root.workspaceCodeMode ? ds.s8 : ds.s24
+            anchors.topMargin: root.workspaceCodeMode ? ds.s8 : ds.s20
+            anchors.bottomMargin: root.workspaceCodeMode ? ds.s8 : ds.s20
+            currentIndex: {
+                switch (root.page) {
+                case "挑战": return 1;
+                case "草稿": return 2;
+                case "复习与进度": return 3;
+                case "分析": return 4;
+                case "账户": return 5;
+                case "账户安全": return 6;
+                case "数据与隐私": return 7;
+                case "编辑器": return 8;
+                default: return 0;
+                }
+            }
+
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "学习" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: StudyPage { hostRoot: root; ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "挑战" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: ChallengePage { ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "草稿" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: DraftsPage { hostRoot: root; ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "复习与进度" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: ReviewPage { hostRoot: root; ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "分析" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: AnalyticsPage { ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "账户" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: AccountPage { hostRoot: root; ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "账户安全" || visited
+                onLoaded: { visited = true }
+                sourceComponent: SecurityPage { ds: root.designSystem }
+            }
+            Loader {
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "数据与隐私" || visited
+                onLoaded: { visited = true }
+                sourceComponent: PrivacyPage { ds: root.designSystem }
+            }

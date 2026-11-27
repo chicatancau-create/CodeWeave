@@ -1,0 +1,105 @@
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+
+    fireEvent.change(screen.getByLabelText(/执行环境/), { target: { value: 'Windows 11 + JDK 17' } })
+    fireEvent.change(screen.getByLabelText(/执行命令/), { target: { value: 'java -version' } })
+    fireEvent.change(screen.getByLabelText(/结果摘要/), {
+      target: { value: '完成四个工具链版本输出记录，并定位一次构建错误后修复。' },
+    })
+    fireEvent.change(screen.getByLabelText(/复现日期/), { target: { value: '2026-09-01' } })
+
+    const submit = screen.getByRole('button', { name: /提交证据/ }) as HTMLButtonElement
+    expect(submit.disabled).toBe(false)
+    fireEvent.click(submit)
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    const [, submission] = onSubmit.mock.calls[0]!
+    expect(submission.passed).toBe(false)
+    expect(submission.tier).toBe('external')
+    expect(submission.evidence).toContain('执行环境：Windows 11 + JDK 17')
+    expect(submission.externalEvidence?.command).toBe('java -version')
+  })
+
+  it('R4：外部证据命中隐私字段时拒绝提交', () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+
+    fireEvent.change(screen.getByLabelText(/执行环境/), { target: { value: 'Windows 11' } })
+    fireEvent.change(screen.getByLabelText(/执行命令/), { target: { value: 'mysql -u root password=secret123' } })
+    fireEvent.change(screen.getByLabelText(/结果摘要/), { target: { value: '完成版本输出记录与构建错误定位' } })
+    fireEvent.change(screen.getByLabelText(/复现日期/), { target: { value: '2026-09-01' } })
+
+    expect((screen.getByRole('button', { name: /提交证据/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/疑似包含密码/)).toBeTruthy()
+  })
+
+  it('R4：运行结果展示执行等级', async () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /编写与运行/ }))
+    fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+    expect((await screen.findAllByText(/教学模拟（子集语法，非真实编译器）/)).length).toBeGreaterThan(0)
+  })
+
+  it('R4：教学运行器未识别结构时给出未识别状态而非通过', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /编写与运行/ }))
+    fireEvent.change(screen.getByRole('textbox', { name: /代码编辑器/ }), {
+      target: { value: '// 只有注释，没有任何可识别结构' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+    expect((await screen.findAllByText(/未识别代码结构，未产生通过判定/)).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+    expect((screen.getByRole('button', { name: /提交答案/ }) as HTMLButtonElement).disabled).toBe(true)
+    // 回到列表查看概览：未识别结构不增加完成数
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    expect(screen.getByText(/已完成 0 \/ 13/)).toBeTruthy()
+  })
+
+  it('R4：待人工确认的记录不影响完成数，并显示待确认提示', () => {
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{
+          'stage-a': {
+            completedAt: '2026-09-13T00:00:00.000Z',
+            evidence: '执行环境：Windows 11',
+            status: 'submitted',
+            tier: 'external',
+          },
+        }}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
+    // 完成数仍为 0，但单独显示待人工确认
+    expect(screen.getByText(/已完成 0 \/ 13/)).toBeTruthy()
+    expect(screen.getByText(/待人工确认 1 关/)).toBeTruthy()
+

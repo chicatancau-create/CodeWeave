@@ -1,0 +1,115 @@
+// @vitest-environment jsdom
+/**
+ * M3 视觉竖切 · 登录/入口页（01 号方案 §3.1 登录与注册、§5 降级与无障碍、§8 验收清单）契约测试。
+ *
+ * 分工：`auth-view.test.tsx` 锁**业务行为**（登录/注册/错误/忙态），本文件锁
+ * **视觉竖切引入的新契约**——右侧场景只是装饰、动效的三条真停路径、键盘
+ * Tab/Enter/Esc、忙态与错误的新ARIA 关联，以及「样式表里定义了 44px/16px 的那些
+ * 选择器，确实作用在真实渲染出来的元素上」。
+ *
+ * 口径说明：Vitest 默认 `css: false`，样式表在测试里被替换成空模块（`?raw` 与
+ * `import.meta.glob` 都拿不到原文），所以
+ * - 能在 DOM 上验证的（ARIA、data-motion、类名、焦点、禁用）在这里断言；
+ * - 只能由 CSS 表达的具体数值（44px 命中区、16px/1.7、字重 200、无渐变无泛光、
+ *   prefers-reduced-motion 与 .reduce-motion 两条媒体/类选择器）留在
+ *   `auth-view.css` 里逐条标注出处，由浏览器截图与人工复核（见交付报告）。
+ * 这里额外锁住「选择器 ↔ 元素」的对应关系，防止样式写了却挂在不存在的类名上。
+ */
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ComponentProps } from 'react'
+import { AuthView } from './auth-view'
+import { STORAGE_KEYS } from '../utils/constants'
+import componentSource from './auth-view.tsx?raw'
+
+type Props = ComponentProps<typeof AuthView>
+
+const baseProps: Props = {
+  mode: 'login',
+  error: '',
+  busy: false,
+  onModeChange: vi.fn(),
+  onSubmit: vi.fn(),
+}
+
+function authRoot(container: HTMLElement): HTMLElement {
+  const root = container.querySelector<HTMLElement>('.cv-auth')
+  if (!root) throw new Error('未找到 .cv-auth 根节点')
+  return root
+}
+
+function scene(container: HTMLElement): HTMLElement {
+  const node = container.querySelector<HTMLElement>('.cv-auth__scene')
+  if (!node) throw new Error('未找到右侧场景层')
+  return node
+}
+
+function submitButton(): HTMLButtonElement {
+  const button = document.querySelector('.auth-submit')
+  if (!button) throw new Error('未找到主提交按钮')
+  return button as HTMLButtonElement
+}
+
+/**
+ * 模拟系统「减少动效」偏好。jsdom 不实现 matchMedia，因此给一个可控假实现；
+ * 返回 change 触发器，用于验证「偏好中途改变」也会即时生效。
+ */
+function stubMatchMedia(initial: boolean) {
+  let matches = initial
+  const handlers = new Set<(event: { matches: boolean }) => void>()
+  vi.stubGlobal('matchMedia', () => ({
+    get matches() {
+      return matches
+    },
+    media: '(prefers-reduced-motion: reduce)',
+    addEventListener: (_: string, handler: (event: { matches: boolean }) => void) => handlers.add(handler),
+    removeEventListener: (_: string, handler: (event: { matches: boolean }) => void) => handlers.delete(handler),
+    addListener: () => undefined,
+    removeListener: () => undefined,
+  }))
+  return {
+    set(value: boolean) {
+      matches = value
+      for (const handler of handlers) handler({ matches: value })
+    },
+  }
+}
+
+/** 还原被改写的 document.visibilityState（own 属性会遮蔽 jsdom 原型访问器）。 */
+function restoreVisibility() {
+  delete (document as unknown as Record<string, unknown>).visibilityState
+}
+
+beforeEach(() => {
+  // 上一条用例可能把 .reduce-motion 留在 html/body 上（组件会观测这两处），必须清干净
+  document.documentElement.className = ''
+  document.body.className = ''
+  localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+  restoreVisibility()
+  vi.unstubAllGlobals()
+  vi.clearAllMocks()
+})
+
+describe('M3-LOGIN 右侧场景是装饰层（§5.3.6 / §5.2 不强迫观看动画）', () => {
+  it('场景 aria-hidden、无可聚焦元素、无内联事件（不截获鼠标与键盘、不进阅读顺序）', () => {
+    const { container } = render(<AuthView {...baseProps} />)
+    const stage = scene(container)
+    expect(stage.getAttribute('aria-hidden')).toBe('true')
+    expect(stage.querySelectorAll('a, button, input, select, textarea, [tabindex]').length).toBe(0)
+    expect(stage.innerHTML).not.toMatch(/\son[a-z]+=/i)
+    // 场景与表单列是兄弟节点：左文字右场景，场景不覆盖在读区之上
+    expect(stage.parentElement).toBe(authRoot(container))
+    expect(authRoot(container).firstElementChild).toBe(stage)
+  })
+
+  it('本页不加载 WebGPU、不起 RAF：场景失败没有任何形态能阻断表单（§5.3.2）', () => {
+    expect(componentSource).not.toMatch(/requestAnimationFrame|navigator\.gpu|GPUQueue|wgsl/i)
+    expect(componentSource).toMatch(/import '\.\/auth-view\.css'/)
+    const { container } = render(<AuthView {...baseProps} />)
+    // 没有启动屏 / 没有全屏劝退层：表单与主按钮当场可用
+    expect(container.querySelector('.cv-auth__submit')).toBeTruthy()

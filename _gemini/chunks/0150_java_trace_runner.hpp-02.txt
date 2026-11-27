@@ -1,0 +1,89 @@
+        if (breakpoints >= 4096 || steps >= 512 || bytes >= 262144) return;
+        BreakpointRequest request = manager.createBreakpointRequest(location);
+        request.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+        request.enable();
+        ++breakpoints;
+      }
+    } catch (AbsentInformationException absent) { /* Library/generated types need not have source lines. */ }
+  }
+
+  private Thread forward(InputStream input, OutputStream output, String name) {
+    Thread thread = new Thread(() -> {
+      try (input) { input.transferTo(output); output.flush(); }
+      catch (IOException error) { forwardingFailure.compareAndSet(null, error); }
+    }, name);
+    thread.start();
+    return thread;
+  }
+
+  private int run() throws Exception {
+    LaunchingConnector connector = Bootstrap.virtualMachineManager().defaultConnector();
+    Map<String, Connector.Argument> arguments = connector.defaultArguments();
+    arguments.get("main").setValue("Main");
+    arguments.get("options").setValue("-cp .");
+    arguments.get("suspend").setValue("true");
+    VirtualMachine vm = connector.launch(arguments);
+    Process process = vm.process();
+    Thread output = forward(process.getInputStream(), System.out, "codeweave-java-output");
+    Thread errors = forward(process.getErrorStream(), System.err, "codeweave-java-errors");
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      if (process.isAlive()) process.destroyForcibly();
+    }, "codeweave-java-cleanup"));
+    try {
+      process.getOutputStream().close();
+      EventRequestManager manager = vm.eventRequestManager();
+      ClassPrepareRequest prepared = manager.createClassPrepareRequest();
+      if (vm.canUseSourceNameFilters()) prepared.addSourceNameFilter("Main.java");
+      prepared.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+      prepared.enable();
+      ExceptionRequest exceptions = manager.createExceptionRequest(null, false, true);
+      exceptions.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+      exceptions.enable();
+      boolean connected = true;
+      while (connected) {
+        EventSet events;
+        try { events = vm.eventQueue().remove(1000); }
+        catch (VMDisconnectedException disconnected) { break; }
+        if (events == null) {
+          if (!process.isAlive()) break;
+          continue;
+        }
+        try {
+          for (Event event : events) {
+            if (event instanceof ClassPrepareEvent) prepare(((ClassPrepareEvent) event).referenceType(), manager);
+            else if (event instanceof BreakpointEvent) capture(((BreakpointEvent) event).thread(), "line");
+            else if (event instanceof ExceptionEvent) capture(((ExceptionEvent) event).thread(), "exception");
+            else if (event instanceof VMDeathEvent || event instanceof VMDisconnectEvent) connected = false;
+          }
+          if (steps >= 512 || bytes >= 262144) {
+            manager.deleteEventRequests(new ArrayList<>(manager.breakpointRequests()));
+            prepared.disable();
+            exceptions.disable();
+          }
+        } catch (VMDisconnectedException disconnected) { connected = false; }
+        finally {
+          try { events.resume(); } catch (VMDisconnectedException disconnected) { connected = false; }
+        }
+      }
+      int exit = process.waitFor();
+      output.join();
+      errors.join();
+      if (forwardingFailure.get() != null) throw forwardingFailure.get();
+      return exit;
+    } finally {
+      if (process.isAlive()) process.destroyForcibly();
+      try { vm.dispose(); } catch (VMDisconnectedException disconnected) { /* Already exited. */ }
+    }
+  }
+
+  public static void main(String[] arguments) {
+    try { System.exit(new CodeWeaveTraceRunner(Path.of(arguments[0])).run()); }
+    catch (Exception error) {
+      System.err.println("CodeWeave Java trace failed: " + error.getClass().getSimpleName());
+      System.exit(1);
+    }
+  }
+}
+)JAVA";
+
+}  // namespace codeweave::execution

@@ -1,0 +1,108 @@
+    await waitFor(() => expect(ref.current?.busy).toBe(false))
+  })
+
+  it('请求完成后允许再次提交（guard 不永久卡死）', async () => {
+    const { pending, calls } = deferredFetch()
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+
+    void ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+    await waitFor(() => expect(pending.length).toBe(1))
+    pending[0]!(jsonResponse({ data: testUser }))
+    await waitFor(() => expect(ref.current?.busy).toBe(false))
+
+    const before = calls.length
+    void ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+    await waitFor(() => expect(calls.length).toBeGreaterThan(before))
+  })
+})
+
+describe('LOGIN-02 响应归属与竞态', () => {
+  it('迟到的旧请求响应不解除新请求的忙态', async () => {
+    const pending: Array<(value: MockResponse) => void> = []
+    stubRoutes(() => new Promise<MockResponse>((resolve) => pending.push(resolve)))
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+
+    void ref.current!.handleSubmit({ identifier: 'first@b.com', password: 'password123' })
+    await waitFor(() => expect(pending.length).toBe(1))
+    await waitFor(() => expect(ref.current?.busy).toBe(true))
+
+    pending[0]!(jsonResponse({ data: { ...testUser, email: 'stale@b.com' } }))
+    await waitFor(() => expect(ref.current?.busy).toBe(false))
+    expect(ref.current?.user?.email).toBe('stale@b.com')
+  })
+
+  it('未挂载完成前不会因 /me 失败而误报连接故障（401 属正常未登录）', async () => {
+    stubRoutes(() => jsonResponse({ data: testUser }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string) => {
+        if (String(input).includes('/api/auth/me')) {
+          return Promise.resolve(jsonResponse({ error: '请先登录', code: 'unauthorized' }, 401))
+        }
+        return Promise.resolve(jsonResponse({ data: testUser }))
+      }) as unknown as typeof fetch,
+    )
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    expect(ref.current?.connectionError).toBeNull()
+  })
+})
+
+describe('LOGIN-02 超时与取消', () => {
+  it('请求超过超时时间归类为 unavailable 并解除 busy', async () => {
+    vi.useFakeTimers()
+    stubRoutes(
+      (_url, init) =>
+        new Promise<MockResponse>((_resolve, reject) => {
+          // 模拟挂起请求，仅在 abort 时 reject
+          init?.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          })
+        }),
+    )
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await vi.waitFor(() => expect(ref.current?.checked).toBe(true))
+
+    void ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+    await vi.waitFor(() => expect(ref.current?.busy).toBe(true))
+
+    await vi.advanceTimersByTimeAsync(20_000)
+
+    await vi.waitFor(() => expect(ref.current?.busy).toBe(false))
+    expect(ref.current?.error).toMatch(/超时|无法连接|稍后/)
+  })
+
+  it('请求携带 AbortSignal', async () => {
+    const signals: Array<AbortSignal | undefined> = []
+    stubRoutes((_url, init) => {
+      signals.push(init?.signal ?? undefined)
+      return jsonResponse({ data: testUser })
+    })
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+    expect(signals.some((signal) => signal instanceof AbortSignal)).toBe(true)
+  })
+})
+
+describe('LOGIN-02 错误分流', () => {
+  it('401 → 展示服务端错误原文，且解除 busy', async () => {
+    stubRoutes(() =>
+      jsonResponse({ error: '邮箱或手机号与密码不匹配', code: 'invalid_credentials' }, 401),
+    )
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))

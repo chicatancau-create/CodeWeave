@@ -1,0 +1,86 @@
+    let resolveLoad: (value: { ok: true; progress: VaultProgress }) => void = () => {}
+    const content = makeContent({
+      loadVaultProgress: vi.fn(
+        () => new Promise<{ ok: true; progress: VaultProgress }>((res) => { resolveLoad = res }),
+      ),
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(content.loadVaultProgress).toHaveBeenCalled())
+    const loading = container.querySelector('[data-vp-card="loading"]')
+    expect(loading?.querySelector('.vault-progress-empty')?.getAttribute('role')).toBe('status')
+    expect(loading?.querySelector('.vault-progress-empty')?.textContent).toContain('正在读取进度追踪')
+    expect(loading?.querySelector('.view-skeleton__shape')?.getAttribute('aria-hidden')).toBe('true')
+    expect(container.querySelectorAll('table.vp-ledger')).toHaveLength(0)
+    resolveLoad({ ok: true, progress: PROGRESS })
+    await waitFor(() => expect(container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    expect(container.querySelector('[data-vp-card="loading"]')).toBeNull()
+  })
+
+  /** §4 error 行：三因合一那句话换成分档陈述；只有「读取失败」给重试。 */
+  it('§4 error：HTTP 403 说成无权限，不给重试按钮（重试不会多出一个拥有者）', async () => {
+    const content = makeContent({
+      learningStatus: { ...OWNER_STATUS, isOwner: true, bound: true },
+      loadVaultProgress: vi.fn(async () => ({ ok: false, message: '仅拥有者可读', status: 403 }) as const),
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.textContent).toContain('无权限：进度追踪只对资料库拥有者返回内容（HTTP 403：仅拥有者可读）'))
+    expect(container.textContent).toContain('这里不会用 0 级或猜测值替代')
+    expect(container.textContent).not.toContain('未绑定、未授权或进度追踪不可读')
+    expect(screen.queryByRole('button', { name: /重试读取进度/ })).toBeNull()
+  })
+
+  it('§4 error：HTTP 409 说成未绑定并指向绑定面板，同样不给重试', async () => {
+    const content = makeContent({
+      loadVaultProgress: vi.fn(async () => ({ ok: false, message: '拥有者绑定缺失', status: 409 }) as const),
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.textContent).toContain('未绑定：服务端那边的拥有者绑定记录缺失'))
+    expect(container.textContent).toContain('下一步：在上方绑定面板重新绑定')
+    expect(screen.queryByRole('button', { name: /重试读取进度/ })).toBeNull()
+  })
+
+  it('§4 error：503 说成读取失败并给重试，重试真的再走一次接口', async () => {
+    const loadVaultProgress = vi.fn(
+      async () => ({ ok: false, message: '进度追踪文件读不出来', status: 503 }) as const,
+    )
+    const content = makeContent({ loadVaultProgress })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.textContent).toContain('读取失败：进度追踪文件读不出来（HTTP 503）'))
+    expect(container.textContent).toContain('这是「读不到」，不是「没有进度」')
+    expect(container.textContent).not.toContain('未绑定、未授权或进度追踪不可读')
+    fireEvent.click(await screen.findByRole('button', { name: /重试读取进度/ }))
+    expect(loadVaultProgress).toHaveBeenCalledTimes(2)
+  })
+
+  it('§4 error：绑定记录显示未绑定时优先说未绑定（本地事实先于接口码）', async () => {
+    const content = makeContent({
+      learningStatus: { ...OWNER_STATUS, bound: false },
+      loadVaultProgress: vi.fn(async () => ({ ok: false, message: 'owner_unbound', status: 409 }) as const),
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.textContent).toContain('未绑定：资料库拥有者还没绑定'))
+    expect(container.textContent).toContain('下一步：在上方「资料库拥有者绑定」面板里显式点一次绑定')
+  })
+})
+
+describe('M4 正式进度 · 五块分区与 ledger 表格语义', () => {

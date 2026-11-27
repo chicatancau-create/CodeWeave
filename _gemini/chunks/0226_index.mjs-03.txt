@@ -1,0 +1,77 @@
+      return { ok: true, data: await writeback.commit({ userId, operationId, expectedHashes }) }
+    } catch (error) {
+      return { ok: false, code: error?.code ?? 'commit_failed', message: error?.message ?? '写回失败', details: error?.details }
+    }
+  }
+
+  /** 回滚：恢复前再次校验 hash；有第三方新改动则拒绝覆盖。 */
+  async function rollbackEvidence(userId, operationId) {
+    const authorized = await requireOwner(userId)
+    if (!authorized.ok) return authorized
+    try {
+      return { ok: true, data: await writeback.rollback({ userId, operationId }) }
+    } catch (error) {
+      return { ok: false, code: error?.code ?? 'rollback_failed', message: error?.message ?? '回滚失败', details: error?.details }
+    }
+  }
+
+  /** 未授权写回或离线时导出待保存 Markdown（只读应用侧暂存，不读资料库）。 */
+  async function exportEvidence(userId, { evidenceIds } = {}) {
+    try {
+      return { ok: true, data: await writeback.exportMarkdown({ userId, evidenceIds }) }
+    } catch (error) {
+      return { ok: false, code: error?.code ?? 'export_failed', message: error?.message ?? '导出失败' }
+    }
+  }
+
+  async function evidenceTransaction(userId, operationId) {
+    const authorized = await requireOwner(userId)
+    if (!authorized.ok) return authorized
+    try {
+      return { ok: true, data: await writeback.transactionStatus({ userId, operationId }) }
+    } catch (error) {
+      return { ok: false, code: error?.code ?? 'transaction_not_found', message: error?.message ?? '事务不存在' }
+    }
+  }
+
+  /**
+   * 事务账本（挂账 #35）：只读列出拥有者的写回事务，供界面在刷新后仍能查明细与回滚。
+   * 鉴权与其余写回端点走同一道闸门（门面 + 服务各一次）；读不出记录是「这一次没读到」，
+   * 不当成「没有事务」（§11.2）。
+   */
+  async function evidenceTransactions(userId) {
+    const authorized = await requireOwner(userId)
+    if (!authorized.ok) return authorized
+    try {
+      return { ok: true, data: await writeback.listTransactions({ userId }) }
+    } catch (error) {
+      return {
+        ok: false,
+        code: error?.code ?? 'transactions_unreadable',
+        message: error?.message ?? '写回事务记录读取失败',
+        details: error?.details,
+      }
+    }
+  }
+
+  return {
+    status,
+    bind,
+    unbind,
+    setVisibility,
+    vaultProgress,
+    contentAccess,
+    readVaultId,
+    loadProgress,
+    ownerStore,
+    stageEvidence,
+    listEvidence,
+    removeEvidence,
+    previewEvidence,
+    commitEvidence,
+    rollbackEvidence,
+    exportEvidence,
+    evidenceTransaction,
+    evidenceTransactions,
+  }
+}

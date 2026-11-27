@@ -1,0 +1,94 @@
+    const { clearLocalData } = await import('./local-data')
+    storage.setItem(`${K.workspace}:account-a`, '{"a":1}')
+    storage.setItem(`${K.challenges}:account-a`, '{"a":2}')
+    storage.setItem(`${K.notifications}:account-a`, '{"a":3}')
+    storage.setItem(`${K.workspace}:account-b`, '{"b":1}')
+    storage.setItem(K.settings, '{"theme":1}')
+
+    const result = clearLocalData('account', 'account-a')
+
+    expect(result.removed).toBe(true)
+    expect(result.failedKeys).toEqual([])
+    expect(storage.getItem(`${K.workspace}:account-a`)).toBeNull()
+    expect(storage.getItem(`${K.challenges}:account-a`)).toBeNull()
+    expect(storage.getItem(`${K.notifications}:account-a`)).toBeNull()
+    // 其他账户与设备设置必须保留
+    expect(storage.getItem(`${K.workspace}:account-b`)).toBe('{"b":1}')
+    expect(storage.getItem(K.settings)).toBe('{"theme":1}')
+  })
+
+  it('设备清理只删除设备级键，保留账户数据', async () => {
+    const { clearLocalData } = await import('./local-data')
+    storage.setItem(K.settings, '{"theme":1}')
+    storage.setItem(`${K.workspace}:account-a`, '{"a":1}')
+
+    const result = clearLocalData('device')
+
+    expect(result.removed).toBe(true)
+    expect(storage.getItem(K.settings)).toBeNull()
+    expect(storage.getItem(`${K.workspace}:account-a`)).toBe('{"a":1}')
+  })
+
+  it('删除部分失败时返回失败键，且 removed 为 false（不掩盖错误）', async () => {
+    const { clearLocalData } = await import('./local-data')
+    storage.setItem(`${K.workspace}:account-a`, '{"a":1}')
+    storage.setItem(`${K.challenges}:account-a`, '{"a":2}')
+
+    const original = storage.removeItem.bind(storage)
+    storage.removeItem = (key: string) => {
+      if (key === `${K.challenges}:account-a`) throw new DOMException('SecurityError')
+      original(key)
+    }
+
+    const result = clearLocalData('account', 'account-a')
+
+    // 部分失败：不得声称整体成功
+    expect(result.removed).toBe(false)
+    expect(result.failedKeys).toEqual([`${K.challenges}:account-a`])
+    expect(result.keys).toEqual([`${K.workspace}:account-a`])
+    // 失败的那条数据必须仍在（未被误报删除）
+    expect(storage.getItem(`${K.challenges}:account-a`)).toBe('{"a":2}')
+  })
+
+  it('全部失败时 removed 为 false 且失败键完整列出', async () => {
+    const { clearLocalData } = await import('./local-data')
+    storage.setItem(`${K.workspace}:account-a`, '{"a":1}')
+
+    const original = storage.removeItem.bind(storage)
+    storage.removeItem = () => {
+      throw new DOMException('SecurityError')
+    }
+
+    const result = clearLocalData('account', 'account-a')
+
+    expect(result.removed).toBe(false)
+    expect(result.failedKeys).toEqual([`${K.workspace}:account-a`])
+    expect(result.keys).toEqual([])
+    storage.removeItem = original
+  })
+})
+
+describe('DATA-01 导出范围', () => {
+  it('导出只含目标账户的账户级数据，不含设备级与通知', async () => {
+    const { buildExportPayload } = await import('./local-data')
+    storage.setItem(`${K.workspace}:account-a`, JSON.stringify({ schemaVersion: 3, data: { languageId: 'python' } }))
+    storage.setItem(`${K.evidence}:account-a`, JSON.stringify({ schemaVersion: 3, data: [{ command: 'npm test' }] }))
+    storage.setItem(`${K.notifications}:account-a`, JSON.stringify({ schemaVersion: 3, data: { readIds: [] } }))
+    storage.setItem(K.settings, JSON.stringify({ schemaVersion: 3, data: { autosave: true } }))
+    storage.setItem(`${K.workspace}:account-b`, JSON.stringify({ schemaVersion: 3, data: { languageId: 'java' } }))
+
+    const payload = buildExportPayload('account-a')
+
+    expect(payload.scope).toBe('account-a')
+    expect(Object.keys(payload.data)).toContain(`${K.workspace}:account-a`)
+    // 外部证据必须被导出（此前缺失）
+    expect(Object.keys(payload.data)).toContain(`${K.evidence}:account-a`)
+    // 设备级与通知默认排除
+    expect(Object.keys(payload.data)).not.toContain(K.settings)
+    expect(Object.keys(payload.data)).not.toContain(`${K.notifications}:account-a`)
+    // 其他账户不得混入
+    expect(Object.keys(payload.data)).not.toContain(`${K.workspace}:account-b`)
+  })
+
+  it('导出的类别清单来自注册表，且包含外部证据', async () => {
+    const { buildExportPayload } = await import('./local-data')

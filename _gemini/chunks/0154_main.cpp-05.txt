@@ -1,0 +1,80 @@
+  }
+  g_loading_draft = false;
+  g_draft_dirty = false;
+  g_draft_read_failed = false;
+  refresh_progress_status();
+  refresh_review_summary();
+  std::filesystem::path root;
+  if (g_account_service && g_account_service->authenticated()) {
+    const auto resolved = g_account_service->learning_data_root(g_core.data_root(), root);
+    if (!resolved.ok) { set_account_status(wide_from_utf8(resolved.message)); return; }
+    const auto opened = g_personal_core.open_workspace(g_core.workspace(), root);
+    if (!opened.ok) { set_account_status(wide_from_utf8(opened.message)); return; }
+    g_evidence_store = std::make_shared<codeweave::learning::EvidenceStore>(root);
+    g_progress_store = std::make_shared<codeweave::learning::ProgressStore>(root);
+    g_challenge_service = std::make_shared<codeweave::learning::ChallengeService>(*g_evidence_store, *g_progress_store);
+    g_trace_store = std::make_shared<codeweave::execution::TraceStore>(root);
+  }
+  load_personal_draft();
+  refresh_progress_status();
+  refresh_review_summary();
+}
+
+void account_register() {
+  if (!account_change_allowed()) return;
+  if (!g_account_service) return;
+  auto name = control_text(g_account_name);
+  auto identifier = control_text(g_account_identifier);
+  if (name == "姓名") name.clear();
+  if (identifier == "邮箱或手机号") identifier.clear();
+  const auto result = g_account_service->register_account(std::move(name),
+      std::move(identifier), control_text(g_account_password));
+  set_account_status(wide_from_utf8(result.message));
+  if (result.ok) { refresh_account_stores(); SetWindowTextW(g_account_password, L""); SetWindowTextW(g_account_name, wide_from_utf8(g_account_service->current()->name).c_str()); }
+}
+void account_login() {
+  if (!account_change_allowed()) return;
+  if (!g_account_service) return;
+  auto identifier = control_text(g_account_identifier);
+  if (identifier == "邮箱或手机号") identifier.clear();
+  const auto result = g_account_service->login(std::move(identifier),
+      control_text(g_account_password));
+  set_account_status(wide_from_utf8(result.message));
+  if (result.ok) { refresh_account_stores(); SetWindowTextW(g_account_password, L""); SetWindowTextW(g_account_name, wide_from_utf8(g_account_service->current()->name).c_str()); }
+}
+void account_logout() {
+  if (!account_change_allowed()) return;
+  if (!g_account_service) return;
+  set_account_status(wide_from_utf8(g_account_service->logout().message));
+  refresh_account_stores();
+}
+void account_change_password() {
+  if (!account_change_allowed()) return;
+  if (!g_account_service) return;
+  const auto result = g_account_service->change_password(
+      control_text(g_account_password), control_text(g_account_new_password));
+  set_account_status(wide_from_utf8(result.message));
+}
+
+std::filesystem::path configured_workspace() {
+  wchar_t value[32768]{};
+  const auto length = GetEnvironmentVariableW(L"CODEWEAVE_NATIVE_WORKSPACE", value, std::size(value));
+  return length > 0 && length < std::size(value) ? std::filesystem::path(value, value + length) : std::filesystem::path{};
+}
+
+std::filesystem::path configured_data_root() {
+  wchar_t value[32768]{};
+  const auto length = GetEnvironmentVariableW(L"CODEWEAVE_NATIVE_DATA_ROOT", value, std::size(value));
+  if (length > 0 && length < std::size(value)) return std::filesystem::path(value, value + length);
+  const auto local_app_data_length = GetEnvironmentVariableW(L"LOCALAPPDATA", value, std::size(value));
+  if (local_app_data_length > 0 && local_app_data_length < std::size(value)) {
+    const auto base = std::filesystem::path(value, value + local_app_data_length) / L"CodeWeave";
+    wchar_t selected[32768]{};
+    if (GetPrivateProfileStringW(L"profile", L"active", L"", selected, static_cast<DWORD>(std::size(selected)), (base / L"profiles.ini").c_str()) > 0) return selected;
+    return base;
+  }
+  return {};
+}
+
+bool is_workspace(const std::filesystem::path& candidate) {
+  std::error_code error;

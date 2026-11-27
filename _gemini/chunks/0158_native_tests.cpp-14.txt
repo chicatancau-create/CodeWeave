@@ -1,0 +1,78 @@
+  guided_request.independent = false;
+  const auto guided = service.record_execution(guided_request, passed);
+  assert(guided.validation.ok && guided.passed && !guided.progress_duplicate);
+  auto course_request = request;
+  course_request.evidence_id = "course-legacy-order";
+  course_request.operation_id = "op-courselegacy-0123ab";
+  course_request.expected_output = "1\n15";
+  auto course_output = passed;
+  course_output.output = "15\n1\n";
+  const auto course = service.record_course_execution(course_request, course_output);
+  assert(course.validation.ok && !course.passed);
+  std::vector<codeweave::learning::ProgressFact> facts;
+  assert(progress_store.read_all(facts).ok && facts.size() == 1);
+}
+
+void test_challenge_output_judgement_matches_exact_lines_contract() {
+  using codeweave::learning::judge_output;
+  const auto exact = judge_output({"1", "15"}, "15\r\n1\n");
+  assert(exact.passed && exact.cases.size() == 2 && exact.extra_lines.empty());
+
+  const auto partial = judge_output({"1", "15"}, "10\n15\n");
+  assert(!partial.passed && partial.cases.size() == 2);
+  assert(!partial.cases.front().matched &&
+      partial.cases.front().reason == "只有包含验收点的输出行");
+  assert(partial.cases.back().matched);
+
+  const auto repeated = judge_output({"15", "15"}, "15\n");
+  assert(!repeated.passed && repeated.cases[0].matched && !repeated.cases[1].matched);
+  assert(repeated.cases[1].reason == "没有多余的输出行可以匹配（每行只能用一次）");
+
+  const auto extra = judge_output({"15"}, "15\ntrace\n");
+  assert(extra.passed && extra.extra_lines == std::vector<std::string>{"trace"});
+
+  const auto single_log_entry = judge_output({"待办数量: 2", "写周报"},
+      std::vector<std::string>{"待办数量: 2\n写周报"});
+  assert(!single_log_entry.passed && single_log_entry.extra_lines.size() == 1 &&
+      single_log_entry.extra_lines.front() == "待办数量: 2\n写周报");
+
+  const auto raw_actual = judge_output({"15"}, std::vector<std::string>{" 15 \t"});
+  assert(raw_actual.passed && raw_actual.cases.front().actual == " 15 \t");
+
+  const auto empty_expected = judge_output({}, "15\n");
+  assert(!empty_expected.passed && empty_expected.cases.empty());
+  const auto empty_output = judge_output({"15"}, "");
+  assert(!empty_output.passed && !empty_output.cases.front().matched);
+}
+
+void test_challenge_service_compensates_evidence_when_progress_commit_fails() {
+  Fixture fixture;
+  const auto learning = fixture.root / "data" / "runtime" / "native" / "learning";
+  std::filesystem::create_directories(learning);
+  std::filesystem::create_directory(learning / "progress.v1.log");
+  codeweave::learning::EvidenceStore evidence(fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::ProgressStore progress(fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::ChallengeService service(evidence, progress);
+  const codeweave::learning::ChallengeRequest request{
+      "challenge-compensate", "lesson-01", "exercise-01", "2026-10-05", "42",
+      "op-compensate-0123ab", true, "L1"};
+  codeweave::execution::ProcessResult passed{true, false, false, false, 0, "42", ""};
+  const auto result = service.record_execution(request, passed);
+  assert(!result.validation.ok);
+  std::vector<codeweave::learning::EvidenceRecord> records;
+  assert(evidence.read_all(records).ok && records.empty());
+  std::error_code error;
+  std::filesystem::remove(learning / "progress.v1.log", error);
+}
+
+void test_external_evidence_stays_pending_and_rejects_sensitive_fields() {
+  Fixture fixture;
+  codeweave::learning::EvidenceStore evidence(fixture.root);
+  codeweave::learning::ProgressStore progress(fixture.root);
+  const codeweave::learning::ExternalEvidenceFields valid{
+      "  Windows 11 + JDK 21  ", "java -version",
+      "JDK 已安装，版本输出与所用工具链一致。", "logs/java-version.txt", "2026-01-01"};
+  const auto save = [&](const auto& fields, std::string_view operation = "op-external-0123ab") {
+    return codeweave::learning::save_external_evidence(evidence, "java-install", fields,
+        operation, "external-record-01");
+  };

@@ -1,0 +1,144 @@
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    background-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+
+/* 主操作沿用模板唯一的药丸形态（site.css L393），但去掉渐变与发光 */
+.evidence-writeback .primary-action {
+  border-radius: var(--ds-shape-pill, 100px);
+  border-color: var(--ewb-ink);
+  font-weight: 600;
+}
+
+.evidence-writeback .primary-action:active:not(:disabled),
+.evidence-writeback .subtle-button:active:not(:disabled) {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+  border-color: var(--ewb-ink);
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .primary-action:hover:not(:disabled),
+.evidence-writeback .subtle-button:hover:not(:disabled) {
+  filter: none;
+  transform: none;
+  box-shadow: var(--ewb-glow-near);
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+  border-color: var(--ewb-ink);
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .primary-action:disabled,
+.evidence-writeback .subtle-button:disabled {
+  opacity: 1; /* 透明度会让文字跌破 4.5:1，改用色值表达禁用 */
+  color: var(--ewb-ink-3);
+  border-color: var(--ewb-hair);
+  background: none;
+  border-style: dashed;
+}
+
+.evidence-writeback .primary-action:disabled:hover,
+.evidence-writeback .subtle-button:disabled:hover {
+  filter: none;
+  transform: none;
+  background: none;
+}
+
+/* ── 7. 提示横幅（成功 / 失败 / 受限） ───────────────────────────────────── */
+.evidence-writeback .ewb-banner {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-inline-start-width: 3px;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  box-shadow: var(--ewb-glow-inset);
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-banner-body {
+  min-width: 0;
+  flex: 1 1 24ch;
+}
+
+.evidence-writeback .ewb-banner--ok {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .ewb-banner--bad {
+  border-inline-start-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-banner--notice {
+  border-inline-start-color: var(--ewb-warn);
+}
+
+.evidence-writeback .ewb-banner--partial {
+  border: 0;
+  padding: 0;
+  color: var(--ewb-ink-2);
+}
+
+.evidence-writeback .ewb-final-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-14, 14px) 0 0;
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* ── 8. 细线差异预览（ledger / specs 表格化，§5.2） ──────────────────────── */
+.evidence-writeback .evidence-preview,
+.evidence-writeback .ewb-preview,
+.evidence-writeback .evidence-conflict,
+.evidence-writeback .ewb-conflict {
+  margin-top: var(--ds-space-20, 20px);
+  padding: var(--ds-space-14, 14px) 0 0;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ewb-glow-panel);
+  min-width: 0;
+}
+
+.evidence-writeback .evidence-conflict,
+.evidence-writeback .ewb-conflict {
+  border-top-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-head-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+}
+
+.evidence-writeback .vault-progress-subtitle,
+.evidence-writeback .evidence-subtitle {
+  margin: var(--ds-space-14, 14px) 0 var(--ds-space-8, 8px);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.evidence-writeback .ewb-head-row .vault-progress-subtitle {
+  margin: 0;
+}
+
+.evidence-writeback .ewb-scroll {
+  min-width: 0;
+  max-width: 100%;

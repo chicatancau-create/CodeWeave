@@ -1,0 +1,130 @@
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "HTTP 是无状态协议：会话感来自 Cookie/Token，REST 的语义来自方法与状态码的约定。",
+      "fileName": "http-notes.md",
+      "runtime": "外部环境 · curl + 浏览器",
+      "content": {
+        "objective": "独立用 curl 完成一次 GET/POST，并解释状态码、关键响应头与无状态含义。",
+        "prerequisites": [
+          "java-env-a2（A2 构建与排错）"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "G",
+        "explanation": [
+          "请求行 = 方法 + 路径 + 版本；响应首行是状态码与短语。",
+          "GET 取资源、POST 创建/提交、PUT 幂等更新、DELETE 删除——语义约定即 REST。",
+          "2xx 成功、3xx 重定向、4xx 客户端错、5xx 服务端错；看状态码先分类再排查。"
+        ],
+        "examples": [
+          {
+            "good": "201 Created 返回体里带新资源地址（REST 语义准确）",
+            "bad": "所有请求都用 GET 返回 200，错误也返回 200 加错误字段",
+            "why": "状态码语义被破坏后，监控与重试策略全部失效"
+          }
+        ],
+        "guidedSteps": [
+          "用 curl -i 分别请求一个 GET 与 POST 接口，抄下状态行与关键头。",
+          "故意请求不存在的路径观察 404，再访问重定向地址观察 301/302。",
+          "用 -H 改 Content-Type 提交 JSON，观察 415/400 的差异。"
+        ],
+        "exercise": "独立整理一份“本项目会用到的状态码清单”及各自出现场景。",
+        "variant": "用 curl 观察一次 302 跳转全过程（-L 参数前后差异）。",
+        "projectTask": "状态码清单是 G 阶段 Servlet CRUD 接口设计的评审标准。",
+        "mistakes": [
+          "把鉴权失败写成 200 + 错误体",
+          "混淆 401（未认证）与 403（已认证无权限）"
+        ],
+        "runCommand": "curl -i（真实网络请求）",
+        "completion": "能看懂任意一次请求的响应行与关键头，并说出无状态对会话设计的影响。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 35,
+        "acceptanceCriteria": [
+          "完成 GET/POST 各一次并记录",
+          "状态码清单覆盖 2xx—5xx",
+          "能解释无状态与会话方案的关系"
+        ],
+        "evidenceChecklist": [
+          "curl 输出记录",
+          "状态码清单文档"
+        ]
+      }
+    },
+    {
+      "id": "g2-servlet-tomcat",
+      "language": "java",
+      "languageLabel": "JavaWeb",
+      "label": "G2",
+      "title": "Servlet 与 Tomcat：第一个 Web 容器",
+      "description": "请求映射、参数读取与响应写出",
+      "duration": "50 min",
+      "level": "基础",
+      "code": "@WebServlet(\"/tasks\")\npublic class TaskServlet extends HttpServlet {\n    @Override\n    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {\n        resp.setContentType(\"application/json;charset=UTF-8\");\n        resp.getWriter().write(\"[{\\\"id\\\":1,\\\"title\\\":\\\"demo\\\"}]\");\n    }\n}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "Tomcat 监听端口",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "按路径找 Servlet",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "doGet/doPost 处理",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "写回响应",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "Servlet 规范定义了“路径 → 处理器”的映射与请求/响应对象；Tomcat 是它的参考实现。",
+      "fileName": "TaskServlet.java",
+      "runtime": "外部环境 · Tomcat + Maven",
+      "content": {
+        "objective": "独立部署一个返回 JSON 的 Servlet 到 Tomcat，并用浏览器/curl 访问成功。",
+        "prerequisites": [
+          "g1-http-rest-basics"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "G",
+        "explanation": [
+          "@WebServlet(\"/tasks\") 把路径映射到类；继承 HttpServlet 覆写 doGet/doPost。",
+          "HttpServletRequest 读参数与头，HttpServletResponse 写状态、头与体。",
+          "War 包放进 webapps 或内嵌 Tomcat 皆可；注意编码统一 UTF-8。"
+        ],
+        "examples": [
+          {

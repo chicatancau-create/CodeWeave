@@ -1,0 +1,120 @@
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 113.171875,
+            "y": 22.3125,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "课程",
+          "geometry": {
+            "x": 126.640625,
+            "y": 22.3125,
+            "width": 0,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(163, 175, 190)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(163, 175, 190)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(163, 175, 190)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 32,
+            "y": 22.3125,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01学习路径",
+          "geometry": {
+            "x": 45.46875,
+            "y": 21.8125,
+            "width": 85,
+            "height": 23.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "700",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01",
+          "geometry": {
+            "x": 45.46875,
+            "y": 22.8125,
+            "width": 21,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",

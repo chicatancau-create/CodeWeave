@@ -1,0 +1,111 @@
+> 2026-11-06 目录规则：本端外层只留一个启动链接；源码在 `项目/`，工程说明在 `工程文件/`。当前入口和命令以仓库根 `AGENTS.md`、`工程文件/项目结构索引.md` 为准。下文旧根 EXE、旧构建树、旧备份目录及其历史测试记录不再作为当前操作指令，不得据此重建旧布局。
+
+# 网页端麦当劳模型工程
+
+模型：Claude（麦当劳模型）。本文件是**网页端 UI 交互实现**的唯一入口。
+责任人边界：只做界面、交互状态、布局、动效与可访问性；不改后端数据语义、不越过 API 边界。
+`网页端总工程.md` 是本端的最高口径，本文件的每条改动都要能在那边找到对应的一句话。
+
+---
+
+## 1. 本轮的活口（2026-10-04 用户看完成品后提出）
+
+用户原话摘录（四条要求，逐条对应到实现）：
+
+> 1. 「去掉后面的命令提示框，让它直接双击那个 exe 打开之后，就是一个程序就行。」
+> 2. 「把上面那个东西改了，让它一体化，不要出现明显的分层。」
+> 3. 「运行代码的时候……我说了是要一步一步去显现出来的……上一步的内容不删，接着把数据显示出来。」
+> 4. 「只要点进跟代码有关的内容，就直接占满整个页面，左上角留一个返回按键。」
+
+| # | 要求 | 落在哪 | 状态 |
+|---|---|---|---|
+| 1 | 去掉命令提示框 | **应用端**（见 `应用端麦当劳模型工程.md`）——网页端不产生控制台 | 已交付 |
+| 2 | 顶部一体化、去掉分层 | `src/styles.css` + `src/components/learning-workspace-view.css` | 已交付 |
+| 3 | 一步一步显现 + 流畅动画 | `src/engine/stage-layout.ts`、`src/components/run-stage.tsx`、`src/components/run-stage.css` | 已交付 |
+| 4 | 代码内容占满整页 + 左上角返回 | `src/styles.css`、`src/components/learning-workspace-view.tsx` | 已交付 |
+
+---
+
+## 2. 逐条实现说明
+
+### 2.1 顶部一体化（去掉分层）
+
+**原先有几层**（实测 546×1146 视口，代码模式下从上到下）：
+顶栏（面包屑 + 课名 `contextTitle`）→ 资料库同步横幅 `.desktop-vault-settings`
+→ 资料来源状态条 `.content-source-banner` → 工作区页头 `.learning-header`
+→ 分区导航 `.cw-pane-nav` → 代码/画布。**五条横带**，用户说的「明显的分层」就是它。
+
+**改法**（全部只改呈现，DOM 一个元素不增不减）：
+
+| 文件 | 规则 | 作用 |
+|---|---|---|
+| `src/styles.css` | `.app-shell:has(.cw-workspace.is-code-mode) > .sidebar / .shell-decor / .topbar { display: none }` | 收起侧栏、装饰框、顶栏 |
+| 同上 | `… .content-wrap > .desktop-vault-settings`、`… .content-wrap > .content-source-banner { display: none }` | 收起那两条**工作区之外的**状态条 |
+| 同上 | `… .main-content { padding-top: 0 }` | 还回顶栏占的 68px（`--topbar-h` 64 + 4） |
+| `learning-workspace-view.css` | `.cw-workspace.is-code-mode .learning-header / .cw-pane-nav` 收窄间距、副标题让位 | 页头与导航合成一条窄带 |
+
+**为什么这几条写在 `styles.css`**：那两条状态条是 `.cw-workspace` 的**兄弟节点**，
+而 `learning-workspace-view.css` 的棘轮要求每个选择器都带 `.cw-workspace`——兄弟选择器
+满足不了。外壳（侧栏/顶栏/内边距）本来也只归 `styles.css`。
+
+实测结果：五条横带 → 一条（页头「返回 + 课名 + 三个动作」+ 分区导航），
+`pageScroll: 0`，工作区从视口顶端起算。
+
+### 2.2 一步一步显现（画布）
+
+**用户要的行为**：
+- 进入主函数先在画布**正中**出现；
+- 点「下一步」时，上一步**不删**、移到合适的位置，新的一步弹出来，数据跟着显示；
+- 「继续运行」一步到底但**逐条弹出**；「单步执行」点一下动一下；
+- 动画要流畅。
+
+**改法**（三处，缺一不可）：
+
+1. `src/engine/stage-layout.ts` — `LaidNode` 增加 `enterDx` / `enterDy`：
+   这一格的中心到**画布正中**的位移。画布尺寸是这一层的产物，组件拿不到「正中」在哪；
+   而且这是纯算术，能单测，不用靠肉眼看截图。尺寸的计算顺序因此提到 `nodes` 之前。
+2. `src/components/run-stage.tsx` — 每个 `<g>` 把位移写成 CSS 自定义属性
+   `--rs-enter-dx` / `--rs-enter-dy`（每格不同，只能用内联 style，类名表达不了数值）。
+3. `src/components/run-stage.css` —
+   - `g.rs-node.is-todo { opacity: 0 }`：还没走到的不画，**但留在 DOM 里**
+     （它是列表的一项，也是「还有几步」的证据；删掉元素会让读屏读到一份不完整的程序）；
+   - `@keyframes rs-node-enter`：从画布正中（位移 + `scale(.84)`）飞回自己的格子；
+   - `g.rs-node.is-done { transform: none }`：上一步停在原地——「移到合适的位置」
+     是动画的**终点**，不是另一段动画；
+   - `g.rs-edge.is-idle { opacity: 0 }`：指向空位的箭头不画。
+
+**为什么用 `transform` 而不是改 `x`/`y` 属性**：transform 走合成层，改 `x`/`y` 每帧都要
+重排几何；而且 transform 不吃文档流，不带动旁边已经画好的格子。
+
+**动效纪律**：本文件原先写着「不含 `@keyframes`」。这条**按用户要求改了**，并已在文件头注明。
+保留的动效只有这一条，播放一次、无 `infinite`、静态截图仍读得出状态；
+`prefers-reduced-motion` 与 `.reduce-motion` 两条降级路径照旧全停。
+
+**按钮文案**：`runtime-controls.tsx` 的空闲档从「运行代码」改为「开始运行」，
+与暂停档「继续运行」相对（用户原话点名了这两个词）。
+
+### 2.4 三个运行入口各归其位（开始 / 继续 / 单步）
+
+用户原话：
+
+> 「点击『开始运行』时，中间就会出现最开始的内容，比方说『进入主函数』……
+> 点完之后，可以点击『继续运行』。因为我说的是『继续运行』，所以是一步到底的运行。
+> 内容要一步一步地弹出来，而不是已经完全显现出来。
+> 点『单步执行』的话，就是一步一步地弹，我点一下它动一下。」
+
+改版前 `handleRun` 第一次点击就是 `startRun('running')`——**一路播到末态**，
+用户第一眼看到的就是 15/15，等于「一步一步」当场落空。现在三个入口各管一件事：
+
+| 入口 | 行为 | 实现 |
+|---|---|---|
+| 运行条「开始运行」 | 只落到**第一拍**就停住 | `handleRun` → `startRun('paused')` |
+| 运行条「继续运行」 | 逐拍推进到末态（850ms 一拍） | `resumeRun()` → `setRunStatus('running')` |
+| 运行条「单步执行」 | 点一下走一拍，状态停在 paused | 既有 `handleStep`，未改 |
+| 画布「播放」 | 第一下**直接放到底** | 新拆出的 `handlePlay` → `startRun('running')` |
+
+**为什么要拆出 `handlePlay`**：画布那枚按钮的字面意思就是「播放」，「放一遍」是它的语义；
+运行条的「开始运行」是「走到第一步给我看」。两者共用一支函数，必有一个名不副实。
+拆开后 `LearningWorkspaceView` 新增一个 `onPlay` prop，`RuntimeTrace` 的
+`onTogglePlay` 收它（原先收的是 `onRun`）。
+
+**顺带堵上的一个洞（`resumeRun`）**：减少动效档下，`startRun` 里那条 `still` 判定

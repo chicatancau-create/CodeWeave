@@ -1,0 +1,78 @@
+  if (url.pathname === '/api/learning/evidence' && request.method === 'POST') {
+    const body = await requestBody(request).catch(() => ({}))
+    const result = await learningService.stageEvidence(user.id, body)
+    if (!result.ok) return sendJson(response, 400, result.message, result.code)
+    return sendJson(response, 201, result.data)
+  }
+
+  if (url.pathname === '/api/learning/evidence' && request.method === 'GET') {
+    // 队列读取失败（暂存文件损坏等）不能被顶层兜底压成 400：那会让界面把它看成
+    // 「请求不合法」而不是「服务端这次没读到」。给 503 + 稳定错误码，界面据此
+    // 显示带原因的失败态并提供重试（00 号方案 §6 产品门禁 + 02 号方案 §8 数据验收清单）。
+    try {
+      return sendJson(response, 200, (await learningService.listEvidence(user.id)).data)
+    } catch (error) {
+      return sendJson(response, 503, error?.message ?? '暂存证据读取失败', error?.code ?? 'evidence_store_unreadable')
+    }
+  }
+
+  if (url.pathname === '/api/learning/evidence/remove' && request.method === 'POST') {
+    const body = await requestBody(request).catch(() => ({}))
+    const result = await learningService.removeEvidence(user.id, String(body?.evidenceId ?? ''))
+    if (!result.ok) return sendJson(response, 400, result.message, result.code)
+    return sendJson(response, 200, result.data)
+  }
+
+  if (url.pathname === '/api/learning/evidence-preview' && request.method === 'POST') {
+    const body = await requestBody(request).catch(() => ({}))
+    const result = await learningService.previewEvidence(user.id, {
+      evidenceIds: body?.evidenceIds,
+      masteryUpdates: body?.masteryUpdates,
+    })
+    if (!result.ok) return sendJsonWithDetails(response, writebackErrorStatus(result.code), result.message, result.code, result.details)
+    return sendJson(response, 200, result.data)
+  }
+
+  if (url.pathname === '/api/learning/evidence-commit' && request.method === 'POST') {
+    const body = await requestBody(request).catch(() => ({}))
+    const result = await learningService.commitEvidence(user.id, {
+      operationId: body?.operationId,
+      expectedHashes: body?.expectedHashes,
+    })
+    if (!result.ok) return sendJsonWithDetails(response, writebackErrorStatus(result.code), result.message, result.code, result.details)
+    return sendJson(response, 200, result.data)
+  }
+
+  if (url.pathname === '/api/learning/evidence-rollback' && request.method === 'POST') {
+    const body = await requestBody(request).catch(() => ({}))
+    const result = await learningService.rollbackEvidence(user.id, body?.operationId)
+    if (!result.ok) return sendJsonWithDetails(response, writebackErrorStatus(result.code), result.message, result.code, result.details)
+    return sendJson(response, 200, result.data)
+  }
+
+  if (url.pathname === '/api/learning/evidence-export' && request.method === 'POST') {
+    const body = await requestBody(request).catch(() => ({}))
+    const result = await learningService.exportEvidence(user.id, { evidenceIds: body?.evidenceIds })
+    if (!result.ok) return sendJson(response, 400, result.message, result.code)
+    return sendJson(response, 200, result.data)
+  }
+
+  // 事务账本（挂账 #35）：只读列出拥有者的写回事务，新→旧、条数受限。
+  // 界面刷新后靠它复原「部分成功」横幅与逐步明细，不再只认 React 状态里的 operationId。
+  if (url.pathname === '/api/learning/evidence-transactions' && request.method === 'GET') {
+    const result = await learningService.evidenceTransactions(user.id)
+    if (!result.ok) return sendJsonWithDetails(response, writebackErrorStatus(result.code), result.message, result.code, result.details)
+    return sendJson(response, 200, result.data)
+  }
+
+  const transactionMatch = /^\/api\/learning\/evidence-transaction\/([^/]+)$/.exec(url.pathname)
+  if (transactionMatch && request.method === 'GET') {
+    const operationId = decodeURIComponentSafe(transactionMatch[1])
+    const result = await learningService.evidenceTransaction(user.id, operationId)
+    if (!result.ok) return sendJson(response, writebackErrorStatus(result.code), result.message, result.code)
+    return sendJson(response, 200, result.data)
+  }
+
+  return sendJson(response, 404, '接口不存在', 'not_found')
+}
+

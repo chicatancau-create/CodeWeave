@@ -1,0 +1,146 @@
+.challenges-view .challenge-result strong {
+  color: var(--cv-ink);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.challenges-view .challenge-result strong::before {
+  width: 8px;
+  height: 8px;
+  border: var(--cv-hair-width) solid currentColor;
+  background: none;
+}
+
+.challenges-view .challenge-result > span {
+  color: var(--cv-dim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  white-space: pre;                                                 /* 运行输出按原样读，不折行 */
+}
+
+.challenges-view .challenge-result .execution-tier {
+  margin-top: 0;
+}
+
+.challenges-view .challenge-result.passed {
+  border-color: var(--cv-ok);
+  background: var(--cv-ok-wash);
+  color: var(--cv-ok);
+}
+
+.challenges-view .challenge-result.passed strong,
+.challenges-view .challenge-result.passed > span {
+  color: var(--cv-ok);
+}
+
+.challenges-view .challenge-result.passed strong::before {
+  background: currentColor;
+}
+
+.challenges-view .challenge-result.failed {
+  border-color: var(--cv-bad);
+  background: var(--cv-bad-wash);
+  color: var(--cv-bad);
+}
+
+.challenges-view .challenge-result.failed strong,
+.challenges-view .challenge-result.failed > span {
+  color: var(--cv-bad);
+}
+
+.challenges-view .challenge-result.failed strong::before {
+  background: none;
+  border-style: dashed;
+}
+
+.challenges-view .challenge-result.unsupported {
+  border-color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+}
+
+.challenges-view .challenge-result.unsupported strong,
+.challenges-view .challenge-result.unsupported > span {
+  color: var(--cv-warn);
+}
+
+/* ── CHAL-02：逐条判定明细（引擎 challenge-judge.ts 的呈现面）────────────────
+   为什么在结果块内部另起一段，而不是改上面那三条状态色：
+   `.challenge-result > span` 带 `white-space: pre`（运行输出按原样读），
+   而判定原因是一句话，必须能换行——所以明细全部走 <ul>/<li>，不借用那条 span 规则。
+   口径行是唯一的直接子 span，单独覆回 normal。
+   命中/未命中同时用文字、左侧实心/虚线标记与状态色三种载体表达（§5.1：颜色不是唯一载体）。 */
+.challenges-view .challenge-result .judge-mode {
+  color: var(--cv-dim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+  white-space: normal;
+}
+
+.challenges-view .judge-cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.challenges-view .judge-cases li {
+  display: grid;
+  grid-template-columns: 3.6em 1fr;                                      /* 结论列固定宽，理由列吃满剩余 */
+  gap: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  align-items: baseline;
+  padding: var(--ds-space-2, 2px) 0 var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border-left: var(--cv-hair-width) solid currentColor;                  /* 统一 1px 发丝线，粗细不承载语义 */
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .judge-cases li.hit {
+  border-left-style: solid;
+  color: var(--cv-ok);                                                   /* 恒定 success，同 --cv-* 一族 */
+}
+
+.challenges-view .judge-cases li.miss {
+  border-left-style: dashed;                                              /* 形状与 hit 区分，不靠颜色 */
+  color: var(--cv-bad);
+}
+
+.challenges-view .judge-cases li.extra {
+  border-left-style: dotted;                                              /* 第三种线型：既非命中也非未命中，是多印的行 */
+  border-left-color: var(--cv-warn);
+  color: var(--cv-warn);
+}
+
+.challenges-view .judge-verdict {
+  font-family: var(--cv-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.challenges-view .judge-cases code {
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+  white-space: pre-wrap;                                                  /* 验收点原文，窄屏可折但不改内容 */
+  overflow-wrap: anywhere;
+}
+
+.challenges-view .judge-detail {
+  color: var(--cv-dim);
+  overflow-wrap: anywhere;
+}
+
+/* 目标输出清单同步标出逐条结论：判定发生在结果块，清单只负责指认「这一条现在什么状态」。
+   线型与结果块一致（实线=命中、虚线=未命中），粗细统一 1px 发丝线。 */

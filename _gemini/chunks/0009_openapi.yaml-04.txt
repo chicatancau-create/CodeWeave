@@ -1,0 +1,103 @@
+                currentPassword: { type: string, maxLength: 128 }
+                newPassword: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '200': { description: 已修改，body 为 null }
+        '400': { description: invalid_password / wrong_current_password / password_unchanged }
+        '401': { description: unauthorized }
+        '500': { description: storage_error }
+
+  /api/profile:
+    patch:
+      tags: [profile]
+      summary: 更新昵称与个人简介
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等（同一请求体重复提交结果一致）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 只动 name / bio，不触碰凭证字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 40 }
+                bio: { type: string, maxLength: 160 }
+      responses:
+        '200': { description: 更新后的 User, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '400': { description: invalid_name / invalid_bio }
+        '401': { description: unauthorized }
+        '500': { description: storage_error }
+
+  # =========================================================================
+  /api/content/status:
+    get:
+      tags: [content]
+      summary: 内容联动就绪状态
+      description: 只返回通俗状态与计数，不返回资料库绝对路径或任何私人文件内容。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页
+      x-timeout: 读 10s
+      x-sensitive-fields: 不含绝对路径
+      responses:
+        '200': { description: 状态体（含 status 与计数）, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_record_corrupt }
+
+  /api/content/catalog:
+    get:
+      tags: [content]
+      summary: 课程目录（阶段 / 单元 / 练习索引）
+      description: 目录固定到快照，认证通过后支持条件请求。返回快照身份、最低客户端版本、能力和别名。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 整个快照一次返回，不分页
+      x-timeout: 读 10s
+      x-sensitive-fields: 目录级元数据，不含学习答案
+      parameters:
+        - { $ref: '#/components/parameters/bundleQuery' }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200':
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/BundleIdentity' }
+                      - { type: object, required: [contractVersion, minimumClientVersion, capabilities, legacyAliases, lessons] }
+        '304': { description: 客户端缓存仍然有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private }
+        '503': { description: vault_unavailable }
+
+  /api/content/lessons/{id}:
+    get:
+      tags: [content]
+      summary: 单份教学单元正文
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；超长正文按 topic_too_large 直接拒
+      x-timeout: 读 10s
+      x-sensitive-fields: 返回体带 X-Content-Bundle（快照标识），不含资料库路径
+      parameters: [ { $ref: '#/components/parameters/contentId' }, { $ref: '#/components/parameters/bundleQuery' }, { $ref: '#/components/parameters/ifNoneMatch' } ]
+      responses:
+        '200':
+          headers:
+            X-Content-Bundle: { schema: { type: string }, description: 命中的快照 bundleId }
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { description: invalid_content_id / unknown_topic }
+        '404': { description: not_found }
+        '409': { description: topic_index_absent / topic_index_mismatch / retired_topic }
+        '503': { description: vault_unavailable }
+
+  /api/content/exercises/{id}:
+    get:

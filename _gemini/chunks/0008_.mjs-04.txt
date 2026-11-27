@@ -1,0 +1,71 @@
+      serviceInstance: catalog.serviceInstance, vaultId: catalog.vaultId,
+      bundleId: catalog.bundleId, manifestHash: catalog.manifestHash,
+    }))
+  }
+  if (process.env.CODEWEAVE_SMOKE_BROWSER === '1') {
+    progress = 'Chrome 真实页面'
+    const { chromium } = await import('file:///D:/DevCache/CodeWeave-Browser-Smoke/node_modules/playwright-core/index.mjs')
+    const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true })
+    try {
+      const context = await browser.newContext()
+      const [name, value] = owner.cookie.split('=')
+      await context.addCookies([{ name, value, url: origin, httpOnly: true }])
+      const page = await context.newPage()
+      await page.goto(origin)
+      const title = catalog.lessons[0].title
+      await page.getByRole('button', { name: /\bGit\b/ }).first().click()
+      const target = page.getByText(title, { exact: true }).first()
+      try { await target.waitFor({ state: 'visible', timeout: 7000 }) }
+      catch (error) {
+        const title = await page.title()
+        const text = (await page.locator('body').innerText()).slice(0, 750)
+        throw new Error(`${error.message}\n浏览器页面 ${title}\n${text}`)
+      }
+      await target.click()
+      await page.getByText(/来源事实明细|资料库/).first().waitFor({ state: 'visible' })
+      console.log(JSON.stringify({ chrome: 'passed', visibleCourse: contentId }))
+      if (process.env.CODEWEAVE_SMOKE_QT === '1') {
+        const testOutbox = process.env.CODEWEAVE_SMOKE_QT_OUTBOX === '1'
+        progress = '网页打卡后由 Qt 窗口同步'
+        let checkinDate = ''
+        if (!testOutbox) {
+          await page.locator('.streak-card').click()
+          let events = []
+          for (let retry = 0; retry < 30; retry += 1) {
+            const state = (await request('/api/sync/pull', { cookie: owner.cookie })).payload.data
+            events = state.events.filter(({ change }) => change.kind === 'learning.checkin.recorded')
+            if (events.length) break
+            await delay(100)
+          }
+          assert.equal(events.length, 1)
+          checkinDate = events[0].change.localDate
+          await page.reload()
+          await page.locator('.streak-card.checked-in').waitFor({ state: 'visible' })
+        }
+        const sdk = join(repository, '.local', 'prep', 'qt', '6.8.3', 'msvc2022_64')
+        const executable = join(repository, '.local', 'qt', 'current', 'ui-qt', 'CodeWeaveQtShell.exe')
+        const report = join(temporary, 'qt-unified.json')
+        const disconnect = process.env.CODEWEAVE_SMOKE_QT_OFFLINE === '1' ? join(temporary, 'go-offline') : ''
+        const options = {
+          cwd: dirname(executable), windowsHide: true, timeout: 40000,
+          env: {
+            ...process.env, PATH: join(sdk, 'bin') + ';' + process.env.PATH, QT_QPA_PLATFORM: 'offscreen',
+            QT_PLUGIN_PATH: join(sdk, 'plugins'), QML_IMPORT_PATH: join(sdk, 'qml'),
+            CODEWEAVE_UNIFIED_ORIGIN: origin, CODEWEAVE_SMOKE_LOGIN: 'owner@example.test',
+            CODEWEAVE_SMOKE_PASSWORD: 'fixture-owner-17', CODEWEAVE_SMOKE_CONTENT_ID: contentId,
+            CODEWEAVE_SMOKE_CHECKIN: checkinDate, CODEWEAVE_SMOKE_DISCONNECT: disconnect, CODEWEAVE_SMOKE_CACHE: temporary,
+          },
+        }
+        if (testOutbox) options.env.CODEWEAVE_SMOKE_OUTBOX = '1'
+        try {
+          if (!disconnect) {
+            execFileSync(executable, ['--unified-content-smoke', report], options)
+          } else {
+            const qtProcess = spawn(executable, ['--unified-content-smoke', report], options)
+            const done = once(qtProcess, 'exit')
+            qtProcess.stdout.resume()
+            qtProcess.stderr.resume()
+            try {
+              for (let retry = 0; retry < 120 && qtProcess.exitCode === null; retry += 1) {
+                if (await readFile(disconnect + '.ready', 'utf8').catch(() => null) === 'verified') {
+                  await stop()

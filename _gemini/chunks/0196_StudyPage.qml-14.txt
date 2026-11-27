@@ -1,0 +1,85 @@
+                        }
+                    }
+
+                    // 今日计划
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: planCol.implicitHeight + ds.s32
+                        radius: ds.radius
+                        color: ds.railPanel
+                        border.color: ds.line
+                        border.width: 1
+                        ColumnLayout {
+                            id: planCol
+                            anchors.fill: parent
+                            anchors.margins: ds.s16
+                            spacing: 0
+
+                            Text {
+                                Layout.bottomMargin: ds.s16
+                                text: "今日计划"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                            }
+
+                            // informational row
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: ds.s10
+                                Rectangle {
+                                    implicitWidth: 30
+                                    implicitHeight: 30
+                                    radius: ds.radiusSm
+                                    color: ds.accentSoft
+                                    border.color: ds.line
+                                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "▤"
+                                        color: ds.accent
+                                        font.family: ds.ui
+                                        font.pixelSize: 13
+                                    }
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: ds.s4
+                                    Text {
+                                        text: "继续一个学习单元"
+                                        color: ds.ink
+                                        font.family: ds.ui
+                                        font.pixelSize: 12
+                                        font.weight: Font.Medium
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        objectName: "learningPlanTitle"
+                                        text: hostRoot.selectedLesson
+                                              ? (hostRoot.selectedLesson.title || "课程标题暂无数据")
+                                              : "选择课程后查看今日计划"
+                                        color: ds.faint
+                                        font.family: ds.ui
+                                        font.pixelSize: 13
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s12
+                                height: 1
+                                color: ds.line
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s12
+                                spacing: ds.s10
+                                Rectangle {
+                                    implicitWidth: 30
+                                    implicitHeight: 30
+                                    radius: ds.radiusSm

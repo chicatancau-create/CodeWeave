@@ -1,0 +1,108 @@
+  it('认 summarizeExternalEvidence 的真实输出（格式改了这里就红）', () => {
+    const note = `自行声明完成：完成课程「X」\n${summarizeExternalEvidence(evidence)}`
+    expect(hasExternalEvidenceInNote(note)).toBe(true)
+  })
+
+  it('普通完成 note 与只写了一句「执行环境：」的散文字都不算', () => {
+    expect(hasExternalEvidenceInNote('自行声明完成：完成课程「X」（本课无结构化验收点）')).toBe(false)
+    expect(hasExternalEvidenceInNote('执行环境：我自己随手写的一行')).toBe(false)
+  })
+})
+
+describe('deriveLessonEvidenceStates（六态逐条从记录里折）', () => {
+  it('一条记录里六种状态各自成立时逐条为真', () => {
+    const record = recordOf([
+      evidenceOf({ id: 'r', note: lessonSignalNote('read', 'X') }),
+      evidenceOf({ id: 'p', note: lessonSignalNote('practice', 'X') }),
+      evidenceOf({
+        id: 'x',
+        passed: true,
+        verification: 'self-declared',
+        note: `自行声明完成：完成课程「X」\n${summarizeExternalEvidence({
+          environment: 'Ubuntu 24.04',
+          command: 'npm run build',
+          resultSummary: '构建成功，产物 3 个文件',
+          artifactRef: '',
+          reproducedOn: '2026-09-10',
+        })}`,
+      }),
+      evidenceOf({ id: 'v', kind: 'review', passed: true, note: '复测通过' }),
+    ])
+    const states = deriveLessonEvidenceStates(record)
+    expect(states).toEqual({
+      read: true,
+      practiced: true,
+      submittedEvidence: true,
+      selfDeclaredPassed: true,
+      autoVerifiedPassed: false,
+      reviewMastered: true,
+    })
+  })
+
+  it('自动验证那一支不再被算成自评', () => {
+    const record = recordOf([
+      evidenceOf({ passed: true, verification: 'auto-verified', note: '自动验证通过：完成课程「X」，验收点 1/1' }),
+    ])
+    expect(deriveLessonEvidenceStates(record)).toEqual({
+      read: false,
+      practiced: false,
+      submittedEvidence: false,
+      selfDeclaredPassed: false,
+      autoVerifiedPassed: true,
+      reviewMastered: false,
+    })
+  })
+
+  it('缺 verification 的旧完成记录读成自评，不追认成自动验证', () => {
+    const states = deriveLessonEvidenceStates(recordOf([evidenceOf({ passed: true, note: '完成课程「X」' })]))
+    expect(states.selfDeclaredPassed).toBe(true)
+    expect(states.autoVerifiedPassed).toBe(false)
+  })
+
+  it('复测未通过不叫掌握；无记录时六态全假', () => {
+    expect(deriveLessonEvidenceStates(recordOf([evidenceOf({ kind: 'review', passed: false, note: '复测未通过' })])).reviewMastered).toBe(false)
+    expect(deriveLessonEvidenceStates(undefined)).toEqual({
+      read: false,
+      practiced: false,
+      submittedEvidence: false,
+      selfDeclaredPassed: false,
+      autoVerifiedPassed: false,
+      reviewMastered: false,
+    })
+  })
+
+  it('heldLessonStates 只回成立的，且按固定顺序', () => {
+    const held = heldLessonStates({
+      read: true,
+      practiced: false,
+      submittedEvidence: true,
+      selfDeclaredPassed: false,
+      autoVerifiedPassed: false,
+      reviewMastered: true,
+    })
+    expect(held.map((item) => item.label)).toEqual(['已阅读', '已提交证据', '延迟复测掌握'])
+  })
+})
+
+describe('isCompletedPracticeRun（已练习只认真跑完的那一次）', () => {
+  const events = [{ id: 'e', type: 'start' as const, line: 1, label: '', detail: '', variables: [] }]
+
+  it('completed + 有轨迹 + 无报错 = 记一次练习', () => {
+    expect(isCompletedPracticeRun({ runStatus: 'completed', events })).toBe(true)
+  })
+
+  it('running / idle / 空轨迹 / 报错 / 认不出结构 / 外部等级都不记', () => {
+    expect(isCompletedPracticeRun({ runStatus: 'running', events })).toBe(false)
+    expect(isCompletedPracticeRun({ runStatus: 'idle', events })).toBe(false)
+    expect(isCompletedPracticeRun({ runStatus: 'completed', events: [] })).toBe(false)
+    expect(isCompletedPracticeRun({ runStatus: 'completed', events, error: { line: 2, message: 'boom' } })).toBe(false)
+    expect(isCompletedPracticeRun({ runStatus: 'completed', events, unsupported: true })).toBe(false)
+    expect(isCompletedPracticeRun({ runStatus: 'completed', events, tier: 'external' })).toBe(false)
+  })
+})
+
+describe('lessonAcceptancePoints（课程验收点映射给校验器）', () => {
+  it('练习契约的期望输出与证据清单都带上，缺字段时留空数组', () => {
+    const lesson = {
+      content: { completion: '输出 5', evidenceChecklist: ['截图位置'] },
+      exercise: { expectedOutput: ['5'] },

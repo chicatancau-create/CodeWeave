@@ -1,0 +1,71 @@
+import QtQuick
+
+QtObject {
+    property real hostWidth: 1440
+    property bool reducedMotion: false
+
+    // Surfaces
+    readonly property color page:       "#0f131b"   // --page
+    readonly property color chrome:     "#0b1018"   // --chrome (topbar)
+    readonly property color sidebarBg:  "#0c1118"
+    readonly property color panel:      "#181d25"   // --panel
+    readonly property color railPanel:  "#151b24"
+    readonly property color inset:      "#0a0e15"   // --inset
+    readonly property color overlay:    "#141b25"   // --overlay
+    readonly property color raised:     "#131a24"
+    readonly property color snippetBg:  "#0b111a"
+    readonly property color editorBg:   "#0e0e0f"
+    readonly property color stageBg:    "#0b1220"
+    readonly property color markBg:     "#182632"
+    readonly property color subjectBg:  "#141a23"
+    readonly property color subjectOn:  "#153044"
+    readonly property color tabActive:  "#161a21"   // #ffffff08 over panel
+    readonly property color cardHover:  "#1b2531"
+    readonly property color hoverWash:  "#1b2531"
+    readonly property color modalSurface: chrome
+    readonly property color modalScrim: Qt.rgba(0, 0, 0, 0.78)
+    readonly property bool useLayerEffects: true
+
+    // Lines — web values are translucent; these are the resolved composites
+    readonly property color line:       "#20242b"   // #ffffff12
+    readonly property color lineRaised: "#2b313a"   // #ffffff20
+    readonly property color lineStrong: "#576578"
+    readonly property color accentSoft: "#0f1e29"   // #38bdf814 (web: rgba(34,211,238,0.12))
+    readonly property color accentRing: "#19455c"   // #38bdf84d
+    readonly property color accentFill: "#10212d"   // #38bdf818
+    readonly property color heroEdge:   "#1f3d4d"   // #38bdf838
+    readonly property color heroBadge:  "#12222c"   // #38bdf810
+    readonly property color heroBadgeEd:"#1a3542"   // #38bdf82b
+    readonly property color unitBadge:  "#12222c"   // #38bdf810
+    readonly property color unitBadgeEd:"#19313e"   // #38bdf822
+    readonly property color scrim:      "#161c24"   // rgba(120,165,220,0.045) — web --scrim
+    readonly property color scrimRaised:"#1d242f"   // rgba(120,175,235,0.085) — web --scrim-raised
+    readonly property color pressWash:  "#1b222c"
+    readonly property color bannerBg:   "#111923"
+    readonly property color trackBg:    "#263140"
+    readonly property color lineAccent: Qt.rgba(34/255, 211/255, 238/255, 0.38)  // web --line-accent
+
+    // Component-specific colors retained from the existing QML appearance.
+    readonly property color topbarAreaBg: "#090d14"
+    readonly property color stageMetaInk: "#a3d6df"
+    readonly property color challengeFiltersBg: "#12161d"
+    readonly property color challengePendingBg: "#241f0d"
+    readonly property color runnerLabelInk: "#7a828f"
+    readonly property color disabledControlFill: Qt.rgba(220/255, 233/255, 251/255, 0.014)
+    readonly property color disabledControlInk: Qt.rgba(141/255, 155/255, 172/255, 0.4)
+    readonly property color disabledControlBorder: Qt.rgba(32/255, 36/255, 43/255, 0.5)
+    readonly property color fieldHoverBorder: Qt.rgba(200/255, 224/255, 248/255, 0.5)
+    readonly property color fieldInnerHighlight: "#ffffff"
+    readonly property color subjectSymbolBg: "#141b23"
+    readonly property color heroGradientStart: "#17232f"
+    readonly property color heroGradientEnd: "#102331"
+    readonly property color heroCoreBg: "#16283a"
+    readonly property color heroTagBg: "#0b1b27"
+    readonly property color heroTagInk: "#8aa6ba"
+    readonly property color lessonTileFill: Qt.rgba(220/255, 233/255, 251/255, 0.028)
+    readonly property color lessonTileHoverFill: Qt.rgba(220/255, 233/255, 251/255, 0.055)
+    readonly property color lessonTileHighlight: Qt.rgba(180/255, 215/255, 255/255, 0.07)
+    readonly property color terminalDot: "#4c5b70"
+    readonly property color navIconGlow: Qt.rgba(34/255, 211/255, 238/255, 0.55)
+
+    // Text

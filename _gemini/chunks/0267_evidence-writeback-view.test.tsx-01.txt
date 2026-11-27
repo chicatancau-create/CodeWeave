@@ -1,0 +1,147 @@
+// @vitest-environment jsdom
+/**
+ * LINK-09 写回界面测试。
+ *
+ * 目的：
+ * 1) 验证界面与方案一致的行为（预览不写盘、必须勾选确认、冲突逐字段展示、部分成功如实提示）；
+ * 2) 新组件在覆盖率门禁内被测到，避免为了过阈值下调阈值（vitest.config.ts 的约定）。
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ContentProvider } from '../content/provider'
+import { EvidenceWritebackPanel } from './evidence-writeback-view'
+
+type Reply = { ok: boolean; status?: number; json: () => Promise<unknown> }
+/** 允许返回在途 Promise：加载态要由「这一次还没读回来」驱动（挂账②）。 */
+type Handler = (input: string, init?: RequestInit) => Reply | Promise<Reply>
+
+/** 受测试控制的挂起响应：先让界面停在加载态，再由测试放行拿到真实结果。 */
+function deferred() {
+  let resolve!: (reply: Reply) => void
+  const promise = new Promise<Reply>((next) => {
+    resolve = next
+  })
+  return { promise, resolve }
+}
+
+const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body })
+
+const LEARNING_STATUS_OWNER = {
+  bound: true,
+  isOwner: true,
+  vaultId: 'ob-test',
+  vaultMatches: true,
+  publicContent: false,
+  contentAccess: { allowed: true, reason: 'owner' },
+  progressAccess: true,
+  boundAt: '2026-09-19T00:00:00.000Z',
+  recordCorrupt: false,
+  notice: '资料库已绑定拥有者。',
+}
+
+const LEARNING_STATUS_OTHER = { ...LEARNING_STATUS_OWNER, isOwner: false, contentAccess: { allowed: true, reason: 'public_content' }, progressAccess: false, notice: '教材已放开给其他账户（正式进度仍仅拥有者可见）。' }
+
+const EMPTY_SNAPSHOT = {
+  bundleId: 'b-test',
+  schemaVersion: 1,
+  buildTime: '2026-09-19T00:00:00.000Z',
+  rules: { status: 'missing' },
+  stages: [],
+  milestones: [],
+  masteryLevels: [],
+  hintLevels: [],
+  reviewOffsetsDays: [],
+  lessons: [],
+  counts: null,
+}
+
+const CONTENT_STATUS = {
+  state: 'ready',
+  vaultConfigured: true,
+  vaultReason: null,
+  bundleId: 'b-test',
+  buildTime: '2026-09-19T00:00:00.000Z',
+  publishedAt: '2026-09-19T00:00:00.000Z',
+  counts: null,
+  rulesStatus: 'missing',
+  stale: false,
+  lastError: null,
+  lastReport: null,
+}
+
+const stagedRecord = (overrides: Record<string, unknown> = {}) => ({
+  schemaVersion: 1,
+  evidenceId: 'ev-1',
+  userId: 'u-1',
+  state: 'pending',
+  createdAt: '2026-09-19T00:00:00.000Z',
+  operationId: null,
+  syncedAt: null,
+  logPath: null,
+  at: '2026-09-19',
+  topic: 'Java Hello World',
+  stage: 'S0',
+  contentId: null,
+  exerciseId: null,
+  bundleId: null,
+  expected: 'Hello',
+  actual: 'Hello',
+  ranBy: 'learner',
+  independent: true,
+  hintLevel: 'L1',
+  artifacts: [],
+  unfinished: [],
+  notes: '',
+  ...overrides,
+})
+
+const PREVIEW = {
+  operationId: 'op-test-abc123',
+  evidenceIds: ['ev-1'],
+  at: '2026-09-19',
+  topic: 'Java Hello World',
+  targets: [
+    {
+      path: '全栈工程师学习计划/学习日志/2026-09/2026-09-19-Java Hello World.md',
+      kind: 'log',
+      exists: false,
+      expectedHash: null,
+      preview: '## 学习证据 · Java Hello World\n',
+    },
+    {
+      path: '全栈工程师学习计划/进度追踪.md',
+      kind: 'progress',
+      exists: true,
+      expectedHash: 'abc12345',
+      preview: {
+        edits: [{ field: '最近学习证据', kind: 'evidence-date', before: '2026-09-14', after: '2026-09-19' }],
+        masteryBlocked: [{ skill: 'Java 编程', level: '4 级', reason: '本次证据不是学习者独立完成' }],
+      },
+    },
+    {
+      path: '全栈工程师学习计划/全栈竞赛长期冲刺总计划.md',
+      kind: 'index',
+      exists: true,
+      expectedHash: 'def67890',
+      preview: { changed: true, line: '- [[全栈工程师学习计划/学习日志/2026-09/2026-09-19-Java Hello World]] — S0 Java Hello World' },
+    },
+  ],
+  masteryBlocked: [{ skill: 'Java 编程', level: '4 级', reason: '本次证据不是学习者独立完成' }],
+  conflicts: [],
+  notices: ['预览不会修改任何资料库文件。', '写回顺序：学习日志 → 进度追踪 → 总计划日志索引。'],
+}
+
+function stubFetch(handler: Handler) {
+  return vi.stubGlobal('fetch', vi.fn(handler as unknown as typeof fetch))
+}
+
+/** 默认路由：只覆盖本组件需要端点，其余返回 404，避免测试依赖真实网络。 */
+function route({
+  learningStatus = LEARNING_STATUS_OWNER,
+  queue = { pending: [] as unknown[], synced: [] as unknown[] },
+  stage,
+  preview,
+  commit,
+  onPost,
+}: {
+  learningStatus?: unknown

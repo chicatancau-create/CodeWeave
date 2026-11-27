@@ -1,0 +1,165 @@
+{
+  "os": "Windows-11-10.0.28000-SP0",
+  "logical_cpus": 32,
+  "memory_gib": 31.18,
+  "utc": "2026-10-06T06:13:20Z",
+  "method": "10ms window polling; 2s idle; total RSS includes shared pages; fresh profile is not OS cold cache; non-equivalent feature sets",
+  "unmeasured": [
+    "OS cold startup",
+    "course loading",
+    "editor latency",
+    "cancel latency"
+  ],
+  "executables": {
+    "native": {
+      "path": "G:\\CodeWeave\\CodeWeave.exe",
+      "sha256": "b72c05b9d29c0519ac3650d10ac48d2557b1538d997aa6940ebd39d11d3a6776"
+    },
+    "qt": {
+      "path": "G:\\CodeWeave-qt\\gates-final-deploy-r2\\CodeWeaveQtShell.exe",
+      "sha256": "a48df64e2ee4672df2277a05ec9ffd13058931383eea6238765949829c355ca8"
+    }
+  },
+  "samples": [
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 0,
+      "window_ms": 99.432,
+      "working_set_mib": 28.566,
+      "startup_cpu_ms": 62.5,
+      "close_ms": 33.114,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "fresh-profile",
+      "index": 0,
+      "window_ms": 341.094,
+      "working_set_mib": 100.32,
+      "startup_cpu_ms": 531.25,
+      "close_ms": 100.211,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "fresh-profile",
+      "index": 1,
+      "window_ms": 269.417,
+      "working_set_mib": 98.812,
+      "startup_cpu_ms": 656.25,
+      "close_ms": 94.214,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 1,
+      "window_ms": 154.632,
+      "working_set_mib": 28.531,
+      "startup_cpu_ms": 93.75,
+      "close_ms": 36.754,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 2,
+      "window_ms": 248.602,
+      "working_set_mib": 28.59,
+      "startup_cpu_ms": 234.375,
+      "close_ms": 34.594,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "fresh-profile",
+      "index": 2,
+      "window_ms": 331.924,
+      "working_set_mib": 99.633,
+      "startup_cpu_ms": 625.0,
+      "close_ms": 102.295,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "fresh-profile",
+      "index": 3,
+      "window_ms": 333.123,
+      "working_set_mib": 99.688,
+      "startup_cpu_ms": 859.375,
+      "close_ms": 93.654,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 3,
+      "window_ms": 168.832,
+      "working_set_mib": 28.512,
+      "startup_cpu_ms": 93.75,
+      "close_ms": 32.759,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "fresh-profile",
+      "index": 4,
+      "window_ms": 147.486,
+      "working_set_mib": 28.449,
+      "startup_cpu_ms": 140.625,
+      "close_ms": 31.612,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "fresh-profile",
+      "index": 4,
+      "window_ms": 289.929,
+      "working_set_mib": 100.98,
+      "startup_cpu_ms": 453.125,
+      "close_ms": 90.456,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 0,
+      "window_ms": 197.404,
+      "working_set_mib": 28.539,
+      "startup_cpu_ms": 140.625,
+      "close_ms": 30.343,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 0,
+      "window_ms": 288.439,
+      "working_set_mib": 98.211,
+      "startup_cpu_ms": 515.625,
+      "close_ms": 82.49,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 1,
+      "window_ms": 408.108,
+      "working_set_mib": 102.215,
+      "startup_cpu_ms": 656.25,
+      "close_ms": 77.336,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 1,
+      "window_ms": 104.385,
+      "working_set_mib": 28.609,
+      "startup_cpu_ms": 109.375,
+      "close_ms": 34.164,
+      "process_count": 1
+    },
+    {
+      "kind": "native",

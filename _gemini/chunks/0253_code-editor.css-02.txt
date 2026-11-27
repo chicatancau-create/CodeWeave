@@ -1,0 +1,107 @@
+  margin: 0;
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px); /* 与下面 div.code-editor textarea 的左右内边距成对，改动必须同时改 */
+  overflow: hidden;
+  color: var(--ds-text-primary, #f4f1ee);
+  background: transparent;
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--editor-font-size, 13px); /* 只读取（§5.4） */
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre; /* §5.4 长代码行：横向滚动而不是折行挤压 */
+  word-break: normal;
+  overflow-wrap: normal;
+  pointer-events: none; /* §5.3 第 6 条：装饰层不截获鼠标 */
+  user-select: none;
+}
+
+/* 输入层：真实 textarea，文本透明、光标与选区可见（输入 / IME / 复制不受影响） */
+div.code-editor textarea {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 272px;
+  padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px); /* 与上面 pre.code-tokens 成对：左偏移不同步就会逐列错位 */
+  resize: none;
+  overflow: auto; /* 两个方向都能滚：长行走横向滚动条，不挤压折行 */
+  color: transparent;
+  caret-color: var(--ds-text-primary, #f4f1ee); /* L27：光标实色，看得见 */
+  background: transparent;
+  border: 0;
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--editor-font-size, 13px); /* 只读取（§5.4） */
+  line-height: var(--line-height-editor, 1.55);
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  tab-size: 2;
+}
+/* styles.css 的 `.code-editor textarea { outline: 0 }` 会把输入区的焦点环一起抹掉
+   （同特异度、且 styles.css 在后）。基座自己把环要回来：暖白 0.72 档，2px + 内偏。 */
+div.code-editor textarea:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72)); /* L74 / L73 */
+  outline-offset: -2px; /* 内偏：环不会被 .code-surface 的 overflow hidden 切掉 */
+}
+
+/* 当前执行行：一层遮光带 + 左侧 2px 实心场景线。
+   高度取**整数一个行高** —— 多给哪怕 4px，带子就比行高，视觉上压住下一行。
+   本规则是 .code-highlight 的唯一定义处（基座 styles.css 不再声明同名规则）。
+   §5.3 第 1 条：编辑器为静态环境 —— 这里显式 `transition: none`，
+   单步回放时行带直接跳到位，不做逐帧滑行；层级走 --ds-glow-inset 内高光，
+   不用 styles.css 那类 16px 模糊泛光（模糊位恒为 0，见 tokens §4.5）。 */
+div.code-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  height: calc(var(--editor-font-size, 13px) * var(--line-height-editor, 1.55));
+  background: var(--ds-wash-inset, rgba(220, 233, 251, 0.06)); /* 产品派生遮光档：暖白一族（tokens L27 的 α 阶梯），模板无对应令牌 */
+  border-left: 2px solid var(--ds-scene-active, rgb(34, 211, 238));
+  box-shadow: var(--ds-glow-inset, none); /* 当前行：顶部内高光 */
+  pointer-events: none;
+  transition: none; /* §5.3 第 1 条：静态 */
+}
+
+/* 语法色：语义固定，不随场景插值（§5.1 末段），取值全部来自 tokens §4 状态档 */
+span.tok-keyword {
+  color: var(--ds-status-info, #4f7cff); /* L63 */
+  font-weight: 600;
+}
+span.tok-string {
+  color: var(--ds-status-success, #3fd3a4); /* L60 */
+}
+span.tok-comment {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28 */
+  font-style: italic;
+}
+span.tok-number {
+  color: var(--ds-status-warning, #ffc457); /* L61 */
+}
+span.tok-function {
+  color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50：函数名是本页的主强调，用固定场景档 */
+}
+
+/* 选区：低饱和遮光带，不整片霓虹（原为场景色 0.26 实底） */
+div.code-editor textarea::selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22)); /* 暖白一族，同上 */
+  color: transparent; /* 文本仍由高亮层着色，选区不能把文字刷成实色 */
+}
+div.code-editor textarea::-moz-selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: transparent;
+}
+
+/* ── 页脚：运行时与语言名 + 一次性操作，黑场上用发丝线与编辑器分区 ───────── */
+div.code-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap; /* 320px 下长运行时名换行，不溢出分区（§5.4 最小宽度） */
+  height: auto; /* styles.css 给的是固定 30px，换行会被裁（§5.4 长运行时名） */
+  min-height: 34px;
+  margin-top: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  background: var(--ds-canvas, #000);
+  border-top: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  box-shadow: var(--ds-shadow-panel, none);
+  /* §5.4：模板 9.5–10.5px 的 HUD 档只留给非关键装饰，这里是必读信息 → 12px */

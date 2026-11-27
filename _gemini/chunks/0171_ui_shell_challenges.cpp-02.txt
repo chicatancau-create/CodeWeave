@@ -1,0 +1,71 @@
+          if (task != challenge_history_task_id_) return;
+          challenge_history_task_id_.clear();
+          challenge_history_busy_ = false;
+          if (closing_ || account != active_account_id_ || generation != account_generation_) return;
+          if (result.result.ok && !result.cancelled) challenge_submissions_ = *records;
+          challenge_history_status_ = result.cancelled ? QStringLiteral("挑战记录操作已取消")
+              : QString::fromUtf8(result.result.message);
+          emit challengeHistoryChanged();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    challenge_history_task_id_.clear();
+    challenge_history_busy_ = false;
+    challenge_history_status_ = QString::fromUtf8(submitted.message);
+    emit challengeHistoryChanged();
+  }
+}
+
+void UiShell::refreshChallengeHistory() {
+  performChallengeHistoryTask(false, [](const ChallengeSubmissionStore& store, QVariantList& records) {
+    return store.read(records);
+  });
+}
+
+void UiShell::submitChallenge(const QString& evidence, const QVariantMap& externalEvidence) {
+  const auto fail = [this](const QString& message) {
+    challenge_history_status_ = message;
+    emit challengeHistoryChanged();
+  };
+  if (closing_ || account_busy_ || challenge_run_busy_ || challenge_history_busy_ ||
+      execution_busy_ || operation_busy_ || selected_challenge_.isEmpty()) return;
+  if (!hasActiveAccount()) { fail(QStringLiteral("请先登录再提交挑战")); return; }
+  const auto id = selected_challenge_.value("id").toString();
+  const bool external = selected_challenge_.value("runner") == "external";
+  QString summary = evidence.trimmed();
+  if (external) {
+    codeweave::learning::EvidenceRecord prepared;
+    const codeweave::learning::ExternalEvidenceFields fields{
+        externalEvidence.value("environment").toString().toUtf8().toStdString(),
+        externalEvidence.value("command").toString().toUtf8().toStdString(),
+        externalEvidence.value("resultSummary").toString().toUtf8().toStdString(),
+        externalEvidence.value("artifactRef").toString().toUtf8().toStdString(),
+        externalEvidence.value("reproducedOn").toString().toUtf8().toStdString()};
+    const auto validation = codeweave::learning::prepare_external_evidence(
+        id.toStdString(), fields, "op-challenges-0123ab", "challenge-validation", prepared);
+    if (!validation.ok) { fail(QString::fromUtf8(validation.message)); return; }
+    if (!mentionsAcceptance(externalEvidence.value("resultSummary").toString(), selected_challenge_)) {
+      fail(QStringLiteral("结果摘要没有提到本关的任何验收点，请写明对应的实际结果")); return;
+    }
+    summary = QString::fromUtf8(prepared.actual_result);
+    if (!prepared.artifact_refs.empty()) summary += QStringLiteral("\n日志 / 截图引用：") + QString::fromUtf8(prepared.artifact_refs.front());
+  } else {
+    if (summary.isEmpty() || summary.size() > 400 || summary.contains(QChar::Null)) {
+      fail(QStringLiteral("请填写 1–400 字的完成证据说明")); return;
+    }
+    if (challenge_run_result_.contains("error") || !challenge_run_result_.value("passed").toBool() ||
+        (challenge_run_result_.value("tier") != "teaching" && challenge_run_result_.value("tier") != "qt-js")) {
+      fail(QStringLiteral("请先运行当前代码并命中全部验收点")); return;
+    }
+  }
+  const QVariantMap record{
+      {"id", "submission-" + QUuid::createUuid().toString(QUuid::Id128)}, {"challengeId", id},
+      {"submittedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+      {"status", external ? "submitted" : "passed"},
+      {"tier", external ? QVariant("external") : challenge_run_result_.value("tier")},
+      {"judgeMode", external ? "" : "exact-lines"}, {"evidence", summary},
+      {"code", external ? QString() : challengeCode()},
+      {"expected", selected_challenge_.value("targetOutput")},
+      {"output", external ? QVariant(QVariantList{}) : challenge_run_result_.value("output")},
+      {"observation", ""}, {"reviewedAt", ""}};
+  // Repeated clicks on an unchanged successful/pending snapshot are idempotent.

@@ -1,0 +1,126 @@
+ * - `degraded`：表体某行列数不齐，整块降级为普通段落（不崩、不猜）；
+ * - 正常：返回表格块与下一行位置。
+ */
+function tryTable(lines: string[], start: number): { next: number; block?: Block; degraded?: string[] } | null {
+  const shape = tableShape(lines, start)
+  if (!shape) return null
+  const consumed = [lines[start] ?? '', lines[start + 1] ?? '']
+  const rows: string[][] = []
+  let index = start + 2
+  while (index < lines.length) {
+    const line = lines[index] ?? ''
+    if (line.trim() === '') break
+    const cells = splitRow(line)
+    if (!cells) break
+    consumed.push(line)
+    index += 1
+    if (cells.length !== shape.header.length) {
+      // 列数不齐：把已读入的原始行整体降级为段落，保证内容不丢
+      return { next: index, degraded: consumed }
+    }
+    rows.push(cells)
+  }
+  return { next: index, block: { kind: 'table', header: shape.header, rows } }
+}
+
+export function parseMarkdownBlocks(markdown: string): Block[] {
+  const lines = String(markdown ?? '').replace(/\r\n?/g, '\n').split('\n')
+  const blocks: Block[] = []
+  let index = 0
+  /** 越界返回 undefined；调用方必须先判空再使用（noUncheckedIndexedAccess）。 */
+  const at = (position: number): string | undefined => lines[position]
+  const pushParagraphs = (raw: string[]) => {
+    for (const line of raw) blocks.push({ kind: 'paragraph', text: line.trim() })
+  }
+  while (index < lines.length) {
+    const line = at(index)
+    if (line === undefined) break
+    if (line.trim() === '') {
+      index += 1
+      continue
+    }
+    const fence = FENCE.exec(line)
+    if (fence) {
+      const language = fence[1] ?? ''
+      const code: string[] = []
+      index += 1
+      while (index < lines.length && !FENCE.test(at(index) ?? '')) {
+        code.push(at(index) ?? '')
+        index += 1
+      }
+      index += 1
+      blocks.push({ kind: 'code', language, code: code.join('\n') })
+      continue
+    }
+    const heading = HEADING.exec(line)
+    if (heading) {
+      blocks.push({ kind: 'heading', level: (heading[1] ?? '#').length, text: heading[2] ?? '' })
+      index += 1
+      continue
+    }
+    const quote = QUOTE.exec(line)
+    if (quote) {
+      const collected: string[] = []
+      while (index < lines.length) {
+        const current = QUOTE.exec(at(index) ?? '')
+        if (!current) break
+        collected.push(current[1] ?? '')
+        index += 1
+      }
+      blocks.push({ kind: 'quote', lines: collected })
+      continue
+    }
+    if (UNORDERED.test(line) || ORDERED.test(line)) {
+      const ordered = ORDERED.test(line) && !UNORDERED.test(line)
+      const items: string[] = []
+      while (index < lines.length) {
+        const raw = at(index) ?? ''
+        const match = ordered ? ORDERED.exec(raw) : UNORDERED.exec(raw)
+        if (!match) break
+        items.push(match[1] ?? '')
+        index += 1
+      }
+      blocks.push({ kind: 'list', ordered, items })
+      continue
+    }
+    const table = tryTable(lines, index)
+    if (table) {
+      if (table.degraded) pushParagraphs(table.degraded)
+      else if (table.block) blocks.push(table.block)
+      index = table.next
+      continue
+    }
+    const paragraph: string[] = []
+    while (index < lines.length) {
+      const current = at(index)
+      if (current === undefined) break
+      if (
+        current.trim() === '' ||
+        HEADING.test(current) ||
+        FENCE.test(current) ||
+        QUOTE.test(current) ||
+        UNORDERED.test(current) ||
+        ORDERED.test(current) ||
+        tableShape(lines, index) !== null
+      ) {
+        break
+      }
+      paragraph.push(current)
+      index += 1
+    }
+    if (paragraph.length > 0) blocks.push({ kind: 'paragraph', text: paragraph.join(' ') })
+    else if (at(index) !== undefined) {
+      // 兜底：没被任何分支吃掉时按段落推进一行，绝不死循环
+      blocks.push({ kind: 'paragraph', text: (at(index) ?? '').trim() })
+      index += 1
+    }
+  }
+  return blocks
+}
+
+/**
+ * 一张按白名单访问的图片附件。
+ * 读取失败（未登录、403 类型不允许、404 未发布/不存在、网络中断）都显示**可见**的
+ * 兜底文案，不静默消失；文案不猜原因，只说明「未发布或类型不允许」这两种真实可能。
+ */
+function MarkdownImage({ src, alt, relPath }: { src: string; alt: string; relPath: string }) {

@@ -1,0 +1,139 @@
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .field-label textarea:focus-visible,
+.challenges-view .field-label input:focus-visible {
+  border-color: var(--cv-edge-active);
+}
+
+.challenges-view .challenge-evidence {
+  min-height: 96px;
+  white-space: pre-wrap;                                            /* 证据说明是散文：折行而不是横向滚 */
+}
+
+.challenges-view .challenge-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  margin-top: var(--ds-space-4, 4px);
+  padding-top: var(--cv-pad);
+  border-top: var(--cv-hair-width) solid var(--cv-hair);
+}
+
+.challenges-view .challenge-actions .subtle-button {
+  min-height: var(--cv-tap);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+}
+
+.challenges-view .challenge-actions .subtle-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-actions .subtle-button:active:not(:disabled) {
+  background: var(--cv-scrim-raised);
+}
+
+/* 提交主操作：细线药丸（geometry.md §2 唯一保留的 100px 圆角），无渐变无光束 */
+.challenges-view .challenge-submit.moving-border {
+  flex: 0 0 auto;
+  min-height: var(--cv-tap);
+  border: var(--cv-hair-width) solid var(--cv-edge-active);
+  border-radius: var(--ds-shape-pill, 100px);
+  background: none;
+  box-shadow: var(--cv-glow-inset);
+}
+
+.challenges-view .challenge-submit.moving-border:hover:not(:disabled) {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .challenge-submit.moving-border:disabled {
+  border-color: var(--cv-hair);
+  opacity: 1;
+}
+
+/* 渐变光束属于「渐变按钮 + 泛光」家族（§5.1 点名移除）：本页常态不挂载。
+   共享层已把它 display:none，这里再钉一次，防止后续任何页面级改动把它放回来。 */
+.challenges-view .moving-border__beam {
+  display: none;
+}
+
+.challenges-view .challenge-submit .moving-border__content {
+  padding: var(--ds-space-10, 10px) var(--ds-space-20, 20px);
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 600;
+  border-radius: var(--ds-shape-pill, 100px);
+}
+
+.challenges-view .challenge-submit.moving-border:hover:not(:disabled) .moving-border__content {
+  color: var(--cv-ink);
+}
+
+/* 提交记录区内容 */
+.challenges-view .challenge-done-note,
+.challenges-view .challenge-pending-note,
+.challenges-view .challenge-submitted-none {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-radius-panel, 0);
+  font-size: var(--cv-body);
+  line-height: 1.6;
+}
+
+.challenges-view .challenge-done-note {
+  color: var(--cv-ok);
+  background: var(--cv-ok-wash);
+}
+
+.challenges-view .challenge-pending-note {
+  color: var(--cv-warn);
+  background: var(--cv-warn-wash);
+}
+
+.challenges-view .challenge-submitted-none {
+  color: var(--cv-faint);
+  border-color: var(--cv-hair);
+  background: none;
+}
+
+/* 固定标识 + 文字双通道：图形徽记对读屏隐藏，语义由文字承载 */
+.challenges-view .challenge-mark-label {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: normal;
+}
+
+.challenges-view .challenge-submitted-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-left: var(--cv-hair-width) solid var(--cv-hair-raised);

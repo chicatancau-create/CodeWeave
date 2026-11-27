@@ -1,0 +1,89 @@
+  assert(apply_mastery_evidence(&guided_result, failed_review, 6, lowered).ok);
+  assert(lowered.level == 0 && lowered.evidence.size() == 3);
+
+  auto capped = guided_result;
+  capped.level = 6;
+  auto cap_evidence = passed;
+  cap_evidence.id = "mastery-evidence-04";
+  cap_evidence.operation_id = "op-mastery-0123ae";
+  MasteryRecord capped_result;
+  assert(apply_mastery_evidence(&capped, cap_evidence, 6, capped_result).ok);
+  assert(capped_result.level == 6);
+
+  auto malformed = passed;
+  malformed.id = "bad/id";
+  assert(!validate_mastery_evidence(malformed).ok);
+  malformed = passed;
+  malformed.id = "mastery-evidence-time";
+  malformed.at = "2026-10-05T00:00:00.000Ztrailing";
+  assert(!validate_mastery_evidence(malformed).ok);
+  malformed.at = "1999-10-05T00:00:00.000Z";
+  assert(!validate_mastery_evidence(malformed).ok);
+}
+
+void test_mastery_store_is_idempotent_fail_closed_and_replayable() {
+  using namespace codeweave::learning;
+  Fixture fixture;
+  const auto root = fixture.root / "data" / "runtime" / "native";
+  MasteryStore store(root);
+  MasteryService service(store);
+  MasterySnapshot snapshot;
+  bool duplicate = false;
+  MasteryEvidence first{
+      "mastery-store-01", MasteryEvidenceKind::Lesson, "lesson-01", "课程自动验证完成",
+      "2026-10-05T00:00:00.000Z", true, CompletionVerification::AutoVerified,
+      RanBy::Learner, true, "L1", "op-masterystore-0123ab"};
+  const auto first_result = service.record_evidence(first, 6, duplicate, snapshot);
+  if (!first_result.ok) std::cerr << "mastery first: " << first_result.message << '\n';
+  assert(first_result.ok && !duplicate);
+  assert(snapshot.records.at("lesson-01").level == 1);
+  assert(service.record_evidence(first, 6, duplicate, snapshot).ok && duplicate);
+  assert(snapshot.records.at("lesson-01").evidence.size() == 1);
+
+  auto conflict = first;
+  conflict.note = "different payload";
+  assert(!service.record_evidence(conflict, 6, duplicate, snapshot).ok);
+
+  auto guided = first;
+  guided.id = "mastery-store-02";
+  guided.operation_id = "op-masterystore-0123ac";
+  guided.independent = false;
+  assert(!service.record_evidence(guided, 6, duplicate, snapshot).ok);
+  std::vector<MasteryEvidence> events;
+  assert(store.read_all(events).ok && events.size() == 1);
+
+  auto review = first;
+  review.id = "mastery-store-03";
+  review.operation_id = "op-masterystore-0123ad";
+  review.kind = MasteryEvidenceKind::Review;
+  review.note = "复测通过";
+  assert(service.record_evidence(review, 6, duplicate, snapshot).ok);
+  assert(snapshot.records.at("lesson-01").level == 2);
+  assert(snapshot.records.at("lesson-01").review_step == 1);
+
+  MasterySnapshot replayed;
+  assert(service.replay(6, replayed).ok);
+  assert(replayed.records.at("lesson-01").level == snapshot.records.at("lesson-01").level);
+  assert(replayed.records.at("lesson-01").review_step == snapshot.records.at("lesson-01").review_step);
+  assert(replayed.records.at("lesson-01").evidence.size() == snapshot.records.at("lesson-01").evidence.size());
+
+  auto legacy_guided = first;
+  legacy_guided.id = "mastery-store-legacy-guided";
+  legacy_guided.operation_id = "op-masterystore-0123ae";
+  legacy_guided.independent = false;
+  assert(store.append_idempotent(legacy_guided, duplicate).ok && !duplicate);
+  assert(service.replay(6, replayed).ok);
+  assert(replayed.records.at("lesson-01").level == snapshot.records.at("lesson-01").level);
+
+  const auto ledger = root / "learning" / "mastery.v1.log";
+  std::ofstream(ledger, std::ios::app | std::ios::binary) << "corrupt\n";
+  events.clear();
+  assert(!store.read_all(events).ok);
+}
+
+void test_review_scheduler_matches_web_vectors() {
+  using namespace codeweave::learning;
+  const auto fallback = effective_review_plan(std::nullopt, std::nullopt);
+  assert(fallback.source == ReviewPlanSource::Fallback);
+  assert(fallback.offsets == std::vector<int>({1, 3, 7, 14, 30}));
+  const auto published = effective_review_plan(std::vector<int>{}, std::vector<int>{0, 1, 3, 7, 14, 30});

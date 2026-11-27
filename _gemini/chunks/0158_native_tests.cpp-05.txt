@@ -1,0 +1,65 @@
+  assert(!first.learning_data_root(native_root, root).ok);
+  assert(first.register_account("First", "first@example.test", "Password-123!").ok);
+  const auto first_record = first.current();
+  assert(first_record.has_value());
+  assert(first.learning_data_root(native_root, root).ok);
+  const auto first_root = root;
+  assert(first_root == native_root / "accounts" / first_record->id);
+  assert(!std::filesystem::exists(first_root));
+  assert(second.register_account("Second", "second@example.test", "Password-123!").ok);
+  assert(second.learning_data_root(native_root, root).ok);
+  assert(root != first_root);
+  assert(root == native_root / "accounts" / second.current()->id);
+  codeweave::learning::ProgressStore first_progress(first_root);
+  codeweave::learning::ProgressStore second_progress(root);
+  bool duplicate = false;
+  assert(first_progress.append_idempotent(
+      {"fact-account-01", "lesson-01", "exercise-01", "2026-10-05", "completed",
+       "op-account-0123ab"}, duplicate).ok);
+  std::vector<codeweave::learning::ProgressFact> facts;
+  assert(second_progress.read_all(facts).ok && facts.empty());
+  assert(first_progress.read_all(facts).ok && facts.size() == 1);
+  assert(!std::filesystem::exists(native_root / "learning"));
+  assert(first.logout().ok);
+  assert(!first.learning_data_root(native_root, root).ok);
+  assert(root.empty());
+  assert(first.login("first@example.test", "Password-123!").ok);
+  assert(first.learning_data_root(native_root, root).ok && root == first_root);
+  assert(!first.learning_data_root("relative", root).ok && root.empty());
+#endif
+}
+
+void test_content_contract_requires_stable_published_units() {
+  const codeweave::content::Unit valid{
+      "java-01", "Java 的第一个循环", "published", "java",
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 1};
+  assert(codeweave::content::validate(valid).ok);
+  assert(codeweave::content::is_stable_id("java-01.lesson"));
+  assert(!codeweave::content::is_stable_id("../lesson"));
+  assert(!codeweave::content::is_content_hash("not-a-hash"));
+  assert(!codeweave::content::validate({ "java/01", "Title", "published", "java", valid.content_hash, 1 }).ok);
+  assert(!codeweave::content::validate({ "java-02", "Title", "removed", "java", valid.content_hash, 1 }).ok);
+  assert(!codeweave::content::validate({ "java-03", "Title", "published", "java", "short", 1 }).ok);
+  assert(!codeweave::content::validate({ "java-04", "Title", "published", "java", valid.content_hash, 2 }).ok);
+  assert(!codeweave::content::validate({ "java-05", std::string("bad\xC3\x28"), "published", "java", valid.content_hash, 1 }).ok);
+  assert(!codeweave::content::validate({ "java-06", "Title", "published", std::string("java\xC3\x28"), valid.content_hash, 1 }).ok);
+}
+
+void test_content_repository_reads_only_published_units() {
+  Fixture fixture;
+  const auto root = fixture.root / "content";
+  std::filesystem::create_directories(root);
+  // The fixture is written through the Windows text stream, so its bytes are
+  // "native lesson\\r\\n". Keep the catalog hash aligned with those bytes.
+  const std::string hash = "1e4e588064256e81ac0170f60d10b64daa6e9407bfc0dc7ade40341aa3afe7d0";
+  const auto hex = [](std::string_view value) {
+    constexpr char digits[] = "0123456789abcdef"; std::string result;
+    for (const unsigned char c : value) { result.push_back(digits[c >> 4]); result.push_back(digits[c & 15]); }
+    return result;
+  };
+  std::ofstream(root / "catalog.v1.tsv") << hex("lesson-01") << '\t' << hex("循环") << '\t' << hex("published") << '\t' << hex("cpp") << '\t' << hex(hash) << '\t' << hex("1") << '\n'
+      << hex("draft-01") << '\t' << hex("草稿") << '\t' << hex("draft") << '\t' << hex("cpp") << '\t' << hex(hash) << '\t' << hex("1") << '\n';
+  std::ofstream(root / "lesson-01.txt") << "native lesson\n";
+  codeweave::content::ContentRepository repository(root);
+  std::vector<codeweave::content::Unit> units;
+  const auto listed = repository.list_published(units);

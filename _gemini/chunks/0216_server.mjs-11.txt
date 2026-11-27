@@ -1,0 +1,90 @@
+    if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
+      destroySession(parseCookies(request)[SESSION_COOKIE])
+      response.setHeader('Set-Cookie', clearedCookieHeader())
+      return sendJson(response, 200, null)
+    }
+
+    if (url.pathname === '/api/auth/register' && request.method === 'POST') {
+      if (process.env.CODEWEAVE_ALLOW_REGISTRATION !== '1') return sendJson(response, 403, '本机实例已关闭普通注册', 'registration_closed')
+      const body = await requestBody(request)
+      return await handleRegister(body, request, response, users)
+    }
+
+    if (url.pathname === '/api/auth/login' && request.method === 'POST') {
+      const body = await requestBody(request)
+      return await handleLogin(body, request, response, users)
+    }
+
+    if (url.pathname === '/api/profile' && request.method === 'PATCH') {
+      const body = await requestBody(request)
+      return await handleProfileUpdate(body, request, response, users)
+    }
+
+    if (url.pathname === '/api/auth/change-password' && request.method === 'POST') {
+      const user = sessionUser(request, users)
+      if (!user) return sendJson(response, 401, '请先登录', 'unauthorized')
+      const body = await requestBody(request)
+      const currentPassword = String(body.currentPassword ?? '')
+      const newPassword = String(body.newPassword ?? '')
+      // R3：进入 scrypt 前先做长度上限，避免超长输入造成 CPU 消耗。
+      if (currentPassword.length > MAX_PASSWORD_LENGTH || newPassword.length > MAX_PASSWORD_LENGTH) {
+        return sendJson(response, 400, '密码长度超出上限', 'invalid_password')
+      }
+      if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+        return sendJson(response, 400, '当前密码不正确', 'wrong_current_password')
+      }
+      if (newPassword.length < 8 || newPassword.length > MAX_PASSWORD_LENGTH) {
+        return sendJson(response, 400, '密码需要 8-128 个字符', 'invalid_password')
+      }
+      if (newPassword === currentPassword) {
+        return sendJson(response, 400, '新密码不能与当前密码相同', 'password_unchanged')
+      }
+      user.passwordHash = await hashPassword(newPassword)
+      try {
+        accounts.put(user)
+      } catch {
+        return sendJson(response, 500, '修改失败：无法写入用户数据', 'storage_error')
+      }
+      // 安全惯例：改密后使该用户的其余会话全部失效，仅保留发起修改的当前会话。
+      const currentSessionId = parseCookies(request)[SESSION_COOKIE]
+      accounts.sessions.deleteOthers(user.id, currentSessionId)
+      return sendJson(response, 200, null)
+    }
+
+    // LINK-05：内容联动接口。必须在认证分支内、且不接受任何磁盘路径参数。
+    if (url.pathname.startsWith('/api/content/')) {
+      return await handleContentRequest(request, response, url, users)
+    }
+
+    // LINK-08：学习事实接口（拥有者绑定与正式进度只读投影）。
+    if (url.pathname.startsWith('/api/sync/')) return await handleLearningSync(request, response, url, users)
+    if (url.pathname.startsWith('/api/learning/')) {
+      return await handleLearningRequest(request, response, url, users)
+    }
+
+    return sendJson(response, 404, '接口不存在', 'not_found')
+  } catch (error) {
+    if (error?.code === 'storage_corrupt') {
+      return sendJson(response, 503, error.message, error.code)
+    }
+    if (error?.code) {
+      return sendJson(response, 400, error.message, error.code)
+    }
+    return sendJson(response, 500, '服务器内部错误', 'internal_error')
+  }
+}
+
+async function handleRegister(body, request, response, users) {
+  const name = String(body.name ?? '').trim()
+  const contactType = body.contactType === 'phone' ? 'phone' : 'email'
+  const email = contactType === 'email' ? String(body.email ?? '').trim().toLowerCase() : undefined
+  const phone = contactType === 'phone' ? normalizePhone(body.phone) : undefined
+  const password = String(body.password ?? '')
+
+  if (typeof body.name !== 'string' || name.length < 2 || name.length > 40) {
+    return sendJson(response, 400, '昵称需要 2-40 个字符', 'invalid_name')
+  }
+  if (contactType === 'email' && !isEmail(email)) {
+    return sendJson(response, 400, '请输入有效的邮箱地址', 'invalid_email')
+  }
+  if (contactType === 'phone' && !isPhone(phone)) {

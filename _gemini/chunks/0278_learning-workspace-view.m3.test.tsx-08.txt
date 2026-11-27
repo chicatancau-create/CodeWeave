@@ -1,0 +1,90 @@
+    const { container } = renderWorkspace()
+    expect(container.querySelector('.lesson-insight p')?.textContent).toContain('唯一的合法出口')
+  })
+})
+
+/* ─────────────── 3. 持续资源审计：源码字节 + 运行时探针（§5.3.3/.4） ─────────────── */
+
+/* ──────────── LEARN-01 第 4 条：本单元证据状态与「已阅读」 ──────────── */
+
+describe('M3 学习工作台 · 本单元证据状态', () => {
+  it('六格逐条列出，勾与文字双通道；上层没传状态时全部按「未成立」读', () => {
+    const { container } = renderWorkspace()
+    const list = container.querySelector('.cw-evidence-state-list')
+    expect(list?.querySelectorAll('li').length).toBe(6)
+    expect(container.querySelectorAll('.cw-evidence-state-glyph')).toHaveLength(6)
+    expect(container.textContent).toContain('已阅读')
+    expect(container.textContent).toContain('延迟复测掌握')
+    expect(container.querySelectorAll('li.is-held').length, '没有记录就不许有勾').toBe(0)
+    // 每一格还带一句「这一条说了谁判的」，不让人把痕迹读成掌握
+    expect(container.textContent).toContain('不是完成证明')
+    expect(container.textContent).toContain('系统未比对输出')
+  })
+
+  it('传进来的状态照原样点亮，本组件不自己看 note 猜', () => {
+    const { container } = renderWorkspace({
+      evidenceStates: {
+        read: true,
+        practiced: false,
+        submittedEvidence: false,
+        selfDeclaredPassed: false,
+        autoVerifiedPassed: false,
+        reviewMastered: false,
+      },
+    })
+    expect(container.querySelectorAll('li.is-held').length).toBe(1)
+    expect(container.querySelector('li.is-held')?.textContent).toContain('已阅读')
+    expect(container.querySelector('li.is-absent')?.textContent).toContain('已练习')
+  })
+
+  it('「标记已阅读」只在给了回调且没标记过时出现；标记之后换成一句说明', () => {
+    const onMarkRead = vi.fn()
+    const { container } = renderWorkspace({ onMarkRead })
+    const button = container.querySelector<HTMLButtonElement>('.cw-mark-read')
+    expect(button).toBeTruthy()
+    fireEvent.click(button as HTMLButtonElement)
+    expect(onMarkRead).toHaveBeenCalledTimes(1)
+    cleanup()
+
+    const marked = renderWorkspace({ onMarkRead, readMarked: true })
+    expect(marked.container.querySelector('.cw-mark-read'), '重复标记只会多出同样一条信号，那是假数据').toBeNull()
+    expect(marked.container.textContent).toContain('已标记阅读')
+    cleanup()
+
+    const noWiring = renderWorkspace({})
+    expect(noWiring.container.querySelector('.cw-mark-read'), '上层没接回调时不画一个按了没用的按钮').toBeNull()
+  })
+})
+
+/* ─────────── #105：详情在路上的那一秒不许说「没有」 ─────────── */
+
+describe('M3 学习工作台 · 详情加载中的那一秒', () => {
+  /** 目录级占位形状：没有原文、code 是空串（`loadLessonDetail` 还没回来）。 */
+  const pendingLesson = () => baseLesson({ code: '', reading: undefined })
+
+  it('不说「没有配套代码」也不说「没有验收点」，完成按钮锁住并写明原因', () => {
+    const { container } = renderWorkspace({ lesson: pendingLesson(), detailPending: true, runStatus: 'idle' })
+    // 整页找字符串会被占位文案里那句引用话术自己撞上，所以判**下结论的那两个元素**：
+    // 结论分支根本没渲染，占位分支在说「还在读」。
+    const claim = container.querySelector('.lesson-code-area .workspace-external-note, .workspace-external-note')
+    expect(claim?.textContent).toContain('代码与练习契约还在路上')
+    expect(claim?.textContent).not.toContain('本单元没有配套代码：')
+    const verifyLine = container.querySelector('.cw-verify-none')
+    expect(verifyLine?.textContent).toContain('本课的练习契约还在读取')
+    expect(verifyLine?.textContent).not.toContain('本课没有结构化验收点（')
+    const block = container.querySelector('.cw-reading-pending')
+    expect(block?.getAttribute('aria-busy')).toBe('true')
+    expect(block?.textContent).toContain('原文与练习契约正在从内容服务读取')
+    const button = container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+    expect(button.disabled, '还没看过这一题的验收点就不该能记完成').toBe(true)
+    expect(button.textContent).toContain('详情读取中，暂不可标记')
+  })
+
+  it('分区导航在这一秒就已经列出「阅读」锚点（下面整列跳位的真正来源）', () => {
+    const { container } = renderWorkspace({ lesson: pendingLesson(), detailPending: true, runStatus: 'idle' })
+    const links = Array.from(container.querySelectorAll('nav.cw-pane-nav a')).map((a) => a.getAttribute('href'))
+    expect(links).toContain('#cw-pane-reading')
+    expect(container.querySelector('#cw-pane-reading')).toBeTruthy()
+  })
+
+  it('不是加载中的纯阅读课，照旧明说没有配套代码（这条守卫不许被占位分支吞掉）', () => {

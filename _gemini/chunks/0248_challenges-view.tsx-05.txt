@@ -1,0 +1,113 @@
+  const outputMatches = Boolean(judge?.passed)
+
+  const canSubmit = selectedChallenge
+    ? isExternalSelected
+      ? Boolean(externalCheck?.valid)
+      : outputMatches && evidenceNote.trim().length > 0
+    : false
+
+  const handleSubmit = useCallback(() => {
+    if (!selectedChallenge || !canSubmit) return
+    const tier = tierOfRunner(selectedChallenge.runner)
+    const output = runResult?.output ?? []
+    if (isExternalSelected) {
+      onSubmit(selectedChallenge, {
+        output,
+        evidence: summarizeExternalEvidence(externalEvidence),
+        // 外部证据无法在本机验证真实性：只标记“已提交”，不能自动通过。
+        passed: false,
+        tier,
+        externalEvidence,
+      })
+      // 提交后清空结构化证据（已随提交留档）；日期保留方便同日复现。
+      patchExternalEvidence(selectedChallenge.id, { environment: '', command: '', resultSummary: '', artifactRef: '' })
+      return
+    }
+    onSubmit(selectedChallenge, {
+      output,
+      evidence: evidenceNote.trim(),
+      passed: outputMatches,
+      tier,
+      // CHAL-02 第 7 条：记录留下判定所用的口径，日后口径再变也能解释这条记录当时怎么来的。
+      judgeMode: judge?.mode ?? selectedChallenge.judgeMode ?? DEFAULT_JUDGE_MODE,
+    })
+    // 提交后清空证据（已随提交留档）与运行结果；代码草稿保留供继续修改。
+    patchDraft(selectedChallenge.id, { evidence: '' })
+    setRunResults((current) => {
+      const next = { ...current }
+      delete next[selectedChallenge.id]
+      return next
+    })
+  }, [
+    selectedChallenge,
+    canSubmit,
+    runResult,
+    isExternalSelected,
+    onSubmit,
+    externalEvidence,
+    patchExternalEvidence,
+    evidenceNote,
+    outputMatches,
+    judge,
+    patchDraft,
+  ])
+
+  return (
+    <section className="challenges-view">
+      {mode === 'list' ? (
+        <>
+          <ChallengeOverview
+            total={challenges.length}
+            completed={completedCount}
+            pendingVerify={pendingVerifyCount}
+            filteredCount={visibleChallenges.length}
+          />
+
+          {notice && (
+            <p className="challenge-notice" role="status">
+              {notice}
+            </p>
+          )}
+
+          <ChallengeFilters
+            filters={filters}
+            tracks={tracks}
+            stages={stages}
+            moreOpen={moreFiltersOpen}
+            onToggleMore={toggleMoreFilters}
+            onChange={updateFilter}
+            onReset={resetFilters}
+            dirty={filtersDirty}
+          />
+
+          <ChallengeGrid
+            rows={gridRows}
+            selectedId={selectedChallenge?.id ?? ''}
+            onSelect={openChallenge}
+            filtersDirty={filtersDirty}
+            hasQuery={filters.q.trim().length > 0}
+            query={filters.q.trim()}
+            onResetFilters={resetFilters}
+          />
+
+          <ChallengePagination page={currentPage} pageCount={pageCount} onChange={setPage} />
+        </>
+      ) : (
+        selectedChallenge && (
+          <section className="challenge-detail-view" aria-label={`挑战详情：${selectedChallenge.title}`}>
+            <header className="challenge-detail-head">
+              <button ref={backRef} type="button" className="subtle-button challenge-back" onClick={backToList}>
+                <ArrowLeft size={13} />
+                返回列表
+              </button>
+              <div className="challenge-detail-heading">
+                <p className="challenge-detail-no">
+                  <span className="challenge-detail-no-index">{sequenceById.get(selectedChallenge.id) ?? '——'}</span>
+                  <span className="challenge-detail-no-total">/ {totalOrdinal} 关</span>
+                  <span className="challenge-detail-no-stage">阶段 {selectedChallenge.stageId}</span>
+                </p>
+                <div className="challenge-detail-heading-meta">
+                  <span className={`difficulty ${selectedChallenge.difficulty}`}>{selectedChallenge.difficulty}</span>
+                  <span className={`stage-status status-${statusOf(selectedChallenge)}`}>
+                    {STATUS_LABEL[statusOf(selectedChallenge)]}
+                  </span>

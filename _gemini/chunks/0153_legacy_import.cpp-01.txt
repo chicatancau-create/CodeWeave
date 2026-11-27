@@ -1,0 +1,97 @@
+#include "legacy_import.hpp"
+#include "account_store.hpp"
+
+#include <algorithm>
+#include <charconv>
+#include <cctype>
+#include <fstream>
+#include <map>
+#include <set>
+#include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::migration {
+namespace {
+constexpr std::size_t kMaxJsonBytes = 16 * 1024 * 1024;
+
+struct Json {
+  enum class Type { Object, Array, String, Number, Boolean, Null } type{Type::Null};
+  std::map<std::string, Json> object;
+  std::vector<Json> array;
+  std::string text;
+};
+
+// A bounded parser used only at the explicit import boundary. Duplicate keys,
+// excessive nesting, non-JSON numbers and invalid UTF-8 are rejected.
+class Parser {
+ public:
+  explicit Parser(std::string_view text) : text_(text) {}
+  bool parse(Json& out) { return value(out, 0) && (space(), at_ == text_.size()); }
+ private:
+  void space() { while (at_ < text_.size() && (text_[at_] == ' ' || text_[at_] == '\t' ||
+      text_[at_] == '\r' || text_[at_] == '\n')) ++at_; }
+  bool take(char c) { space(); if (at_ == text_.size() || text_[at_] != c) return false; ++at_; return true; }
+  bool hex(unsigned& value) {
+    value = 0;
+    for (int i = 0; i < 4; ++i) {
+      if (at_ == text_.size()) return false;
+      const char c = text_[at_++];
+      const int n = c >= '0' && c <= '9' ? c-'0' :
+          c >= 'a' && c <= 'f' ? c-'a'+10 : c >= 'A' && c <= 'F' ? c-'A'+10 : -1;
+      if (n < 0) return false;
+      value = value * 16 + n;
+    }
+    return true;
+  }
+  bool string(std::string& out) {
+    if (!take('"')) return false;
+    out.clear();
+    while (at_ < text_.size()) {
+      const auto c = static_cast<unsigned char>(text_[at_++]);
+      if (c == '"') return true;
+      if (c < 32) return false;
+      if (c != '\\') { out.push_back(static_cast<char>(c)); continue; }
+      if (at_ == text_.size()) return false;
+      const char escaped = text_[at_++];
+      if (escaped == '"' || escaped == '\\' || escaped == '/') out.push_back(escaped);
+      else if (escaped == 'b') out.push_back('\b');
+      else if (escaped == 'f') out.push_back('\f');
+      else if (escaped == 'n') out.push_back('\n');
+      else if (escaped == 'r') out.push_back('\r');
+      else if (escaped == 't') out.push_back('\t');
+      else if (escaped == 'u') {
+        unsigned cp = 0;
+        if (!hex(cp) || cp == 0) return false;
+        if (cp >= 0xd800 && cp <= 0xdbff) {
+          if (at_ + 2 > text_.size() || text_.substr(at_, 2) != "\\u") return false;
+          at_ += 2; unsigned low = 0;
+          if (!hex(low) || low < 0xdc00 || low > 0xdfff) return false;
+          cp = 0x10000 + ((cp-0xd800)<<10) + low-0xdc00;
+        } else if (cp >= 0xdc00 && cp <= 0xdfff) return false;
+        if (cp < 0x80) out.push_back(static_cast<char>(cp));
+        else if (cp < 0x800) { out.push_back(static_cast<char>(0xc0|(cp>>6))); out.push_back(static_cast<char>(0x80|(cp&63))); }
+        else if (cp < 0x10000) { out.push_back(static_cast<char>(0xe0|(cp>>12))); out.push_back(static_cast<char>(0x80|((cp>>6)&63))); out.push_back(static_cast<char>(0x80|(cp&63))); }
+        else { out.push_back(static_cast<char>(0xf0|(cp>>18))); out.push_back(static_cast<char>(0x80|((cp>>12)&63))); out.push_back(static_cast<char>(0x80|((cp>>6)&63))); out.push_back(static_cast<char>(0x80|(cp&63))); }
+      } else return false;
+    }
+    return false;
+  }
+  bool value(Json& out, unsigned depth) {
+    if (depth > 32 || ++nodes_ > 100000) return false;
+    space(); if (at_ == text_.size()) return false;
+    const char c = text_[at_];
+    if (c == '"') { out.type = Json::Type::String; return string(out.text); }
+    if (c == '{') {
+      ++at_; out.type = Json::Type::Object;
+      if (take('}')) return true;
+      do {
+        std::string key; Json item;
+        if (!string(key) || !take(':') || !value(item, depth+1) ||
+            !out.object.emplace(key, std::move(item)).second) return false;
+        if (take('}')) return true;
+      } while (take(','));
+      return false;
+    }

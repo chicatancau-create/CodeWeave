@@ -1,0 +1,60 @@
+  return Result::success("学习日志、进度追踪与索引已写入");
+}
+
+Result VaultWritebackStore::rollback(const QString& operation_id, QVariantMap& result) {
+  result.clear(); bool owner = false; auto status = ownerStatus(owner);
+  if (!status.ok || !owner) return status.ok ? Result::failure("当前账户无权回滚该资料库") : status;
+  if (!valid_operation(operation_id)) return Result::failure("写回事务 ID 无效");
+  const auto lock = acquire_lock(owner_root_); if (!lock) return Result::failure("另一个资料库操作正在进行");
+  const auto tx_path = account_root_ / "learning" / "writeback" / (operation_id.toStdWString() + L".json");
+  if (!safe_path(tx_path)) return Result::failure("写回事务路径无效");
+  QFile file(qpath(tx_path)); if (!file.open(QIODevice::ReadOnly) || file.size() > kMaxTransactionBytes) return Result::failure("事务不可读");
+  QJsonParseError error; auto tx = QJsonDocument::fromJson(file.readAll(), &error).object();
+  file.close();
+  if (error.error != QJsonParseError::NoError || !valid_transaction(tx, account_root_, vault_root_, account_id_, operation_id))
+    return Result::failure("事务损坏或账户不匹配");
+  if (tx.value("state") == "rolled_back") { result.insert("idempotent", true); return Result::success("事务此前已回滚"); }
+  auto targets = tx.value("targets").toArray();
+  const auto persist = [&] {
+    QSaveFile save(qpath(tx_path)); save.setDirectWriteFallback(false);
+    const auto bytes = QJsonDocument(tx).toJson(QJsonDocument::Compact);
+    return save.open(QIODevice::WriteOnly) && save.write(bytes) == bytes.size() && save.commit();
+  };
+  for (const auto& value : targets) {
+    const auto target = target_from_json(value.toObject()); if (!target.prepared || target.skipped) continue;
+    QByteArray current; QString hash; bool exists = false;
+    if (!read_target(vault_root_, target.path, current, hash, exists) ||
+        (hash != target.post_hash && !((tx.value("state") == "rolling_back" || !target.applied) && hash == target.expected_hash)))
+      return Result::failure(QStringLiteral("检测到第三方修改，拒绝覆盖并停止回滚：%1").arg(target.path).toStdString());
+    if (target.existed && (target.backup.isEmpty() || !safe_path(std::filesystem::path(target.backup.toStdWString())) || !QFileInfo::exists(target.backup)))
+      return Result::failure(QStringLiteral("缺少原文件备份，拒绝回滚：%1").arg(target.path).toStdString());
+    if (target.existed) {
+      QFile backup(target.backup);
+      if (!backup.open(QIODevice::ReadOnly) || backup.size() > kMaxVaultFileBytes || hash_bytes(backup.readAll()) != target.expected_hash)
+        return Result::failure("回滚备份损坏，禁止覆盖资料库");
+    }
+  }
+  tx["state"] = "rolling_back";
+  if (!persist()) return Result::failure("回滚恢复记录保存失败，未修改资料库");
+  QVariantList restored;
+  for (qsizetype i = targets.size(); i > 0; --i) {
+    auto target = target_from_json(targets[i - 1].toObject()); if (!target.prepared || target.skipped || target.restored) continue;
+    QByteArray current; QString hash; bool exists = false;
+    if (!read_target(vault_root_, target.path, current, hash, exists) || (hash != target.post_hash && hash != target.expected_hash))
+      return Result::failure("回滚前检测到第三方修改，已停止");
+    if (hash == target.expected_hash) { target.restored = true; }
+    else {
+    if (target.existed) {
+      QFile backup(target.backup); if (!backup.open(QIODevice::ReadOnly)) return Result::failure("回滚备份不可读");
+      if (!write_target(vault_root_, target.path, backup.readAll())) return Result::failure("原文件恢复失败，事务保持部分回滚状态");
+      restored.push_back(QVariantMap{{"path", target.path}, {"action", "restored"}});
+    } else {
+      const auto path = vault_root_ / target.path.toStdWString();
+      if (!safe_path(path)) return Result::failure("新建文件路径无效，回滚停止");
+      std::error_code remove_error; std::filesystem::remove(path, remove_error);
+      if (remove_error) return Result::failure("移除本次新建文件失败");
+      restored.push_back(QVariantMap{{"path", target.path}, {"action", "removed"}});
+    }
+    target.restored = true;
+    }
+    targets[i - 1] = target_json(target); tx["targets"] = targets;

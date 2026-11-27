@@ -1,0 +1,71 @@
+  std::filesystem::create_directories(learning);
+  std::error_code error;
+  std::filesystem::create_symlink(source, learning / "progress.v1.log", error);
+  if (!error) {
+    codeweave::learning::ProgressStore progress(fixture.root / "data" / "runtime" / "native");
+    std::vector<codeweave::learning::ProgressFact> facts;
+    assert(!progress.read_all(facts).ok);
+    std::filesystem::remove(learning / "progress.v1.log", error);
+  }
+  error.clear();
+  std::filesystem::create_symlink(source, learning / "evidence.v1.log", error);
+  if (!error) {
+    codeweave::learning::EvidenceStore evidence(fixture.root / "data" / "runtime" / "native");
+    std::vector<codeweave::learning::EvidenceRecord> records;
+    assert(!evidence.read_all(records).ok);
+    std::filesystem::remove(learning / "evidence.v1.log", error);
+  }
+}
+
+void test_learning_and_trace_ledgers_reject_oversized_records() {
+  Fixture fixture;
+  const auto learning_root = fixture.root / "data" / "runtime" / "native" / "learning";
+  std::filesystem::create_directories(learning_root);
+  std::ofstream(learning_root / "progress.v1.log") << std::string(64 * 1024 + 1, 'x');
+  std::ofstream(learning_root / "evidence.v1.log") << std::string(256 * 1024 + 1, 'x');
+  codeweave::learning::ProgressStore progress(fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::EvidenceStore evidence(fixture.root / "data" / "runtime" / "native");
+  std::vector<codeweave::learning::ProgressFact> facts;
+  std::vector<codeweave::learning::EvidenceRecord> records;
+  assert(!progress.read_all(facts).ok);
+  assert(!evidence.read_all(records).ok);
+
+  const auto trace_root = fixture.root / "trace-limit";
+  std::filesystem::create_directories(trace_root / "execution");
+  std::ofstream(trace_root / "execution" / "trace.v1.log")
+      << "1\t1\t1\t" << std::string(2 * 1024 * 1024 + 1, 'x') << '\n';
+  codeweave::execution::TraceStore trace(trace_root);
+  codeweave::execution::TracePage page;
+  assert(!trace.read_page("trace", 0, 1, page).ok);
+}
+
+void test_challenge_service_links_execution_evidence_and_progress() {
+  Fixture fixture;
+  codeweave::learning::EvidenceStore evidence_store(fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::ProgressStore progress_store(fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::ChallengeService service(evidence_store, progress_store);
+  const codeweave::learning::ChallengeRequest request{
+      "challenge-01", "lesson-01", "exercise-01", "2026-10-05", "42",
+      "op-challenge-0123ab", true, "L1"};
+  codeweave::execution::ProcessResult passed{true, false, false, false, 0, "42\r\n", ""};
+  const auto first = service.record_execution(request, passed);
+  assert(first.validation.ok && first.passed && !first.evidence_duplicate && !first.progress_duplicate);
+  assert(first.judgement.passed && first.judgement.cases.size() == 1 &&
+      first.judgement.cases.front().matched);
+  const auto repeated = service.record_execution(request, passed);
+  assert(repeated.validation.ok && repeated.passed && repeated.evidence_duplicate && repeated.progress_duplicate);
+  auto failed_output = passed; failed_output.output = "41\r\n";
+  auto failed_request = request; failed_request.evidence_id = "challenge-02"; failed_request.operation_id = "op-challenge-0223ab";
+  const auto failed = service.record_execution(failed_request, failed_output);
+  assert(failed.validation.ok && !failed.passed);
+  auto compile_only = passed;
+  compile_only.execution_output_valid = false;
+  auto compile_request = request;
+  compile_request.evidence_id = "challenge-compile-only";
+  compile_request.operation_id = "op-compile-0123ab";
+  const auto compile_result = service.record_execution(compile_request, compile_only);
+  assert(compile_result.validation.ok && !compile_result.passed);
+  assert(compile_result.judgement.passed);
+  auto guided_request = request;
+  guided_request.evidence_id = "challenge-guided";
+  guided_request.operation_id = "op-guided-0123ab";

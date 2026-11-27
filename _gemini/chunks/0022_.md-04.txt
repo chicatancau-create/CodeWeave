@@ -1,0 +1,74 @@
+备份后台化必须防止“边拷贝边自动保存”造成混合快照；覆盖同一数据根的操作只能串行，不通过暂停 GUI 消息循环实现。窗口关闭进入 Closing 状态，拒绝新任务，发取消但保持事件泵，完成后才回收线程与服务；禁止在仍执行的 worker 上从 UI 直接阻塞 join、detach 或强杀线程。PostMessage/queued signal 只携带可管理生命周期的结果，不捕获已析构 HWND/QObject。
+
+回归包括：取消前/提交中/提交后、进度通知失败、关闭时备份、登录中退出、账户切换与运行竞争、损坏草稿、磁盘写入失败、100 次重复开关任务无线程/句柄增长。修复前后记录消息循环延迟，不通过降低 scrypt 成本、跳过 hash 或放宽锁提高成绩。
+
+### 14.6 给 Flash 的任务拆分
+
+1. U0a：只登记上述调用链和耗时；不改 UI/业务，不按 include 或 IO 命中数推断性能。
+2. U0b：任务执行器和取消/关闭契约由有并发审查能力的负责人定稿并提供一个通过测试的样例；Flash 不独立设计线程与锁架构。
+3. U0c：Flash 一次只迁移一个已批准的 service 调用，允许文件和回归命令明确；不能同时迁移账户与备份。
+4. U1：Qt/编辑器/许可/CRT 选型由负责人验收；Flash 可运行固定 benchmark 与记录结果，不能自行放宽预算。
+5. U2：按已冻结 DTO 加薄 facade，QML/页面留给 UI 工作；Flash 后端任务不跨入 UI 目录。
+
+许可证与编辑器结论见总工程：Qt Canvas Painter 和 QScintilla 不作为默认依赖。新增 Qt DLL 或 facade 不意味着可以更改核心数据格式；平台收口逐一迁移，禁止借此重写密码算法或伪造非 Windows 支持。
+
+### 14.7 变更登记 2026-10-05-U0a
+
+- 目标：测量备份、旧账户导入、旧学习导入、注册、登录和改密的实际耗时，为 U0b 任务调度范围提供证据。
+- 类型：新增基准工具与原始证据。
+- 允许修改：`native/src/backend_benchmark.cpp`、`native/CMakeLists.txt`、`evidence/backend-timing-u0a-20261005.json`、本端工程文件。
+- 禁止修改：网页端、移动端、UI 呈现、根目录 EXE、真实账户、正式工作区和数据格式。
+- 数据所有者：隔离临时目录中的合成夹具；工具结束后删除临时目录。
+- 输入与输出：命令行 `codeweave-backend-benchmark.exe --out <evidence.json>`；输出只包含操作名、成功标记和微秒样本，不写临时绝对路径、密码或账户资料。
+- 失败与回滚：构建或样本失败时保留 Win32 入口；删除本次新增目标和证据即可回到基线，不恢复或覆盖用户数据。
+- 测试夹具：5 次独立合成运行；备份 32 个 4 KiB 文件，导入 JSON 仅含 benchmark 账户，账户密码使用固定测试口令。
+- 临时路径：系统临时目录 `codeweave-u0a-backend-*`，每次运行结束清理。
+- 删除核验：只删除本次创建且名称精确匹配的调试证据；不得按扩展名或前缀批量删除。
+- 实际命令与结果：MSVC Release 目标构建通过；工具运行通过并写出 `evidence/backend-timing-u0a-20261005.json`；Node 门禁通过；CTest 7/7 全量回归通过。
+- 结果状态：[通过]
+
+原始样本仅说明合成夹具下的耗时分布，不直接代表真实用户数据，也不宣称性能提升。样本中改密约 200–236 ms、注册约 70–84 ms、登录约 65–104 ms、备份约 40–48 ms；这些数字只供 U0b 调度设计使用，不能替代 Qt/Win32 同负载基准。
+
+### 14.8 变更登记 2026-10-05-U0b
+
+- 目标：建立与 Qt 无关的串行后台任务服务骨架，固定队列上限、任务代次、取消和关闭回收语义。
+- 类型：新增后端基础模块与核心回归测试。
+- 允许修改：`native/src/backend_task_service.hpp`、`native/src/backend_task_service.cpp`、`native/src/native_tests.cpp`、`native/CMakeLists.txt`、本端工程文件。
+- 禁止修改：账户/备份调用方、UI、网页端、移动端、数据格式和根目录 EXE。
+- 实际命令与结果：MSVC Release 构建通过；CTest 7/7 通过；Node 门禁与 `git diff --check` 通过。
+- 结果状态：[通过]
+
+本步只提供通用执行器和测试，没有迁移账户或备份调用；下一步 U0c 必须单独批准一条调用链后再接入。
+
+U1 已建立独立 Qt 基础壳，并通过 `codeweave-qt-deploy` 生成 Qt 部署目录；此前启动表述未包含真实窗口证据，本轮已修复根对象类型并重新验证，见 14.14；Qt 目标尚未切换根入口。U0c/U2 已把只读课程清单接入 `BackendTaskService` worker，再通过 Qt queued signal 回到 Qt 主线程；未接账户、备份、执行、写盘或数据格式。后续 U2 仍需冻结完整 facade DTO 和后台命令契约，再扩展其他 service。
+
+### 14.9 变更登记 2026-10-05-U1-U0c
+
+- 目标：让 Qt 基础壳消费同一份 C++ 内容事实源，并修复双击 Qt EXE 时缺少 Qt DLL 的部署问题。
+- 类型：Qt 基础壳部署与单条只读内容链迁移。
+- 允许修改：`native/ui-qt/`、本端工程文件；未切换根目录 EXE。
+- 禁止修改：网页端、移动端、真实账户、备份/恢复、执行引擎、账户和正式进度写入。
+- 内容链：`ui_main.cpp → UiShell::loadPublishedContent → ContentRepository::list_published`；只返回课程标题和状态文本，QML 不接触路径、账本或 Store。
+- 部署链：`codeweave-qt-deploy → deploy-qt.ps1 → windeployqt --qmldir`；部署脚本检查 Qt6 Core/Gui/Qml/Quick、`platforms/qwindows.dll` 和 `qml/QtQuick`。
+- 实际命令与结果：
+  - `[通过]` Visual Studio Developer Command Prompt x64 下 Qt ON Release 构建与 `codeweave-qt-deploy`。
+  - `[通过]` 独立部署目录包含 `CodeWeaveQtShell.exe`、28 个 Qt6 DLL、平台插件、QML imports 和 `content/catalog.v1.tsv`（共 80 个内容文件）；该轮仅部署完整性有证据，进程存活不构成真实窗口验收；窗口启动修复与本轮截图见 14.14。
+  - `[通过]` Qt OFF 原生构建与 CTest 7/7（`G:\CodeWeave\.local\qt\build-off`）。
+  - `[通过]` `git diff --check`。
+- 未执行：干净 Windows、DPI/输入法/无障碍、安装器和 Qt/Win32 同负载性能对照；这些仍属于 U2–U4 门禁。
+- 结果状态：[部分完成]
+
+本登记不代表 Qt 页面已复刻、不代表根入口已替换，也不代表安装包已制作。部署目录 `G:\CodeWeave\.local\qt\build-msvc\qt-deploy` 是本轮外部构建证据，不属于仓库发布产物。
+
+### 14.10 变更登记 2026-10-05-U2
+
+- 目标：让 Qt facade 使用统一后台任务服务读取发布课程，避免在 UI 线程执行内容扫描。
+- 类型：异步只读 facade 接入。
+- 允许修改：`native/ui-qt/facade/`、`native/ui-qt/platform/`、`native/ui-qt/qml/`、Qt CMake 目标和本端工程文件。
+- 禁止修改：账户、备份/恢复、执行引擎、正式进度、网页端、移动端、根目录 EXE。
+- 实现：`UiShell::reloadPublishedContent()` 提交 `TaskKind::Read`；worker 读取 `ContentRepository::list_published`，只生成标题 DTO；完成回调通过 Qt queued connection 更新属性。任务 ID、busy 状态和队列关闭由 `BackendTaskService` 管理。
+- 实际命令与结果：
+  - `[通过]` Qt ON Release 构建。
+  - `[通过]` Qt 部署目标重新生成 DLL、QML imports 和 content。
+  - `[通过]` Qt OFF 原生构建与 CTest 7/7。
+  - `[通过]` `git diff --check`。

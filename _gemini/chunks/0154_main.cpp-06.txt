@@ -1,0 +1,73 @@
+  return std::filesystem::is_regular_file(candidate / L"config" / L"codeweave.config.example.json", error);
+}
+
+std::filesystem::path locate_workspace() {
+  const auto configured = configured_workspace();
+  if (!configured.empty()) return configured;
+  std::vector<std::filesystem::path> bases;
+  wchar_t executable[32768]{};
+  const auto length = GetModuleFileNameW(nullptr, executable, std::size(executable));
+  if (length > 0 && length < std::size(executable)) bases.emplace_back(executable, executable + length);
+  bases.push_back(std::filesystem::current_path());
+  for (auto base : bases) {
+    if (base.has_filename()) base = base.parent_path();
+    for (int level = 0; level < 4 && !base.empty(); ++level, base = base.parent_path()) {
+      for (const auto& candidate : {base, base / L"工作区", base / L"workspace"}) if (is_workspace(candidate)) return candidate;
+    }
+  }
+  // Never create or silently select an empty workspace during startup. A
+  // packaged installation must provide an explicit workspace (or the user
+  // must set CODEWEAVE_NATIVE_WORKSPACE); otherwise fail visibly so data is
+  // never written to an unexpected root.
+  return {};
+}
+
+std::filesystem::path configured_content_root() {
+  wchar_t value[32768]{};
+  const auto length = GetEnvironmentVariableW(L"CODEWEAVE_NATIVE_CONTENT_ROOT", value, std::size(value));
+  if (length > 0 && length < std::size(value)) return std::filesystem::path(value, value + length);
+  for (const auto& candidate : {g_executable_directory / L"content",
+      g_executable_directory.parent_path() / L"content",
+      g_executable_directory.parent_path().parent_path() / L"content"}) {
+    std::error_code error;
+    if (std::filesystem::is_regular_file(candidate / L"catalog.v1.tsv", error)) return candidate;
+  }
+  return {};
+}
+
+std::filesystem::path configured_tool(std::string_view language) {
+  std::wstring variable = L"CODEWEAVE_NATIVE_";
+  if (language == "cpp") variable += L"CPP_TOOL";
+  else if (language == "python") variable += L"PYTHON_TOOL";
+  else if (language == "javascript") variable += L"JAVASCRIPT_TOOL";
+  else if (language == "java") variable += L"JAVA_TOOL";
+  else return {};
+  wchar_t value[32768]{};
+  const auto length = GetEnvironmentVariableW(variable.c_str(), value, std::size(value));
+  if (length > 0 && length < std::size(value)) return std::filesystem::path(value, value + length);
+  const auto settings = g_core.data_root() / L"tools.ini";
+  const auto key = wide_from_utf8(language);
+  if (GetPrivateProfileStringW(L"tools", key.c_str(), L"", value, static_cast<DWORD>(std::size(value)), settings.c_str()) > 0) return value;
+  // Search PATH only, never the current working directory, for automatic tool discovery.
+  wchar_t path_value[32768]{};
+  const auto path_length = GetEnvironmentVariableW(L"PATH", path_value, static_cast<DWORD>(std::size(path_value)));
+  if (!path_length || path_length >= std::size(path_value)) return {};
+  const wchar_t* name = language == "cpp" ? L"g++.exe" : language == "java" ? L"java.exe" :
+      language == "python" ? L"python.exe" : L"node.exe";
+  const std::wstring paths(path_value, path_length);
+  size_t offset = 0;
+  while (offset < paths.size()) {
+    const auto end = paths.find(L';', offset);
+    auto directory = paths.substr(offset, end == std::wstring::npos ? std::wstring::npos : end - offset);
+    if (directory.size() > 1 && directory.front() == L'"' && directory.back() == L'"') directory = directory.substr(1, directory.size() - 2);
+    const std::filesystem::path candidate = std::filesystem::path(directory) / name;
+    std::error_code error;
+    if (candidate.is_absolute() && directory.find(L"WindowsApps") == std::wstring::npos && std::filesystem::is_regular_file(candidate, error)) return candidate;
+    if (end == std::wstring::npos) break;
+    offset = end + 1;
+  }
+  return {};
+}
+
+void choose_tool() {
+  const auto language = control_text(g_language_edit);

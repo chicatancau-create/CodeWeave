@@ -1,0 +1,57 @@
+            app.select(app.find_content('stage-j'))
+            message(app.control(1023), 0x00F1, 1)
+            app.run_code('javascript', app.text(1001), 'scriptalert(1)/script\ntrue')
+            assert '：1 条' in app.text(1022), 'damaged hint marker was treated as independent'
+            report['checks'].append('corrupt hint marker cannot create independent completion')
+            app.select(app.find_content('stage-d'))
+            user32.SetForegroundWindow(app.window)
+            time.sleep(0.3)
+            rect = wintypes.RECT()
+            assert user32.GetWindowRect(app.window, ctypes.byref(rect))
+            args.screenshot.parent.mkdir(parents=True, exist_ok=True)
+            ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom)).save(args.screenshot)
+            report['screenshot'] = str(args.screenshot.resolve())
+            app.close()
+            assert not list(data.rglob('.native.lock'))
+            report['checks'].append('normal close releases native data locks')
+            standalone_env = dict(env)
+            standalone_env.pop('CODEWEAVE_NATIVE_WORKSPACE')
+            standalone_env.pop('CODEWEAVE_NATIVE_CONTENT_ROOT')
+            app = Application(exe, standalone_env, workspace)
+            assert message(app.control(1010), 0x018B) == 74
+            report['checks'].append('packaged config/content discovered without environment overrides')
+            app.set(1012, 'native-smoke-a@example.test')
+            app.set(1014, 'Native-Smoke-Password-123!')
+            app.click(1016)
+            assert '登录成功' in app.text(1018), app.text(1018)
+            app.click(1033)
+            assert app.text(1001).replace('\r\n', '\n') == saved
+            assert '：1 条' in app.text(1022)
+            report['checks'].append('restart/login restores account draft and progress')
+            app.close()
+            assert not list(data.rglob('.native.lock'))
+            damaged = account_root / 'drafts' / 'scratch.txt'
+            damaged.write_bytes(b'x' * (4 * 1024 * 1024 + 1))
+            original_digest = hashlib.sha256(damaged.read_bytes()).hexdigest()
+            app = Application(exe, env, workspace)
+            app.set(1012, 'native-smoke-a@example.test')
+            app.set(1014, 'Native-Smoke-Password-123!')
+            app.click(1016)
+            assert app.text(1001) == '', 'failed draft must not silently load a starter'
+            app.click(1002)
+            assert hashlib.sha256(damaged.read_bytes()).hexdigest() == original_digest
+            app.click(1017)
+            assert '登录后' in app.text(1022), 'damaged read-only draft blocked account logout'
+            assert app.text(1001) == '', 'logout retained the previous account draft'
+            app.close()
+            assert not list(data.rglob('.native.lock'))
+            report['checks'].append('oversized existing draft remains unchanged when save is requested')
+            report['checks'].append('no TCP activity or Electron process observed during 20ms process sampling')
+        finally:
+            if app:
+                app.cleanup()
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,25 @@
+    act(() => result.current.handleCreateProject('python'))
+    expect(result.current.persistFailure, '这一次写成功了，上一条失败必须撤下').toBeNull()
+    expect(result.current.projects).toHaveLength(2)
+  })
+
+  it('换账户重新加载时清掉上一账户的失败说明', () => {
+    const { result, rerender } = renderHook(({ scope }) => useProjects(scope), {
+      initialProps: { scope: 'user-1' as string | undefined },
+    })
+    const spy = blockStorage()
+    act(() => result.current.handleCreateProject('javascript'))
+    expect(result.current.persistFailure).toBeTruthy()
+    spy.mockRestore()
+
+    rerender({ scope: 'user-2' })
+    expect(result.current.persistFailure, '这一句说的是上一个账户的写盘，不该跟着换账户还挂着').toBeNull()
+  })
+
+  it('读侧不需要 loading：草稿来自同步的 localStorage 读取，不走网络', () => {
+    // 这一条不测 DOM，测的是「不要为不存在的一秒造骨架」这个判断本身：
+    // readProjects 在同一次调用里就把结果给回来，因此本 hook 没有 loading 语义可言。
+    const { result } = renderHook(() => useProjects('user-1'))
+    expect(result.current.projects).toEqual([])
+  })
+})

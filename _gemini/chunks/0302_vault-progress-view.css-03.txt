@@ -1,0 +1,156 @@
+  border-style: dotted;
+  border-color: var(--vp-field-line);
+  background: var(--vp-wash);
+  opacity: 1;
+}
+
+/* ── 01 号方案 §4 disabled 行：禁用要说清条件，不能只把整块压淡 ──────────────
+   共享层 styles.css 里 `.primary-action:disabled` 与 `.subtle-button:disabled` 那一档只写了
+   opacity 0.5，是「只降透明度」的根源；这里按 challenges-view / 工作台 / 写回页已经验证过的
+   形态补齐：opacity 保持 1，禁用交给**虚线描边**，条件说明是一句真实文字（同时进 aria-describedby）。 */
+.cw-vault .vp-disabled-hint {
+  margin: 0;
+  padding: var(--ds-space-8, 8px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+  color: var(--vp-dim);
+  font-size: var(--vp-meta);
+  line-height: var(--vp-leading);
+  max-width: 88ch;
+}
+
+.cw-vault .vp-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-10, 10px);
+}
+
+/* 取数中 / 读不到两档都要占住高度（§4 loading 行「不造成内容落地跳动」）。
+   骨架形状复用共享层 `.view-skeleton__*`：它的呼吸动画已经由 `--anim-play-state`
+   与两条 reduced-motion 路径统一压停，本文件因此继续零动画。 */
+.cw-vault .vp-loading {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  align-content: start;
+  min-height: 12em;
+}
+
+.cw-vault .vp-message {
+  display: block;
+  margin: 0;
+  color: var(--vp-dim);
+  font-size: var(--vp-meta);
+  line-height: 1.6;
+}
+
+/* ── specs 五块分区（site.css L286-L305） ────────────────────────────────── */
+.cw-vault .vp-specs {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 92ch;
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+}
+
+.cw-vault .vp-spec {
+  display: grid;
+  grid-template-columns: minmax(0, 12ch) minmax(0, 1fr);
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--vp-hair);
+  margin: 0;
+}
+
+/* 「结构维护 / 环境核验 / 最近学习证据」是三条独立事实，不合并、不互相推导 */
+.cw-vault .vp-specs--dates .vp-spec {
+  border-bottom-style: dashed;
+}
+
+.cw-vault .vp-spec dt {
+  margin: 0;
+  font-size: var(--vp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--vp-dim);
+}
+
+.cw-vault .vp-spec dd {
+  margin: 0;
+  font-size: var(--vp-body);
+  line-height: 1.6;
+  color: var(--vp-ink);
+  opacity: var(--ds-text-emphasis, 0.82); /* L306 */
+}
+
+/* ── 语义标识：固定字符徽记 + 文字 + 边框样式（§5.1 末段） ────────────────── */
+.cw-vault .vp-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  margin-right: var(--ds-space-8, 8px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px) var(--ds-space-2, 2px) var(--ds-space-4, 4px);
+  border: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--vp-meta);
+  line-height: 1.4;
+  color: var(--vp-ink);
+  vertical-align: middle;
+}
+
+.cw-vault .vp-mark-glyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.7em;
+  height: 1.7em;
+  border: var(--ds-line-width, 1px) solid currentColor;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+/* 确定：实线框 */
+.cw-vault .vp-mark--ok {
+  border-style: solid;
+}
+
+/* 区间（如「0—1 级」）：虚线框 + 点线下划线 */
+.cw-vault .vp-mark--warn {
+  border-style: dashed;
+  border-color: var(--vp-hair-raised);
+}
+
+.cw-vault .vp-mark--warn .vp-mark-text {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* 无法确认 / 未授权：点线框 + 加粗（保持原文，不改强、不折算） */
+.cw-vault .vp-mark--unknown {
+  border-style: dotted;
+  border-color: var(--vp-field-line);
+}
+
+.cw-vault .vp-mark--unknown .vp-mark-text {
+  font-weight: 700;
+}
+
+/* ── ledger 细线表格 ─────────────────────────────────────────────────────── */
+.cw-vault .vp-ledger {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+}
+
+.cw-vault .vp-ledger th,
+.cw-vault .vp-ledger td {
+  padding: var(--ds-space-14, 14px) var(--ds-space-10, 10px) var(--ds-space-16, 16px) 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: var(--ds-weight-body, 400);
+  font-size: var(--vp-body);
+  line-height: 1.55;

@@ -1,0 +1,34 @@
+    storage.setItem(`${K.evidence}:account-a`, JSON.stringify({ schemaVersion: 3, data: [] }))
+
+    const payload = buildExportPayload('account-a')
+    const bases = payload.categories.map((entry) => entry.base)
+    expect(bases).toContain(K.evidence)
+  })
+
+  it('损坏的 JSON 不导致导出崩溃', async () => {
+    const { buildExportPayload } = await import('./local-data')
+    storage.setItem(`${K.workspace}:account-a`, '{ 这不是合法 JSON')
+
+    expect(() => buildExportPayload('account-a')).not.toThrow()
+  })
+})
+
+/**
+ * DATA-01 第 3 条的漂移守卫：注册表把两类通知都声明为按账户隔离，
+ * 改版前 `app.tsx` 却把它们写在**未加后缀**的键上——于是「清除本账户数据」永远清不到
+ * 真实通知，隐私清单那一行还恒显「从未保存」。这里钉住「写它的地方必须过 scopedKey」。
+ * 说明：这是源码文本核对（jsdom 里跑一遍 App 再点通知也是可行的，但那份断言要等组件树上
+ * 有可点的通知行才有意义，文本核对更稳），断言的是「不许退回未加后缀的写法」。
+ */
+describe('DATA-01 第 3 条 · 通知的真实写入必须带账户后缀', () => {
+  const here = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+  const appSource = readFileSync(`${here}/../app.tsx`, 'utf8')
+
+  it('useLocalStorage 的两个通知键都包在 scopedKey 里', () => {
+    for (const base of ['NOTIFICATIONS', 'NOTIF_EVENTS']) {
+      const pattern = new RegExp(`useLocalStorage[\\s\\S]{0,160}scopedKey\\(STORAGE_KEYS\\.${base},\\s*scope\\)`)
+      expect(pattern.test(appSource), `app.tsx 里 STORAGE_KEYS.${base} 又退回未加后缀的键了`).toBe(true)
+      expect(appSource.includes(`useLocalStorage<NotificationItem[]>(STORAGE_KEYS.${base}`), `${base} 出现了裸键`).toBe(false)
+    }
+  })
+})

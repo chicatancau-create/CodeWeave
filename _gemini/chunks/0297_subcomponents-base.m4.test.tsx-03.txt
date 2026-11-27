@@ -1,0 +1,86 @@
+  '.code-editor--wrap .code-tokens': '自动换行设置项：只在容器带 --wrap 时折行，默认不出现这条',
+  '.code-editor--wrap textarea': '自动换行设置项：输入层与高亮层必须同一套折行规则，否则逐行错位',
+  '.editor-keyhint': '页脚键盘模式提示：基座新增的次级文字，工作台无覆写（12px 必读档）',
+  '.editor-copy-ok': '复制成功态文字：基座新增，颜色只作第二通道（文字本身已说明结果）',
+  '.editor-copy-fail': '复制失败态文字：基座新增，同时加粗，不靠颜色单独表意',
+  // EDIT-01 第 6 条：控制台页脚三个一次性动作（清空显示 / 复制输出 / 定位到第 N 行）。
+  // 工作台的头部原本只有标题与状态两样东西，没有可覆写的同名规则；外观全部取 --ds-* 令牌，
+  // 与工作台同一色系，不会出现「基座把工作台带偏」。
+  '.console-actions': '控制台页脚动作容器：基座新增（清空/复制/定位），工作台无同名条目',
+  '.console-action': '次级文字动作按钮：视觉 32px 档，命中区由 ::before 撑到 44（§5.4）',
+  '.console-action::before': '命中区外扩伪元素：只有 -6px 的透明外扩，不画任何墨',
+  '.console-action:hover': '悬停只把次级文字抬到实色，无位移无缩放',
+  '.console-action:focus-visible': '焦点环取 --ds-focus-ring 档，与全站同一圈',
+}
+
+/* ─────────────── 1. 归属与边界：基座随组件走，不依赖页面作用域 ─────────────── */
+
+describe('M4 子组件基座 · 归属与边界', () => {
+  it('五个组件各自 import 自己的基座样式表（壳外复用也带形态）', () => {
+    const pairs = [
+      ['./code-editor.tsx', "import './code-editor.css'"],
+      ['./console-panel.tsx', "import './console-panel.css'"],
+      ['./console-panel.tsx', "import './panel-shell.css'"],
+      ['./variable-panel.tsx', "import './variable-panel.css'"],
+      ['./variable-panel.tsx', "import './panel-shell.css'"],
+      ['./runtime-controls.tsx', "import './runtime-controls.css'"],
+      ['./flow-chart.tsx', "import './flow-chart.css'"],
+    ] as const
+    for (const [file, statement] of pairs) {
+      expect(rawSources[file], file).toContain(statement)
+    }
+  })
+
+  it('基座不接管运行判定：五个组件源码里没有执行引擎、沙箱与定时器调用', () => {
+    for (const [file, src] of Object.entries(rawSources)) {
+      expect(src, file).not.toMatch(/use-execution|executeCode|new Function|setTimeout|setInterval/)
+      if (file !== './code-editor.tsx') expect(src, file).not.toMatch(/requestAnimationFrame/)
+    }
+    // 仅光标恢复与滚动合帧可以调度 RAF，不允许自循环。
+    const editor = rawSources['./code-editor.tsx'] ?? ''
+    expect(editor).toMatch(/window\.requestAnimationFrame\(\(\)\s*=>/)
+    expect(editor.match(/requestAnimationFrame/g)).toHaveLength(2)
+    expect(editor).toContain('window.cancelAnimationFrame(scrollFrame.current)')
+    expect(editor).not.toMatch(/requestAnimationFrame\(\s*(frame|loop|tick)/)
+  })
+
+  it('六个基座文件的全局裸选择器数量 = 0（不碰 :root / html / body / 裸 *）', () => {
+    for (const file of BASE_FILES) {
+      // 每条规则都要有类锚点；`X *` 这种「锚点之下的后代通配」允许（只用于减动效兜底）
+      const unanchored = rulesOf(file)
+        .filter((rule) => !rule.insideKeyframes)
+        .filter((rule) => !rule.selectors.some((ref) => ref.key.includes('.')))
+        .map((rule) => rule.selector)
+      expect(unanchored, file).toEqual([])
+      const leading = rulesOf(file)
+        .filter((rule) => !rule.insideKeyframes)
+        .flatMap((rule) => rule.selectors.map((ref) => `${rule.selector} #### ${ref.key}`))
+        .filter((entry) => {
+          const key = entry.split(' #### ')[1] ?? ''
+          return /^(\*|:root|html|body)(\s|[,{]|$)/.test(key)
+        })
+      expect(leading, `${file}: ${JSON.stringify(leading)}`).toEqual([])
+    }
+  })
+})
+
+/* ───────────────── 2. 层叠审计：页面作用域覆写仍然赢 ───────────────── */
+
+describe('M4 子组件基座 · 与 .cw-workspace 覆写的层叠关系', () => {
+  it('基座只抬 (c) 档：与 styles.css 同一条选择器时类档相等、类型档更高', () => {
+    const stylesIndex = specIndexByRuleKey(rulesOf(STYLESHEET))
+    const violations: string[] = []
+    let audited = 0
+    for (const file of BASE_FILES) {
+      for (const rule of rulesOf(file)) {
+        if (rule.insideKeyframes || isMotionGuard(rule)) continue
+        for (const { raw, key } of rule.selectors) {
+          const shared = stylesIndex.get(key)
+          if (!shared) continue
+          audited += 1
+          const [baseIds, baseClasses, baseTypes] = specificity(raw)
+          const ok = shared.some(([, classes, types]) => baseIds === 0 && baseClasses === classes && baseTypes > types)
+          if (!ok) violations.push(`${file}: ${raw} 基座(0,${baseClasses},${baseTypes}) 与 styles.css ${JSON.stringify(shared)} 不是「同类档、更高类型档」`)
+        }
+      }
+    }

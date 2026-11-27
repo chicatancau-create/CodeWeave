@@ -1,0 +1,104 @@
+    act(() => result.current.handleUpdateProject(projectId, { files: [{ id: 'f1', name: 'main.py', language: 'python', code: 'v1', updatedAt: '' }] }))
+    act(() => result.current.handleSaveCheckpoint(projectId))
+    expect(result.current.projects[0]!.checkpoints).toHaveLength(1)
+    const checkpointId = result.current.projects[0]!.checkpoints![0]!.id
+
+    // 改动代码后恢复：当前代码应被兜底检查点保存，文件回到 v1
+    act(() => result.current.handleUpdateProject(projectId, { files: [{ id: 'f1', name: 'main.py', language: 'python', code: 'v2', updatedAt: '' }] }))
+    act(() => result.current.handleRestoreCheckpoint(projectId, checkpointId))
+
+    const restored = result.current.projects[0]!
+    expect(restored.files[0]!.code).toBe('v1')
+    expect(restored.checkpoints).toHaveLength(2)
+  })
+
+  it('检查点保留上限为 10，超出淘汰最旧', () => {
+    const { result } = renderHook(() => useProjects('user-1'))
+    act(() => result.current.handleCreateProject('python'))
+    const projectId = result.current.projects[0]!.id
+
+    for (let i = 0; i < 13; i += 1) {
+      act(() => result.current.handleUpdateProject(projectId, { description: `第 ${i} 次` }))
+      act(() => result.current.handleSaveCheckpoint(projectId))
+    }
+    expect(result.current.projects[0]!.checkpoints).toHaveLength(10)
+  })
+
+  it('恢复不存在的检查点时不改变文件', () => {
+    const { result } = renderHook(() => useProjects('user-1'))
+    act(() => result.current.handleCreateProject('python'))
+    const projectId = result.current.projects[0]!.id
+    const before = result.current.projects[0]!.files
+
+    act(() => result.current.handleRestoreCheckpoint(projectId, 'cp-not-exist'))
+    expect(result.current.projects[0]!.files).toEqual(before)
+  })
+})
+
+describe('R2-A 损坏项目数据不扩散', () => {
+  it('存储中是对象而非数组时返回空列表，不抛错', () => {
+    localStorage.setItem(projectsKey('user-1'), JSON.stringify({ schemaVersion: 3, data: { not: 'an array' } }))
+    const { result } = renderHook(() => useProjects('user-1'))
+    expect(result.current.projects).toEqual([])
+  })
+
+  it('项目缺少 files 字段时整条丢弃', () => {
+    localStorage.setItem(
+      projectsKey('user-1'),
+      JSON.stringify({ schemaVersion: 3, data: [{ id: 'p1' }, { id: 'p2', files: [] }] }),
+    )
+    const { result } = renderHook(() => useProjects('user-1'))
+    // p1 因 files 非数组被丢弃；p2 保留
+    expect(result.current.projects.map((p) => p.id)).toEqual(['p2'])
+  })
+})
+
+/**
+ * 01 号方案 §4 的 error 行（落盘失败）。
+ *
+ * 改版前七个写盘调用点都把 `saveProjects` 的布尔返回值丢掉了：内存里的列表照改，
+ * 界面照说「已保存」，重进本页却什么都没有——那是把写失败说成写成功。
+ * 现在所有落盘只走 `persist()` 一处，失败留下原因、留下重试，并且**不吞掉用户的编辑**。
+ */
+describe('项目草稿的落盘失败（§4 error 行）', () => {
+  /** 模拟浏览器存储写不进去（配额满 / 禁止站点数据）：setItem 抛错就是这一档的真实形态。 */
+  function blockStorage() {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+    return spy
+  }
+
+  it('写不进本机：列表仍按用户看到的样子留着，并给出可重试的原因', () => {
+    const spy = blockStorage()
+    try {
+      const { result } = renderHook(() => useProjects('user-1'))
+      act(() => result.current.handleCreateProject('javascript'))
+      expect(result.current.projects).toHaveLength(1)
+      expect(result.current.persistFailure).toBe(PROJECT_PERSIST_FAILURE)
+      // 磁盘上确实没有：读回来还是空
+      expect(readProjects('user-1')).toHaveLength(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('恢复可写之后按一次重试，就把界面上这一份原样落盘，不需要用户重做', () => {
+    const { result } = renderHook(() => useProjects('user-1'))
+    const spy = blockStorage()
+    act(() => result.current.handleCreateProject('javascript'))
+    expect(result.current.persistFailure).toBeTruthy()
+    spy.mockRestore()
+
+    act(() => result.current.retryPersist())
+    expect(result.current.persistFailure).toBeNull()
+    expect(readProjects('user-1')).toHaveLength(1)
+    expect(result.current.projects).toHaveLength(1)
+  })
+
+  it('写成功时不留任何失败痕迹（失败态不能挂旧的那一条）', () => {
+    const { result } = renderHook(() => useProjects('user-1'))
+    const spy = blockStorage()
+    act(() => result.current.handleCreateProject('javascript'))
+    spy.mockRestore()
+

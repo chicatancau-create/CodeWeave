@@ -1,0 +1,114 @@
+    return sendJson(response, 400, '请输入有效的 11 位手机号码', 'invalid_phone')
+  }
+  if (password.length < 8 || password.length > MAX_PASSWORD_LENGTH) {
+    return sendJson(response, 400, '密码需要 8-128 个字符', 'invalid_password')
+  }
+  if (contactType === 'email' && users.some((user) => user.email === email)) {
+    return sendJson(response, 409, '该邮箱已经注册', 'email_taken')
+  }
+  if (contactType === 'phone' && users.some((user) => user.phone === phone)) {
+    return sendJson(response, 409, '该手机号码已经注册', 'phone_taken')
+  }
+
+  const user = {
+    id: `user-${randomBytes(8).toString('hex')}`,
+    email,
+    phone,
+    name,
+    bio: '开始记录你的编程旅程。',
+    passwordHash: await hashPassword(password),
+    createdAt: new Date().toISOString(),
+  }
+  users.push(user)
+  try {
+    accounts.put(user)
+  } catch {
+    return sendJson(response, 500, '注册失败：无法保存用户数据', 'storage_error')
+  }
+
+  const sessionId = createSession(user.id)
+  response.setHeader('Set-Cookie', sessionCookieHeader(sessionId))
+  return sendJson(response, 201, publicUser(user))
+}
+
+async function handleLogin(body, request, response, users) {
+  const identifier = String(body.identifier ?? body.email ?? body.phone ?? '').trim()
+  const email = identifier.toLowerCase()
+  const phone = normalizePhone(identifier)
+  const password = String(body.password ?? '')
+
+  if (!identifier || !password) {
+    return sendJson(response, 400, '请输入账号和密码', 'invalid_credentials_format')
+  }
+  // R3：进入 scrypt 前先做长度上限，避免超长输入造成 CPU 消耗。
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return sendJson(response, 400, '密码长度超出上限', 'invalid_password')
+  }
+
+  // R3 限流：按账号标识与来源 IP 两个维度计数；返回信息不区分账号是否存在。
+  const identifierKey = `login:id:${email || phone}`
+  const ipKey = `login:ip:${clientIp(request)}`
+  if (isRateLimited(identifierKey) || isRateLimited(ipKey)) {
+    return sendJson(response, 429, '尝试过于频繁，请稍后再试', 'too_many_attempts')
+  }
+
+  const user = users.find((item) => item.email === email || item.phone === phone)
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    recordFailure(identifierKey)
+    recordFailure(ipKey)
+    return sendJson(response, 401, '邮箱或手机号与密码不匹配', 'invalid_credentials')
+  }
+
+  clearFailures(identifierKey)
+  const sessionId = createSession(user.id)
+  response.setHeader('Set-Cookie', sessionCookieHeader(sessionId))
+  return sendJson(response, 200, publicUser(user))
+}
+
+async function handleProfileUpdate(body, request, response, users) {
+  const user = sessionUser(request, users)
+  if (!user) return sendJson(response, 401, '请先登录', 'unauthorized')
+
+  const name = String(body.name ?? '').trim()
+  const bio = String(body.bio ?? '').trim()
+  if (name.length < 2 || name.length > 40) {
+    return sendJson(response, 400, '昵称需要 2-40 个字符', 'invalid_name')
+  }
+  if (bio.length > 160) {
+    return sendJson(response, 400, '个人简介不能超过 160 个字符', 'invalid_bio')
+  }
+
+  user.name = name
+  user.bio = bio
+  try {
+    accounts.put(user)
+  } catch {
+    return sendJson(response, 500, '保存失败：无法写入用户数据', 'storage_error')
+  }
+  return sendJson(response, 200, publicUser(user))
+}
+
+// ---------------------------------------------------------------------------
+// 静态资源（限制在 dist 内，防止路径穿越）
+// ---------------------------------------------------------------------------
+const mime = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+}
+
+/** 静态资源缓存策略：Vite 产物带内容哈希，可长期不可变缓存；HTML 与无哈希文件每次校验。 */
+function cacheControlFor(filePath) {
+  const ext = extname(filePath).toLowerCase()
+  // 入口 HTML 始终不缓存，保证发版后能立即拿到新的资源引用。
+  if (ext === '.html') return 'no-cache'
+  // Vite 产物形如 index-91oKdP6d.js / react-vendor-CPRZ3xNa.css：
+  // 以「-<8 位以上哈希>.<扩展名>」结尾即视为内容寻址，可长期缓存。
+  const hashed = /-[0-9A-Za-z_-]{8,}\.(?:js|mjs|css|woff2?|png|jpe?g|svg|webp|ico|map)$/.test(filePath)
+  return hashed ? 'public, max-age=31536000, immutable' : 'no-cache'
+}
+

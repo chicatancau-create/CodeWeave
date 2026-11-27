@@ -1,0 +1,129 @@
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#include <commdlg.h>
+#include <shlobj.h>
+#endif
+
+#include "app_core.hpp"
+#include "account_service.hpp"
+#include "account_store.hpp"
+#include "content_repository.hpp"
+#include "challenge_service.hpp"
+#include "evidence_store.hpp"
+#include "progress_store.hpp"
+#include "execution_contract.hpp"
+#include "execution_service.hpp"
+#include "trace_store.hpp"
+#include "review_service.hpp"
+#include "backup_service.hpp"
+#include "legacy_import.hpp"
+#include "external_evidence_service.hpp"
+
+#include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <cwctype>
+#include <charconv>
+#include <cstdio>
+#include <cstdlib>
+#include <deque>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <random>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <vector>
+#ifdef _WIN32
+#include <bcrypt.h>
+#ifndef EM_SETCUEBANNER
+// Older MinGW headers omit the edit control cue-banner message.
+#define EM_SETCUEBANNER (WM_USER + 1)
+#endif
+#endif
+
+namespace {
+constexpr wchar_t kClassName[] = L"CodeWeaveNativeWindow";
+constexpr int kDraftEditId = 1001;
+constexpr int kSaveButtonId = 1002;
+constexpr int kValidateExecutionButtonId = 1003;
+constexpr int kRunExecutionButtonId = 1007;
+constexpr int kCancelExecutionButtonId = 1008;
+constexpr int kPauseExecutionButtonId = 1024;
+constexpr int kResumeExecutionButtonId = 1025;
+constexpr int kStepExecutionButtonId = 1026;
+constexpr int kTraceStatusId = 1027;
+constexpr int kReviewButtonId = 1028;
+constexpr int kReviewStatusId = 1029;
+constexpr int kSessionEditId = 1004;
+constexpr int kLanguageEditId = 1005;
+constexpr int kTimeoutEditId = 1006;
+constexpr int kListContentButtonId = 1009;
+constexpr int kContentListId = 1010;
+constexpr int kContentBodyId = 1011;
+constexpr int kAccountIdentifierId = 1012;
+constexpr int kAccountNameId = 1013;
+constexpr int kAccountPasswordId = 1014;
+constexpr int kAccountRegisterId = 1015;
+constexpr int kAccountLoginId = 1016;
+constexpr int kAccountLogoutId = 1017;
+constexpr int kAccountStatusId = 1018;
+constexpr int kAccountNewPasswordId = 1019;
+constexpr int kAccountChangePasswordId = 1020;
+constexpr int kExerciseId = 1021;
+constexpr int kProgressStatusId = 1022;
+constexpr int kIndependentCheckId = 1023;
+constexpr int kToolButtonId = 1030;
+constexpr int kOutputId = 1031;
+constexpr int kHintId = 1032;
+constexpr int kScratchId = 1033;
+constexpr int kBackupId = 1040;
+constexpr int kRestoreId = 1041;
+constexpr int kImportUsersId = 1042;
+constexpr int kImportLearningId = 1043;
+constexpr int kOpenDataId = 1044;
+constexpr int kExternalEvidenceId = 1045;
+constexpr UINT kExecutionResultMessage = WM_APP + 11;
+constexpr int kMinimumClientWidth = 1180;
+constexpr int kMinimumClientHeight = 720;
+constexpr int kMaximumDraftCharacters = 4 * 1024 * 1024;
+constexpr int kMaximumAccountCharacters = 256;
+
+#ifdef _WIN32
+HWND g_draft_edit = nullptr;
+HWND g_output = nullptr;
+HFONT g_ui_font = nullptr;
+std::filesystem::path g_executable_directory;
+HWND g_status = nullptr;
+HWND g_session_edit = nullptr;
+HWND g_language_edit = nullptr;
+HWND g_timeout_edit = nullptr;
+HWND g_run_button = nullptr;
+HWND g_cancel_button = nullptr;
+HWND g_pause_button = nullptr;
+HWND g_resume_button = nullptr;
+HWND g_step_button = nullptr;
+HWND g_trace_status = nullptr;
+HWND g_review_status = nullptr;
+HWND g_content_list = nullptr;
+HWND g_content_body = nullptr;
+HWND g_account_identifier = nullptr;
+HWND g_account_name = nullptr;
+HWND g_account_password = nullptr;
+HWND g_account_new_password = nullptr;
+HWND g_account_status = nullptr;
+HWND g_exercise_id = nullptr;
+HWND g_progress_status = nullptr;
+HWND g_independent_check = nullptr;
+codeweave::app::ApplicationCore g_core;
+codeweave::app::ApplicationCore g_personal_core;
+std::string g_selected_content;
+std::string g_execution_policy = "native";
+std::string g_starter;
+std::string g_content_language;
+bool g_hint_viewed = false;
+bool g_hint_read_failed = false;

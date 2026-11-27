@@ -1,0 +1,92 @@
+                    LucideIcon {
+                        name: "Database"
+                        size: 14
+                        color: ds.muted
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "当前课程来自本机发布目录，阶段与来源按课程标注展示。"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 16
+                        elide: Text.ElideRight
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+                    QuietButton {
+                        ds: studyPage.ds
+                        implicitHeight: 44
+                        label: "重新读取"
+                        enabled: !uiShell.contentBusy
+                        ToolTip.text: "重新读取本机发布目录中的课程"
+                        ToolTip.visible: sourceReloadHover.hovered
+                        ToolTip.delay: 500
+                        HoverHandler { id: sourceReloadHover }
+                        onClicked: uiShell.reloadPublishedContent()
+                    }
+                }
+            }
+
+            // .welcome-row
+            RowLayout {
+                objectName: "learningWelcome"
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s20
+                spacing: ds.s16
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Text {
+                        text: {
+                            const h = new Date().getHours();
+                            const who = uiShell.hasActiveAccount ? uiShell.accountName : "同学";
+                            if (h < 6) return "夜深了，" + who;
+                            if (h < 12) return "早上好，" + who;
+                            if (h < 14) return "中午好，" + who;
+                            if (h < 18) return "下午好，" + who;
+                            return "晚上好，" + who;
+                        }
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 25
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: -0.6
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: Qt.formatDate(new Date(), "M月d日") + " · 学习计划共 "
+                              + hostRoot.stageCount + " 个阶段"
+                              + (uiShell.hasActiveAccount ? "" : "（访客模式：登录后可保存草稿）")
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        elide: Text.ElideRight
+                    }
+                }
+
+                // .weekly-progress
+                Rectangle {
+                    // Fixed width: binding this to ringCard.implicitWidth is
+                    // circular (child centres in the parent it sizes).
+                    implicitWidth: 210
+                    implicitHeight: 64
+                    radius: ds.radius
+                    color: ds.panel
+                    border.color: ds.line
+                    border.width: 1
+                    Layout.alignment: Qt.AlignVCenter
+
+                    // Smooth hover effect
+                    Behavior on color {
+                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                    }
+                    RowLayout {
+                        id: ringCard
+                        anchors.centerIn: parent
+                        spacing: ds.s12
+                        // .progress-ring — 44x44, track 1.5px #ffffff20,
+                        // top+right recoloured accent = upper-right 180° arc
+                        Item {
+                            implicitWidth: 44
+                            implicitHeight: 44
+                            Layout.alignment: Qt.AlignVCenter

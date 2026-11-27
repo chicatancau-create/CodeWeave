@@ -1,0 +1,83 @@
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                columnSpacing: ds.s16
+                rowSpacing: ds.s16
+
+                // LEFT — code pane
+                Rectangle {
+                    objectName: "workspaceCodePane"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 320
+                    Layout.horizontalStretchFactor: 5
+                    radius: ds.radius
+                    color: ds.page
+                    border.color: ds.line
+                    border.width: 1
+                    clip: true
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 0
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 40
+                            color: ds.chrome
+                            RowLayout {
+                                anchors { fill: parent; leftMargin: ds.s14; rightMargin: ds.s14 }
+                                spacing: ds.s8
+                                Text {
+                                    text: "代码"
+                                    color: ds.ink
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: uiShell.draftSaving ? "保存中…"
+                                          : (uiShell.draftDirty ? "未保存" : "已保存")
+                                    color: uiShell.draftDirty ? ds.warning : ds.success
+                                    font.family: ds.mono
+                                    font.pixelSize: 11
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Rectangle {
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    bottom: parent.bottom
+                                }
+                                height: 1
+                                color: ds.line
+                            }
+                        }
+
+                        // web div.code-editor
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: ds.editorBg
+
+                            RowLayout {
+                                anchors.fill: parent
+                                spacing: 0
+
+                                // div.line-numbers — 44px
+                                Item {
+                                    visible: uiShell.editorLineNumbers
+                                    Layout.preferredWidth: 44
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    Text {
+                                        objectName: "codeLineNumbers"
+                                        width: parent.width - ds.s10
+                                        y: codeEditor.topPadding - codeScroll.contentItem.contentY
+                                        readonly property real lineAdvance: {
+                                            const firstBreak = codeEditor.text.indexOf("\n");
+                                            return firstBreak >= 0
+                                                ? codeEditor.positionToRectangle(firstBreak + 1).y
+                                                  - codeEditor.positionToRectangle(0).y

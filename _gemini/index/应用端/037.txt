@@ -1,0 +1,4 @@
+应用端/项目/scripts/verify-qt-install-lifecycle.ps1
+应用端/项目/scripts/verify-qt-install-transaction.ps1
+应用端/项目/tests/native-content-delivery.test.mjs
+应用端/项目/tests/native-tools.test.mjs

@@ -1,0 +1,127 @@
+  color: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+ol.rs-out-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+ol.rs-out-list > li {
+  color: var(--ds-status-success, #3fd3a4);
+  /* 输出行是程序真的打印出来的东西，逐字核对——横向滚动不折行 */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* ── 控制条：上一步 / 播放 / 下一步 ───────────────────────────────────────── */
+div.rs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+}
+button.rs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  /* §5.4 命中区：本页所有控件 44px（--cw-tap 与这里的兜底同值）。 */
+  min-height: 44px;
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-control, 6px);
+  box-shadow: var(--ds-glow-inset, none);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+button.rs-btn:hover:not(:disabled) {
+  color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+/* 禁用态：压到三级文字 + 虚线边界（形状通道；不只靠调淡） */
+button.rs-btn:disabled {
+  color: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  border-style: dashed;
+  cursor: not-allowed;
+}
+button.rs-btn--play {
+  color: var(--ds-text-primary, #e8eef7);
+  border-color: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+}
+button.rs-btn--play.is-playing {
+  color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  box-shadow: var(--ds-glow-near, none);
+}
+
+/* ── 窄屏：画布可以缩得更小，靠横向滚动读 ─────────────────────────────────── */
+@media (max-width: 720px) {
+  div.rs-canvas-wrap {
+    padding: var(--ds-space-4, 4px);
+  }
+  svg.rs-canvas {
+    max-height: 40svh;
+  }
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   本文件不含 @keyframes、不含无限动画；这里停的是描边与填充的过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  div.rs-stage,
+  div.rs-stage *,
+  div.rs-stage *::before,
+  div.rs-stage *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.rs-stage,
+.reduce-motion div.rs-stage *,
+.reduce-motion div.rs-stage *::before,
+.reduce-motion div.rs-stage *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── 控制条居中（2026-10-04）：对齐参考站 ──────────────────────────────────────
+   参考实现 `algorithm-visualization-replica` 与用户给的 totuma.cn 第二张图，
+   画布下方那一组「上一个 / 播放 / 下一个」都是**居中**排的；本端原先默认 flex-start，
+   视觉上贴着左边，与画布那块居中的网格纸不成一个整体。
+   只加一条对齐，不动顺序（上一步 / 播放 / 下一步）——顺序是既有契约。 */
+div.rs-bar {
+  justify-content: center;
+}
+
+/* ── 骨架态：还没运行时把全部节点显出来（2026-10-04） ─────────────────────────
+   运行时未走到的节点不画（上面 `g.rs-node.is-todo { opacity: 0 }`），
+   但**运行前**一个节点都画不出来，整块画布会是空的——用户第一眼看到工作台时
+   会以为「这里什么都没有」。骨架态把整段程序的骨架先摆出来：虚线描边、
+   `--` 序号、`尚未落值`，说的是「有这几步，还没开始跑」，不冒充任何执行结果。
+   一旦开始运行，`.is-skeleton` 摘掉，未走到的节点重新隐藏，「一步一步显现」照旧。 */
+div.rs-stage.is-skeleton g.rs-node.is-todo {
+  opacity: 1;
+}
+/* 骨架态没有「此刻」，指针与输出都不该出现——它们的含义是「正在进行」。 */
+div.rs-stage.is-skeleton g.rs-pointer {
+  display: none;
+}
+/* 骨架态那个「尚未运行」标记：与计数器同一格，但走三级文字档——
+   它是「还没有数」，不是「数是多少」，不该和真实计数器一样亮。 */
+div.rs-stage.is-skeleton span.rs-counter.is-idle {
+  color: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  border-color: var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-style: dashed;
+}

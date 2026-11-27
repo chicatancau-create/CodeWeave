@@ -1,0 +1,71 @@
+BackendTaskService::BackendTaskService(std::size_t queue_limit)
+    : state_(std::make_shared<State>(queue_limit)) {}
+
+BackendTaskService::~BackendTaskService() { close(); }
+
+app::Result BackendTaskService::submit(TaskRequest request, Completion completion) {
+  if (request.task_id.empty() || !request.work) return app::Result::failure("任务请求不完整");
+  const auto state = state_;
+  std::lock_guard lock(state->mutex);
+  if (state->closing) return app::Result::failure("后台任务服务正在关闭");
+  if (state->cancellation.contains(request.task_id)) return app::Result::failure("任务 ID 已存在");
+  if (state->queue.size() >= state->queue_limit) return app::Result::failure("后台任务队列已满");
+  auto cancelled = std::make_shared<std::atomic_bool>(false);
+  state->cancellation.emplace(request.task_id, cancelled);
+  state->queue.push_back({std::move(request), std::move(completion), std::move(cancelled)});
+  state->condition.notify_one();
+  return app::Result::success("任务已排队");
+}
+
+app::Result BackendTaskService::cancel(std::string_view task_id) {
+  const auto state = state_;
+  std::lock_guard lock(state->mutex);
+  const auto found = state->cancellation.find(std::string(task_id));
+  if (found == state->cancellation.end()) return app::Result::failure("任务不存在");
+  found->second->store(true, std::memory_order_release);
+  return app::Result::success("已请求取消任务");
+}
+
+app::Result BackendTaskService::close() {
+  const auto state = state_;
+  state->cancel_all_pending();
+  return app::Result::success("后台任务服务已进入关闭");
+}
+
+app::Result BackendTaskService::wait_closed() {
+  const auto state = state_;
+  std::unique_lock lock(state->mutex);
+  if (!state->closing) return app::Result::failure("后台任务服务尚未关闭");
+  // A completion callback may request shutdown from the worker itself. Check
+  // this before waiting: the worker cannot observe `stopped` while blocked in
+  // its own wait, and the previous order could deadlock forever.
+  if (state->worker.get_id() == std::this_thread::get_id()) {
+    return app::Result::failure("不能在 worker 线程内回收后台任务服务");
+  }
+  state->condition.wait(lock, [&] { return state->stopped; });
+  lock.unlock();
+  // 从 worker 线程自己回收会死锁或留下 joinable 的 std::thread（析构时直接 terminate）。
+  // 这里明确失败交回调用方处理，而不是静默跳过 join 假装成功。
+  if (state->worker.joinable()) state->worker.join();
+  return app::Result::success("后台任务服务已停止");
+}
+
+bool BackendTaskService::stopped() const {
+  const auto state = state_;
+  std::lock_guard lock(state->mutex);
+  return state->stopped;
+}
+
+bool BackendTaskService::busy() const {
+  const auto state = state_;
+  std::lock_guard lock(state->mutex);
+  return state->active || !state->queue.empty();
+}
+
+std::size_t BackendTaskService::pending() const {
+  const auto state = state_;
+  std::lock_guard lock(state->mutex);
+  return state->queue.size();
+}
+
+}  // namespace codeweave::backend

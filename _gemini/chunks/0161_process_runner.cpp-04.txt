@@ -1,0 +1,18 @@
+  if (reader.joinable()) reader.join();
+  if (control) {
+    control->detach();
+    std::lock_guard lock(control_events_mutex);
+    result.control_events = control_events;
+  }
+  publish();
+  result.output = std::move(captured_output);
+  result.output_truncated = captured_output_truncated;
+  CloseHandle(raw_read);
+  read_guard.value = nullptr;
+  if (result.output_truncated && result.error_code.empty()) result.error_code = "output_limit_exceeded";
+  if (result.exit_code != 0 && result.error_code.empty()) result.error_code = "process_exit_nonzero";
+  return result;
+#endif
+}
+
+}  // namespace codeweave::execution

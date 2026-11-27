@@ -1,0 +1,8 @@
+    endpoint: ATTACHMENT_ENDPOINT,
+    categories: CONTRACT.categories.map((category) => ({ id: category.id, embeddedByClient: category.embeddedByClient === true, extensions: [...category.extensions] })),
+    neverOpened: ATTACHMENT_NEVER_OPENED,
+    ruleOrder: CONTRACT.pathRules.rules.map((rule) => rule.id),
+    maxTargetLength: CONTRACT.pathRules.maxTargetLength,
+    reasons: { ...CONTRACT.reasons },
+  }
+}

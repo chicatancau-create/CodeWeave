@@ -1,0 +1,39 @@
+    expect(declarationBlock('.error-boundary.cw-error :is(button, summary, a, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring-width, 2px)',
+    )
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+    expect(mediaBlock('max-width: 420px')).toContain('padding-inline: var(--ds-space-8, 8px)')
+  })
+
+  it('语义状态不靠颜色单独承担：三种复制状态各有边框样式，且只用 --ds-status-*', () => {
+    expect(declarationBlock('.error-boundary .cw-error-copy-state--copied')).toContain('border-style: solid')
+    expect(declarationBlock('.error-boundary .cw-error-copy-state--failed')).toContain('border-style: solid')
+    expect(declarationBlock('.error-boundary .cw-error-copy-state--idle')).toContain('border-style: dashed')
+    expect(cssCode).not.toMatch(/--ds-scene-|--accent/)
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('无持续动画；两条减动效路径各自真停，!important 只出现在这两处', () => {
+    expect(cssCode).not.toMatch(/infinite|@keyframes|animation:/)
+    expect(mediaBlock('prefers-reduced-motion: reduce')).toContain('transition: none !important')
+    expect(declarationBlock('.reduce-motion .error-boundary.cw-error :is(button, summary)')).toContain(
+      'transition: none !important',
+    )
+    const total = (cssCode.match(/!important/g) ?? []).length
+    expect(total).toBeGreaterThan(0)
+    expect(total).toBe(reduceMotionImportantCount())
+  })
+})
+
+describe('M4 错误态 · 无障碍结构（axe-core）', () => {
+  it('错误屏的标题层级、landmark 与按钮名字无 axe 违规', async () => {
+    const { container } = renderBoundary()
+    const results = await axe.run(container, {
+      rules: {
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([])
+  })
+})

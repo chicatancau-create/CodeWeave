@@ -1,0 +1,63 @@
+        val staged = kotlin.io.path.createTempFile(cache.toPath(), "download-").toFile()
+        try {
+            staged.writeBytes(bytes)
+            check(staged.renameTo(file)) { "无法保存离线副本" }
+        } finally {
+            staged.delete()
+        }
+    }
+    fun assetValid(bytes: ByteArray, hash: String): Boolean = sha256(bytes) == hash
+    fun encoded(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+    fun request(host: String, path: String, session: LocalSession? = null, post: JSONObject? = null): Response {
+        require(path.startsWith("/api/") && !path.contains('\\'))
+        val connection = URI(origin(host) + path).toURL().openConnection() as HttpURLConnection
+        connection.connectTimeout = 4_000
+        connection.readTimeout = 7_000
+        connection.instanceFollowRedirects = false
+        connection.useCaches = false
+        if (session != null) {
+            require(session.origin == origin(host))
+            connection.setRequestProperty("Cookie", session.cookie)
+        }
+        try {
+            if (post != null) {
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.outputStream.use { it.write(post.toString().encodeToByteArray()) }
+            }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val bytes = stream?.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(16 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    check(output.size() + count <= 8 * 1024 * 1024) { "响应超过大小上限" }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            } ?: ByteArray(0)
+            if (status !in 200..299) {
+                val error = runCatching { JSONObject(bytes.decodeToString()) }.getOrNull()
+                throw ServiceError(error?.optString("code") ?: "http_$status", error?.optString("error") ?: "服务响应 $status")
+            }
+            return Response(bytes, connection.getHeaderField("Set-Cookie")?.substringBefore(';'),
+                connection.getHeaderField("X-Content-Bundle"), connection.getHeaderField("ETag"))
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    fun data(response: Response): JSONObject = JSONObject(response.body.decodeToString()).getJSONObject("data")
+
+    fun login(host: String, identifier: String, password: String): LocalSession {
+        val server = origin(host)
+        request(server, "/api/health")
+        val response = request(server, "/api/auth/login", post = JSONObject().put("identifier", identifier.trim()).put("password", password))
+        val cookie = response.sessionCookie ?: throw ServiceError("session_missing", "服务未返回会话")
+        return LocalSession(server, cookie, data(response).getString("id"))
+    }
+}

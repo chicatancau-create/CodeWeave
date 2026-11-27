@@ -1,0 +1,81 @@
+        },
+        {
+            "name": "cpp-source-snapshot-screenshot",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-free-program-clears-lesson",
+            "passed": true
+        },
+        {
+            "name": "execution-live-output-and-source-before-exit",
+            "passed": true
+        },
+        {
+            "name": "execution-pause",
+            "passed": true
+        },
+        {
+            "name": "execution-live-paused-screenshot",
+            "passed": true
+        },
+        {
+            "name": "execution-step",
+            "passed": true
+        },
+        {
+            "name": "execution-live-preserves-browsed-event",
+            "passed": true
+        },
+        {
+            "name": "execution-live-end-follows-latest",
+            "passed": true
+        },
+        {
+            "name": "execution-resume",
+            "passed": true
+        },
+        {
+            "detail": "执行已取消",
+            "name": "execution-cancel",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-cancelled-event",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-pause-resume-events",
+            "passed": true
+        },
+        {
+            "detail": "events=198 index=197 count=198 follow=1 sequence=187 active=1",
+            "name": "execution-stage-cancelled-terminal-visible-without-success",
+            "passed": true
+        },
+        {
+            "detail": "验收步骤超过 50 秒",
+            "name": "matrix-timeout",
+            "passed": false
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": false,
+    "schemaVersion": 1,
+    "screenshots": [
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-learning.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-course.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-editor.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-workspace-breadcrumb-narrow.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-execution-trace-completed.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-execution-trace-narrow.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-execution-trace-stale.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-java-source-snapshot.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-javascript-source-snapshot.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-javascript-module-source-snapshot.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-cpp-source-snapshot.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-execution-trace-live.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-final/u3-execution-trace-cancelled.png"
+    ]
+}

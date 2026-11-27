@@ -1,0 +1,104 @@
+      onSubmit={vi.fn()}
+      scope={props.scope}
+    />,
+  )
+
+const openDetail = (name: RegExp) => {
+  fireEvent.click(screen.getByRole('button', { name }))
+  fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+}
+
+const cardNo = (name: RegExp) =>
+  screen.getByRole('button', { name }).querySelector('.stage-card-no')?.textContent ?? ''
+
+const passedRecord: Record<string, ChallengeRecord> = {
+  'stage-b': { completedAt: '2026-09-13T00:00:00.000Z', evidence: '输出与验收点一致', status: 'passed' },
+}
+const submittedRecord: Record<string, ChallengeRecord> = {
+  'stage-a': {
+    completedAt: '2026-09-13T00:00:00.000Z',
+    evidence: '执行环境：Windows 11 + JDK 17',
+    status: 'submitted',
+    tier: 'external',
+  },
+}
+
+beforeEach(() => {
+  sessionStorage.clear()
+  localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('M4 挑战页 · 编号列表用真实文本编号', () => {
+  it('组件按原样式表引入页面 CSS（作用域与令牌的前提）', () => {
+    expect(tsxText).toContain("import './challenges-view.css'")
+    expect(cssText.length).toBeGreaterThan(8000)
+  })
+
+  it('每张卡片首行是两位真实文本序号，并进入可访问名称', () => {
+    renderView()
+    const card = screen.getByRole('button', { name: /A 关：开发环境与基本操作/ })
+    expect(card.querySelector('.stage-card-no')?.textContent).toBe('01')
+    expect(card.getAttribute('aria-label')?.startsWith('01 · A 关：')).toBe(true)
+    expect(card.closest('li')).toBeTruthy()
+    expect(document.querySelector('ol.challenge-grid')?.getAttribute('role')).toBe('list')
+  })
+
+  it('序号是关卡身份：筛选或改排序后仍是同一个号', () => {
+    renderView()
+    const select = screen.getByLabelText('阶段', { selector: 'select' }) as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'M' } })
+    expect(cardNo(/M 关：竞赛综合实战/)).toBe('13')
+
+    fireEvent.change(screen.getByLabelText('阶段', { selector: 'select' }) as HTMLSelectElement, {
+      target: { value: 'all' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /更多筛选/ }))
+    fireEvent.change(screen.getByLabelText('排序', { selector: 'select' }) as HTMLSelectElement, {
+      target: { value: 'status' },
+    })
+    expect(cardNo(/B 关：Java 核心编程/)).toBe('02')
+    expect(cardNo(/A 关：开发环境与基本操作/)).toBe('01')
+  })
+
+  it('详情头部沿用同一编号口径（第 N / 共 M 关 + 阶段）', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /C 关/ }))
+    const no = document.querySelector('.challenge-detail-no')
+    expect(no?.textContent).toContain('03')
+    expect(no?.textContent).toContain('13')
+    expect(no?.textContent).toContain('阶段 C')
+  })
+
+  it('CSS 不做 counter 注入：编号只能是 DOM 文本（§5.3 第 6 条）', () => {
+    expect(cssCode).not.toMatch(/counter\(|counters\(|list-style-image/)
+    // 伪元素只允许画几何图形：content 后只能是空串
+    const contents = [...cssCode.matchAll(/(?<![\w-])content:\s*([^;]+)/g)].map((match) => match[1]!.trim())
+    expect(contents.length).toBeGreaterThan(0)
+    expect(contents.every((value) => value === "''")).toBe(true)
+  })
+})
+
+describe('M4 挑战页 · 轻边界信息区与形态（§5.1）', () => {
+  it('编号列表 = 顶线 + 每行底线，卡片不铺玻璃底', () => {
+    const grid = ruleBody('.challenges-view .challenge-grid')
+    expect(grid).toContain('border-top: var(--cv-hair-width) solid var(--cv-hair)')
+    const row = ruleBody('.challenges-view .challenge-list-item')
+    expect(row).toContain('border-bottom: var(--cv-hair-width) solid var(--cv-hair)')
+    const card = ruleBody('.challenges-view .stage-card')
+    expect(card).toContain('background: none')
+    expect(card).toContain('border-radius: var(--ds-radius-panel, 0)')
+  })
+
+  it('黑场底 + 冷色发光承担层级：box-shadow 一律走 --cv-glow-*，无渐变/模糊', () => {
+    expect(ruleBody('.challenges-view')).toContain('background: var(--cv-canvas)')
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((match) => match[1]!.trim())
+    expect(shadows.length).toBeGreaterThan(0)
+    // 旧规「全站零投影」在深色画布上无法表达层级（黑投影等于没有）；科技档改为冷色外发光。
+    // 约束不放松：这里不允许裸投影字面量，每条只允许三种形态之一 ——
+    //   ① --cv-glow-* 令牌；② inset 顶部内高光 token 消费；③ 进度条自发光（唯一豁免，见下）。
+    // 四档别名（含 --cv-glow-mark：进度条自发光，比近档更收）。字面量一律不允许 ——

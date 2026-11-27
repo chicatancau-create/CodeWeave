@@ -1,0 +1,45 @@
+- `[通过]` 隔离测试覆盖注册、退出、再次登录、未认证拒绝、账户代次、草稿隔离、关闭回收；测试数据只在 `QTemporaryDir` 中生成。
+- `[通过]` Qt 部署脚本语法修复并增加 `config/codeweave.config.example.json`，部署目录同时包含 EXE、Qt DLL、QML Controls、平台插件、content 和工作区配置标记。
+- `[通过]` `ctest --test-dir G:\\CodeWeave-qt\\build-msvc -R qt-facade --output-on-failure`：1/1；账户隔离与持久化测试通过。
+- `[未执行]` 真实账户目录登录、登录界面输入法/无障碍、密码修改界面、干净 Windows 安装、安装包和性能对照。当前仍保留根目录 Win32 EXE 作为回滚入口。
+
+### 14.16 实施结果：Qt 后端调用链扩展（2026-10-06）
+
+- `[通过]` `BackendTaskService` 增加 `Evidence`、`Execute` 任务类型；读取/执行/备份/导入类任务在关闭时请求取消，账户与草稿写入仍等待安全边界。
+- `[通过]` Qt facade 增加只读提示读取；提示损坏或读取失败返回失败状态，不改变学习事实。
+- `[通过]` Qt facade 增加外部证据待核验写入；复用 `save_external_evidence` 和 `EvidenceStore`，沿用 `operationId` 校验，永远写入 `Pending`，不写正式进度。
+- `[通过]` Qt facade 增加受控执行入口；路径只能由可信 C++ 宿主配置，QML 只提交当前 starter/草稿；执行结果写入账户轨迹，非零退出、超时、取消、编译输出均不会伪报成功。
+- `[通过]` Qt facade 增加异步原生备份/恢复入口；复用清单、hash、符号链接和目标不可覆盖约束。当前尚无 QML 文件选择器，接口保留给 U3 页面接入。
+- `[通过]` 隔离 Qt facade 回归：内容、账户、草稿、提示、Pending 外部证据、账户切换和关闭回收；所有数据位于 `QTemporaryDir`，无真实账户写入。
+- `[通过]` Qt ON CTest 8/8、Qt OFF CTest 7/7、`git diff --check`；构建使用 VS x64 开发环境。普通 PowerShell 未加载 MSVC INCLUDE 时会误报 `<filesystem>` 缺失，不能作为构建成功证据。
+- `[未执行]` Qt facade 的真实四语言运行回归、备份/恢复页面文件选择、Qt Quick Test/UIA、中文 IME、同机性能、干净 Windows、安装包和根 EXE 替换；这些仍是 U2/U3/U4 门禁。
+
+#### 14.17 实施结果：Qt 语言工具配置与执行失败语义（2026-10-06）
+
+- Qt 宿主现在按 `cpp`、`java`、`python`、`javascript` 分别注入执行工具，解析顺序与现有 Win32 入口一致：`CODEWEAVE_NATIVE_<LANG>_TOOL` 环境变量 → `%LOCALAPPDATA%/CodeWeave/tools.ini` 的 `[tools]` 项 → PATH 中的绝对路径；QML 不接受路径，仍只提交当前课程的代码文本。
+- 每个工具在进入 facade 前都经过语言白名单、绝对路径和普通文件检查；无效路径会被丢弃，不能跨语言复用或绕过 `process_contract`。这解决了 Qt 壳已具备运行入口但双击启动时始终显示“尚未配置执行工具”的实际缺口。
+- 执行失败不再把空错误码直接显示给用户：取消、超时、输出超限、工具错误和非零退出分别返回明确结果；成功仍只在进程启动、退出码、取消/超时、输出完整性全部满足时报告。
+- `[通过]` `G:\CodeWeave\.local\qt\verify3.cmd`：VS x64 + Qt 6.8.3 Release 构建，CTest 8/8；包含本轮 Qt facade 代码。
+- `[通过]` Qt 部署目标重建：部署目录含 `CodeWeaveQtShell.exe`、Qt Core/Gui/Qml/Quick DLL、`platforms/qwindows.dll`、QML imports、内容和配置示例；目录不存在 `content/content` 嵌套。使用离屏启动检查进程保持运行，未启动 Node、浏览器或 TCP 服务。
+- `[基线失败]` `G:\CodeWeave\.local\qt\verify.cmd` 仍引用已不存在的 `G:\CodeWeave\.local\qt\native-src`，因此未将该旧脚本记为当前构建证据；当前验证入口为 `verify3.cmd`。
+- `[未执行]` Qt facade 在真实窗口中使用四种语言各运行一遍、文件选择器、中文 IME/无障碍、性能对照、干净 Windows、安装包和根 EXE 替换；这些仍须在 U2/U3/U4 门禁完成后再进入安装器。
+
+#### 14.18 实施结果：Qt U2 收尾与 U3 页面骨架（2026-10-06）
+
+- `[通过]` 修复 facade 执行工作目录未创建导致的 C++ `process_create_failed`；执行前由可信 worker 创建账户隔离的 `execution/` 目录，失败会返回明确状态。
+- `[通过]` Qt facade 输出在 UI 边界统一为 LF，避免 Windows 子进程输出换行差异污染页面和测试契约。
+- `[通过]` Qt facade 四语言真实工具回归：Python、Java、JavaScript、C++；测试工具路径无效时在排队前拒绝，不能跨语言复用。
+- `[通过]` U3 页面骨架：学习目录/正文/提示、编辑器草稿、保存/撤销/恢复、运行输出、账户会话四个页面；QML 只调用 `UiShell`。
+- `[通过]` U3 执行控制：Qt facade 暴露暂停、继续、单步命令，复用原生 `ExecutionControl`，页面显示运行/暂停状态。
+- `[通过]` `G:\CodeWeave\.local\qt\verify3.cmd`：Qt ON Release 构建、Qt ON CTest 8/8、部署目标生成全部通过。
+- `[通过]` Qt OFF 回归：`ctest --test-dir G:\CodeWeave\.local\qt\build-off --output-on-failure`，7/7。
+- `[通过]` Windows 平台真实窗口 smoke：部署后的 `CodeWeaveQtShell.exe --smoke-screenshot ...` 退出码 0，生成 `应用端/项目/evidence/qt-u3-window.png`；未启动 Node、浏览器或 TCP 服务。
+- `[未执行]` `QT_QPA_PLATFORM=offscreen` 截图：当前环境窗口未 exposed，15 秒超时；Windows 平台验证已替代该环境限制。DPI、中文 IME、UIA、性能对照、文件选择器、安装器和根 EXE 替换仍未验收。
+- 历史状态（已被 14.19 及其后续记录取代）：当时 U4/B0-B3 尚未开始。当前状态以文档末尾最新验收记录为准。根目录 Win32 入口仍保留为回滚入口。
+
+#### 14.19 实施结果：U4 便携发布候选与安装器工具链审查（2026-10-06）
+
+- `[通过]` 新增 `scripts/package-qt-release.ps1`，从已验证 Qt 部署目录复制独立候选包并生成逐文件 SHA-256 `manifest.json`；当前候选位于树外 `G:\CodeWeave\.local\qt\qt-release-candidate`，不作为仓库源码。
+- `[通过]` 候选包完整性：`CodeWeaveQtShell.exe`、Qt DLL、`platforms/qwindows.dll`、QML imports、`content/`、`config/codeweave.config.example.json` 和 `uninstall-qt.ps1` 均存在；不存在 `content/content`、`qmltooling` 调试目录或旧启动器。最终 manifest 为 1379 个文件，签名后 EXE SHA-256：`3C6335DA206E5BF86934AD8AAE4229320C0CD8DA90084B4C30BDF33B129CC7CE`。
+- `[通过]` 应用端 Node 门禁：`corepack pnpm test` 4/4；`corepack pnpm run check` 通过。
+- `[通过]` Qt ON/OFF 回归：`G:\CodeWeave\.local\qt\verify3.cmd` CTest 8/8；`ctest --test-dir G:\CodeWeave\.local\qt\build-off --output-on-failure` 7/7。

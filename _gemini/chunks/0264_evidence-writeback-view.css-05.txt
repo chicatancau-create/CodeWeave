@@ -1,0 +1,152 @@
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.evidence-writeback .evidence-topic {
+  min-width: 0;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .evidence-list small,
+.evidence-writeback .ewb-synced-meta {
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.evidence-writeback .ewb-synced-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  min-width: 0;
+  width: 100%;
+  padding-left: var(--ds-space-32, 32px);
+}
+
+.evidence-writeback .ewb-meta-key {
+  color: var(--ewb-ink-3);
+}
+
+.evidence-writeback .ewb-meta-value {
+  color: var(--ewb-ink-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 5. 加载 / 空 / 失败三态（§5.4 各有清晰外观） ────────────────────────── */
+/* 挂账②修复后，队列「读取失败」是独立的一态：由组件给出 .ewb-state--failed，
+   不再借用 .ewb-state--loading 的外观（读失败不等于还在读）。 */
+.evidence-writeback .ewb-state {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-12, 12px) var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) var(--ewb-hair-raised) dashed;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-state-line {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+}
+
+.evidence-writeback .ewb-state--empty {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+}
+
+.evidence-writeback .ewb-state--loading {
+  border-style: solid;
+  border-color: var(--ewb-hair);
+}
+
+/* 队列读取失败：与加载态同等分量的一态（挂账②）。边界取危险色但仍是 1px 线，
+   不加卡片、不加投影；语义仍由「图标 + 文字」双通道承担。 */
+.evidence-writeback .ewb-state--failed {
+  border-style: solid;
+  border-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-state--failed .ewb-state-text {
+  color: var(--ewb-ink);
+}
+
+.evidence-writeback .ewb-banner-body .subtle-button {
+  margin-inline-start: var(--ds-space-8, 8px);
+}
+
+.evidence-writeback .ewb-state-text,
+.evidence-writeback .vault-progress-empty {
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  margin: 0;
+}
+
+/* 骨架行：静态发丝线，不闪不循环，reduce 下无需额外处理 */
+.evidence-writeback .ewb-skeleton {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+}
+
+.evidence-writeback .ewb-skeleton-bar {
+  display: block;
+  height: 12px;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  background: none;
+}
+
+.evidence-writeback .ewb-skeleton-bar + .ewb-skeleton-bar {
+  width: 62%;
+}
+
+/* ── 6. 按钮：直角细线，无渐变无泛光（§5.1 形态） ────────────────────────── */
+.evidence-writeback .evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-10, 10px) 0 0;
+}
+
+/* 共享按钮层是 white-space: nowrap（styles.css:866），320px 下「导出待保存 Markdown」
+   这种长标签量到 227.7px 而容器只剩 211px，nowrap 让它缩不下去，整格溢出 1px。
+   这里放开换行只在真放不下时生效：宽视口下按钮仍按 max-content 排，一像素都不变。 */
+.evidence-writeback :is(.primary-action, .subtle-button) {
+  white-space: normal;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.evidence-writeback .primary-action,
+.evidence-writeback .subtle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--ewb-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-20, 20px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge);
+  border-radius: var(--ds-shape-none, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ewb-glow-inset);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: none;

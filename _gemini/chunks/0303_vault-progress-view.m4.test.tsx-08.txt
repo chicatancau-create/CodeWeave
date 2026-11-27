@@ -1,0 +1,76 @@
+    expect(declarationBlock('.cw-vault :is(dt, dd, p, span, strong, em, td, th, caption, button, summary, li)')).toContain(
+      'overflow-wrap: anywhere',
+    )
+    // 原文代码块横向滚动而不是折行挤压
+    const pre = declarationBlock('.cw-vault .vp-unparsed pre')
+    expect(pre).toContain('white-space: pre')
+    expect(pre).toContain('overflow-x: auto')
+  })
+
+  it('触控 44px 与焦点轮廓覆盖按钮、复选框与 summary', () => {
+    expect(declarationBlock('.cw-vault')).toContain('--vp-tap: var(--ds-tap-min, 44px)')
+    expect(declarationBlock('.cw-vault .vp-btn')).toContain('min-height: var(--vp-tap)')
+    expect(declarationBlock('.cw-vault .vp-toggle')).toContain('min-height: var(--vp-tap)')
+    expect(declarationBlock('.cw-vault .vp-unparsed summary')).toContain('min-height: var(--vp-tap)')
+    expect(declarationBlock('.cw-vault :is(button, a, summary, input, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring, rgba(220, 233, 251, 0.72))',
+    )
+  })
+
+  /**
+   * #76：上面那条测试长期是绿的，因为 `.vp-toggle` 有 `min-height: var(--vp-tap)` ——
+   * 但 §5.4 量的是**目标自身**的命中区，label 的高度不算（`tools/visual/probes.mjs` 的 hitBox 不认），
+   * 而这颗复选框只在「资料库已绑定 + 本账户是拥有者」那一档出现，个人页绑定态第一次进浏览器
+   * 就量到 hit 18×18。所以这里不认 label，只认 input 自己的 appearance 与伪元素外扩量。
+   */
+  it('#76 拥有者可见的那颗复选框自带 44px 命中区，不靠 label 的高度充数', () => {
+    const box = declarationBlock(".cw-vault .vp-toggle input[type='checkbox']")
+    const hit = declarationBlock(".cw-vault .vp-toggle input[type='checkbox']::before")
+    // 原生外观的复选框是替换元素，::before 根本不参与命中：只加伪元素而不去掉原生外观是假修
+    expect(box).toMatch(/appearance:\s*none/)
+    expect(box).toMatch(/position:\s*relative/)
+    expect(hit).toMatch(/content:\s*''/)
+    expect(hit).toMatch(/position:\s*absolute/)
+    const visualPx = Number((box.match(/width:\s*(\d+)px/) || [])[1])
+    const spreadPx = Math.abs(Number((hit.match(/inset:\s*(-?\d+)px/) || [])[1]))
+    expect(visualPx).toBeGreaterThan(0)
+    expect(spreadPx).toBeGreaterThan(0)
+    expect(visualPx + spreadPx * 2).toBeGreaterThanOrEqual(44)
+    // 自绘之后必须自己管状态：勾（::after，且不吃命中）与禁用态都在
+    expect(declarationBlock(".cw-vault .vp-toggle input[type='checkbox']::after")).toMatch(/pointer-events:\s*none/)
+    expect(declarationBlock(".cw-vault .vp-toggle input[type='checkbox']:disabled")).toMatch(/cursor:\s*not-allowed/)
+  })
+
+  it('§4 disabled 行：禁用不靠降透明度，改用描边样式 + 一句真实文字', () => {
+    // 共享层 styles.css 的 `.primary-action/.subtle-button:disabled{opacity:.5}` 是根源，
+    // 本页必须把它顶回 opacity:1，禁用感交给「虚线 / 点线」这一非颜色通道。
+    const btn = declarationBlock('.cw-vault .vp-btn:disabled')
+    expect(btn).toMatch(/opacity:\s*1/)
+    expect(btn).toMatch(/border-style:\s*dashed/)
+    expect(btn).toMatch(/cursor:\s*not-allowed/)
+    const box = declarationBlock(".cw-vault .vp-toggle input[type='checkbox']:disabled")
+    expect(box).toMatch(/opacity:\s*1/)
+    expect(box).toMatch(/border-style:\s*dotted/)
+    expect(box).not.toMatch(/opacity:\s*0\.\d/)
+    // 条件说明是真渲染出来的字（有样式，不会掉进装饰档），不是 title 提示
+    const hint = declarationBlock('.cw-vault .vp-disabled-hint')
+    expect(hint).toContain('color: var(--vp-dim)')
+    expect(hint).toContain('font-size: var(--vp-meta)')
+  })
+
+  it('§4 loading 行：占位块自带高度下限，骨架本身零动画声明', () => {
+    expect(declarationBlock('.cw-vault .vp-loading')).toMatch(/min-height:\s*\d+(\.\d+)?em/)
+  })
+
+  it('等级三档靠边框样式区分，不使用场景色或状态色', () => {
+    expect(declarationBlock('.cw-vault .vp-mark--ok')).toContain('border-style: solid')
+    expect(declarationBlock('.cw-vault .vp-mark--warn')).toContain('border-style: dashed')
+    expect(declarationBlock('.cw-vault .vp-mark--unknown')).toContain('border-style: dotted')
+    for (const selector of ['.cw-vault .vp-mark--ok', '.cw-vault .vp-mark--warn', '.cw-vault .vp-mark--unknown']) {
+      expect(declarationBlock(selector)).not.toMatch(/var\(--vp-accent\)|var\(--c-|var\(--ds-status-/)
+    }
+  })
+
+  it('本页零持续动画，两条降级通道都真停止', () => {
+    expect(cssCode).not.toMatch(/animation[^;]*\binfinite\b/)
+    expect(cssCode).not.toMatch(/@keyframes/)

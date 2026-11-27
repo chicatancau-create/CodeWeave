@@ -1,0 +1,82 @@
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const stage = {};
+runInNewContext(readFileSync(new URL('../qml/components/ExecutionStage.js', import.meta.url), 'utf8')
+  .replace(/^\.pragma library\r?\n/, ''), stage);
+const plain = value => JSON.parse(JSON.stringify(value));
+const started = { kind: 'started', label: '开始执行', sequence: 1 };
+const step = (sequence, sourceLine, variables) => ({
+  kind: 'source_step', phase: 'line', label: `第 ${sourceLine} 行`, sequence, sourceLine, variables,
+});
+const events = [started, step(2, 1, { total: '7' }),
+  { kind: 'output', label: '输出', sequence: 3, payload: '7\n' },
+  step(4, 2, { total: '15', i: '1' }), step(5, 1, { total: '16' }),
+  { kind: 'completed', label: '执行完成', sequence: 6 }];
+
+test('empty and invalid selections do not invent nodes, variables or output', () => {
+  for (const index of [-1, 0, 1, 1.5, NaN]) {
+    const frame = stage.frameAt([], index);
+    assert.equal(frame.nodes.length, 0);
+    assert.equal(frame.cells.length, 0);
+    assert.equal(frame.output, '');
+  }
+  assert.equal(stage.frameAt(events, events.length).nodes.length, 0);
+  const skeleton = stage.skeleton([{ id: 'check', label: '判定', kind: 'decision', line: 4 },
+    { id: 'print', label: '打印', kind: 'output' }]);
+  assert.equal(skeleton.nodes[0].state, 'todo');
+  assert.equal(skeleton.nodes[0].ordinal, null);
+  assert.equal(skeleton.nodes[0].cells.length, 0);
+  assert.equal(skeleton.currentId, '');
+  assert.equal(skeleton.edges[0].state, 'idle');
+});
+
+test('rewinding is idempotent and cannot expose future values or paths', () => {
+  const first = plain(stage.frameAt(events, 1));
+  assert.equal(first.nodes.length, 2);
+  assert.equal(first.cells[0].value, '7');
+  assert.equal(first.output, '');
+  assert.equal(first.returnCount, 0);
+  stage.frameAt(events, 5);
+  assert.deepEqual(plain(stage.frameAt(events, 1)), first);
+  assert.equal(events[1].variables.total, '7');
+});
+
+test('real repeated line visits produce a return edge and one current pointer', () => {
+  const frame = stage.frameAt(events, 4);
+  assert.equal(frame.nodes.length, 4);
+  assert.equal(frame.currentId, 'line:1');
+  assert.equal(frame.nodes.filter(node => node.state === 'now').length, 1);
+  assert.equal(frame.nodes.find(node => node.id === 'line:1').visits, 2);
+  assert.equal(frame.returnCount, 1);
+  assert.equal(frame.edges.filter(edge => edge.back && edge.state === 'active').length, 1);
+  assert.equal(frame.nodes.find(node => node.id === 'line:1').lastEventIndex, 4);
+  const repeated = stage.frameAt([started, step(2, 1, {}), step(3, 1, {})], 2);
+  assert.ok(repeated.edges.some(edge => edge.from === edge.to && edge.back));
+});
+
+test('variables compare source snapshots across output and retain the latest snapshot at termination', () => {
+  const frame = stage.frameAt(events, 3);
+  assert.deepEqual(plain(frame.cells), [{ name: 'total', value: '15', born: false, changed: true },
+    { name: 'i', value: '1', born: true, changed: false }]);
+  const complete = stage.frameAt(events, 5);
+  assert.equal(complete.snapshotLine, 1);
+  assert.equal(complete.snapshotIndex, 4);
+  assert.equal(complete.cells[0].value, '16');
+  assert.equal(complete.output, '7\n');
+  assert.equal(complete.nodes.at(-1).kind, 'end');
+  assert.equal(stage.frameAt([started], 0).cells.length, 0);
+});
+
+test('empty snapshots remove old bindings and unusual variable names stay data', () => {
+  const values = JSON.parse('{"__proto__":"7","<b>total</b>":"<img>"}');
+  const frame = stage.frameAt([started, step(2, 1, values), step(3, 2, {})], 2);
+  assert.equal(frame.cells.length, 0);
+  const unusual = stage.frameAt([started, step(2, 1, values)], 1);
+  assert.equal(unusual.cells[0].name, '__proto__');
+  assert.equal(unusual.cells[1].value, '<img>');
+  assert.equal({}.polluted, undefined);
+});
+

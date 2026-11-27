@@ -1,0 +1,120 @@
+/**
+ * DATA-01 统一存储注册表与隔离契约测试。
+ *
+ * 对应 T.4 DATA-01 的验收要求：
+ * - A/B 两个虚构账户、guest、设备偏好、旧通知键、外部证据均有隔离测试
+ * - 清理返回成功键/失败键/错误类别，全失败不提示成功，部分失败不掩盖错误
+ * - 导出仅含目标范围的账户级数据
+ *
+ * 全部使用隔离的内存 localStorage，不触达真实数据目录。
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// 本文件有一条源码核对（通知键必须过 scopedKey），按仓库惯例用动态 import 读盘（未装 @types/node）
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as { readFileSync: (path: string, encoding: 'utf8') => string }
+
+class MemoryStorage {
+  private store = new Map<string, string>()
+  get length(): number {
+    return this.store.size
+  }
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null
+  }
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value))
+  }
+  removeItem(key: string): void {
+    this.store.delete(key)
+  }
+  clear(): void {
+    this.store.clear()
+  }
+}
+
+let storage: MemoryStorage
+
+beforeEach(() => {
+  storage = new MemoryStorage()
+  vi.stubGlobal('localStorage', storage)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+const K = {
+  workspace: 'code-canvas.workspace.v2',
+  projects: 'code-canvas.projects.v1',
+  challenges: 'code-canvas.challenge-progress.v2',
+  checkin: 'code-canvas.checkin.v1',
+  settings: 'code-canvas.settings.v1',
+  mastery: 'code-canvas.mastery.v1',
+  drafts: 'code-canvas.challenge-drafts.v1',
+  evidence: 'code-canvas.external-evidence.v1',
+  notifications: 'code-canvas.notifications.v1',
+  notifEvents: 'code-canvas.notification-events.v1',
+}
+
+describe('DATA-01 注册表覆盖与归类', () => {
+  it('外部证据已纳入账户级类别（此前漏出导出与清理）', async () => {
+    const { classifyKey, descriptorOf } = await import('./storage-registry')
+    expect(classifyKey(K.evidence)).toBe('account')
+    expect(descriptorOf(K.evidence)?.label).toContain('外部')
+  })
+
+  it('设置归类为设备级，通知归类为会话级', async () => {
+    const { classifyKey } = await import('./storage-registry')
+    expect(classifyKey(K.settings)).toBe('device')
+    expect(classifyKey(K.notifications)).toBe('session')
+    expect(classifyKey(K.notifEvents)).toBe('session')
+  })
+
+  it('所有 STORAGE_KEYS 都已登记，没有类别漂移', async () => {
+    const { classifyKey } = await import('./storage-registry')
+    const { STORAGE_KEYS } = await import('./constants')
+    const unregistered = Object.values(STORAGE_KEYS).filter((key) => classifyKey(key) === 'unknown')
+    expect(unregistered).toEqual([])
+  })
+
+  it('非本应用前缀的键归类为 unknown，不被误删', async () => {
+    const { classifyKey } = await import('./storage-registry')
+    expect(classifyKey('some-other-app.key')).toBe('unknown')
+  })
+})
+
+describe('DATA-01 账户隔离', () => {
+  it('A/B 两账户数据互不可见，guest 单独隔离', async () => {
+    const { belongsToScope } = await import('./storage-registry')
+    const keyA = `${K.workspace}:account-a`
+    const keyB = `${K.workspace}:account-b`
+    const keyGuest = `${K.workspace}:guest`
+
+    expect(belongsToScope(keyA, 'account-a')).toBe(true)
+    expect(belongsToScope(keyA, 'account-b')).toBe(false)
+    expect(belongsToScope(keyB, 'account-b')).toBe(true)
+    expect(belongsToScope(keyGuest, 'guest')).toBe(true)
+    expect(belongsToScope(keyGuest, 'account-a')).toBe(false)
+  })
+
+  it('设备级数据不属于任何账户（清理账户数据不得删除设备设置）', async () => {
+    const { belongsToScope } = await import('./storage-registry')
+    expect(belongsToScope(K.settings, 'account-a')).toBe(false)
+    expect(belongsToScope(K.settings, 'guest')).toBe(false)
+  })
+
+  it('旧的无 scope 通知键归属未知，不静默划给当前账户', async () => {
+    const { belongsToScope, classifyKey } = await import('./storage-registry')
+    // 旧键：无 `:scope` 后缀
+    expect(classifyKey(K.notifications)).toBe('session')
+    expect(belongsToScope(K.notifications, 'account-a')).toBe(false)
+    expect(belongsToScope(K.notifications, 'guest')).toBe(false)
+  })
+})
+
+describe('DATA-01 清理入口：成功键与失败键', () => {
+  it('账户清理只删除当前账户的会话与账户级数据，保留设备设置与其他账户', async () => {

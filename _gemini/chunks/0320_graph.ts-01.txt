@@ -1,0 +1,100 @@
+/**
+ * LEARN-01 第 1 条：课程→阶段→能力点→挑战→项目→复习的映射校验。
+ *
+ * 这一条要的从来不是「再写一套 content-check」，而是把**分散在各批测试里的零断言**
+ * 收成一个能一次跑完整张图的校验器：`lessons.test.ts` 那 20 多条是按批次追加的
+ * （「阶段 A 至少 3 个单元」「J2 在沙箱可执行」…），谁都没横向看过整张图，
+ * 于是 09-13 写下这张卡时说的那句「lessons.ts 仍有『阶段 B：数组与基础算法（JavaScript）』
+ * 批次说明」挂到今天——它挂着的不是断言缺失，而是**没有人把这条边当图来看**。
+ *
+ * 六条边在代码里的真实形状（这就是为什么这里分三档，而不是一律报错）：
+ * - 阶段→阶段：`CurriculumStage.prerequisites`，显式，可直接判引用有效与无环。
+ * - 挑战→阶段：`Challenge.stageId` 与 `Challenge.prerequisites`，显式（13 关由 `curriculumStages.map` 生成，天然 1:1，但 1:1 也要有人钉住）。
+ * - 课程→阶段：`LessonUnit.stageId` **字段存在但旧内置课程一条都没写**（lessons.ts 里 `stageId:` 出现 0 次），
+ *   这条边目前只活在 `const stageBUnits` 这种变量名与注释里。所以这里把它分成两档：
+ *   显式声明缺失记 `stage_edge_implicit`（现状 44 条，**只许减不许增**），不记错误。
+ * - 能力点：阶段的 `topics` 是展示用的技能点清单，没有独立 id，别处不引用 → 只判非空。
+ * - 项目→课程：`Project` 是用户自己建的数据（`use-projects`），本库不预置项目，也没有 lesson 引用字段 → 无这条边可校。
+ * - 复习→课程：复习记录的 `refId` 指向课程或挑战，**校验在 `use-review-schedule` 一侧按当时数据判**，
+ *   静态数据里没有这条边。
+ */
+import { detectTemplate, simulateProgram } from '../engine/teaching-runtime'
+import { validateJavaScriptSandbox } from '../engine/javascript-sandbox'
+import type { Challenge, Lesson } from '../types/lesson'
+import type { CurriculumStage } from './curriculum'
+
+export type GraphIssue = { kind: string; entity: string; detail: string }
+
+export type GraphReport = {
+  errors: GraphIssue[]
+  /** 现状钉数：只许减不许增，见 graph.test.ts 的那条棘轮 */
+  stageEdgeImplicit: GraphIssue[]
+  /** 阶段前置写成 `stage-a` 而非 `A`：这条边目前只有渲染路径会解（challenges-view.tsx:715） */
+  nonCanonicalStageRefs: GraphIssue[]
+  /** 语言与该阶段挑战不同（卡片点名的「阶段与课程错配」） */
+  stageLanguageMismatch: GraphIssue[]
+  /** 先修项写成描述文字（「知道什么是变量」）而不是课程 id：旧内置课程的历史写法 */
+  lessonPrerequisiteProse: GraphIssue[]
+  /** 缺省 teaching 但运行器认不出：界面会老实报「未识别代码结构」，所以不算谎报，只钉条数 */
+  teachingClaimsUnrecognized: GraphIssue[]
+  stats: { stages: number; challenges: number; lessons: number; teachingUnits: number; externalUnits: number }
+}
+
+const STAGE_LETTERS = 'ABCDEFGHIJKLM'
+
+/** 从课程 id 里保守地推出阶段字母：`b1-array-basics` → B、`java-algo-c2` → C；推不出就算没有。 */
+export function deriveStageLetter(id: string): string | undefined {
+  const bare = /^[a-z]+-[a-z]+-([a-m])\d/.exec(id) ?? /^[a-z]+-([a-m])\d/.exec(id) ?? /^([a-m])\d/.exec(id)
+  const letter = bare?.[1]?.toUpperCase()
+  return letter && STAGE_LETTERS.includes(letter) ? letter : undefined
+}
+
+/** `content.prerequisites` 里混着说明文字：`java-algo-c2（C2 循环累加）` 只取前导 id。 */
+export function prerequisiteId(entry: string): string {
+  return /^[A-Za-z0-9-]+/.exec(entry.trim())?.[0] ?? entry.trim()
+}
+
+/**
+ * 阶段引用的两种写法：`A`（大纲里的规范 id）与 `stage-a`（挑战的前置字段实际用的那种）。
+ *
+ * 这不是洁癖：`challenges-view.tsx:715` 显示前置时写的是
+ * `challenge.prerequisites.map((id) => id.replace('stage-', '').toUpperCase())`——
+ * **这条边目前只有渲染路径知道怎么解**。校验器把同一个归一化收进来自检，
+ * 并把「用的是非规范写法」单列成棘轮（改数据的 id 形态属映射迁移，要走审计卡第 2 条的旧→新映射，
+ * 不在这一轮偷偷做）。
+ */
+export function normalizeStageRef(ref: string): string {
+  return ref.replace(/^stage-/i, '').toUpperCase()
+}
+
+/** 这条先修项像是在指一节课（形如 java-loop-sum 的小写连字符 id），还是一句描述文字。 */
+export function looksLikeLessonId(entry: string): boolean {
+  return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/.test(entry.trim())
+}
+
+/** 该引用是否已经写成规范形态（大写字母本身，不带 `stage-` 前缀、不带大小写混写）。 */
+export function isCanonicalStageRef(ref: string): boolean {
+  return /^[A-M]$/.test(ref)
+}
+
+function cyclePath(stageId: string, edges: Map<string, string[]>, seen: Set<string>, stack: string[]): string[] | undefined {
+  if (stack.includes(stageId)) return [...stack.slice(stack.indexOf(stageId)), stageId]
+  if (seen.has(stageId)) return undefined
+  seen.add(stageId)
+  stack.push(stageId)
+  for (const next of edges.get(stageId) ?? []) {
+    const found = cyclePath(next, edges, seen, stack)
+    if (found) return found
+  }
+  stack.pop()
+  return undefined
+}
+
+export function validateCurriculumGraph(input: {
+  stages: CurriculumStage[]
+  challenges: Challenge[]
+  lessons: Lesson[]
+}): GraphReport {
+  const { stages, challenges, lessons } = input
+  const errors: GraphIssue[] = []
+  const stageEdgeImplicit: GraphIssue[] = []

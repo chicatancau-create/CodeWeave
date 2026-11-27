@@ -1,0 +1,89 @@
+  if (ledger_size > max_ledger_bytes) return app::Result::failure("重建 operation 索引时账本过大");
+  if (!exists || ledger_size == 0) {
+    snapshot = {};
+    return clear(index_dir, data_root);
+  }
+  std::ifstream input(ledger_path, std::ios::binary);
+  if (!input) return app::Result::failure("重建 operation 索引时无法打开账本");
+  std::vector<std::vector<Entry>> entries(kShardCount);
+  std::unordered_set<std::string> operation_ids;
+  std::string line;
+  std::uintmax_t offset = 0;
+  std::size_t count = 0;
+  auto ledger_fingerprint = kFingerprintOffset;
+  while (std::getline(input, line)) {
+    const auto next = input.tellg();
+    const std::uintmax_t end = next < 0 ? ledger_size : static_cast<std::uintmax_t>(next);
+    if (end < offset || end - offset > max_line_bytes + 1 || line.size() > max_line_bytes) {
+      return app::Result::failure("重建 operation 索引时发现超长记录");
+    }
+    ledger_fingerprint = fnv1a_update(ledger_fingerprint, line);
+    if (end - offset > line.size()) ledger_fingerprint = fnv1a_update(ledger_fingerprint, "\n");
+    if (!line.empty()) {
+      if (++count > max_records) return app::Result::failure("operation 索引记录数量超过上限");
+      std::string operation_id;
+      if (!parse_operation(line, operation_id) || !is_operation_id(operation_id) ||
+          !operation_ids.insert(operation_id).second) {
+        return app::Result::failure("重建 operation 索引时发现损坏或重复记录");
+      }
+      entries[shard_for(operation_id)].push_back({std::move(operation_id), offset, end - offset});
+    }
+    offset = end;
+  }
+  if (!input.eof() || offset != ledger_size) return app::Result::failure("重建 operation 索引读取账本失败");
+  std::error_code error;
+  if (!std::filesystem::create_directories(index_dir, error) && error) {
+    return app::Result::failure("创建 operation 索引目录失败");
+  }
+  if (has_symlink_component(index_dir)) return app::Result::failure("operation 索引目录不能经过符号链接");
+  for (std::size_t shard = 0; shard < kShardCount; ++shard) {
+    const auto path = shard_path(index_dir, shard);
+    if (entries[shard].empty()) {
+      std::filesystem::remove(path, error);
+      error.clear();
+      continue;
+    }
+    std::string body;
+    for (const auto& entry : entries[shard]) {
+      body += hex_encode(entry.operation_id) + '\t' + std::to_string(entry.offset) + '\t' +
+          std::to_string(entry.length) + '\n';
+    }
+    const auto saved = write_atomic(path, data_root, body);
+    if (!saved.ok) return saved;
+  }
+  snapshot = {ledger_size, count, ledger_fingerprint};
+  const auto metadata = write_metadata(index_dir, data_root, snapshot);
+  if (!metadata.ok) return metadata;
+  CachedIndex rebuilt;
+  rebuilt.snapshot = snapshot;
+  rebuilt.ledger_time = std::filesystem::last_write_time(ledger_path, error);
+  if (error) return app::Result::failure("读取重建账本时间失败");
+  rebuilt.metadata_time = std::filesystem::last_write_time(metadata_path(index_dir), error);
+  if (error) return app::Result::failure("读取重建索引时间失败");
+  for (const auto& shard_entries : entries) {
+    for (const auto& entry : shard_entries) rebuilt.entries.emplace(entry.operation_id, entry);
+  }
+  {
+    std::lock_guard lock(cache_mutex);
+    cache[cache_key(index_dir)] = std::move(rebuilt);
+  }
+  return app::Result::success("operation 索引已重建");
+}
+
+app::Result find(const std::filesystem::path& index_dir, std::string_view operation_id,
+    const Snapshot& snapshot, Entry& entry, bool& found) {
+  found = false;
+  if (!is_operation_id(operation_id)) return app::Result::failure("operationId 无效");
+  {
+    std::lock_guard lock(cache_mutex);
+    const auto cached = cache.find(cache_key(index_dir));
+    if (cached != cache.end() && cached->second.snapshot.ledger_size == snapshot.ledger_size &&
+        cached->second.snapshot.ledger_fingerprint == snapshot.ledger_fingerprint) {
+      const auto match = cached->second.entries.find(std::string(operation_id));
+      if (match != cached->second.entries.end()) {
+        entry = match->second;
+        found = true;
+      }
+      return app::Result::success();
+    }
+  }

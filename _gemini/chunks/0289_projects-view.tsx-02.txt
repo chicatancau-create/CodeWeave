@@ -1,0 +1,96 @@
+          {projects.length === 0 ? (
+            <div className="empty-state">
+              <Code2 size={32} aria-hidden="true" />
+              <strong>还没有保存的项目</strong>
+              <p>创建第一个项目开始练习</p>
+            </div>
+          ) : (
+            <ol className="project-list" role="list" aria-label="项目编号清单">
+              {projects.map((project, index) => (
+                <li key={project.id} className="project-list-item">
+                  <button
+                    className={`project-card ${selectedProjectId === project.id ? 'selected' : ''}`}
+                    aria-pressed={selectedProjectId === project.id}
+                    onClick={() => onSelect(project.id)}
+                  >
+                    <span className="project-card-no">{pad(index + 1)}</span>
+                    <div className="project-icon" aria-hidden="true">
+                      <Code2 size={15} />
+                    </div>
+                    <div className="project-card-body">
+                      <strong>{project.name}</strong>
+                      <small>
+                        {project.files.length} 个文件 · {new Date(project.updatedAt).toLocaleDateString('zh-CN')}
+                      </small>
+                      <small className="project-card-checkpoints">
+                        {project.checkpoints?.length ? `${pad(project.checkpoints.length)} 个检查点` : '无检查点快照'}
+                      </small>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        {selectedProject && (
+          <div className="project-detail">
+            <div className="detail-header">
+              <h2>{selectedProject.name}</h2>
+              <div className="detail-actions">
+                <button className="subtle-button" onClick={() => onDuplicate(selectedProject)}>
+                  <Copy size={12} aria-hidden="true" />
+                  复制
+                </button>
+                <button
+                  className="danger-button"
+                  onClick={() => {
+                    if (window.confirm(`确定删除项目「${selectedProject.name}」吗？该操作不可撤销。`)) {
+                      onDelete(selectedProject.id)
+                    }
+                  }}
+                >
+                  <Trash2 size={12} aria-hidden="true" />
+                  删除
+                </button>
+              </div>
+            </div>
+
+            {/* ── 区 01 本机草稿：编辑即落盘到本机，但没有快照，回不去 ───────── */}
+            <section className="project-zone project-zone--draft" aria-label="本机草稿（未快照）">
+              <header className="project-zone-head">
+                <span className="project-zone-no" aria-hidden="true">
+                  01
+                </span>
+                <h3 className="project-zone-title">本机草稿</h3>
+                <span className="project-zone-scope">改动即时写入本机 · 未快照前回不到旧版本</span>
+              </header>
+
+              <label className="field-label">
+                项目名称
+                <input
+                  value={selectedProject.name}
+                  onChange={(e) => onUpdate(selectedProject.id, { name: e.target.value })}
+                  maxLength={60}
+                />
+              </label>
+
+              <label className="field-label">
+                项目描述
+                <textarea
+                  value={selectedProject.description}
+                  onChange={(e) => onUpdate(selectedProject.id, { description: e.target.value })}
+                  maxLength={200}
+                />
+              </label>
+
+              <p className="project-draft-state">
+                <SquareDashed size={13} aria-hidden="true" />
+                <span className="project-draft-state-label">草稿状态</span>
+                <span>
+                  {selectedProject.files.length} 个文件 · {totalLines} 行 · 最后改动 {formatStamp(selectedProject.updatedAt)}
+                  。这部分只存在本机，下面的检查点才是可恢复的快照。
+                </span>
+              </p>
+
+              <div className="file-heading">

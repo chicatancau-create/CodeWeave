@@ -1,0 +1,101 @@
+    (challengeId: string, updates: Partial<ExternalEvidence>) => {
+      setExternalDrafts((current) => {
+        // STAT-01：`reproducedOn` 是日期键，UTC 切片在 UTC+8 凌晨会偏一天；本地归日一律走 date-helpers。
+        const today = getLocalDateKey()
+        const base = current[challengeId] ?? emptyEvidence(today)
+        const next = { ...current, [challengeId]: { ...base, ...updates } }
+        saveExternalEvidence(next, scope)
+        return next
+      })
+    },
+    [scope],
+  )
+
+  const updateDraft = useCallback(
+    (code: string) => {
+      if (!selectedChallenge) return
+      patchDraft(selectedChallenge.id, { code })
+      // 代码变更即失效上一次运行结果：避免把旧结果当作新代码的验证结论。
+      setRunResults((current) => {
+        if (!(selectedChallenge.id in current)) return current
+        const next = { ...current }
+        delete next[selectedChallenge.id]
+        return next
+      })
+    },
+    [selectedChallenge, patchDraft],
+  )
+
+  const updateEvidence = useCallback(
+    (note: string) => {
+      if (!selectedChallenge) return
+      patchDraft(selectedChallenge.id, { evidence: note })
+    },
+    [selectedChallenge, patchDraft],
+  )
+
+  const handleExternalEvidenceChange = useCallback(
+    (updates: Partial<ExternalEvidence>) => {
+      if (!selectedChallenge) return
+      patchExternalEvidence(selectedChallenge.id, updates)
+    },
+    [selectedChallenge, patchExternalEvidence],
+  )
+
+  const handleRun = useCallback(async () => {
+    if (!selectedChallenge || selectedChallenge.runner === 'external') return
+    const token = ++runTokenRef.current
+    setBusy(true)
+    try {
+      const code = drafts[selectedChallenge.id]?.code ?? selectedChallenge.starterCode
+      const tier = tierOfRunner(selectedChallenge.runner)
+      const runnerLesson = makeRunnerLesson(
+        selectedChallenge.language,
+        RUNNER_LABELS[selectedChallenge.runner],
+        `challenge.${LANGUAGE_EXTENSIONS[selectedChallenge.language]}`,
+      )
+      const raw =
+        selectedChallenge.runner === 'javascript-sandbox'
+          ? await executeJavaScript(code, runnerLesson)
+          : simulateProgram(code, selectedChallenge.language, runnerLesson)
+      // 运行期间切换/返回使令牌失效：迟到结果不写回，busy 由当前有效请求负责。
+      if (token !== runTokenRef.current) return
+      // 执行等级由运行方式决定，不随运行器自述变化（禁止隐式提升可信度）。
+      setRunResults((current) => ({ ...current, [selectedChallenge.id]: { ...raw, tier } }))
+    } finally {
+      if (token === runTokenRef.current) setBusy(false)
+    }
+  }, [selectedChallenge, drafts])
+
+  const runResult = selectedChallenge ? runResults[selectedChallenge.id] : undefined
+  const evidenceNote = selectedChallenge ? (drafts[selectedChallenge.id]?.evidence ?? '') : ''
+  const isExternalSelected = selectedChallenge?.runner === 'external'
+  // 兜底空证据按 memo 固定住（原来每渲染新建一个对象，详情面板的 memo 会被它击穿）；
+  // 日期口径不变：仍是渲染时现取的本机日期键。
+  const externalEvidence = useMemo(
+    () =>
+      selectedChallenge
+        ? (externalDrafts[selectedChallenge.id] ?? emptyEvidence(getLocalDateKey()))
+        : emptyEvidence(''),
+    [selectedChallenge, externalDrafts],
+  )
+  const externalCheck = useMemo(
+    () => (selectedChallenge && isExternalSelected ? validateExternalEvidence(externalEvidence, selectedChallenge) : undefined),
+    [selectedChallenge, isExternalSelected, externalEvidence],
+  )
+
+  /* CHAL-02：判定不再是一句 `output.some(line => line.includes(expected))`。
+     子串包含会把验收点 `1` 判成被输出 `10` 满足，也不看重复次数与多印的行——那是假通过。
+     口径由引擎 challenge-judge.ts 承担（默认精确整行、一行只用一次），这里只做映射：
+     未运行 / 运行报错 / 运行等级不可信（external、unsupported）一律不给出判定结果。 */
+  const judge = useMemo<JudgeOutcome | undefined>(() => {
+    if (!selectedChallenge || !runResult) return undefined
+    if (runResult.error || runResult.unsupported) return undefined
+    if (runResult.tier !== 'worker' && runResult.tier !== 'teaching') return undefined
+    return judgeOutput(
+      selectedChallenge.targetOutput,
+      runResult.output,
+      selectedChallenge.judgeMode ?? DEFAULT_JUDGE_MODE,
+    )
+  }, [runResult, selectedChallenge])
+

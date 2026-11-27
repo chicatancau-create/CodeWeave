@@ -1,0 +1,94 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "../components"
+
+Item {
+    property var hostRoot
+    property QtObject ds
+        id: draftsPage
+        objectName: "draftsPageRoot"
+        readonly property var selectedDraftMeta: {
+            for (let index = 0; index < uiShell.lessonMeta.length; index++) {
+                if (uiShell.lessonMeta[index].id === uiShell.documentId) return uiShell.lessonMeta[index];
+            }
+            return null;
+        }
+        readonly property int draftLineCount: uiShell.draftCode.length === 0
+            ? 0 : uiShell.draftCode.split("\n").length
+        readonly property string draftName: selectedDraftMeta && selectedDraftMeta.title
+            ? selectedDraftMeta.title : (uiShell.documentId || "")
+        readonly property string draftDescription: selectedDraftMeta && selectedDraftMeta.description
+            ? selectedDraftMeta.description : ""
+        readonly property string draftFileName: {
+            if (!uiShell.hasSelectedContent) return "暂无文件";
+            const extensions = { python: "py", javascript: "js", typescript: "ts", cpp: "cpp", java: "java" };
+            return "main." + (extensions[uiShell.starterLanguage] || "txt");
+        }
+
+        ScrollView {
+            id: draftScroll
+            objectName: "draftScrollView"
+            anchors.fill: parent
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        ColumnLayout {
+            width: draftsPage.width - ds.s16
+            height: Math.max(draftScroll.availableHeight, implicitHeight)
+            spacing: ds.s28   // root gap clamp(20px, 2.4vw, 28px)
+
+            Rectangle {
+                objectName: "draftSaveError"
+                Layout.fillWidth: true
+                visible: hostRoot.isErrorStatus(uiShell.contentStatus)
+                implicitHeight: draftStatusRow.implicitHeight + ds.s16
+                radius: ds.radiusSm
+                color: ds.bannerBg
+                border.color: ds.warning
+                RowLayout {
+                    id: draftStatusRow
+                    anchors.fill: parent
+                    anchors.margins: ds.s8
+                    Text {
+                        Layout.fillWidth: true
+                        text: uiShell.contentStatus
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }
+                    QuietButton {
+                        objectName: "draftRetrySave"
+                        ds: draftsPage.ds
+                        label: "重试保存"
+                        enabled: uiShell.hasSelectedContent && !uiShell.draftSaving && !uiShell.contentBusy
+                                 && !uiShell.draftPersistenceBlocked
+                                 && uiShell.hasActiveAccount && !uiShell.operationBusy
+                                 && !uiShell.executionBusy && !uiShell.accountBusy
+                        onClicked: uiShell.saveDraft()
+                    }
+                    QuietButton {
+                        ds: draftsPage.ds
+                        objectName: "draftDismissError"
+                        label: "知道了"
+                        onClicked: uiShell.dismissContentStatus()
+                    }
+                }
+            }
+
+            // .module-heading.project-overview
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: 0
+                spacing: ds.s32
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    // .eyebrow — 7px HOLLOW ring here, 13px mono label
+                    RowLayout {
+                        spacing: ds.s10
+                        Rectangle {
+                            implicitWidth: 7
+                            implicitHeight: 7
+                            radius: 4
+                            color: "transparent"

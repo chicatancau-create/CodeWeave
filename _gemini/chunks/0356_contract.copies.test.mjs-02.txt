@@ -1,0 +1,75 @@
+  it('清单里每一条能力都真的拦得住网页端实现（契约不是装饰品）', async () => {
+    const { validateJavaScriptSandbox } = await importWebScript('src/engine/javascript-sandbox.ts')
+    const probes = {
+      'network-apis': 'fetch("/x")',
+      'eval-call': 'eval("1")',
+      'function-constructor-call': 'new Function("return 1")',
+      'storage-and-worker-apis': 'indexedDB.open("x")',
+      'page-and-host-globals': 'window.top',
+      'module-and-runtime-apis': 'require("fs")',
+      'this-binding': 'const t = this',
+    }
+    for (const [id, sample] of Object.entries(probes)) {
+      expect(declared.map((pattern) => pattern.id), `契约里缺模式 ${id}`).toContain(id)
+      expect(validateJavaScriptSandbox(sample), `${id} 在网页端实现里没被拦`).toBeTruthy()
+    }
+  })
+})
+
+/**
+ * 从源码里取出 `ASSET_ALLOWED_EXTENSIONS` 的实际成员：它是一个 spread 组合
+ * （`[...ASSET_IMAGE_EXTENSIONS, ...ASSET_DOCUMENT_EXTENSIONS, ...ASSET_TEXT_EXTENSIONS]`），
+ * 所以「成员」= 那三档常量的并集，顺序按 spread 的书写顺序。
+ */
+function allowedExtensionsFromSource(source) {
+  const block = /export const ASSET_ALLOWED_EXTENSIONS:\s*readonly string\[\]\s*=\s*\[([\s\S]*?)\n\]/.exec(source)
+  expect(block, '读不到 ASSET_ALLOWED_EXTENSIONS：全集常量的写法变了').toBeTruthy()
+  const parts = [...(block?.[1] ?? '').matchAll(/\.\.\.([A-Z_]+)/g)].map((match) => match[1])
+  expect(parts.length, 'ASSET_ALLOWED_EXTENSIONS 不再是三档常量的 spread 组合：核对口径要跟着改').toBe(3)
+  const nameOf = { ASSET_IMAGE_EXTENSIONS: 'image', ASSET_DOCUMENT_EXTENSIONS: 'document', ASSET_TEXT_EXTENSIONS: 'text' }
+  expect(parts.map((name) => nameOf[name]), '全集的组合顺序与契约类别顺序不一致').toEqual(
+    assetContract.categories.map((category) => category.id),
+  )
+  return parts.flatMap((name) => stringArrayFromSource(source, name))
+}
+
+describe('附件白名单：网页端实现 == contracts/asset-whitelist.json', () => {
+  const contractCategory = (id) => assetContract.categories.find((category) => category.id === id)?.extensions ?? []
+
+  it('位图 / 文档 / 文本三档扩展名逐条相同（含顺序），全集等于三档并集', () => {
+    expect(stringArrayFromSource(wikilinkSource, 'ASSET_IMAGE_EXTENSIONS'), '位图档与契约不一致').toEqual(contractCategory('image'))
+    expect(stringArrayFromSource(wikilinkSource, 'ASSET_DOCUMENT_EXTENSIONS'), '文档档与契约不一致').toEqual(contractCategory('document'))
+    expect(stringArrayFromSource(wikilinkSource, 'ASSET_TEXT_EXTENSIONS'), '文本档与契约不一致').toEqual(contractCategory('text'))
+    expect(allowedExtensionsFromSource(wikilinkSource)).toEqual([
+      ...contractCategory('image'),
+      ...contractCategory('document'),
+      ...contractCategory('text'),
+    ])
+  })
+
+  it('接口路径与两条理由文案同源', async () => {
+    const { ASSET_ENDPOINT, resolveImageAttachment } = await importWebScript('src/content/wikilink.ts')
+    expect(ASSET_ENDPOINT).toBe(assetContract.endpoint)
+    expect(assetContract.neverOpened.extensions).toContain('svg')
+    const allowed = allowedExtensionsFromSource(wikilinkSource)
+    for (const ext of assetContract.neverOpened.extensions) {
+      expect(allowed, `${ext} 竟然在白名单里`).not.toContain(ext)
+      expect(resolveImageAttachment(`复习大纲/a.${ext}`).kind, `${ext} 竟然被内嵌显示`).toBe('text')
+    }
+    expect(resolveImageAttachment('复习大纲/a.pdf').kind).toBe('text')
+    expect(resolveImageAttachment('复习大纲/a.txt').kind).toBe('text')
+    expect(resolveImageAttachment('复习大纲/a.png')).toMatchObject({ kind: 'image', src: `${ASSET_ENDPOINT}?path=${encodeURIComponent('复习大纲/a.png')}` })
+  })
+
+  it('路径合法性那套规则：理由文案与求值顺序都取自契约', () => {
+    const declared = assetContract.pathRules.rules.map((rule) => rule.reason)
+    for (const reason of declared) {
+      // 契约里写的每一句拒绝理由，必须原样出现在网页端实现中（改文案不许只改一边）。
+      const numeric = reason.replace('{maxTargetLength}', String(assetContract.pathRules.maxTargetLength))
+      const templated = reason.replace('{maxTargetLength}', '${MAX_TARGET_LENGTH}')
+      expect(
+        wikilinkSource.includes(numeric) || wikilinkSource.includes(templated),
+        `网页端实现里找不到这句理由（模板串与插值后的成品都不在）：${reason}`,
+      ).toBe(true)
+    }
+    expect(wikilinkSource).toMatch(/MAX_TARGET_LENGTH = 300/)

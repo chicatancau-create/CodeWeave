@@ -1,0 +1,93 @@
+    if (!separator_row(row)) rows.push_back(row);
+  }
+  return rows;
+}
+
+std::string plain_cell(std::string value) {
+  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front()))) value.erase(value.begin());
+  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) value.pop_back();
+  if (value.size() >= 4 && value.starts_with("**") && value.ends_with("**")) {
+    value = value.substr(2, value.size() - 4);
+  }
+  return value;
+}
+
+int column_index(const std::vector<std::string>& header, std::initializer_list<std::string_view> names) {
+  for (const auto name : names) {
+    for (size_t index = 0; index < header.size(); ++index) {
+      if (plain_cell(header[index]) == name) return static_cast<int>(index);
+    }
+  }
+  return -1;
+}
+
+std::string cell_of(const std::vector<std::string>& row, int index) {
+  return index >= 0 && static_cast<size_t>(index) < row.size() ? plain_cell(row[index]) : "";
+}
+
+void require_table(const std::unordered_map<std::string, Section>& sections, std::string_view number,
+    std::vector<ProjectionIssue>& issues, std::vector<std::vector<std::string>>& rows) {
+  const auto found = sections.find(std::string(number));
+  if (found == sections.end()) {
+    issues.push_back({"section-" + std::string(number), "section", "缺少编号小节"});
+    return;
+  }
+  rows = first_table(found->second);
+  if (rows.size() < 1) issues.push_back({"section-" + std::string(number), "section", "小节内没有可解析的表格"});
+}
+
+}  // namespace
+
+ProgressProjection parse_progress(std::string_view markdown) {
+  ProgressProjection projection;
+  projection.read_only_notice = "本投影只读；环境核验不构成学习证据，不提升任何掌握等级，也不代表阶段通过。";
+  const auto normalized = normalize_newlines(markdown);
+  const auto lines = lines_of(normalized);
+  const auto sections = sections_of(lines);
+
+  for (const auto& line : lines) {
+    const auto marker = line.find("最近学习证据");
+    if (marker == std::string::npos) continue;
+    const auto marker_end = marker + std::string("最近学习证据").size();
+    auto date_start = line.find(':', marker_end);
+    const auto full_width_colon = line.find("：", marker_end);
+    if (date_start == std::string::npos || (full_width_colon != std::string::npos && full_width_colon < date_start)) {
+      date_start = full_width_colon;
+    }
+    if (date_start == std::string::npos) continue;
+    size_t begin = date_start + (line.compare(date_start, std::string("：").size(), "：") == 0 ? std::string("：").size() : 1);
+    while (begin < line.size() && std::isspace(static_cast<unsigned char>(line[begin]))) ++begin;
+    if (begin + 10 <= line.size()) {
+      const auto candidate = line.substr(begin, 10);
+      if (candidate[4] == '-' && candidate[7] == '-') {
+        projection.latest_evidence_on = candidate;
+        break;
+      }
+    }
+  }
+  if (projection.latest_evidence_on.empty()) {
+    projection.unparsed.push_back({"headerDates", "value", "顶部说明行未找到最近学习证据日期"});
+  }
+
+  std::vector<std::vector<std::string>> rows;
+  require_table(sections, "1", projection.unparsed, rows);
+  if (!rows.empty()) {
+    const auto value_index = column_index(rows.front(), {"当前值"});
+    if (value_index < 0) projection.unparsed.push_back({"section-1", "section", "表头缺少当前值列"});
+  }
+
+  rows.clear();
+  require_table(sections, "3", projection.unparsed, rows);
+  if (!rows.empty()) {
+    const auto level_index = column_index(rows.front(), {"等级"});
+    const auto status_index = column_index(rows.front(), {"状态"});
+    const auto evidence_index = column_index(rows.front(), {"最新证据"});
+    if (level_index < 0) {
+      projection.unparsed.push_back({"section-3", "section", "表头缺少等级列"});
+    } else {
+      for (size_t index = 1; index < rows.size(); ++index) {
+        const auto skill = cell_of(rows[index], 0);
+        if (skill.empty()) continue;
+        const auto level_raw = cell_of(rows[index], level_index);
+        const auto level = parse_mastery_level(level_raw);
+        if (level.kind == MasteryKind::Uncertain && level.label != "无法确认" && level.label != "未核验" &&

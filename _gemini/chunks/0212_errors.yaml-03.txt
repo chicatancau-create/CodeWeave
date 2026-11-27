@@ -1,0 +1,9 @@
+  - { code: export_failed,           status: 400,   meaning: "导出失败",                                       retryable: manual }
+  - { code: sync_conflict,           status: 409,   meaning: "目标文件已被外部改动，需重新预览",               retryable: manual }
+  - { code: stale_preview,           status: 409,   meaning: "预览已过期，提交前必须重新预览",                 retryable: manual }
+  - { code: structure_unsupported,   status: 409,   meaning: "目标文件结构不被支持",                           retryable: never }
+  - { code: rollback_blocked,        status: 409,   meaning: "回滚被阻断（后续事务已依赖它）",                 retryable: never }
+  - { code: operation_rolled_back,   status: 409,   meaning: "该事务已回滚，不能重复操作",                     retryable: never }
+  - { code: transaction_corrupt,     status: 409,   meaning: "事务记录损坏",                                   retryable: afterRepair }
+  - { code: progress_pending,        status: 409,   meaning: "部分成功：日志已写、进度写入中断，可幂等重试",   retryable: retry }
+  - { code: source_not_found,        status: 404,   meaning: "写回目标文件不存在",                             retryable: never }

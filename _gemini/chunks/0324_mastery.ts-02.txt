@@ -1,0 +1,115 @@
+export function reviewPlanCadence(plan: ReviewPlan): string {
+  const later = plan.offsets.filter((n) => n > 0).join('/')
+  if (plan.offsets.includes(0)) return later ? `当天与 ${later} 天` : '当天'
+  return `${later} 天`
+}
+
+/** 一行复测的完整口径：来源 + 节点 + 节点数（#33 裁定 4：界面必须说清它按哪一份节点排期）。 */
+export function describeReviewPlan(plan: ReviewPlan): string {
+  const sameDay = plan.offsets.includes(0) ? '学习当天 + ' : ''
+  const later = plan.offsets.filter((n) => n > 0)
+  const body = later.length > 0 ? `${sameDay}学完后第 ${later.join('、')} 天各一次` : '只在学习当天回顾一次'
+  return `按${reviewPlanSourceName(plan.source)}：${body}，共 ${plan.offsets.length} 个节点`
+}
+
+export function masteryLevelName(level: MasteryLevel): string {
+  return MASTERY_LEVEL_NAMES[level]
+}
+
+/**
+ * LEARN-01 第 4/5 条：完成证据落盘的那一行要自己说清「谁判的」。
+ * 改版前只有 `完成课程「…」` 一句，自动验证与自行声明在记录里长得一模一样。
+ * `cases` 为 null 表示这一课根本没有结构化验收点（或属外部真实环境练习）。
+ */
+export function lessonCompletionNote(
+  lessonTitle: string,
+  verification: CompletionVerification,
+  cases: { matched: number; total: number } | null,
+): string {
+  if (verification === 'auto-verified') {
+    return `自动验证通过：完成课程「${lessonTitle}」，该题验收点 ${cases?.matched ?? 0}/${cases?.total ?? 0} 整行命中（口径：精确整行、每行只用一次）`
+  }
+  return `自行声明完成：完成课程「${lessonTitle}」（${cases ? '验收点未全中' : '本课无结构化验收点或属外部真实环境练习'}，系统未比对输出）`
+}
+
+/**
+ * 由证据推进掌握等级（纯函数）。
+ * `planLength` 是**当前生效计划**的节点数（默认取本机兜底常量），用于封顶 `reviewStep`：
+ * 封顶必须跟着计划走，否则 6 档计划会在第 5 档就再也推不动、最后一个节点永远排不掉。
+ */
+export function applyEvidence(
+  record: MasteryRecord | undefined,
+  evidence: MasteryEvidence,
+  planLength: number = REVIEW_OFFSET_DAYS.length,
+): MasteryRecord {
+  const base: MasteryRecord = record
+    ? { ...record, evidence: [...record.evidence, evidence] }
+    : { refId: evidence.refId, kind: evidence.kind, level: 0, evidence: [evidence], updatedAt: evidence.at, reviewStep: 0 }
+
+  let level = base.level
+  let reviewStep = base.reviewStep
+  let reviewDueKey = base.reviewDueKey
+
+  if (evidence.passed) {
+    level = Math.min(MAX_MASTERY_LEVEL, level + 1) as MasteryLevel
+    if (evidence.kind === 'review') {
+      reviewStep = Math.min(planLength, reviewStep + 1)
+      // 复测通过后由调用方调用 scheduleNextReview 安排下一个节点；这里先清空，避免过期键残留。
+      reviewDueKey = undefined
+    }
+  } else if (evidence.kind === 'review') {
+    level = Math.max(0, level - 1) as MasteryLevel
+  }
+
+  return { ...base, level, reviewStep, reviewDueKey, updatedAt: evidence.at }
+}
+
+/** 本地日期偏移：委托给唯一的日期工具，避免多份等价实现产生漂移。 */
+export function addDaysKey(dateKey: string, days: number): string {
+  return shiftDateKey(dateKey, days)
+}
+
+/** 取第 step 个复测偏移天数；越界时回退到该计划的最后一个节点。空计划（不该出现）按 0 天处理。 */
+function reviewOffset(plan: readonly number[], step: number): number {
+  if (plan.length === 0) return 0
+  return plan[step] ?? plan[plan.length - 1] ?? 0
+}
+
+/**
+ * 完成学习后初始化复测计划：排在计划的**第 0 档**上。
+ * 标准计划第 0 档是 0（学习当天，§7.4 的第一档），落到当天就是「今天还要回顾一次」；
+ * 只有读不到发布规则、走本机兜底时第 0 档才是 1 天后。
+ */
+export function scheduleFirstReview(
+  record: MasteryRecord,
+  todayKey: string,
+  plan: readonly number[] = REVIEW_OFFSET_DAYS,
+): MasteryRecord {
+  return { ...record, reviewDueKey: addDaysKey(todayKey, reviewOffset(plan, 0)), reviewStep: 0 }
+}
+
+/** 复测通过后安排下一个节点；计划走完就清掉安排，不再谎称还有复测。 */
+export function scheduleNextReview(
+  record: MasteryRecord,
+  todayKey: string,
+  plan: readonly number[] = REVIEW_OFFSET_DAYS,
+): MasteryRecord {
+  const nextStep = record.reviewStep
+  if (nextStep >= plan.length) return { ...record, reviewDueKey: undefined }
+  return { ...record, reviewDueKey: addDaysKey(todayKey, reviewOffset(plan, nextStep)) }
+}
+
+/**
+ * 复测失败后重新安排同一节点（节点 0 是「学习当天」，重排仍落在当天：当天的那一档没过就当天再来一次，
+ * 要挪到明天请用 `snoozeReview`）。
+ */
+export function rescheduleReview(
+  record: MasteryRecord,
+  todayKey: string,
+  plan: readonly number[] = REVIEW_OFFSET_DAYS,
+): MasteryRecord {
+  const step = Math.max(0, record.reviewStep - (record.reviewStep > 0 ? 1 : 0))
+  return { ...record, reviewDueKey: addDaysKey(todayKey, reviewOffset(plan, step)), reviewStep: step }
+}
+
+/** 稍后提醒落在哪一天：REVIEW-01 要求界面把**实际顺延日期**说出来，所以规则只写一遍。 */

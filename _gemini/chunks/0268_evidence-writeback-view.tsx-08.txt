@@ -1,0 +1,93 @@
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="evidence-actions">
+            <button
+              className="subtle-button"
+              disabled={previewDisabled}
+              onClick={() => void runPreview()}
+              {...ewbDisabledProps(previewDisabled, 'ewb-preview-disabled-hint')}
+            >
+              <Send size={16} aria-hidden="true" /> ③ 预览将写入的内容
+            </button>
+            <EwbDisabledHint id="ewb-preview-disabled-hint" reasons={previewBlockers} />
+            <button className="subtle-button" disabled={busy} onClick={() => void exportPending()}>
+              <Download size={16} aria-hidden="true" /> 导出待保存 Markdown
+            </button>
+          </div>
+        </section>
+
+        {/* 部分成功（挂账⑤ + #35）：这一区说的事实有两个来源——优先说本页这次中断，
+            本页没有上下文时（刷新过、或另一个标签页）说服务端账本里最近一笔待补齐的事务。 */}
+        {(partial || serverPartial) && (
+          <section className="ewb-zone ewb-zone--partial" aria-label="部分成功的事务">
+            <h5 className="ewb-zone-head">
+              <span className="ewb-num" aria-hidden="true">
+                02
+              </span>
+              <StateMark tone="partial" />
+              <span className="ewb-zone-title">部分成功 · 已写入的步骤不会重复追加</span>
+            </h5>
+            <p className="ewb-banner ewb-banner--partial" role="status">
+              <span className="ewb-banner-body">
+                {shownPartial?.message} 事务已保留：可点击重试补齐（已写入的步骤不会重复追加）。
+                {partial ? null : '这条横幅读自服务端的事务记录：刷新界面它也还在，不再只活在这一次会话里。'}
+              </span>
+            </p>
+            <p className="ewb-opid">
+              <span className="ewb-opid-key">operationId</span>
+              <code className="ewb-opid-value">{shownPartial?.operationId}</code>
+            </p>
+            {/* 挂账⑤：重试带的是**真实指纹**，不通过传空对象关掉校验把流程走通。
+                指纹数量如实写出来，用户能看出补齐请求仍然受第三方改动保护。 */}
+            <p className="ewb-opid">
+              <span className="ewb-opid-key">重试沿用的目标指纹</span>
+              <code className="ewb-opid-value">
+                {partial ? Object.keys(partial.expectedHashes).length : (serverPartial?.targets.length ?? 0)} 项
+              </code>
+              <span className="ewb-opid-key">校验不关闭</span>
+            </p>
+            {/* 指纹是哪一代的必须写在界面上：本页预览给的那一批，与「重新载入后从这笔
+                事务自己的记录里读回来的同一批基线」不是一回事，说清楚用户才知道在据哪一次核对补齐。 */}
+            <p className="ewb-opid">
+              <span className="ewb-opid-key">指纹来源</span>
+              <span className="ewb-opid-value">
+                {partial
+                  ? partial.source === 'record'
+                    ? '服务端事务记录（界面重新载入后读回的同一批基线）'
+                    : '本次预览'
+                  : '点「重试补齐」时从服务端这笔事务的记录里读回'}
+              </span>
+            </p>
+            <div className="evidence-actions">
+              <button
+                className="subtle-button"
+                /* 本页确实带着这次预览的指纹、而指纹为空（目标清单是空的）时不给盲写入口；
+                   只有服务端记录可读时（重新载入后）照常可点——重试前先把它自己的基线读回来。 */
+                disabled={busy || (partial !== null && Object.keys(partial.expectedHashes).length === 0)}
+                onClick={() => void retryPartial(shownPartial?.operationId ?? '', partialHashes, partial?.source ?? 'preview')}
+              >
+                <RefreshCw size={16} aria-hidden="true" /> 重试补齐
+              </button>
+            </div>
+          </section>
+        )}
+
+        <section className="ewb-zone ewb-zone--synced" aria-label="已同步记录">
+          <h5 className="ewb-zone-head">
+            <span className="ewb-num" aria-hidden="true">
+              03
+            </span>
+            <StateMark tone="synced" />
+            <span className="ewb-zone-title">已同步 · 写入资料库并复核完成</span>
+          </h5>
+          {queueLoading && (
+            <p className="ewb-state ewb-state--loading">
+              <StateMark tone="loading" />
+              <span className="ewb-state-text">正在读取已同步记录…</span>
+            </p>
+          )}
+          {queueFailed && (

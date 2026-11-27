@@ -1,0 +1,65 @@
+                                                    implicitWidth: 5
+                                                    implicitHeight: 5
+                                                    radius: 3
+                                                    color: ds.terminalDot
+                                                    Layout.alignment: Qt.AlignVCenter
+                                                }
+                                            }
+                                            Text {
+                                                Layout.leftMargin: ds.s6
+                                                Layout.fillWidth: true
+                                                text: hostRoot.selectedLesson
+                                                      ? (hostRoot.selectedLesson.title || "选择课程")
+                                                      : "选择课程"
+                                                color: ds.faint
+                                                font.family: ds.ui
+                                                font.pixelSize: 9
+                                                elide: Text.ElideRight
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                        }
+                                        Rectangle {
+                                            anchors {
+                                                left: parent.left
+                                                right: parent.right
+                                                bottom: parent.bottom
+                                            }
+                                            height: 1
+                                            color: ds.line
+                                        }
+                                    }
+                                    ScrollView {
+                                        id: snippetScroll
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        Layout.minimumHeight: 120
+                                        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                                        Text {
+                                            // Needs an explicit width: inside a
+                                            // ScrollView a NoWrap Text otherwise
+                                            // collapses and the panel renders empty.
+                                            width: snippetScroll.availableWidth
+                                            objectName: "learningCodePreview"
+                                            text: hostRoot.selectedLesson && hostRoot.selectedLesson.code
+                                                  ? hostRoot.selectedLesson.code.split("\n").slice(0, 13).join("\n")
+                                                  : "选择带代码的课程后展示代码"
+                                            color: ds.codeInk
+                                            font.family: ds.mono
+                                            font.pixelSize: 11
+                                            lineHeight: 1.9
+                                            wrapMode: Text.NoWrap
+                                            padding: ds.s14
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s12
+                                text: "代码执行、单步追踪与变量观察在课程工作台中进行。"
+                                color: ds.faint
+                                font.family: ds.ui
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }

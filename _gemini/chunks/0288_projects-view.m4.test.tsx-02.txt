@@ -1,0 +1,112 @@
+    onDelete: vi.fn(),
+    onDuplicate: vi.fn(),
+    onUpdate: vi.fn(),
+    onSaveCheckpoint: vi.fn(),
+    onRestoreCheckpoint: vi.fn(),
+  }
+  const view = render(
+    <ProjectsView
+      projects={projects}
+      selectedProjectId={props.selectedProjectId ?? projects[0]?.id}
+      {...handlers}
+      {...props}
+    />,
+  )
+  return { ...view, projects, ...handlers }
+}
+
+beforeEach(() => {
+  localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+  vi.unstubAllGlobals()
+})
+
+describe('M4 项目页 · 编号列表', () => {
+  it('组件引入页面 CSS，样式表原文可读', () => {
+    expect(tsxText).toContain("import './projects-view.css'")
+    expect(cssText.length).toBeGreaterThan(4000)
+  })
+
+  it('项目清单是 ol[role=list] + li，编号为两位真实文本', () => {
+    renderView()
+    const list = document.querySelector('ol.project-list')
+    expect(list?.getAttribute('role')).toBe('list')
+    expect(document.querySelectorAll('.project-list-item')).toHaveLength(2)
+    const first = screen.getByRole('button', { name: /循环累加练习/ })
+    expect(first.querySelector('.project-card-no')?.textContent).toBe('01')
+    expect(first.closest('li')).toBeTruthy()
+    expect(first.getAttribute('aria-pressed')).toBe('true')
+    expect(
+      screen.getByRole('button', { name: /一个特别长的中文项目名/ }).querySelector('.project-card-no')?.textContent,
+    ).toBe('02')
+  })
+
+  it('检查点也是编号清单，序号 + 时间 + 文件数 + 恢复动作成行', () => {
+    renderView({
+      projects: [
+        project({
+          checkpoints: [
+            { id: 'cp-2', at: '2026-09-11T08:00:00.000Z', files: [file()] },
+            { id: 'cp-1', at: '2026-09-09T08:00:00.000Z', files: [file(), file({ id: 'file-2' })] },
+          ],
+        }),
+      ],
+    })
+    const rows = document.querySelectorAll('.checkpoint-row')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.querySelector('.checkpoint-no')?.textContent).toBe('01')
+    expect(rows[1]!.querySelector('.checkpoint-no')?.textContent).toBe('02')
+    expect(rows[1]!.textContent).toContain('2 个文件')
+    expect(document.querySelector('.checkpoint-counter')?.textContent).toContain('已存 02 / 10')
+  })
+
+  it('CSS 不注入编号文字：无 counter，伪元素只画几何图形', () => {
+    expect(cssCode).not.toMatch(/counter\(|counters\(/)
+    const contents = [...cssCode.matchAll(/(?<![\w-])content:\s*([^;]+)/g)].map((match) => match[1]!.trim())
+    expect(contents.every((value) => value === "''")).toBe(true)
+  })
+})
+
+describe('M4 项目页 · 草稿与快照两个区', () => {
+  it('01 本机草稿：写明即时写本机、未快照回不去', () => {
+    renderView()
+    const draft = document.querySelector('.project-zone--draft')
+    expect(draft?.textContent).toContain('本机草稿')
+    expect(draft?.textContent).toContain('未快照前回不到旧版本')
+    expect(draft?.textContent).toContain('草稿状态')
+    expect(draft?.textContent).toContain('1 个文件 · 1 行')
+    expect(draft?.textContent).toContain('这部分只存在本机')
+    // 编辑器与命名/描述输入都属于草稿区
+    expect(draft?.querySelector('.project-code')).toBeTruthy()
+    expect(draft?.querySelector('.challenge-submit')).toBeNull()
+  })
+
+  it('02 检查点快照：写明可恢复，并预告恢复前自动留安全点', () => {
+    renderView()
+    const zone = document.querySelector('.project-zone--snapshot')
+    expect(zone?.textContent).toContain('检查点快照')
+    expect(zone?.textContent).toContain('本地保留最近 10 个')
+    expect(zone?.textContent).toContain('恢复前会先用当前草稿自动留一个安全点')
+    expect(zone?.textContent).toContain('还没有检查点')
+  })
+
+  it('两个区靠形状分：草稿虚线边、快照实线边', () => {
+    expect(ruleBody('.projects-view .project-zone--draft')).toContain('border-style: dashed')
+    expect(ruleBody('.projects-view .project-zone--snapshot')).toContain('border-style: solid')
+  })
+
+  it('保存检查点：只上抛 projectId，快照口径由 use-projects 负责（不改判定语义）', () => {
+    const { onSaveCheckpoint, projects } = renderView()
+    fireEvent.click(screen.getByRole('button', { name: /保存检查点/ }))
+    expect(onSaveCheckpoint).toHaveBeenCalledTimes(1)
+    expect(onSaveCheckpoint.mock.calls[0]).toEqual([projects[0]!.id])
+  })
+
+  it('恢复检查点：把 projectId 与所选 checkpointId 原样上抛', () => {
+    const { onRestoreCheckpoint } = renderView({
+      projects: [
+        project({

@@ -1,0 +1,85 @@
+                            Layout.fillWidth: true
+                            text: "目标输出"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: {
+                                const values = uiShell.selectedChallenge.targetOutput || [];
+                                return values.length ? values.map(function(value) { return "› " + value; }).join("\n")
+                                                     : "暂无目标输出。";
+                            }
+                            color: ds.ink
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "证据清单"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: {
+                                const values = uiShell.selectedChallenge.evidence || [];
+                                return values.length ? values.map(function(value) { return "□  " + value; }).join("\n")
+                                                     : "暂无证据清单。";
+                            }
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            lineHeight: 1.5
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "技术栈与说明"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "技术栈：" + ((uiShell.selectedChallenge.stack || []).join(" / ") || "暂无")
+                                  + "\n\n" + (uiShell.selectedChallenge.explanation || "暂无补充说明。")
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            lineHeight: 1.5
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "前置关卡"
+                            color: ds.accent
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: {
+                                const values = uiShell.selectedChallenge.prerequisites || [];
+                                return values.length ? values.join("、") : "无前置关卡";
+                            }
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillHeight: true; width: 1; color: ds.line }
+
+                ScrollView {
+                    id: labScroll
+                    objectName: "challengeLabSection"

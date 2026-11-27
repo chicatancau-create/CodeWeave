@@ -1,0 +1,71 @@
+    check()
+    expect(tokenize).toHaveBeenCalledTimes(500)
+    lines[250] = 'const edited = 500;'
+    check()
+    expect(tokenize).toHaveBeenCalledTimes(501)
+    lines.splice(10, 0, 'const inserted = 501;')
+    check()
+    expect(tokenize).toHaveBeenCalledTimes(502)
+    lines.splice(15, 1)
+    check()
+    expect(tokenize).toHaveBeenCalledTimes(502)
+  })
+
+  it('重复行只解析一次；移除的行不会保留在缓存中', () => {
+    const tokenize = vi.fn(tokenizeCode)
+    const cached = createCachedTokenizer(tokenize)
+    cached('let a = 1\nlet a = 1\nlet b = 2', 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(2)
+    cached('let b = 2', 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(2)
+    cached('let a = 1\nlet b = 2', 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(3)
+  })
+
+  it('切换语言、清空文档或回退全文解析都会丢弃旧行缓存', () => {
+    const tokenize = vi.fn(tokenizeCode)
+    const cached = createCachedTokenizer(tokenize)
+    const line = 'let value = 1;'
+    for (const language of ['javascript', 'python', 'javascript'] as const) {
+      expect(cached(line, language)).toEqual(tokenizeCode(line, language))
+    }
+    expect(tokenize).toHaveBeenCalledTimes(3)
+    expect(cached('', 'javascript')).toEqual([])
+    cached(line, 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(4)
+    cached('/* comment\nend */', 'javascript')
+    cached(line, 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(6)
+  })
+
+  it('两个实例互不共享文档缓存', () => {
+    const tokenize = vi.fn(tokenizeCode)
+    const first = createCachedTokenizer(tokenize)
+    const second = createCachedTokenizer(tokenize)
+    const code = 'let value = 1;'
+    first(code, 'javascript')
+    second(code, 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(2)
+    first(code, 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(2)
+    second('let other = 2;', 'javascript')
+    first(code, 'javascript')
+    expect(tokenize).toHaveBeenCalledTimes(3)
+  })
+
+  it('合并相邻 plain token 时不修改缓存结果或此前返回的 token', () => {
+    const tokenize = vi.fn((code: string, language: LanguageId) => {
+      const tokens = tokenizeCode(code, language)
+      for (const token of tokens) Object.freeze(token)
+      Object.freeze(tokens)
+      return tokens
+    })
+    const cached = createCachedTokenizer(tokenize)
+    const first = cached('plain\ntail', 'javascript')
+    expect(first).toEqual([{ type: 'plain', text: 'plain\ntail' }])
+    expect(cached('plain\nchanged', 'javascript')).toEqual(tokenizeCode('plain\nchanged', 'javascript'))
+    expect(first).toEqual([{ type: 'plain', text: 'plain\ntail' }])
+    first[0]!.text = 'caller changed output'
+    expect(cached('plain\ntail', 'javascript')).toEqual(tokenizeCode('plain\ntail', 'javascript'))
+  })
+})

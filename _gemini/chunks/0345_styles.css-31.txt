@@ -1,0 +1,181 @@
+  color: var(--muted);
+}
+
+.tag-vault {
+  border-color: var(--accent-ring);
+  color: var(--accent);
+}
+
+.tag-legacy {
+  border-color: rgba(255, 196, 87, 0.34);
+  color: var(--c-yellow);
+}
+
+.tag-verification.ok {
+  border-color: rgba(63, 211, 164, 0.34);
+  color: var(--c-green);
+}
+
+.tag-verification.warn {
+  border-color: rgba(255, 131, 113, 0.34);
+  color: var(--c-coral);
+}
+
+.reading-pane {
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--inset);            /* 编辑器与长文阅读区：纯黑底，边界靠发丝线 */
+  padding: var(--ds-space-16, 16px) var(--ds-space-20, 20px);
+  max-height: 46vh;
+  overflow: auto;
+}
+
+.reading-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  margin-bottom: var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--hair) solid var(--line);
+}
+
+.reading-head span {
+  font-size: var(--ds-size-control, 13px);
+  color: var(--faint);
+}
+
+.reading-head strong {
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+
+.reading-head em {
+  font-style: normal;
+  font-size: var(--ds-size-control, 13px);
+  color: var(--c-coral);
+}
+
+/* 阅读面：§5.4「正文建议默认 16px 左右、行高 1.6–1.75」。
+   原文阅读是正文场景，不走模板 10.5px HUD 档。 */
+.md-view {
+  font-size: 15px;
+  line-height: var(--leading-body);
+  color: var(--ink);
+  max-width: 72ch;
+}
+
+.md-view h3,
+.md-view h4,
+.md-view h5,
+.md-view h6 {
+  margin: var(--ds-space-14, 14px) 0 var(--ds-space-6, 6px);
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: var(--track-title);
+  line-height: var(--leading-title);
+}
+
+.md-view p {
+  margin: var(--ds-space-6, 6px) 0;
+}
+
+.md-view ul,
+.md-view ol {
+  margin: var(--ds-space-6, 6px) 0;
+  padding-left: var(--ds-space-20, 20px);
+}
+
+.md-view li {
+  margin: var(--ds-space-4, 4px) 0;
+}
+
+.md-view blockquote {
+  margin: var(--ds-space-8, 8px) 0;
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  border-left: 2px solid var(--line-strong);
+  background: var(--scrim);
+  color: var(--muted);
+}
+
+.md-view blockquote p {
+  margin: var(--ds-space-2, 2px) 0;
+}
+
+.md-view code {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  border-radius: var(--radius);
+  background: var(--scrim-raised);     /* 原 --overlay 现在是纯黑，等于看不见 */
+  color: var(--c-cyan);
+  font-size: 14px;
+}
+
+.md-view .md-code {
+  margin: var(--ds-space-8, 8px) 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--scrim);
+  overflow-x: auto;
+}
+
+.md-view .md-code code {
+  background: none;
+  padding: 0;
+  color: var(--ink);
+}
+
+.md-wikilink {
+  color: var(--accent-hover);
+  border-bottom: 1px dashed rgba(34, 211, 238, 0.5);
+  cursor: help;
+}
+
+.lesson-source {
+  margin-top: var(--ds-space-14, 14px);
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--hair) solid var(--line);
+}
+
+.lesson-source-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+}
+
+.lesson-source-head span {
+  font-size: var(--ds-size-control, 13px);
+  color: var(--faint);
+}
+
+.lesson-source-head strong {
+  color: var(--ink-strong);
+  font-size: var(--ds-size-control, 13px);
+}
+
+.lesson-source-path,
+.lesson-source-ids {
+  margin: var(--ds-space-6, 6px) 0 0;
+  font-size: var(--editor-font-size);
+  color: var(--faint);
+  word-break: break-all;
+}
+
+.lesson-source-actions {
+  margin-top: var(--ds-space-8, 8px);
+}
+
+/* ---------------------------------------------------------------------------
+   LINK-07 键盘可见焦点兜底。
+   背景：全站焦点样式在文件中部定义，而若干组件（.field-label input、.auth-form input、
+   .global-search__input、.code-textarea、.project-code）在**后面**用同等优先级写了
+   `outline: 0`，按源码顺序会把这些控件的焦点轮廓覆盖掉。真实浏览器验收因此
+   报告「键盘 Tab 后看不到焦点」。这里在文件末尾用更高的优先级补齐，
+   不改动各组件原有的边框/阴影设计，只保证键盘焦点始终可见。
+--------------------------------------------------------------------------- */
+html button:focus-visible,
+html a:focus-visible,
+html input:focus-visible,
+html select:focus-visible,

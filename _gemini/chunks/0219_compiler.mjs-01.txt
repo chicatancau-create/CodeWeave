@@ -1,0 +1,110 @@
+/**
+ * 内容编译器（LINK-04）：资料库 → 候选内容包。
+ *
+ * 单向只读：只读资料库，绝不写回任何知识正文、进度或日志。
+ * 输出是**派生包**（写进应用数据目录），失败时不发布，旧包继续可用。
+ *
+ * 主要职责：
+ * 1. 白名单扫描「复习大纲」正式正文（knowledge-volume / knowledge-extension）。
+ * 2. 维护稳定 topicId 登记（主题移动只更新定位，不重新分配 ID）。
+ * 3. 解析教学单元与练习契约，做引用与结构校验。
+ * 4. 校验规则投影的来源 hash；源标准变化时规则置 stale，不覆盖上次有效规则。
+ * 5. 产出候选包 + 差异/缺口报告。
+ */
+import { collectPublishedAssets } from './asset-objects.mjs'
+import { compileLegacyAliases } from './identity.mjs'
+import {
+  ContentError,
+  findSection,
+  headings,
+  normalizeText,
+  parseRestrictedFrontmatter,
+  parseSectionRef,
+  sha256,
+  stableStringify,
+  topicsFromVolume,
+} from './markdown.mjs'
+import { listMarkdownFiles, readVaultText, resolveVaultRoot } from './vault-paths.mjs'
+import { VERIFICATION_STATUS, checkSourceConsistency, loadSourceCards } from './sources.mjs'
+import {
+  DEFAULT_TOPIC_INDEX_PATH,
+  classifyTopic,
+  diffTopicIndex,
+  isPublishable,
+  isTeachable,
+  parseTopicIndex,
+  reconcileTopicCounts,
+} from './topic-spec.mjs'
+import { ID_MAP_SCHEMA_VERSION, parseIdMap, planIdMap } from './id-map.mjs'
+
+export const COMPILER_VERSION = 2
+export const BUNDLE_SCHEMA_VERSION = 1
+export const LESSON_KINDS = ['reading', 'example', 'guided', 'exercise', 'project']
+export const UNIT_STATUS = ['draft', 'published', 'retired']
+export const EXECUTION_POLICIES = ['worker', 'teaching', 'external']
+export const RELATION_KINDS = ['exact', 'partial', 'split', 'merge', 'unmapped']
+export const REVIEW_STATUS = ['pending', 'reviewed', 'blocked']
+export const TOPIC_HASH_FIELDS = ['topicId', 'path', 'headingPath', 'contentHash']
+
+/** 允许纳入课程包的正文类型与排除项由 manifest 的 publishWhitelist 决定。 */
+function whitelistOf(manifest) {
+  const list = manifest?.publishWhitelist
+  if (!list || typeof list !== 'object') {
+    throw new ContentError('invalid_manifest', 'manifest 缺少 publishWhitelist')
+  }
+  return {
+    contentRoot: list.contentRoot ?? '复习大纲',
+    contentTypes: list.contentTypes ?? ['knowledge-volume', 'knowledge-extension'],
+    excludedPathSegments: list.excludedPathSegments ?? [],
+    excludedPathPrefixes: list.excludedPathPrefixes ?? [],
+    teachingUnitDir: list.teachingUnitDir ?? 'CodeWeave/教学单元',
+    exerciseDir: list.exerciseDir ?? 'CodeWeave/练习',
+    sourceRoot: list.sourceRoot ?? '知识来源',
+    rulesPath: list.rulesPath ?? 'CodeWeave/rules/teaching-rules.json',
+    legacyMapPath: list.legacyMapPath ?? 'CodeWeave/mappings/legacy-map.json',
+    topicIdMapPath: list.topicIdMapPath ?? 'CodeWeave/mappings/topic-id-map.json',
+    topicIndexPath: list.topicIndexPath ?? DEFAULT_TOPIC_INDEX_PATH,
+  }
+}
+
+async function readJsonIfExists(root, relPath, fingerprints) {
+  try {
+    const text = await readVaultText(root, relPath)
+    fingerprints[relPath] = sha256(text)
+    return JSON.parse(text)
+  } catch (error) {
+    if (error?.code === 'source_not_found') {
+      fingerprints[relPath] = null
+      return null
+    }
+    if (error instanceof SyntaxError) {
+      throw new ContentError('invalid_manifest', `${relPath}: JSON 解析失败 ${error.message}`)
+    }
+    throw error
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 主题登记：稳定 ID 分配
+// ---------------------------------------------------------------------------
+export function topicKey(path, headingPath) {
+  return `${path}#${headingPath.join(' > ')}`
+}
+
+export function formatSectionRef(path, headingPath) {
+  return `${path}#${headingPath.join(' > ')}`
+}
+
+/**
+ * 用扫描结果刷新主题登记表（DATA-03）。
+ * 顺序：显式迁移映射 → 精确命中 → 唯一标题链的移动 → 新增。
+ * - 显式映射（topic-id-map.json）完全决定归属，优先于任何猜测；
+ * - 精确命中（路径 + 标题链）→ 保留原 ID；
+ * - 标题链相同且只有唯一候选、原文件已消失 → 视为移动，保留原 ID 并记 movedFrom；
+ * - 同文件里旧标题消失、新标题出现而**没有**映射 → 阻断 `id_map_required`，改名不自动继承；
+ * - 多个候选 → 阻断 `id_map_ambiguous`，要求指定归属；
+ * - 其余新增 → 追加新 ID；消失的标记 retired 并写明退役原因，不删除记录。
+ */
+export function refreshTopicRegistry(existing, scanned, startSeq, idMapEntries = []) {
+  const registry = existing.map((topic) => ({ ...topic }))
+  const byId = new Map(registry.map((topic) => [topic.topicId, topic]))

@@ -1,0 +1,65 @@
+                            }
+                            radius: ds.radius
+                            color: chHover.hovered ? ds.scrim : "transparent"
+                            border.width: challengeCard.activeFocus ? 1 : 0
+                            border.color: ds.accent
+
+                            // status left bar — 悬停时宽度从 1px 过渡到 3px（220ms）
+                            Rectangle {
+                                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                                width: chHover.hovered ? 3 : 1
+                                color: {
+                                    const k = chStatus(modelData);
+                                    // 6 档状态色映射
+                                    if (k === "not-started") return ds.faint;           // 未开始：faint 色
+                                    if (k === "external-pending") return ds.warning;    // 外部待定：warn 色
+                                    if (k === "unsupported") return ds.danger;          // 不支持：danger 色
+                                    if (k === "ready-to-submit") return ds.info;        // 可提交：info 色
+                                    if (k === "pending-verify") return ds.accent;       // 待确认：accent 色
+                                    if (k === "passed") return ds.success;              // 已通过：success 色
+                                    if (k === "rejected") return ds.danger;             // 人工驳回：danger 色
+                                    return ds.line;
+                                }
+
+                                Behavior on width {
+                                    NumberAnimation { duration: ds.durBase; easing.type: ds.easingType }
+                                }
+                                Behavior on color {
+                                    ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                }
+                            }
+
+                            // Anchored rather than stacked: the meta row is pinned
+                            // to the bottom and the text is clipped from the top,
+                            // so a long title can never push the meta row into the
+                            // next grid cell.
+                            Item {
+                                anchors.fill: parent
+                                anchors.margins: ds.s14
+                                clip: true
+
+                                // .stage-card-top
+                                RowLayout {
+                                    id: cardTop
+                                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                                    spacing: ds.s10
+                                    Text {   // .stage-card-no
+                                        objectName: "challengeSequenceNumber"
+                                        text: challengePage.challengeSequence(modelData)
+                                        color: ds.accent
+                                        font.family: ds.mono
+                                        font.pixelSize: 14
+                                        font.letterSpacing: 2
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+                                    Rectangle {   // .stage-badge
+                                        implicitWidth: 26
+                                        implicitHeight: 26
+                                        radius: 0
+                                        color: "transparent"
+                                        border.color: ds.lineStrong
+                                        border.width: 1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.stageId || ""

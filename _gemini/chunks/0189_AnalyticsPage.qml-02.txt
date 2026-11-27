@@ -1,0 +1,79 @@
+                        spacing: ds.s20
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            // .eyebrow — the page's only mono text
+                            RowLayout {
+                                spacing: ds.s8
+                                Rectangle {   // .eyebrow-dot
+                                    implicitWidth: 6
+                                    implicitHeight: 6
+                                    radius: 3
+                                    color: ds.accent
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Text {
+                                    text: "学习分析"
+                                    color: ds.muted
+                                    font.family: ds.mono
+                                    font.pixelSize: 13
+                                    font.letterSpacing: 3.1
+                                    font.capitalization: Font.AllUppercase
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Text {
+                                text: "学习分析仪表盘"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 24
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.5
+                                lineHeight: 1.4
+                            }
+                            Text {
+                                Layout.topMargin: ds.s8
+                                text: "统计周期：近 7 天（" + analyticsPage.period + "，按学习证据时间）。"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+
+                    // dl.an-specs
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        Layout.bottomMargin: ds.s24
+                        spacing: 0
+                        Rectangle {   // list top hairline
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: analyticsPage.specWidth
+                            height: 1
+                            color: ds.line
+                        }
+                        Repeater {
+                            model: [
+                                { dt: "窗口",
+                                  dd: analyticsPage.weekStartKey + " 至 "
+                                      + analyticsPage.todayKey + "（含今天，共 7 个本地日期）" },
+                                { dt: "归日口径",
+                                  dd: "证据时间一律按本地日期归日，不把 UTC 日期当本地日期" },
+                                { dt: "数据来源",
+                                  dd: "本机课程执行、显式完成、复测事实与挑战提交档案；打卡尚无数据源" }
+                            ]
+                            delegate: ColumnLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: analyticsPage.specWidth
+                                spacing: 0
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: ds.s12
+                                    Layout.bottomMargin: ds.s12
+                                    spacing: ds.s12
+                                    Text {
+                                        // 11ch at 12.5px, uppercase-tracked
+                                        Layout.preferredWidth: 128

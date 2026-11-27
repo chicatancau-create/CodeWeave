@@ -1,0 +1,60 @@
+      report.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
+      report.insert(QStringLiteral("screenshots"), QJsonArray::fromStringList(smoke_screenshots));
+      report.insert(QStringLiteral("geometry"), smoke_geometry);
+      report.insert(QStringLiteral("popupGeometry"), smoke_popup_geometry);
+      report.insert(QStringLiteral("settingsRows"), smoke_settings_rows);
+      report.insert(QStringLiteral("settingsText"), smoke_settings_text);
+      report.insert(QStringLiteral("settingsInitialViewport"), smoke_settings_initial_viewport);
+      report.insert(QStringLiteral("platformName"), QGuiApplication::platformName());
+      report.insert(QStringLiteral("topbarGeometry"), smoke_topbar_geometry);
+      report.insert(QStringLiteral("sidebarGeometry"), smoke_sidebar_geometry);
+      report.insert(QStringLiteral("referenceAccount"), topbar_reference >= 0);
+      report.insert(QStringLiteral("preferenceStorageReady"), shell.preferenceStorageReady());
+      report.insert(QStringLiteral("preferenceStorageUnavailableSmoke"),
+          smoke_preference_storage_unavailable);
+      report.insert(QStringLiteral("referenceSubject"), topbar_reference >= 0 ? QStringLiteral("Python") : QString());
+      report.insert(QStringLiteral("accountName"), shell.accountName());
+      report.insert(QStringLiteral("accountContact"), shell.accountContact());
+      report.insert(QStringLiteral("lessonCount"), shell.lessonMeta().size());
+      QJsonArray lesson_ids;
+      for (const auto& lesson : shell.lessonMeta()) lesson_ids.append(lesson.toMap().value("id").toString());
+      report.insert(QStringLiteral("lessonIds"), lesson_ids);
+      auto* study = view.rootObject()->findChild<QObject*>(QStringLiteral("studyPageRoot"));
+      QJsonArray filtered_ids;
+      if (study) {
+        for (const auto& lesson : study->property("filteredLessons").value<QJSValue>().toVariant().toList())
+          filtered_ids.append(lesson.toMap().value("id").toString());
+      }
+      report.insert(QStringLiteral("filteredLessonIds"), filtered_ids);
+      report.insert(QStringLiteral("selectedLesson"), QJsonObject::fromVariantMap(
+          view.rootObject()->property("selectedLesson").toMap()));
+      QFile report_file(report_path);
+      return report_file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
+          report_file.write(QJsonDocument(report).toJson(QJsonDocument::Indented)) >= 0 && report_file.flush();
+  };
+  const auto capture_topbar = [&](const QString& name) {
+    if (name == QStringLiteral("topbar-shell")) {
+      const QStringList items{QStringLiteral("topbarBrand"), QStringLiteral("topbarAreas"),
+          QStringLiteral("globalSearchBox"), QStringLiteral("topbarActions")};
+      for (const auto& item_name : items) {
+        auto* item = view.rootObject()->findChild<QQuickItem*>(item_name);
+        if (!item || !item->isVisible() || item->width() <= 0 || item->height() <= 0) {
+          diagnostic = QStringLiteral("Topbar geometry item is missing: ") + item_name;
+          write_smoke_report();
+          return false;
+        }
+        const auto origin = item->mapToItem(view.rootObject(), QPointF());
+        smoke_topbar_geometry.append(QJsonObject{{"name", item_name}, {"x", origin.x()},
+            {"y", origin.y()}, {"width", item->width()}, {"height", item->height()}});
+      }
+    }
+    const auto expected = name.endsWith(QStringLiteral("small")) ? QSize(1100, 720) : QSize(1440, 900);
+    if (view.size() != expected) {
+      diagnostic = QStringLiteral("Capture %1 expected %2x%3, got %4x%5")
+          .arg(name).arg(expected.width()).arg(expected.height()).arg(view.width()).arg(view.height());
+      write_smoke_report();
+      return false;
+    }
+    if (name == QStringLiteral("topbar-shell-small")) {
+      auto* sidebar = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("sidebar"));
+      auto* contents = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("sidebarContents"));

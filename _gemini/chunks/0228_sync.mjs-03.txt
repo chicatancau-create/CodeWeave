@@ -1,0 +1,33 @@
+        const isCheckin = change.kind === 'learning.checkin.recorded'
+        const checkin = isCheckin ? getCheckin.get(accountId, vaultId, change.localDate, change.timeZone) : null
+        const cause = content.conflict ?? (mutable && (change.baseRevision ?? null) !== (current?.sequence ?? null) ? 'revision_conflict' : null)
+        if (cause) {
+          const id = randomUUID()
+          const details = { id, cause, incoming: event, current: current ? { sequence: current.sequence, ...JSON.parse(current.event_json) } : null }
+          saveConflict.run(id, accountId, vaultId, JSON.stringify(details))
+          outcome = { status: 'conflict', conflictId: id, code: cause }
+        } else if (checkin) {
+          outcome = { status: 'accepted', sequence: checkin.sequence }
+        } else {
+          const inserted = append.run(accountId, vaultId, change.changeId, JSON.stringify(event))
+          const sequence = Number(inserted.lastInsertRowid)
+          if (entityKey) setRevision.run(accountId, vaultId, entityKey, sequence)
+          if (isCheckin) recordCheckin.run(accountId, vaultId, change.localDate, change.timeZone, sequence)
+          outcome = { status: 'accepted', sequence }
+        }
+        recordRequest.run(accountId, change.changeId, requestHash, JSON.stringify(outcome))
+      }
+      db.exec('COMMIT')
+      return outcome
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  return {
+    state, pull, push,
+    conflicts: (scope) => listConflicts.all(scope.accountId, scope.vaultId).map((row) => JSON.parse(row.details_json)),
+    bumpEpoch: () => saveSetting.run('syncEpoch', randomUUID()),
+  }
+}

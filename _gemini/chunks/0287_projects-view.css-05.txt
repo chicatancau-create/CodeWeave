@@ -1,0 +1,163 @@
+  font-size: var(--pv-body);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.projects-view .project-zone-scope {
+  color: var(--pv-faint);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.04em;
+}
+
+.projects-view .field-label {
+  gap: var(--ds-space-8, 8px);
+  margin-top: 0;
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.projects-view .field-label textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.projects-view .project-draft-state {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  line-height: 1.6;
+}
+
+.projects-view .project-draft-state svg {
+  flex: 0 0 auto;
+  color: var(--pv-faint);
+}
+
+.projects-view .project-draft-state-label {
+  color: var(--pv-faint);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.projects-view .file-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-4, 4px) 0 0;
+  padding: var(--ds-space-10, 10px) 0 0;
+  border-top: var(--pv-hair-width) solid var(--pv-hair);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.projects-view .project-file {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-top: 0;
+  border: var(--pv-hair-width) solid var(--pv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+}
+
+.projects-view .file-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+  background: var(--pv-scrim);
+  color: var(--pv-ink);
+  font-size: var(--pv-meta);
+}
+
+.projects-view .file-meta svg {
+  color: var(--pv-faint);
+}
+
+.projects-view .file-meta strong {
+  font-size: var(--pv-body);
+  font-weight: 600;
+}
+
+.projects-view .file-meta span {
+  color: var(--pv-faint);
+  font-size: var(--pv-meta);
+}
+
+/* 长代码行：保持 pre + 横向滚动，不压缩、不换行折行（§5.4） */
+.projects-view .project-code {
+  width: 100%;
+  min-height: 140px;
+  padding: var(--ds-space-12, 12px);
+  overflow-x: auto;
+  color: var(--pv-ink);
+  border: 0;
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--pv-mono);
+  font-size: var(--editor-font-size, 13px);                          /* 编辑器保留用户字号（§5.4） */
+  line-height: var(--pv-leading);
+  white-space: pre;
+  resize: vertical;
+}
+
+.projects-view .project-code:focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: -2px;
+}
+
+/* ============================================================================
+   4. 检查点（快照区）
+   ========================================================================== */
+
+.projects-view .checkpoint-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  flex-wrap: wrap;
+}
+
+.projects-view .checkpoint-counter {
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .checkpoint-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--pv-hair-width) solid var(--pv-info);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--pv-info-wash);
+  color: var(--pv-info);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .checkpoint-note svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+
+.projects-view .checkpoint-empty {
+  padding: var(--ds-space-12, 12px);
+  border: var(--pv-hair-width) dashed var(--pv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--pv-dim);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+

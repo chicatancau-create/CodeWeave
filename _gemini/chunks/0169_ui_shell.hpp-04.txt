@@ -1,0 +1,90 @@
+  Q_INVOKABLE void registerAccount(const QString& name, const QString& identifier,
+      const QString& password);
+  Q_INVOKABLE void logout();
+  Q_INVOKABLE void changePassword(const QString& currentPassword, const QString& newPassword);
+  Q_INVOKABLE void openFreeProgram(const QString& language);
+  Q_INVOKABLE void requestDataAction(const QString& action);
+  Q_INVOKABLE void requestToolSelection();
+  bool performDataAction(const QString& action, const std::filesystem::path& source,
+      const std::filesystem::path& target);
+  [[nodiscard]] std::filesystem::path nativeDataRoot() const { return native_data_root_; }
+  Q_INVOKABLE void loadHints();
+  Q_INVOKABLE void saveExternalEvidence(const QString& environment, const QString& command,
+      const QString& summary, const QString& artifactRef, const QString& reproducedOn);
+  Q_INVOKABLE void runCode();
+  [[nodiscard]] QVariantMap executionTrace() const { return execution_trace_; }
+  Q_INVOKABLE void cancelExecution();
+  Q_INVOKABLE void pauseExecution();
+  Q_INVOKABLE void resumeExecution();
+  Q_INVOKABLE void stepExecution();
+  Q_INVOKABLE void refreshReviewSummary();
+  Q_INVOKABLE void reviewItem(const QString& itemId, bool passed, const QString& note);
+  Q_INVOKABLE void snoozeReview(const QString& itemId);
+
+  // Trusted host configuration; QML never supplies filesystem paths or tool paths.
+  // The executable is selected by the native host for the current language.
+  void configureExecutionTool(const QString& language, const std::filesystem::path& tool);
+  bool createBackup(const std::filesystem::path& source, const std::filesystem::path& target);
+  bool restoreBackup(const std::filesystem::path& backup, const std::filesystem::path& target);
+
+  Q_INVOKABLE void selectPage(const QString& page);
+
+ signals:
+  void dataActionRequested(const QString& action);
+  void toolSelectionRequested(const QString& language);
+  void vaultSelectionRequested();
+  void vaultWritebackChanged();
+  void executionOptionsChanged();
+  void currentPageChanged();
+  void publishedTitlesChanged();
+   void publishedIdsChanged();
+  void challengeSelectionChanged();
+  void challengeCodeChanged();
+  void challengeRunResultChanged();
+  void challengeRunBusyChanged();
+  void challengeHistoryChanged();
+  void selectedContentBodyChanged();
+  void selectedContentChanged();
+  void starterCodeChanged();
+  void draftChanged();
+  void draftDirtyChanged();
+  void accountChanged();
+  void draftSavingChanged();
+  void draftPersistenceBlockedChanged();
+  void contentStatusChanged();
+  void contentBusyChanged();
+  void accountBusyChanged();
+  void accountStatusChanged();
+  void hintsChanged();
+  void operationStatusChanged();
+  void operationBusyChanged();
+  void executionBusyChanged();
+  void executionStateChanged();
+  void executionOutputChanged();
+  void executionTraceChanged();
+  void reviewSummaryChanged();
+  void checkinChanged();
+  void lessonAssessmentChanged();
+  void reviewItemsChanged();
+  void independentAttemptChanged();
+  void reducedMotionChanged();
+  void editorFontSizeChanged();
+  void editorLineNumbersChanged();
+  void preferenceStorageReadyChanged();
+
+ private:
+  friend struct UiShellTestAccess;
+  void clearVaultWriteback();
+  void performVaultTask(const QString& action,
+      std::function<codeweave::app::Result(VaultWritebackStore&, QVariantMap&)> operation);
+  void performCheckinTask(bool write);
+  void clearCheckin();
+  void clearDraft(bool accountChange = false);
+  void clearChallengeDrafts();
+  void performChallengeHistoryTask(bool write,
+      std::function<codeweave::app::Result(const ChallengeSubmissionStore&, QVariantList&)> work);
+  void loadAccountDraft();
+  void saveLessonFact(const QString& signal, const QString& note, bool verified);
+  static codeweave::app::Result recordLessonFact(const std::filesystem::path& root,
+      const QString& document, const QString& signal, const QString& note,
+      bool verified, bool independent, bool hintsViewed);

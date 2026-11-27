@@ -1,0 +1,132 @@
+.cw-modal .cw-modal-row input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 16px;
+  height: 16px;
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-ink-2);
+  transition: transform var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease),
+    background var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-row input[type='checkbox']:checked {
+  border-color: var(--cm-edge-active);
+}
+.cw-modal .cw-modal-row input[type='checkbox']:checked::after {
+  background: var(--cm-ink);
+  transform: translateX(20px);
+}
+
+/* 下拉：与全站输入框同一细线档，44px 高 */
+.cw-modal .cw-modal-select {
+  min-height: var(--cm-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--cm-ink);
+  border: var(--cm-line) solid var(--cm-edge);
+  border-radius: var(--cm-radius);
+  background: var(--cm-canvas);
+  font-family: var(--cm-mono);
+  font-size: var(--cm-body);           /* 表单控件 16px：可读 + 不触发移动端聚焦缩放 */
+}
+.cw-modal .cw-modal-select {
+  transition: border-color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.cw-modal .cw-modal-select:hover {
+  border-color: var(--cm-edge-active);
+}
+.cw-modal .cw-modal-select:active {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+
+/* ── 5. 弹层内按钮：沿用 M3 细线体系（styles.css L730 起），只补触控与语义色 ── */
+.cw-modal .cw-modal-row button,
+.cw-modal .cw-modal-section-head button {
+  flex: 0 0 auto;
+  min-height: var(--cm-tap);           /* §5.4：全局档是 40px，模态内抬到 44px */
+  padding-inline: var(--ds-space-16, 16px);
+  font-size: var(--cm-meta);
+  border-radius: var(--cm-radius);
+}
+.cw-modal .danger-button {
+  color: var(--cm-bad);                 /* 固定语义色，不跟 --ds-scene-* 走 */
+  border-color: var(--cm-bad);
+  background: var(--cm-bad-wash);
+}
+/* 「知道了」：模态内唯一主操作，按 geometry.md §2 允许细线药丸（模板 CTA 原形 L393） */
+.cw-modal .cw-modal-cta {
+  width: 100%;
+  min-height: var(--cm-tap);
+  justify-content: center;
+  margin-top: var(--ds-space-24, 24px);
+  border-radius: var(--ds-shape-pill, 100px);
+}
+
+/* ── 6. 帮助正文与脚注 ────────────────────────────────────────────────────── */
+.cw-modal .cw-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-16, 16px);
+  margin: var(--ds-space-20, 20px) 0 0;
+}
+.cw-modal .cw-modal-help {
+  display: flex;
+  gap: var(--ds-space-12, 12px);
+  align-items: flex-start;
+}
+.cw-modal .cw-modal-help > svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-6, 6px);
+  color: var(--cm-ink-2);               /* 图标只做引导，不承担语义 */
+}
+.cw-modal .cw-modal-help h3 {
+  margin: 0 0 var(--ds-space-4, 4px);
+  color: var(--cm-ink);
+  font-size: var(--cm-body);
+  font-weight: 600;
+  line-height: var(--cm-leading);
+}
+.cw-modal .cw-modal-help p {
+  margin: 0;
+  color: var(--cm-ink-2);
+  font-size: var(--cm-body);
+  line-height: var(--cm-leading);
+}
+.cw-modal .cw-modal-note {
+  margin: var(--ds-space-20, 20px) 0 0;
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--cm-line) solid var(--cm-hair);
+  color: var(--cm-ink-2);
+  font-size: var(--cm-meta);
+  line-height: var(--cm-leading);
+}
+
+/* ── 7. 焦点可见（§5.4：焦点轮廓可见，不靠颜色单独承担） ─────────────────── */
+.cw-modal-backdrop :is(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--cm-focus);
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 8. §5.4 窄视口降级：320px 不破版 ─────────────────────────────────────── */
+@media (max-width: 420px) {
+  .modal-backdrop.cw-modal-backdrop {
+    place-items: start center;
+    padding: var(--ds-space-8, 8px);
+  }
+  .modal-backdrop .cw-modal {
+    max-height: calc(100dvh - 16px);
+  }
+  .cw-modal .cw-modal-head {
+    align-items: flex-start;
+  }
+  .cw-modal .cw-modal-row {
+    align-items: flex-start;
+    gap: var(--ds-space-12, 12px);
+  }
+}
+
+/* ── 9. §5.3 减动效：两条路径各自真停（取消过渡，而不是把时长压短） ────────── */
+/* 路径 A：系统偏好。 */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop.cw-modal-backdrop :is(button, input, select, textarea) {

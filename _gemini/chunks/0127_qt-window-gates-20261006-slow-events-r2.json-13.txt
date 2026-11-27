@@ -1,0 +1,103 @@
+        0.015500009059906006,
+        0.1923999786376953,
+        0.015199989080429077,
+        0.04319998621940613,
+        0.5884999930858612,
+        0.014000028371810913,
+        0.0006999969482421875,
+        0.21410000324249268,
+        0.025799989700317383,
+        0.19110000133514404,
+        0.018699973821640015,
+        0.0020999908447265625,
+        0.357699990272522,
+        0.015199989080429077,
+        0.001100003719329834,
+        0.0011999905109405518,
+        0.10130000114440918,
+        0.016599982976913452,
+        0.08689999580383301,
+        0.015300005674362183,
+        0.037699997425079346,
+        0.0009000003337860107,
+        0.6103000044822693,
+        0.010299980640411377,
+        0.000599980354309082,
+        0.0004999935626983643,
+        0.23139998316764832,
+        0.04370000958442688,
+        0.0786999762058258,
+        0.011500000953674316,
+        0.02529999613761902,
+        0.0003999769687652588,
+        0.28509998321533203
+      ],
+      "main_thread_scope": "outermost Qt event dispatch, includes workload callbacks; startup construction excluded",
+      "qt_version": "6.8.3",
+      "schemaVersion": 1,
+      "slow_events": [
+        {
+          "depth": 2,
+          "duration_ms": 211.53949999809265,
+          "event_type": 1,
+          "object_name": "",
+          "receiver_class": "QQuickWindowIncubationController",
+          "since_measurement_ms": 198.7679000198841,
+          "workload_stage": 4
+        },
+        {
+          "depth": 1,
+          "duration_ms": 211.54399999976158,
+          "event_type": 1,
+          "object_name": "QWindowsGuiEventDispatcher",
+          "receiver_class": "QWindowsGuiEventDispatcher",
+          "since_measurement_ms": 198.76770001649857,
+          "workload_stage": 4
+        }
+      ],
+      "startup_entry_to_ready_ms": 425.391999989748,
+      "startup_scope": "process main entry to exposed window + loaded catalog + event loop tick; excludes OS loader"
+    }
+  ],
+  "limitations": [
+    "warm OS cache; synthetic workload",
+    "frameSwapped is not DWM presentation",
+    "startup from main entry excludes OS loader",
+    "not a Win32 parity comparison"
+  ],
+  "metrics": {
+    "main_thread_ms": {
+      "count": 1346,
+      "p50": 0.017199993133544922,
+      "p95": 0.5051999986171722,
+      "max": 211.54399999976158,
+      "budget": 16.7,
+      "passed": true
+    },
+    "frame_interval_ms": {
+      "count": 226,
+      "p50": 15.514899998903275,
+      "p95": 16.7359000146389,
+      "max": 17.36360001564026,
+      "budget": 20,
+      "passed": true
+    },
+    "edit_ms": {
+      "count": 60,
+      "p50": 15.099700003862381,
+      "p95": 16.45679998397827,
+      "max": 16.896699994802475,
+      "budget": 50,
+      "passed": true
+    },
+    "cancel_ms": {
+      "count": 10,
+      "p50": 68.95719999074936,
+      "p95": 71.14659997820854,
+      "max": 71.14659997820854,
+      "budget": 100,
+      "passed": true
+    }
+  },
+  "status": "passed"
+}

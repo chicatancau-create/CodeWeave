@@ -1,0 +1,21 @@
+    fireEvent.click(screen.getByRole('button', { name: /查看这一笔做了什么/ }))
+    await screen.findByLabelText('写回事务 op-partial-aaaa11 的逐步明细')
+    expect(screen.queryByRole('button', { name: /回滚这一笔写回/ })).toBeNull()
+    expect(text(document.querySelector('.ewb-rollback-none'))).toContain('这一笔一步都没写入')
+  })
+
+  it('非拥有者不请求事务端点，也不出现 06 区', async () => {
+    const { calls } = renderPanel({ status: { ...LEARNING_STATUS_OWNER, isOwner: false, progressAccess: false } })
+    // 非拥有者这一档，页面上有**两处**说同一件事：队列区那句「不给写回」的说明，
+    // 加上预览按钮下面的条件清单里那一条（01 号方案 §4 disabled 行）。
+    // 所以按 findAllByRole 之外的宽松法：拿 findAllByText 等「至少出现一次」，
+    // 不用 getByText——它在两处同时在场时直接抛 Found multiple elements（实测就是这条）。
+    await waitFor(() => {
+      // queryAllByText：同步、且多处同时在场不抛（findAllByText 返回 Promise，
+      // 塞进 waitFor 里量到的是 promise.length === undefined，那是另一种假通过）。
+      expect(screen.queryAllByText(/不是资料库拥有者|只有拥有者|不可写回/).length).toBeGreaterThan(0)
+    })
+    expect(ledgerZone()).toBeNull()
+    expect(calls.some((call) => call.path === '/api/learning/evidence-transactions')).toBe(false)
+  })
+})

@@ -1,0 +1,101 @@
+    expect(cardCount()).toBe(12)
+  })
+
+  it('难度 / 轨道 / 运行方式 / 排序默认收起，展开「更多筛选」后可用', () => {
+    renderView()
+    expect(screen.queryByLabelText('难度', { selector: 'select' })).toBeNull()
+    expect(screen.queryByLabelText('运行方式', { selector: 'select' })).toBeNull()
+
+    const toggle = screen.getByRole('button', { name: /更多筛选/ })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    selectOption('运行方式', 'browser')
+    expect(cardCount()).toBe(2)
+  })
+
+  it('已选筛选以标签显示，点击标签可单独移除', () => {
+    renderView()
+    openMoreFilters()
+    selectOption('难度', '入门')
+    const chip = screen.getByRole('button', { name: '移除筛选：难度 入门' })
+    expect(chip).toBeTruthy()
+    fireEvent.click(chip)
+    expect(screen.queryByRole('button', { name: '移除筛选：难度 入门' })).toBeNull()
+    expect(cardCount()).toBe(12)
+  })
+})
+
+describe('CHAL-01 列表 / 详情分离', () => {
+  it('默认只有列表；点卡片进入详情并隐藏网格；返回列表恢复网格', () => {
+    renderView()
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    expect(screen.getByRole('heading', { level: 2, name: 'B 关卡验收：Java 核心编程' })).toBeTruthy()
+    expect(cardCount()).toBe(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull()
+    expect(cardCount()).toBe(12)
+  })
+
+  it('详情返回后焦点回到进入时的卡片', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /F 关/ }))
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    // React 重挂载列表后卡片是新 DOM 节点；按关卡 id 断言焦点落点
+    const focused = document.activeElement as HTMLElement | null
+    expect(focused?.getAttribute('data-challenge-id')).toBe('stage-f')
+  })
+
+  it('筛选与页码在详情往返后保留', () => {
+    renderView({ progress: { 'stage-b': { completedAt: '2026-09-13T00:00:00.000Z', evidence: 'x', status: 'passed' } } })
+    selectOption('状态', 'passed')
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    expect((screen.getByLabelText('状态', { selector: 'select' }) as HTMLSelectElement).value).toBe('passed')
+    expect(screen.getByRole('button', { name: /B 关：Java 核心编程/ })).toBeTruthy()
+  })
+
+  it('页码在详情往返后保留（无筛选时翻到第 2 页再返回）', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    fireEvent.click(screen.getByRole('button', { name: /M 关：竞赛综合实战/ }))
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    expect(screen.getByText('第 2 / 2 页')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /M 关：竞赛综合实战/ })).toBeTruthy()
+  })
+
+  it('进入详情时保存滚动位置，返回列表时恢复', () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    expect(scrollToSpy).toHaveBeenCalled()
+    scrollToSpy.mockRestore()
+  })
+
+  it('筛选 / 页码 / 视图模式写入 sessionStorage，重挂载后恢复', () => {
+    const first = renderView()
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    first.unmount()
+
+    renderView()
+    expect(screen.getByRole('heading', { level: 2, name: 'A 关卡验收：开发环境与基本操作' })).toBeTruthy()
+  })
+
+  it('失效 focusChallengeId：停留在列表并提示，不默认打开第一关', () => {
+    renderView({ focusChallengeId: 'stage-zzz' })
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull()
+    expect(screen.getByRole('status').textContent).toContain('未找到指定的挑战')
+    expect(screen.queryByRole('heading', { level: 2, name: /A 关卡验收/ })).toBeNull()
+  })
+
+  it('有效 focusChallengeId：直接进入对应详情', () => {
+    renderView({ focusChallengeId: 'stage-m' })
+    expect(screen.getByRole('heading', { level: 2, name: 'M 关卡验收：竞赛综合实战' })).toBeTruthy()
+  })
+})
+
+describe('CHAL-01 卡片摘要', () => {
+  it('卡片显示执行环境与「开始挑战」/「继续挑战」主操作', () => {

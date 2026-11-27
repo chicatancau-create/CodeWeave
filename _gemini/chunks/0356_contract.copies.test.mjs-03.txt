@@ -1,0 +1,3 @@
+    expect(assetContract.pathRules.maxTargetLength).toBe(300)
+  })
+})

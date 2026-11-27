@@ -1,0 +1,92 @@
+                                  : "登录后可保存草稿与进度"
+                            color: ds.muted
+                            font.family: ds.mono
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: uiShell.accountStatus !== ""
+                            text: uiShell.accountStatus
+                            color: ds.faint
+                            font.family: ds.ui
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                objectName: "accountLoginIntro"
+                visible: !uiShell.hasActiveAccount
+                Layout.fillWidth: true
+                implicitHeight: introCol.implicitHeight + ds.s32
+                radius: ds.radius
+                color: ds.panel
+                border.color: ds.accentRing
+                border.width: 1
+                ColumnLayout {
+                    id: introCol
+                    anchors.fill: parent
+                    anchors.margins: ds.s16
+                    spacing: ds.s8
+                    Text { text: "开始你的学习空间"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "登录或注册后，你可以在本机保存代码草稿、记录执行证据，并继续复习已学课程。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s12
+                        Text { text: "01"; color: ds.accent; font.family: ds.mono; font.pixelSize: 12 }
+                        Text { Layout.fillWidth: true; text: "从课程原文与起始代码开始练习。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s12
+                        Text { text: "02"; color: ds.accent; font.family: ds.mono; font.pixelSize: 12 }
+                        Text { Layout.fillWidth: true; text: "保存每次尝试，回到复习中心继续巩固。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                    }
+                }
+            }
+
+            // Auth form
+            Rectangle {
+                visible: !uiShell.hasActiveAccount
+                Layout.fillWidth: true
+                implicitHeight: authCol.implicitHeight + ds.s32
+                radius: ds.radius
+                color: ds.page
+                border.color: ds.line
+                border.width: 1
+                ColumnLayout {
+                    id: authCol
+                    anchors.fill: parent
+                    anchors.margins: ds.s16
+                    spacing: ds.s10
+                    Text {
+                        text: "登录你的工作区"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 15
+                        font.weight: Font.DemiBold
+                    }
+                    ShellField {
+                        id: identField
+                        ds: accountPage.ds
+                        Layout.fillWidth: true
+                        visible: !uiShell.hasActiveAccount
+                        placeholderText: "邮箱或手机号"
+                    }
+                    ShellField {
+                        id: nameField
+                        ds: accountPage.ds
+                        Layout.fillWidth: true
+                        visible: !uiShell.hasActiveAccount
+                        placeholderText: "你的昵称（注册时填写）"
+                    }

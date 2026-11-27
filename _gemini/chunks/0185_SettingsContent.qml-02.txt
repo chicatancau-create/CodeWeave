@@ -1,0 +1,62 @@
+                        : (modelData.title === "显示行号" ? "settingsEditorLineNumbersToggle" : "settingsPreferenceToggle" + index)
+                    visible: modelData.options.length === 0
+                    implicitWidth: 48; implicitHeight: 28
+                    Layout.rightMargin: visible ? settings.ds.settingsToggleTrailingInset : 0
+                    enabled: (modelData.title === "减弱动画" || modelData.title === "显示行号")
+                        && uiShell.preferenceStorageReady
+                    readonly property bool checked: (modelData.title === "减弱动画" && uiShell.reducedMotion)
+                        || (modelData.title === "显示行号" && uiShell.editorLineNumbers)
+                    activeFocusOnTab: enabled
+                    color: enabled ? settings.ds.inset : settings.ds.panel
+                    border.color: activeFocus || checked ? settings.ds.accent : settings.ds.lineStrong
+                    radius: 0
+                    function choose() {
+                        if (!enabled) return;
+                        if (modelData.title === "减弱动画") uiShell.setReducedMotion(!checked);
+                        else if (modelData.title === "显示行号") uiShell.setEditorLineNumbers(!checked);
+                    }
+                    Keys.onSpacePressed: choose()
+                    Keys.onReturnPressed: choose()
+                    TapHandler { onTapped: { preferenceToggle.forceActiveFocus(); preferenceToggle.choose(); } }
+                    Rectangle {
+                        objectName: preferenceToggle.objectName + "Thumb"
+                        width: settings.ds.s16
+                        height: settings.ds.s16
+                        x: preferenceToggle.checked ? preferenceToggle.width - width - settings.ds.s6 : settings.ds.s6
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: preferenceToggle.checked ? settings.ds.ink : settings.ds.muted
+                        border.color: settings.ds.lineStrong
+                        Accessible.ignored: true
+                    }
+                    Accessible.role: Accessible.CheckBox
+                    Accessible.checkable: true
+                    Accessible.checked: checked
+                    Accessible.name: modelData.title
+                        + ((modelData.title === "减弱动画" || modelData.title === "显示行号") ? "" : "（待接入）")
+                    Accessible.onPressAction: choose()
+                    Accessible.onToggleAction: choose()
+                }
+                ComboBox {
+                    id: preferenceSelect
+                    objectName: modelData.title === "编辑器字号" ? "settingsEditorFontSize" : "settingsPreferenceSelect" + index
+                    visible: modelData.options.length > 0
+                    model: modelData.title === "编辑器字号"
+                        ? modelData.options.map(size => size + " px")
+                        : modelData.options.map(size => size + " 格")
+                    currentIndex: modelData.title === "编辑器字号"
+                        ? modelData.options.indexOf(uiShell.editorFontSize) : 0
+                    enabled: modelData.title === "编辑器字号" && uiShell.preferenceStorageReady
+                    implicitWidth: modelData.title === "编辑器字号" ? 81 : 72
+                    implicitHeight: 44
+                    padding: 0
+                    leftPadding: 0
+                    rightPadding: 0
+                    palette.base: settings.ds.inset; palette.button: settings.ds.inset
+                    palette.text: settings.ds.muted; palette.buttonText: settings.ds.muted
+                    palette.mid: settings.ds.lineStrong
+                    contentItem: Text {
+                        objectName: preferenceSelect.objectName + "Text"
+                        leftPadding: settings.ds.s8
+                        rightPadding: 0
+                        text: preferenceSelect.displayText
+                        color: preferenceSelect.enabled ? settings.ds.ink : settings.ds.muted

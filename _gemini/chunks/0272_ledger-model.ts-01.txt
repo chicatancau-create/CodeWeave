@@ -1,0 +1,122 @@
+/**
+ * 写回视图的本地模型：只服务「学习证据写回」这一视图的纯函数、常量与视图态类型。
+ *
+ * 来源：以下代码自 `app/src/components/evidence-writeback-view.tsx` 原样搬来
+ * （01 号方案 §4 把写回页拆成 WritebackLedger / TransactionDetail / EvidencePreview / RollbackDialog），
+ * 判定口径、文案与注释一字未改；四个子组件与主编排文件共用这一份，不再各写一遍。
+ *
+ * 边界（防止有人再开第二套实现）：
+ * - 日期键不在这里：统一走 `utils/date-helpers` 的 `getLocalDateKey`（留在主编排文件）；
+ * - 取数与回滚的服务端口径不在这里：统一走 `content/api`；
+ * - 这一层的每个函数都是**读已落盘事实**的折算，不产生新判定，也不改判定。
+ */
+import {
+  AlertTriangle,
+  CircleCheck,
+  CircleDashed,
+  CircleSlash,
+  CircleX,
+  History,
+  Info,
+  LoaderCircle,
+  ShieldAlert,
+  SquareDashed,
+  Undo2,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type {
+  RollbackBlockedDetails,
+  WritebackStepDetail,
+  WritebackTransactionDetail,
+  WritebackTransactionSummary,
+  WritebackTxState,
+} from '../../content/api'
+import type { FieldDiff, StagedEvidence, WritebackTarget } from '../../content/types'
+
+export type ProgressPreview = { edits: FieldDiff[]; masteryBlocked: { skill: string; level: string; reason: string }[] }
+export type IndexPreview = { changed: boolean; line?: string; reason?: string }
+
+/** 队列读取阶段：只在「手上还没有数据」时才决定界面显示加载态还是失败态。 */
+export type QueuePhase = 'loading' | 'ready' | 'failed'
+
+/** 目标指纹：预览给出的路径 → 指纹映射，提交与重试都带它。 */
+export type ExpectedHashes = Record<string, string | null>
+
+/** 部分成功（同一事务待补齐）时保留的上下文：operationId + 真实指纹 + 这批指纹是哪一代。 */
+export type PartialTransaction = {
+  operationId: string
+  message: string
+  expectedHashes: ExpectedHashes
+  /**
+   * `preview`：本页这次预览给出的；`record`：界面重新载入后从服务端**该笔事务自己的**
+   * 记录里取回的同一批基线。两者都是真实指纹，但来源必须写明——用户该知道自己
+   * 是据哪一次核对在补齐（挂账⑤ / #35）。
+   */
+  source: 'preview' | 'record'
+}
+
+/**
+ * 上一次回滚的回执（挂账 #35）：形状原先内联在主面板的 useState 上，
+ * 拆分后账本 / 明细 / 回滚三处都要按事务读它，故在此具名。字段与判据都不变。
+ */
+export type RollbackOutcome = {
+  operationId: string
+  tone: 'done' | 'blocked' | 'failed'
+  text: string
+  blockers: RollbackBlockedDetails['blockers'] | null
+} | null
+
+/**
+ * 语义状态登记（§5.1 末段）：一档状态固定绑定「图形 + 文字」两个通道，
+ * 颜色只是第三重提示，且一律取 --ds-status-*，不跟随场景点缀色插值。
+ * `result` 是给一次性横幅用的中性档：横幅只是服务端回执，真正的落盘状态由
+ * 01/02/03 三个队列区的条目标识承担，避免把「已暂存 / 已导出」说成「已同步」。
+ * 加载态刻意不给循环动画：读取慢的时候转圈不增加信息，只会把「还没读到」包装成
+ * 一定成功的样子；读取失败已经有独立的失败态，不再借加载态外观蒙混。
+ */
+export type StateTone =
+  | 'pending'
+  | 'partial'
+  | 'synced'
+  | 'conflict'
+  | 'failed'
+  | 'loading'
+  | 'empty'
+  | 'notice'
+  | 'result'
+  /** 挂账 #35 新增两档：账本里的「已回滚」与「写入中断」既不是成功也不是失败。 */
+  | 'rolledback'
+  | 'interrupted'
+
+export const STATE_MARK: Record<StateTone, { Icon: LucideIcon; label: string }> = {
+  pending: { Icon: CircleDashed, label: '待处理' },
+  partial: { Icon: CircleSlash, label: '部分成功' },
+  synced: { Icon: CircleCheck, label: '已同步' },
+  conflict: { Icon: ShieldAlert, label: '冲突' },
+  failed: { Icon: CircleX, label: '失败' },
+  loading: { Icon: LoaderCircle, label: '加载中' },
+  empty: { Icon: SquareDashed, label: '空' },
+  notice: { Icon: AlertTriangle, label: '受限' },
+  result: { Icon: Info, label: '提示' },
+  rolledback: { Icon: Undo2, label: '已回滚' },
+  interrupted: { Icon: History, label: '写入中断' },
+}
+
+export const kindLabel: Record<string, string> = { log: '学习日志', progress: '进度追踪', index: '总计划日志索引' }
+
+/** 目标状态也用双通道：文字（已存在 / 将新建）+ 指纹，不只靠颜色。 */
+export const targetState = (target: WritebackTarget) =>
+  target.exists ? `已存在 · 指纹 ${target.expectedHash?.slice(0, 8)}` : '不存在（将新建）'
+
+/** 队列条目自身的落盘状态（服务端把 pending 与 partial 都放在待处理列表里）。 */
+export const recordTone = (record: StagedEvidence): StateTone =>
+  record.state === 'synced' ? 'synced' : record.state === 'partial' ? 'partial' : 'pending'
+
+export const ranByLabel = (record: StagedEvidence) =>
+  record.ranBy === 'learner' ? '学习者' : record.ranBy === 'ai_assistant' ? 'AI 助手' : '未说明'
+
+export const evidenceMeta = (record: StagedEvidence) =>
+  `${record.at} · ${ranByLabel(record)} · ${record.independent ? '独立' : '非独立'}${record.hintLevel ? ` · ${record.hintLevel}` : ''}`
+
+// ---------------------------------------------------------------------------
+// 事务账本（挂账 #35）：把服务端事务记录翻成界面可读的档位与文字

@@ -1,0 +1,92 @@
+Qt/QML UI
+  -> UiShell command + read-only DTO/signal
+  -> BackendTaskService (bounded worker, cancellation, generation guard)
+  -> application services
+  -> domain algorithms (mastery / scheduler / error state / replay)
+  -> append-only stores and derived projections
+```
+
+- `codeweave-core` 是学习事实、账户隔离、内容权限、执行策略和持久化的唯一事实源。
+- 领域算法必须是无 Qt、无文件 IO、无网络的纯 C++ 模块；同一输入必须能在单元测试中确定地产生同一输出。
+- Store 负责校验、原子写、幂等、坏行 fail-closed 和符号链接检查；Service 负责事务边界、权限和组合多个 Store。
+- Projection 只读，不反向修改 evidence、progress 或 mastery；UI 只消费稳定快照。
+- 长任务只在线程池/后台队列执行，主线程只做参数校验、状态切换和 DTO 发布。
+
+建议新增模块边界：
+
+| 模块 | 职责 | 不得做的事 |
+| --- | --- | --- |
+| `mastery_contract.*` | 等级、证据类型、验证来源、字段和版本校验 | 不读文件、不决定 UI |
+| `mastery_store.*` | `mastery.v1.log` 读写、幂等和坏行处理 | 不调用 scheduler，不读网页端 |
+| `mastery_service.*` | 由合法 evidence 生成 mastery event，组合事务/补偿 | 不接受 UI 直接改等级 |
+| `review_scheduler.*` | 计划解析、日期计算、分组和排序 | 不写 Store，不访问网络 |
+| `review_service.*` | 读取事实并生成 Review DTO，执行 review/snooze 命令 | 不把 UI 文案写回事实 |
+| `error_model.*` | 错题分类、状态机、作废规则 | 不调用模型确认 |
+| `learning_replay.*` | 从事件流重算派生 mastery/progress/review | 不覆盖原始事实 |
+
+文件名可按仓库现有命名调整，但每个模块必须保持“一份头文件、一份实现、一份针对性测试”的最小结构，禁止把所有逻辑继续堆进 `main.cpp` 或 `UiShell`。
+
+## 4. 分阶段实施计划
+
+### 阶段 P0：主链修复和事实一致性
+
+**输入**：当前核心源码、P0 复核报告、现有 CTest/Qt facade 测试。
+
+**动作**：完成第 2 节 P0-01 至 P0-11；先写失败回归，再改实现。每条异步请求携带 `account_id`、`account_generation` 和必要的 `content_id`/`request_revision`；回调必须按“取消判断 → 代次/对象守卫 → 状态收尾 → 发布结果”的顺序处理。
+
+**验证**：账户切换、课程切换、关闭窗口、队列满、取消、备份/导入失败、重复 operation_id 和坏账本各有测试。P0 结束时记录 CTest、Qt facade 测试和真实窗口 smoke 的命令及结果。
+
+**完成定义**：P0 问题全部有可复现证据和修复后通过证据；没有新增学习数据格式；Win32 回滚入口仍可构建运行。P0-10 的端到端增长性门禁未完成，因此不得接入 P1/P2 到产品 facade。
+
+### 阶段 P1：掌握度事实模型和存储
+
+**目标**：将网页端 `mastery.ts` 的已冻结语义移植到应用端，不先采用 DeepTutor 的自适应模型。
+
+**核心规则**：
+
+- 等级 `0..6`，名称与网页端 `MASTERY_LEVEL_NAMES` 一致。
+- 课程完成、挑战通过、复测通过、Bug 修复各提升一级，上限 6；复测失败降低一级，下限 0。
+- 仅 `passed && independent && ran_by == Learner && hint_level ∈ {L1,L2}` 的证据可以推进正式学习事实；AI 代跑、L3/L4 提示和外部环境证据不得推进。
+- `auto-verified` 与 `self-declared` 必须保留；旧记录缺失验证字段时按 `self-declared` 读取，禁止追认。
+- 同一 `operation_id` 同载荷为 duplicate 成功，不同载荷必须失败；坏行、路径符号链接和原子替换规则沿用现有 stores。
+
+**落盘格式（已实现核心原型，产品接入仍受 P0 门禁约束）**：`<account_data_root>/learning/mastery.v1.log`，逐字段 hex-TSV。当前字段固定为 `schema_version`、`operation_id`、`event_id`、`ref_id`、`kind`、`passed`、`verification`、`ran_by`、`independent`、`hint_level`、`at`、`note`；日期采用 ISO UTC 时间。新文件名带版本，行格式由 `mastery_store.cpp` 和核心测试锁定。每个 append 先校验 operation/event ID 幂等，再通过 `.append.txn` 恢复协议追加；损坏记录 fail-closed。
+
+**接口草案**：
+
+- `validate_mastery_evidence(const MasteryEvidence&)`
+- `apply_mastery_evidence(const MasteryRecord*, const MasteryEvidence&, plan_length)`
+- `MasteryStore::append(const MasteryEvent&)`
+- `MasteryStore::read_all(std::vector<MasteryEvent>&)`
+- `MasteryService::record_evidence(...)`
+- `MasteryService::replay(MasterySnapshot&)`
+
+**完成定义**：C++ 与网页端使用同一组固定输入逐字段对拍；跨月/跨年日期、空计划、旧记录、重复 ID、非法字段、失败复测和上限/下限均通过；至少一次从空账本重放得到与增量结果相同的快照。
+
+### 阶段 P2：阶梯复习调度
+
+第一版只实现现有网页端已冻结的阶梯语义：
+
+- 兜底节点为 `[1, 3, 7, 14, 30]`，仅在上层无有效配置时使用。
+- 生效优先级严格为 `unit > published > fallback`；`null`、`undefined`、空数组和全非法数组表示“未提供”，继续向上继承。
+- 使用本地日期键 `YYYY-MM-DD`，不把 UTC 日期转换混入业务语义。
+- 每个 Review DTO 必须带 `plan_source`，界面不得自行复制节点常量。
+- 支持通过、失败重排、稍后提醒、计划完成后清除到期日，并保证重复命令幂等。
+
+**接口草案**：
+
+- `effective_review_plan(unit_offsets, published_offsets)`
+- `schedule_first_review(record, today_key, plan)`
+- `schedule_next_review(record, today_key, plan)`
+- `reschedule_review(record, today_key, plan)`
+- `snooze_review(record, today_key)`
+- `group_reviews(records, today_key)`
+
+**完成定义**：网页端测试向量与 C++ 输出逐字段相等；逾期/今日/未来 7 天/下一条复测分组稳定；没有写死统计数字；调度器不执行 IO、不启动线程、不访问网络。
+
+### 阶段 P3：复习中心数据契约与 facade 接入
+
+扩展现有 `ReviewItem`，至少增加：`due_key`、`next_node_index`、`mastery_level`、`plan_source`、`group`、`forgetting_risk`（第一版可为明确的规则值或空值，不能伪造模型估计）。保留现有 `content_id`、`exercise_id`、最新结果、独立性、提示级别和证据数量。
+
+后端提供只读 `ReviewSummary`/`ReviewItem` 快照和两个命令：`review(item_id, result)`、`snooze(item_id)`。QML 只绑定 DTO 和 busy/status 信号；不在本阶段重做视觉。分析页改用 `progress_projection` 和 review snapshot，任何没有数据的字段显示明确的“暂无数据”，不得填固定数字。
+

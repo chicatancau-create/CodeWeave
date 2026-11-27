@@ -1,0 +1,58 @@
+    for (const [path, expected] of observed) assert.equal(await hash(path), expected, 'Chrome 存储复制前后哈希不同')
+    const context = await chromium.launchPersistentContext(profileCopy, { executablePath: chrome, headless: true, args: ['--disable-background-networking', '--no-first-run'] })
+    try {
+      await context.route('**/*', (route) => route.fulfill({ status: 200, body: '<!doctype html><title>CodeWeave storage export</title>', contentType: 'text/html' }))
+      const page = context.pages()[0] ?? await context.newPage()
+      for (const host of ['127.0.0.1', 'localhost']) {
+        const origin = `http://${host}:4173`
+        await page.goto(origin)
+        const items = new Map(await page.evaluate(() => Object.entries(localStorage)))
+        Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+          length: items.size, key: (index) => [...items.keys()][index] ?? null, getItem: (key) => items.get(key) ?? null,
+        } })
+        let payload
+        try { payload = buildExportPayload(accountId) } finally { Reflect.deleteProperty(globalThis, 'localStorage') }
+        if (Object.keys(payload.data).length) {
+          const directory = join(backup, 'web-registered-exports')
+          await mkdir(directory, { recursive: true })
+          await writeFile(join(directory, `${entry.name}-${host}.json`), JSON.stringify(payload, null, 2) + '\n', { flag: 'wx' })
+        }
+        stats.push({ category: 'web owner registered export', profile: entry.name, host, keys: Object.keys(payload.data).length })
+      }
+    } finally { await context.close() }
+  }
+}
+
+try {
+  await mkdir(backup)
+  const accounts = JSON.parse((await readFile(join(legacy, 'users.json'), 'utf8')).replace(/^\uFEFF/, ''))
+  assert(Array.isArray(accounts) && accounts.length === 1 && accounts[0]?.id, '正式旧运行根不能唯一确定 owner')
+  await browserExports(accounts[0].id)
+  await copyIfPresent(legacy, 'legacy-designated-runtime', true)
+  await copyIfPresent(join(web, 'server', 'data', 'runtime'), 'legacy-web-default-runtime')
+  await copyIfPresent(unified, 'unified-local-before')
+  await copyIfPresent(join(process.env.LOCALAPPDATA, 'CodeWeave'), 'qt-local-profile')
+  for (const path of ['CodeWeave/content-manifest.json', 'CodeWeave/同步报告/同步记录.json']) {
+    await copyIfPresent(join(vault, path), `vault-publish-metadata/${path}`, path.endsWith('content-manifest.json'))
+  }
+  const manifest = []
+  for (const file of await getFiles(backup)) {
+    manifest.push({ path: relative(backup, file).replaceAll('\\', '/'), sha256: await hash(file), bytes: (await stat(file)).size })
+  }
+  await writeFile(join(backup, 'SHA-256.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' })
+  const restored = join(restore, 'recovered')
+  await cp(backup, restored, { recursive: true, errorOnExist: true, force: false })
+  const replay = JSON.parse(await readFile(join(restored, 'SHA-256.json'), 'utf8'))
+  for (const entry of replay) assert.equal(await hash(join(restored, entry.path)), entry.sha256, '恢复副本 SHA-256 不一致')
+  const restoredAccounts = JSON.parse((await readFile(join(restored, 'legacy-designated-runtime', 'users.json'), 'utf8')).replace(/^\uFEFF/, ''))
+  assert.deepEqual(restoredAccounts, accounts, '恢复的旧账户不能被读取')
+  for (const entry of replay.filter((item) => item.path.endsWith('.sqlite'))) {
+    const db = new DatabaseSync(join(restored, entry.path), { readOnly: true })
+    try { assert.equal(Object.values(db.prepare('PRAGMA integrity_check').get())[0], 'ok') } finally { db.close() }
+  }
+  const output = { backup, sha256Manifest: join(backup, 'SHA-256.json'), verifiedFiles: replay.length, recovered: true, stats }
+  await writeFile(join(backup, 'restore-verification.json'), JSON.stringify(output, null, 2) + '\n', { flag: 'wx' })
+  console.log(JSON.stringify(output))
+} finally {
+  if (dirname(restore) === resolve(tmpdir()) && basename(restore).startsWith('codeweave-restore-test-')) await rm(restore, { recursive: true, force: true, maxRetries: 2 })
+}

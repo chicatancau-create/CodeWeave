@@ -1,0 +1,145 @@
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "请求到达 Controller",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "Valid 校验",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "异常被 Advice 捕获",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "统一错误结构",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "校验发生在进入业务之前，异常处理器保证错误响应结构全局一致。",
+      "fileName": "GlobalExceptionHandler.java",
+      "runtime": "外部环境 · IDEA + Spring MVC",
+      "content": {
+        "objective": "独立完成带 @Valid 校验的接口，并用 @RestControllerAdvice 统一错误响应。",
+        "prerequisites": [
+          "h1-spring-ioc-di"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "H",
+        "explanation": [
+          "@NotNull/@Size/@Email 等注解声明在 DTO 上，@Valid 触发校验。",
+          "校验失败抛 MethodArgumentNotValidException；全局异常处理器把它转成统一 JSON。",
+          "业务异常也应自定义（如 TaskNotFoundException），避免把堆栈直接抛给前端。"
+        ],
+        "examples": [
+          {
+            "good": "错误结构统一为 code/message/field，前端只需处理一种形态",
+            "bad": "有的接口返回 message 字符串、有的返回 map，前端写满兼容代码",
+            "why": "契约一致性是前后端协作的底线"
+          }
+        ],
+        "guidedSteps": [
+          "给 TaskDTO 加 @NotBlank/@Size 注解并触发 @Valid。",
+          "用 curl 提交空标题，观察默认错误结构。",
+          "写全局异常处理器，把错误转成统一 JSON 再验证。"
+        ],
+        "exercise": "独立增加一个业务异常（任务不存在 → 404）并在 Advice 中处理。",
+        "variant": "给 DTO 增加分组校验（新增与修改用不同规则）。",
+        "projectTask": "统一异常结构沉淀为 H 阶段验收项目的接口规范。",
+        "mistakes": [
+          "忘记 @Valid 导致校验注解全部失效",
+          "在 Advice 之外用 try-catch 散落处理"
+        ],
+        "runCommand": "本地 IDEA 运行 + curl 验证（真实框架行为）",
+        "completion": "校验失败与业务异常都返回统一结构，能画出手动校验与声明式校验的差异。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "@Valid 校验生效",
+          "全局异常处理器返回统一 JSON",
+          "业务异常映射正确状态码"
+        ],
+        "evidenceChecklist": [
+          "DTO 与 Advice 代码",
+          "curl 错误响应输出"
+        ]
+      }
+    },
+    {
+      "id": "h3-mybatis-mapper",
+      "language": "java",
+      "languageLabel": "MyBatis",
+      "label": "H3",
+      "title": "MyBatis：Mapper 与动态 SQL",
+      "description": "接口绑定、预编译与动态查询",
+      "duration": "50 min",
+      "level": "进阶",
+      "code": "<select id=\"search\" resultType=\"Task\">\n  SELECT * FROM tasks\n  <where>\n    <if test=\"keyword != null\">AND title LIKE CONCAT(\"%\", #{keyword}, \"%\")</if>\n    <if test=\"status != null\">AND status = #{status}</if>\n  </where>\n</select>",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "接口绑定 XML",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "动态 SQL 拼接",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "预编译执行",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "结果映射",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "#{} 是预编译占位符，${} 是字符串拼接——这个区别就是注入防线。",
+      "fileName": "TaskMapper.xml",

@@ -1,0 +1,89 @@
+            "passed": true
+        },
+        {
+            "name": "learning-details-stage-number-rail-precedes-content",
+            "passed": true
+        },
+        {
+            "name": "learning-details-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "learning-details-subject-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-lesson-keyboard-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-keyboard-focus-scrolls-to-lesson",
+            "passed": true
+        },
+        {
+            "name": "learning-details-ledger-title-column-aligns-with-header",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-selected-unit-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-target",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "18",
+            "name": "eighteen-page-screenshots",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-drafts-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-learning-empty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-learning-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-learning-details.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-learning-details-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-learning-details-selected.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/details-visual-run-a/u3-analysis.png"
+    ]
+}

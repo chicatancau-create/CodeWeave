@@ -1,0 +1,125 @@
+// @vitest-environment jsdom
+/**
+ * LOGIN-02 请求生命周期契约测试（非策略部分）。
+ *
+ * 覆盖 T.3 LOGIN-02 中不改变认证策略的部分：
+ * - 同步 in-flight guard：同一时刻只允许一个提交请求，重复点击不得发出第二个请求
+ * - requestId 归属：旧请求的迟到响应不得覆盖新请求的结果，也不得解除新请求的忙态
+ * - 超时：AbortController + 超时后归类为 unavailable，且给出可读提示
+ * - 取消：请求必须携带 AbortSignal，供组件卸载/操作失效时中断
+ * - 错误分流：401/403 → unauthorized，5xx → request_failed，非 JSON → bad_response
+ * - 成功载荷校验：非 AuthUser 结构的 JSON 不得被当作登录成功
+ *
+ * 退出策略的子项（LOGIN-02 第 5 条）涉及认证行为，未获用户确认前不在此实现。
+ */
+import { cleanup, render, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAuth } from './use-auth'
+
+type MockResponse = { ok: boolean; status: number; json: () => Promise<unknown> }
+
+function jsonResponse(body: unknown, status = 200): MockResponse {
+  return { ok: status < 400, status, json: async () => body }
+}
+
+const testUser = {
+  id: 'user-1',
+  email: 'student@example.com',
+  phone: undefined,
+  name: '小明',
+  bio: '',
+  createdAt: '2026-09-01T00:00:00.000Z',
+}
+
+/**
+ * 用可变对象保存最新一次渲染的 hook API。
+ * 直接把值赋给普通变量会读到 React 状态更新前的旧闭包，
+ * 断言必须基于最新渲染快照，因此统一通过 ref.current 读取。
+ */
+function harnessRef() {
+  const ref: { current: ReturnType<typeof useAuth> | null } = { current: null }
+  const onReady = (api: ReturnType<typeof useAuth>) => {
+    ref.current = api
+  }
+  return { ref, onReady }
+}
+
+/** 只暴露必要节点供等待状态收敛。 */
+function Harness({ onReady }: { onReady?: (api: ReturnType<typeof useAuth>) => void }) {
+  const auth = useAuth()
+  onReady?.(auth)
+  return <p data-testid="error">{auth.error}</p>
+}
+
+/** 初始化 /me 立即返回 null，后续认证请求可挂起由测试控制。 */
+function deferredFetch() {
+  const pending: Array<(value: MockResponse) => void> = []
+  const calls: string[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: string) => {
+      calls.push(String(input))
+      if (String(input).includes('/api/auth/me')) {
+        return Promise.resolve(jsonResponse({ data: null }))
+      }
+      return new Promise<MockResponse>((resolve) => {
+        pending.push(resolve)
+      })
+    }) as unknown as typeof fetch,
+  )
+  return { pending, calls }
+}
+
+/** 固定响应的 fetch 桩，按 URL 决定返回内容。 */
+function stubRoutes(handler: (url: string, init?: RequestInit) => MockResponse | Promise<MockResponse>) {
+  const calls: string[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: string, init?: RequestInit) => {
+      calls.push(String(input))
+      if (String(input).includes('/api/auth/me')) return Promise.resolve(jsonResponse({ data: null }))
+      return handler(String(input), init)
+    }) as unknown as typeof fetch,
+  )
+  return { calls }
+}
+
+beforeEach(() => {
+  vi.unstubAllGlobals()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
+
+describe('LOGIN-02 同步 in-flight 防重入', () => {
+  it('连续两次提交只发出一个请求（第二次被同步拦截）', async () => {
+    const { pending, calls } = deferredFetch()
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    const afterInit = calls.length
+
+    // 同一 tick 内连续两次提交，不等待第一次返回
+    void ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+    void ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+
+    await waitFor(() => expect(calls.length).toBe(afterInit + 1))
+    expect(calls.filter((url) => url.includes('/api/auth/login'))).toHaveLength(1)
+
+    // 释放挂起请求，避免测试结束后残留
+    pending.forEach((resolve) => resolve(jsonResponse({ data: testUser })))
+  })
+
+  it('请求进行中 busy 为 true，完成后复位', async () => {
+    const { pending } = deferredFetch()
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+
+    void ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+    await waitFor(() => expect(ref.current?.busy).toBe(true))
+
+    pending.forEach((resolve) => resolve(jsonResponse({ data: testUser })))

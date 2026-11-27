@@ -1,0 +1,34 @@
+@media (prefers-reduced-motion: reduce) {
+  .challenges-view *,
+  .challenges-view *::before,
+  .challenges-view *::after {
+    animation: none !important;                                     /* 名称归零 = 连一次都不跑 */
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .challenges-view .stage-card:hover,
+  .challenges-view .challenge-more-toggle[aria-expanded='true'] svg {
+    transform: none !important;
+  }
+}
+
+/* .reduce-motion 已由 M3 镜像到 documentElement（壳外同样生效）；
+   这里仍按「祖先类」与「自身类」两种挂法各写一遍，防止后续再挪挂载点。 */
+.reduce-motion .challenges-view *,
+.reduce-motion .challenges-view *::before,
+.reduce-motion .challenges-view *::after,
+.challenges-view.reduce-motion *,
+.challenges-view.reduce-motion *::before,
+.challenges-view.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion .challenges-view .stage-card:hover,
+.reduce-motion .challenges-view .challenge-more-toggle[aria-expanded='true'] svg,
+.challenges-view.reduce-motion .stage-card:hover,
+.challenges-view.reduce-motion .challenge-more-toggle[aria-expanded='true'] svg {
+  transform: none !important;
+}

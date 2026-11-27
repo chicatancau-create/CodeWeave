@@ -1,0 +1,58 @@
+              .arg(verdict ? verdict->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(first_case ? first_case->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(third_case ? third_case->property("text").toString() : QStringLiteral("<missing>"));
+          u3_record(*context, QStringLiteral("challenge-run-and-per-checkpoint-result-visible"), passed,
+              passed ? QString() : passed_detail);
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-judgement-passed"));
+          shell.updateChallengeCode(QStringLiteral("console.log('待办数量: 20');"));
+          shell.runChallenge();
+          context->step = 213;
+          return;
+        }
+        case 213: {
+          if (shell.challengeRunBusy()) return;
+          const auto result = shell.challengeRunResult();
+          auto* verdict = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeJudgementStatus"));
+          auto* first_case = u3_find_item(view.rootObject(), QStringLiteral("challengeJudgementCase-0"));
+          auto* extra = u3_find_item(view.rootObject(), QStringLiteral("challengeExtraLines"));
+          const bool failed = !result.value(QStringLiteral("passed")).toBool() &&
+              result.value(QStringLiteral("cases")).toList().size() == 3 && verdict && first_case && extra &&
+              first_case->property("text").toString().startsWith(QStringLiteral("未命中 ·")) &&
+              first_case->property("text").toString().contains(QStringLiteral("只有包含验收点")) &&
+              extra->property("visible").toBool() && extra->property("text").toString().contains(QStringLiteral("待办数量: 20"));
+          const QString failed_detail = QStringLiteral("result=%1 cases=%2 verdict=%3 first=%4 extraVisible=%5 extra=%6")
+              .arg(result.value(QStringLiteral("passed")).toBool())
+              .arg(result.value(QStringLiteral("cases")).toList().size())
+              .arg(verdict ? verdict->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(first_case ? first_case->property("text").toString() : QStringLiteral("<missing>"))
+              .arg(extra ? extra->property("visible").toBool() : false)
+              .arg(extra ? extra->property("text").toString() : QStringLiteral("<missing>"));
+          u3_record(*context, QStringLiteral("challenge-run-reports-near-miss-and-extra-output"), failed,
+              failed ? QString() : failed_detail);
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-judgement-failed"));
+          shell.closeChallenge();
+          shell.openChallenge(QStringLiteral("stage-d"));
+          context->step = 214;
+          return;
+        }
+        case 214: {
+          u3_record(*context, QStringLiteral("challenge-code-draft-restored-after-reopen"),
+              shell.challengeCode() == QStringLiteral("console.log('待办数量: 20');"));
+          shell.updateChallengeCode(shell.selectedChallenge().value(QStringLiteral("starterCode")).toString());
+          shell.runChallenge();
+          context->step = 215;
+          return;
+        }
+        case 215: {
+          if (shell.challengeRunBusy() || shell.challengeHistoryBusy()) return;
+          auto* note = u3_find_item(view.rootObject(), QStringLiteral("challengeEvidenceNote"));
+          auto* submit = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmit"));
+          if (note) note->setProperty("text", QStringLiteral("已运行当前代码，输出命中全部验收点。<b>原文保留</b>"));
+          const bool submitted = submit && submit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy();
+          u3_record(*context, QStringLiteral("challenge-form-submits-successful-local-snapshot"), submitted);
+          context->step = 216;
+          return;
+        }
+        case 216: {
+          if (shell.challengeHistoryBusy()) return;

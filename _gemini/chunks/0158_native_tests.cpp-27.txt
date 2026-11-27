@@ -1,0 +1,80 @@
+  assert(std::filesystem::remove(execution_root / "codeweave-program-fallback.exe"));
+  assert(std::filesystem::is_empty(execution_root));
+  const auto bounded = run("int main() {\n long total = 0;\n for (int index = 0; index < 2000; ++index) {\n"
+      " total += index;\n }\n return total == 1999000 ? 0 : 1;\n}\n");
+  assert(bounded.process->exit_code == 0);
+  assert(std::count_if(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }) == 512);
+
+  const std::string timeout_source = "#include <chrono>\n#include <thread>\nint main() {\n"
+      " while (true) std::this_thread::sleep_for(std::chrono::milliseconds(20));\n}\n";
+  const auto timeout = service.run({"cpp-trace-timeout", "cpp", timeout_source, 10'000, 4096},
+      compiler, execution_root);
+  assert(timeout.process && timeout.process->timed_out);
+  assert(std::filesystem::is_empty(execution_root));
+
+  const auto ready_path = execution_root / "cpp-cancel-ready";
+  const std::string cancel_source = "#include <chrono>\n#include <fstream>\n#include <thread>\n"
+      "int main() {\n int ticks = 0;\n while (true) {\n"
+      " std::ofstream(\"cpp-cancel-ready\") << ++ticks;\n"
+      " std::this_thread::sleep_for(std::chrono::milliseconds(20));\n }\n}\n";
+  std::atomic_bool cancellation{false};
+  std::optional<codeweave::execution::ServiceResult> cancelled;
+  codeweave::execution::ExecutionControl debugger_control;
+  std::thread worker([&] {
+    cancelled = service.run({"cpp-trace-cancel", "cpp", cancel_source, 20'000, 4096},
+        compiler, execution_root, &cancellation, &debugger_control);
+  });
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+  while (!std::filesystem::exists(ready_path) && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const bool child_started = std::filesystem::exists(ready_path);
+  const auto pause = debugger_control.request(codeweave::execution::ControlCommand::Pause);
+  assert(!pause.ok && pause.message.find("不支持") != std::string::npos && !debugger_control.is_paused());
+  cancellation.store(true);
+  worker.join();
+  assert(child_started && cancelled && cancelled->process && cancelled->process->cancelled);
+  const auto read_ticks = [&] {
+    std::ifstream file(ready_path);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+  };
+  const auto stopped_ticks = read_ticks();
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  assert(read_ticks() == stopped_ticks);
+  assert(std::filesystem::remove(ready_path));
+  assert(std::filesystem::is_empty(execution_root));
+#else
+  (void)compiler;
+#endif
+}
+
+void test_execution_service_rejects_failed_cpp_compilation(const std::filesystem::path& compiler) {
+#ifdef _WIN32
+  if (compiler.empty()) return;
+  const auto root = std::filesystem::temp_directory_path() /
+      ("codeweave-native-cpp-failure-" + std::to_string(std::random_device{}()));
+  std::error_code error;
+  std::filesystem::create_directories(root, error);
+  assert(!error);
+  codeweave::execution::ExecutionService service;
+  const auto result = service.run(
+      {"cpp-failure-01", "cpp", "int main( {", 10'000, 4096}, compiler, root);
+  assert(result.validation.ok);
+  assert(result.process.has_value());
+  assert(result.process->started);
+  assert(result.process->exit_code != 0 || !result.process->error_code.empty());
+  assert(!result.process->execution_output_valid);
+  assert(std::filesystem::is_empty(root, error));
+  assert(!error);
+  std::filesystem::remove_all(root, error);
+#else
+  (void)compiler;
+#endif
+}
+
+void test_execution_service_compiles_and_runs_java(const std::filesystem::path& runtime) {
+#ifdef _WIN32
+  if (runtime.empty()) return;
+  const auto root = std::filesystem::temp_directory_path() /
+      ("codeweave-native-java-execution-" + std::to_string(std::random_device{}()));

@@ -1,0 +1,81 @@
+    qml/components/VaultWritebackPanel.qml
+    qml/components/LearningCatalog.js
+    qml/pages/AccountPage.qml
+    qml/pages/AnalyticsPage.qml
+    qml/pages/ChallengePage.qml
+    qml/pages/DraftsPage.qml
+    qml/pages/EditorPage.qml
+    qml/pages/ReviewPage.qml
+    qml/pages/SecurityPage.qml
+    qml/pages/PrivacyPage.qml
+    qml/pages/StudyPage.qml
+    qml/pages/LearningDetailsPage.qml
+)
+
+target_include_directories(codeweave-qt PRIVATE facade)
+target_link_libraries(codeweave-qt PRIVATE Qt6::Quick Qt6::Qml Qt6::QuickControls2 Qt6::Network codeweave-content-qt)
+if (WIN32)
+  target_link_libraries(codeweave-qt PRIVATE ole32 shell32 uuid crypt32)
+endif()
+if (MSVC)
+  target_compile_options(codeweave-qt PRIVATE /W4 /permissive- /EHsc /utf-8)
+endif()
+
+set_target_properties(codeweave-qt PROPERTIES
+  WIN32_EXECUTABLE TRUE
+  OUTPUT_NAME CodeWeaveQtShell
+)
+if (MSVC)
+  # Qt is built with the dynamic MSVC CRT. Keep the executable and its test
+  # host on the same runtime as codeweave-content-qt to avoid STL/heap ABI
+  # mismatches at the facade boundary.
+  set_property(TARGET codeweave-qt PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+
+set(CODEWEAVE_QT_DEPLOY_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/deploy-qt.ps1")
+get_filename_component(CODEWEAVE_QT_PREFIX "${Qt6_DIR}/../../.." ABSOLUTE)
+set(CODEWEAVE_QT_BIN "${CODEWEAVE_QT_PREFIX}/bin")
+get_filename_component(CODEWEAVE_CONTENT_DIR "${CMAKE_SOURCE_DIR}/content" ABSOLUTE)
+add_custom_target(codeweave-qt-deploy
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/qt-deploy"
+  COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${CODEWEAVE_QT_DEPLOY_SCRIPT}"
+    -Exe "$<TARGET_FILE:codeweave-qt>"
+    -OutputDir "${CMAKE_BINARY_DIR}/qt-deploy"
+    -QmlDir "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+    -ContentDir "${CODEWEAVE_CONTENT_DIR}"
+    -ConfigDir "${CMAKE_SOURCE_DIR}/../config"
+    -QtBin "${CODEWEAVE_QT_BIN}"
+  DEPENDS codeweave-qt
+  VERBATIM
+)
+
+if (BUILD_TESTING)
+  add_executable(codeweave-vault-writeback-tests tests/vault_writeback_tests.cpp facade/vault_writeback_store.cpp)
+  target_include_directories(codeweave-vault-writeback-tests PRIVATE facade)
+  target_link_libraries(codeweave-vault-writeback-tests PRIVATE Qt6::Core codeweave-content-qt)
+  if (MSVC)
+    set_property(TARGET codeweave-vault-writeback-tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    target_compile_options(codeweave-vault-writeback-tests PRIVATE /UNDEBUG /utf-8 /W4)
+  endif()
+  add_test(NAME qt-vault-writeback COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=${CODEWEAVE_QT_BIN}" $<TARGET_FILE:codeweave-vault-writeback-tests>)
+  add_test(NAME qt-qml-load COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=${CODEWEAVE_QT_BIN}"
+    "QT_QPA_PLATFORM=offscreen"
+    "QT_PLUGIN_PATH=${CODEWEAVE_QT_PREFIX}/plugins"
+    "QML_IMPORT_PATH=${CODEWEAVE_QT_PREFIX}/qml"
+    $<TARGET_FILE:codeweave-qt> --qml-load-smoke "${CMAKE_BINARY_DIR}/qt-qml-smoke-report.json")
+  set_tests_properties(qt-qml-load PROPERTIES TIMEOUT 15)
+  find_program(CODEWEAVE_QT_TEST_CPP_TOOL NAMES g++.exe clang++.exe cl.exe)
+  find_program(CODEWEAVE_QT_TEST_JAVA_TOOL NAMES java.exe)
+  find_program(CODEWEAVE_QT_TEST_PYTHON_TOOL NAMES python.exe python3.exe)
+  find_program(CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL NAMES node.exe)
+  if (CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL)
+    add_test(NAME qt-execution-stage COMMAND "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}"
+      --test "${CMAKE_CURRENT_SOURCE_DIR}/tests/execution_stage_tests.mjs")
+    add_test(NAME qt-learning-catalog COMMAND "${CODEWEAVE_QT_TEST_JAVASCRIPT_TOOL}"
+      --test "${CMAKE_CURRENT_SOURCE_DIR}/tests/learning_catalog_tests.mjs")
+  endif()
+  add_executable(codeweave-qt-facade-tests
+    tests/ui_shell_tests.cpp facade/ui_shell.cpp facade/ui_shell_draft.cpp facade/ui_shell_account.cpp
+    facade/ui_shell_operations.cpp facade/ui_shell_challenges.cpp facade/ui_shell_lessons.cpp facade/ui_shell_checkin.cpp

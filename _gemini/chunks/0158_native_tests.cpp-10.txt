@@ -1,0 +1,74 @@
+      codeweave::learning::EvidenceState::Pending, "op-concurrent-0123ab"};
+  const auto progress = codeweave::learning::ProgressFact{
+      "fact-concurrent", "java-01", "exercise-01", "2026-10-05",
+      "completed", "op-concurrent-0123ac"};
+  std::thread evidence_first([&] { bool duplicate = false;
+    assert(evidence_store.append_idempotent(evidence, duplicate).ok); });
+  std::thread evidence_second([&] { bool duplicate = false;
+    assert(evidence_store.append_idempotent(evidence, duplicate).ok); });
+  std::thread progress_first([&] { bool duplicate = false;
+    assert(progress_store.append_idempotent(progress, duplicate).ok); });
+  std::thread progress_second([&] { bool duplicate = false;
+    assert(progress_store.append_idempotent(progress, duplicate).ok); });
+  evidence_first.join(); evidence_second.join();
+  progress_first.join(); progress_second.join();
+  std::vector<codeweave::learning::EvidenceRecord> evidence_records;
+  std::vector<codeweave::learning::ProgressFact> progress_facts;
+  assert(evidence_store.read_all(evidence_records).ok && evidence_records.size() == 1);
+  assert(progress_store.read_all(progress_facts).ok && progress_facts.size() == 1);
+}
+
+void test_progress_store_is_idempotent_and_separate_from_projection() {
+  Fixture fixture;
+  codeweave::learning::ProgressStore store(fixture.root / "data" / "runtime" / "native");
+  const codeweave::learning::ProgressFact fact{
+      "fact-01", "lesson-01", "exercise-01", "2026-10-05", "completed", "op-progress-0123ab"};
+  bool duplicate = false;
+  assert(store.append_idempotent(fact, duplicate).ok && !duplicate);
+  assert(store.append_idempotent(fact, duplicate).ok && duplicate);
+  auto conflict = fact; conflict.status = "review";
+  assert(!store.append_idempotent(conflict, duplicate).ok);
+  std::vector<codeweave::learning::ProgressFact> facts;
+  assert(store.read_all(facts).ok && facts.size() == 1 && facts[0].status == "completed");
+  assert(!std::filesystem::exists(fixture.root / "data" / "runtime" / "desktop" / "progress.json"));
+  const auto index_dir = fixture.root / "data" / "runtime" / "native" / "learning" / "progress-index.v1";
+  assert(std::filesystem::exists(index_dir / "metadata.v1"));
+  std::filesystem::remove(index_dir / "metadata.v1");
+  duplicate = false;
+  codeweave::learning::ProgressStore rebuilt_store(
+      fixture.root / "data" / "runtime" / "native");
+  assert(rebuilt_store.append_idempotent(fact, duplicate).ok && duplicate);
+  std::ofstream(index_dir / "metadata.v1", std::ios::binary | std::ios::trunc)
+      << "corrupt-index\n";
+  duplicate = false;
+  codeweave::learning::ProgressStore recovered_store(
+      fixture.root / "data" / "runtime" / "native");
+  assert(recovered_store.append_idempotent(fact, duplicate).ok && duplicate);
+  std::filesystem::path shard_path;
+  for (const auto& item : std::filesystem::directory_iterator(index_dir)) {
+    if (item.path().filename().string().starts_with("shard-")) {
+      shard_path = item.path();
+      break;
+    }
+  }
+  assert(!shard_path.empty());
+  const auto shard_size = std::filesystem::file_size(shard_path);
+  assert(shard_size > 0);
+  std::filesystem::resize_file(shard_path, shard_size - 1);
+  duplicate = false;
+  codeweave::learning::ProgressStore shard_recovered_store(
+      fixture.root / "data" / "runtime" / "native");
+  assert(shard_recovered_store.append_idempotent(fact, duplicate).ok && duplicate);
+}
+
+void test_progress_index_refreshes_after_external_ledger_change() {
+  Fixture fixture;
+  const auto data_root = fixture.root / "data" / "runtime" / "native";
+  codeweave::learning::ProgressStore store(data_root);
+  const codeweave::learning::ProgressFact original{
+      "fact-01", "lesson-01", "exercise-01", "2026-10-05", "completed",
+      "op-progress-0123ab"};
+  const codeweave::learning::ProgressFact replacement{
+      "fact-02", "lesson-02", "exercise-01", "2026-10-05", "completed",
+      "op-progress-0123ac"};
+  const auto hex = [](std::string_view value) {

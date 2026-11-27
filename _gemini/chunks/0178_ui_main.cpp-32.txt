@@ -1,0 +1,48 @@
+            auto* trace_output = u3_find_item(view.rootObject(), QStringLiteral("executionTraceOutput"));
+            const int final_event_index = events ? events->property("count").toInt() - 1 : -1;
+            const bool initial = panel && events && events->property("count").toInt() >= 4 &&
+                events->property("currentIndex").toInt() == final_event_index && trace_output &&
+                trace_output->property("text").toString() == QStringLiteral("15\n");
+            u3_record(*context, QStringLiteral("execution-trace-events-and-current-output"), initial);
+            const auto trace_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            int source_step_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              const auto event = trace_events.at(index).toMap();
+              if (event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                  event.value(QStringLiteral("sourceLine")).toInt() == 2 &&
+                  event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "7") {
+                source_step_index = static_cast<int>(index);
+                break;
+              }
+            }
+            auto* source_line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            const bool source_snapshot_selected = initial && source_step_index >= 0 && source_line && variables &&
+                events->setProperty("currentIndex", source_step_index) &&
+                source_line->property("visible").toBool() &&
+                source_line->property("text").toString() == QStringLiteral("源码第 2 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 7"));
+            u3_record(*context, QStringLiteral("python-source-snapshot-line-and-local-variable"),
+                source_snapshot_selected);
+            auto* diagram = u3_find_item(view.rootObject(), QStringLiteral("executionStageDiagram"));
+            auto* variable_table = u3_find_item(view.rootObject(), QStringLiteral("executionVariableTable"));
+            u3_record(*context, QStringLiteral("execution-stage-source-pointer-edges-and-variable-table"),
+                source_snapshot_selected && diagram && variable_table &&
+                diagram->property("nodeCount").toInt() >= 2 && diagram->property("edgeCount").toInt() >= 1 &&
+                diagram->property("currentNodeId").toString() == QStringLiteral("line:2") &&
+                variable_table->property("variableCount").toInt() == 1 &&
+                variable_table->property("snapshotLabel").toString().contains(QStringLiteral("L2")));
+            u3_record(*context, QStringLiteral("execution-stage-current-node-and-pointer-fit-viewport"),
+                diagram && diagram->property("currentNodeVisible").toBool());
+            if (initial) events->setProperty("currentIndex", final_event_index);
+            bool previous_invoked = initial && previous;
+            for (int index = 0; previous_invoked && index < final_event_index; ++index) {
+              previous_invoked = QMetaObject::invokeMethod(previous, "clicked", Qt::DirectConnection);
+            }
+            previous_invoked = previous_invoked && events->property("currentIndex").toInt() == 0;
+            u3_record(*context, QStringLiteral("execution-trace-previous-shows-before-output"),
+                previous_invoked &&
+                trace_output->property("text").toString().isEmpty());
+            u3_record(*context, QStringLiteral("execution-stage-rewind-clears-future-nodes-and-variables"),
+                previous_invoked && diagram && variable_table &&

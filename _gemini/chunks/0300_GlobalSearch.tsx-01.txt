@@ -1,0 +1,116 @@
+/**
+ * 全局搜索（01 号方案 §4 组件拆分表里的 `GlobalSearch`）。
+ *
+ * 从 `app/src/components/topbar.tsx` 整块**原样搬来**：DOM 结构、className、文案、
+ * `aria-*`、`id="global-search-list"`、`/` 快捷键与 ↑↓/Enter/Esc 的事件顺序一律未改；
+ * 搬动过程中原有中文注释逐行跟着代码走（那些注释是审计留痕，不是可丢的样板话）。
+ *
+ * 记忆化：搜索自己的三段状态（query / open / activeIndex）本来就关在本组件里，
+ * 拆分后用 `memo` 包住，通知面板、账户菜单、快捷动作改状态时不再连带重渲染结果行。
+ */
+import { memo, useEffect, useRef, useState } from 'react'
+import { Search } from 'lucide-react'
+import { filterTargets, type SearchTarget } from '../../utils/search'
+
+/* ------------------------------ 全局搜索 ---------------------------------- */
+
+export type GlobalSearchProps = {
+  targets: SearchTarget[]
+  recentViews: { id: string; label: string }[]
+  onPickLesson: (lessonId: string) => void
+  onPickChallenge: (challengeId: string) => void
+  onPickProject: (projectId: string) => void
+  onNavigateRecent: (viewId: string) => void
+}
+
+export const GlobalSearch = memo(function GlobalSearch({
+  targets,
+  recentViews,
+  onPickLesson,
+  onPickChallenge,
+  onPickProject,
+  onNavigateRecent,
+}: GlobalSearchProps) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const listId = 'global-search-list'
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement
+      const typing =
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable
+      if (event.key === '/' && !typing) {
+        event.preventDefault()
+        setOpen(true)
+        inputRef.current?.focus()
+      }
+    }
+    const onDown = (event: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mousedown', onDown)
+    }
+  }, [])
+
+  const results = filterTargets(targets, query)
+  const showRecent = query.trim() === ''
+  const rows: { key: string; typeLabel: string; label: string; sub: string; activate: () => void }[] = showRecent
+    ? recentViews.map((item) => ({
+        key: `recent-${item.id}`,
+        typeLabel: '最近',
+        label: item.label,
+        sub: '最近访问的页面',
+        activate: () => onNavigateRecent(item.id),
+      }))
+    : results.map((result) => ({
+        key: `${result.type}-${result.id}`,
+        typeLabel: result.type === 'lesson' ? '课程' : result.type === 'challenge' ? '挑战' : '项目',
+        label: result.title,
+        // 命中别名时说明「为什么匹配」：资料库主题名与课程标题常常不同
+        sub: result.matchedIn === 'alias' && result.matchedAlias
+          ? `${result.subtitle} · 匹配主题「${result.matchedAlias}」`
+          : result.subtitle,
+        activate: () => {
+          if (result.type === 'lesson') {
+            onPickLesson(result.id)
+            return
+          }
+          if (result.type === 'challenge') {
+            onPickChallenge(result.id)
+            return
+          }
+          onPickProject(result.id)
+        },
+      }))
+
+  const activateRow = (index: number) => {
+    const row = rows[index]
+    if (!row) return
+    row.activate()
+    setOpen(false)
+    setQuery('')
+    inputRef.current?.blur()
+  }
+
+  const handleInputKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      // 先把焦点要住、再收面板：输入框的 onFocus 写着 setOpen(true)（见 :247），
+      // 顺序反过来就是「Esc 关掉 → focus 事件又打开」，焦点还照样掉回 body。
+      // 原先这里是 blur()，浏览器实测 Esc 之后焦点落在 body，而同一个顶栏里
+      // 通知面板与账户菜单（:311 / :409）都会把焦点还给触发控件 —— 三处统一成「焦点留在原控件」。
+      inputRef.current?.focus()
+      setOpen(false)
+      return
+    }
+    if (!open || rows.length === 0) return
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveIndex((current) => (current + 1) % rows.length)

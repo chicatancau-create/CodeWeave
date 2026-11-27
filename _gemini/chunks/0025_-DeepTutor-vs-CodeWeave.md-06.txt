@@ -1,0 +1,50 @@
+- 全部纯函数、无网络、无模型调用
+
+### 4.3 `ReviewItem` 扩字段（P2.1 正文）
+
+现字段（`review_service.hpp:13-22`）只有 8 个。补：`due_key`、`next_node_index`、`mastery_level`、`plan_source`、`group`、`forgetting_risk`；新增 `review()` / `snooze()` 两个 Q_INVOKABLE + `reviewGroups` QVariantList。对照 `网页端/项目/src/components/review-center-view.tsx:321-386` 的三个表格与行操作（通过 / 稍后提醒 / 查看原课程）。
+
+### 4.4 异步链与关闭路径修复（P0 级，先于一切新功能）
+
+| # | 必做 | 位置 |
+|---|---|---|
+| F1 | 补 **G1**：交互路径 `openPublishedContent` 成功后串 `loadStarterCode`，或让 `openPublishedContent` 一并带出 starter | `ui_shell.cpp:258-285` |
+| F2 | 补 **G2**：`publishedIds` 提为 `Q_PROPERTY` 或 `Q_INVOKABLE` | `ui_shell.hpp:60` |
+| F3 | 补 **G4**：把 `independentAttempt` 接到界面，否则进度永不落账 | `ui_shell_operations.cpp:319` |
+| F4 | 补 **G5**：分析页改吃 `progress_projection`，删掉写死数字 | `Main.qml:4231-4638` |
+| F5 | 三处「守卫 return 早于复位 busy」改为**先复位再 return** | `ui_shell_draft.cpp:166`、`ui_shell_operations.cpp:146,382` |
+| F6 | 给 #4 authenticate、#8 import、#13/#14 backup 补守卫 | `ui_shell_account.cpp:65`、`ui_shell_operations.cpp:105,443,472` |
+| F7 | 13 处忽略 `result.cancelled` 的回调补分支（#7 saveDraft 是唯一正确样板） | 各链 |
+| F8 | **写竞态回归测试**：任务在飞时切账户，断言迟到回调不写状态。当前删掉 9 处守卫仍全绿，这条测试是判据本身 | `ui_shell_tests.cpp` |
+| F9 | 解掉 **D1 矛盾**：改代码回到「只取消 Read」，或改注释承认「已入队未开始的 Backup/Import 可放弃」。**二者必须选一个并写明理由**，不许留着互相打脸 | `backend_task_service.cpp:35-51` |
+| F10 | 解 L2：证据与进度两次写之间加**跨档事务或补偿**（或引入 4.2 的 `replay`，让进度成为可重算派生物而非第二份真相） | `challenge_service.cpp:25-36` |
+| F11 | 解 L1：台账从「整档重写」改为分段/追加式，否则 §101 主线程 P95 ≤ 16.7 ms 在台账增长后必不达标 | `evidence_store.cpp:151`、`progress_store.cpp:170` |
+
+### 4.5 禁止清单
+
+1. 不得给 `native/src` 加任何网络/HTTP/WebSocket/LLM SDK 依赖（违反 C1/C2）。
+2. 不得用 DeepTutor 的 `policy.py` / `topic_generation.py` / `prompts.py` 语义替换你 `effectiveReviewPlan` 的三级来源裁定。
+3. 不得为了过门禁放宽 scrypt 参数、符号链接检查、fail-closed 解析、`operation_id` 幂等冲突判定。
+4. 不得用写死数字填充界面（Phase 4 §4 已禁）。
+5. 不得删改 `网页端/`——它是功能规格唯一来源。
+6. 任何性能结论必须同机同负载实测并保留原始样本；只有原理排序时写「未证实」。
+
+---
+
+## 5. 三件我不替你决定、但必须你拍板的事
+
+| # | 事项 | 现状数字 | 出处 |
+|---|---|---|---|
+| 1 | **§101 三项取舍签字** | Qt 工作集 **+430%**（151.2 vs 28.5 MiB）、可交互启动 **+332%**（440.6 vs 102.0 ms）、安装包 **65.0 MiB**（阈值 50 MiB） | `evidence/qt-ui-benchmark-20261006.json`（10-06 样本，**5 天未复测**） |
+| 2 | **F9 取消策略**选哪一边 | 代码取消 `Read/Execute/Backup/Import`，注释写「只取消 Read，备份/导入不许取消」 | `backend_task_service.cpp:35-51` |
+| 3 | **是否要为「AI 辅导」开一条离线通道** | 唯一不违反 C1 的接法是：外部工具离线生成课程/题目 → 写进 `content/` → 应用端仍只读。要不要做、由谁做 | 本文 2.7 |
+
+---
+
+## 6. 本文的证据边界（未证实项）
+
+- DeepTutor **我没有运行过**，全部结论来自 v1.6.14 源码静态阅读 + GitHub API。它的运行时行为、真实内存/延迟无一手数据。
+- 星数/issue 数/提交分布取自 GitHub API（10-11 当日）；抓取工具曾返回「2014 contributors」，与单页上限 100 矛盾，**该数字未采信**。
+- 1.2 的 LOC、1.3 的落盘路径与不变量、1.6 的四个断点、1.7 的守卫统计、2.1–2.5 的 DeepTutor 数字，**均由本轮命令实测**；其中 1.6 的 G1/G2/G4 我又逐条亲自复核过（`grep -c` 结果分别为 0 / 普通 getter / 0）。
+- §101 的三项性能数字是 **10-06 的样本**，当前 HEAD 未复测——第 5 节第 1 项要签字前必须先重跑。
+- 两个只读代理的报告已交叉验证其承重结论，但 1.7 表格中逐行行号未全部二次核对，执行前建议以 `ui_shell.hpp` / 四个 facade .cpp 的当前内容为准。

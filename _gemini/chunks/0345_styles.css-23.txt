@@ -1,0 +1,114 @@
+   site.css L361-L379 的 ledger：只有容器 border-top + 每行 border-bottom 两道
+   1px 发丝线，**没有竖线、没有斑马纹、没有表头底色**；表头走等宽 + 大写 + 0.16em
+   字距；数值是暖白 400 字重（L379 `.ledger b`）。
+   新原语 .ds-table 曾与它并列，已随「.ds-* 共享原语」整段删除（全仓 0 引用），这一组只剩 .data-table。 */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: var(--hair) solid var(--line);
+  font-size: var(--ds-size-body);      /* §5.4 正文档：表格单元格是被读的信息，不是 meta */
+  line-height: var(--ds-leading-lead);
+  font-variant-numeric: tabular-nums;
+}
+.data-table th, .data-table td {
+  padding: var(--ds-space-12, 12px) var(--ds-space-16, 16px) var(--ds-space-12, 12px) 0;          /* L367-L371：只留右侧留白，行高由 padding 撑 */
+  border-bottom: var(--hair) solid var(--line);
+  color: var(--ink);
+  text-align: left;
+  vertical-align: top;
+}
+.data-table th {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-control, 13px);      /* 列标题：必读档，行内另有数值承载读数 */
+  font-weight: var(--ds-weight-body);
+  letter-spacing: var(--ds-track-hud); /* 0.14em（site.css L199） */
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.data-table td:nth-child(2), .data-table td:nth-child(3) { color: var(--muted); }
+.data-table tbody tr { transition: background var(--ds-dur-quick) var(--ease); }
+.data-table tbody tr:hover { background: var(--scrim); }
+
+
+.global-search__empty .subtle-button { margin-top: var(--ds-space-8, 8px); }
+
+.project-create { display: flex; align-items: center; gap: var(--ds-space-8, 8px); }
+.checkpoint-empty { margin: 0; color: var(--faint); font-size: var(--ds-size-control, 13px); line-height: 1.6; }
+.checkpoint-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--hair) solid var(--line);   /* ledger 式细线行，不再逐行卡底 */
+}
+.checkpoint-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: 40px;
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px) var(--ds-space-6, 6px) 0;
+  border-bottom: var(--hair) solid var(--line);
+  color: var(--ink);
+  font-size: var(--ds-size-body);
+}
+.checkpoint-row span:first-child { flex: 1; color: var(--muted); font-family: var(--font-mono); font-size: var(--ds-size-control, 13px); }
+
+
+.settings-section-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 var(--ds-space-10, 10px); }
+
+/* F1 复习中心独立页 */
+.review-center { display: flex; flex-direction: column; gap: var(--ds-space-20, 20px); }
+.review-center-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: 140px;
+  place-content: center;
+  border: var(--hair) dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+  text-align: center;
+  padding: 0 var(--ds-space-20, 20px);
+}
+
+
+/* N2 个人中心四卡片 + 账户安全页 */
+.profile-overview-card {
+  padding: var(--ds-space-20, 20px) var(--ds-space-24, 24px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.security-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin: 0 0 var(--ds-space-12, 12px);
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: var(--ds-weight-body);
+  letter-spacing: var(--ds-track-meta);
+  text-transform: uppercase;
+}
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-10, 10px);
+}
+.overview-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  text-align: center;
+}
+.overview-stat strong { color: var(--ink-strong); font-size: 20px; }
+.overview-stat span { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+

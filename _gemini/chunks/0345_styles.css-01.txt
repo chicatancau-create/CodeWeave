@@ -1,0 +1,64 @@
+/* ============================================================================
+   CodeWeave · 共享样式层（M3 全站视觉竖切）
+   ----------------------------------------------------------------------------
+   主题：科技风（冷调深蓝黑场 + 冷青强调 + 冷色发光 + 玻璃质感）。
+   取值不再硬编码，一律由 `--ds-*` 设计令牌驱动 —— 令牌定义与逐值出处见
+   src/design/tokens.css，须在 src/main.tsx 中先于本文件引入。
+   - 旧「蓝青紫渐变 + 玻璃面板 + 泛光」体系的**变量名全部保留**（各视图仍在引用）。
+     科技档把这三个形态**重新启用**为主要的视觉语言：深色背景上黑色投影不可见，
+     冷色外发光才是唯一可用的层级手段；玻璃（backdrop-filter）与渐变随之恢复。
+     三者的具体取值在下方 :root 内逐条声明。
+   - 令牌里没有对应物的少量产品派生档（遮光层 --scrim*、场景浅底 --accent-soft、
+     三级文字 0.52）在 :root 内集中声明，逐条注明为什么偏离模板原值。
+   - 护眼指舒适对比与可调字号，不宣称医疗效果。正文对比度实测见 §5.4：
+     冷白实色 17.27:1、次级 0.6 档 6.20:1、三级文字档 0.52 档 4.82:1、
+     焦点环 0.72 档 8.55:1（合成背景均按 #05070d 与其上冷蓝遮光层各测一次）。
+   ========================================================================== */
+
+:root {
+  /* ── 1. 表面：黑场 + 遮光层（§5.1 形态「移除大面积玻璃卡片」） ─────────────
+     模板零卡片底色、零投影（site.css 全文；README §4），分区只靠 1px 发丝线。
+     产品保留两档极低的暖白遮光层，用于「分区但不与文字竞争」。 */
+  --page: var(--ds-canvas);                    /* tokens §1 → 冷调深蓝黑 #05070d */
+  --panel: var(--ds-canvas-raised);            /* 科技档：面板铺抬升表面色，与画布分层 */
+  --panel-2: var(--scrim);                     /* 表头、行、次级分区 */
+  --inset: var(--ds-canvas-solid);             /* 编辑器、控制台、输入区：实底以区隔 */
+  --overlay: var(--ds-canvas-overlay);         /* 弹层表面色 + 细线，实底以遮住身后内容 */
+  --chrome: rgba(5, 7, 13, 0.82);              /* 顶栏/侧栏：半透明底，配合 backdrop-filter 做玻璃（不用 color-mix，引擎支持面更窄） */
+  --grid-line: rgba(120, 175, 235, 0.05);      /* 科技档：网格底纹线色 */
+  --scrim: rgba(120, 165, 220, 0.045);         /* 产品派生：一档遮光层（冷蓝低 α，同 --ds-line-hair 族） */
+  --scrim-raised: rgba(120, 175, 235, 0.085);  /* 产品派生：二档，hover / 选中分区 */
+  --glass: var(--scrim);                       /* 名字保留：科技档已恢复模糊，见 --chrome */
+  --glass-highlight: var(--ds-glow-inset);     /* 顶部高光重新启用：玻璃特征即科技风特征 */
+
+  /* ── 2. 文字（§5.1 暖白 + 次级/三级 α） ─────────────────────────────────── */
+  --ink: var(--ds-text-primary);               /* site.css L15 #f4f1ee → 18.66:1 */
+  --ink-strong: var(--ds-text-primary);        /* 模板只有一档实色，层级改由字重/字号承担 */
+  --muted: var(--ds-text-secondary);           /* L16 α 0.56 → 5.86:1，正文过 AA */
+  /* 三级档偏离模板：原值 0.34 在 #000 上只有 2.69:1（tokens README §6 判不通过），
+     所以「文字」用 0.52 档（5.44:1）；0.34 只留给可丢失的装饰（--ink-decor）。 */
+  --faint: rgba(220, 233, 251, 0.52);
+  --ink-decor: var(--ds-text-tertiary);        /* L17 α 0.34 —— 仅限装饰，不承载信息 */
+  --ink-emphasis: var(--ds-text-emphasis);     /* L306 0.82，以 opacity 叠加在暖白上 */
+  --ink-on-accent: var(--ds-text-on-accent);   /* L56 点缀色底上的前景 = #000（对橙 8.08:1） */
+
+  /* ── 3. 线：1px 发丝线三档（§5.1；模板实为三档，见 tokens §2） ──────────── */
+  --line: var(--ds-line-hair);                 /* L18 α 0.14：结构分隔线（1.32:1，装饰级） */
+  --line-strong: var(--ds-field-border);       /* α 0.38：关键输入/边界 ≥3:1（实测 3.13:1） */
+  --line-raised: var(--ds-line-raised);        /* L176/L447 α 0.16：滚动条、进度条底 */
+  --line-frame: var(--ds-line-frame);          /* L94 α 0.07：取景线，纯装饰 */
+  --hair: var(--ds-line-width);                /* 全站线宽恒为 1px */
+  --field-line: var(--ds-field-border);         /* 输入静止态边界 */
+  --field-line-active: var(--ds-field-border-active); /* α 0.62 → 7.07:1，聚焦态再抬一档 */
+  --focus-ring: var(--ds-focus-ring);           /* α 0.72 → 9.45:1，远高于非文本 3:1 */
+  --focus-wash: rgba(220, 233, 251, 0.18);     /* 焦点环外的第二圈，仅用于把环从背景分离 */
+
+  /* ── 4. 主色与场景点缀（科技档：整族换冷色；工作台固定当前场景，不逐帧变色） ── */
+  --accent: var(--ds-scene-active);            /* 当前场景 = 00 奇点·冷青（tokens §3） */
+  --accent-hover: var(--ds-scene-firstlight);  /* 03 初光·冰蓝，同族更亮的一档 */
+  --accent-strong: var(--ds-scene-active);     /* 旧「实心按钮深底」→ 现在只作编号/细线色 */
+  --accent-strong-hover: var(--ds-scene-active); /* 细线按钮 hover 不靠加深底色，改由 wash 承担 */
+  --accent-soft: rgba(34, 211, 238, 0.12);     /* 产品派生：场景浅底 wash（模板无选中底色） */
+  --accent-ring: rgba(34, 211, 238, 0.5);      /* 选中/悬停描边（同 --accent 族） */
+  --accent-2: var(--ds-scene-tides);           /* 02 潮汐·薄荷 */
+  --accent-3: var(--ds-scene-nebula);          /* 01 星云·紫 */

@@ -1,0 +1,74 @@
+                                                color: traceTab.checked ? ds.accent : ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 12
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                        }
+                                    }
+                                }
+                                Item { Layout.fillWidth: true }
+                                Rectangle {
+                                    implicitWidth: counterText.implicitWidth + ds.s12
+                                    implicitHeight: 20
+                                    radius: 3
+                                    color: "transparent"
+                                    border.color: ds.accentRing
+                                    border.width: 1
+                                    Text {
+                                        id: counterText
+                                        anchors.centerIn: parent
+                                        text: (uiShell.executionTrace.events || []).length > 0
+                                              ? (uiShell.executionTrace.events || []).length + " 个事件"
+                                              : "暂无执行事件"
+                                        color: ds.accent
+                                        font.family: ds.mono
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
+                            StageDiagram {
+                                objectName: "workspaceFlowNodes"
+                                visible: !editorPage.showExecutionTrace
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: 176
+                                ds: editorPage.ds
+                                frame: Stage.skeleton(editorPage.currentLesson ? (editorPage.currentLesson.flow || []) : [])
+                                emptyText: "选择课程后显示流程结构"
+                            }
+
+                            ExecutionTracePanel {
+                                id: executionPanel
+                                objectName: "executionTracePanel"
+                                visible: editorPage.showExecutionTrace
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: implicitHeight
+                                ds: editorPage.ds
+                                trace: uiShell.executionTrace
+                                busy: uiShell.executionBusy
+                                draftRevision: uiShell.draftRevision
+                            }
+
+                            TraceVariables {
+                                objectName: "executionVariableTable"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: implicitHeight
+                                ds: editorPage.ds
+                                frame: executionPanel.frame
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 1
+                                color: ds.line
+                            }
+
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: ds.s8
+                                CheckBox {
+                                    text: "独立完成"
+                                    checked: uiShell.independentAttempt

@@ -1,0 +1,89 @@
+  std::wstring result(static_cast<size_t>(size), L'\0');
+  return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), result.data(), size) == size ? result : std::wstring{};
+}
+
+std::string current_date() {
+  SYSTEMTIME now{};
+  GetLocalTime(&now);
+  char buffer[11]{};
+  std::snprintf(buffer, sizeof(buffer), "%04u-%02u-%02u",
+      static_cast<unsigned>(now.wYear), static_cast<unsigned>(now.wMonth),
+      static_cast<unsigned>(now.wDay));
+  return buffer;
+}
+
+std::string operation_id_for(std::string_view session_id, std::uint64_t generation) {
+  std::string token;
+  for (const unsigned char character : session_id) {
+    if (std::isalnum(character) != 0) token.push_back(static_cast<char>(std::tolower(character)));
+    if (token.size() == 20) break;
+  }
+  if (token.size() < 6) token += "native";
+  if (token.size() > 20) token.resize(20);
+  constexpr char digits[] = "0123456789abcdef";
+  std::uint32_t nonce = static_cast<std::uint32_t>(generation);
+#ifdef _WIN32
+  BCryptGenRandom(nullptr, reinterpret_cast<PUCHAR>(&nonce), sizeof(nonce), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+#endif
+  std::string suffix;
+  for (int shift = 20; shift >= 0; shift -= 4) suffix.push_back(digits[(nonce >> shift) & 0x0f]);
+  return "op-" + token + "-" + suffix;
+}
+
+std::string evidence_id_for(std::string_view session_id, std::uint64_t generation) {
+  std::string token;
+  for (const unsigned char character : session_id) {
+    if (std::isalnum(character) != 0) token.push_back(static_cast<char>(std::tolower(character)));
+    if (token.size() == 40) break;
+  }
+  if (token.size() < 6) token += "native";
+  constexpr char digits[] = "0123456789abcdef";
+  std::uint32_t nonce = static_cast<std::uint32_t>(generation);
+#ifdef _WIN32
+  BCryptGenRandom(nullptr, reinterpret_cast<PUCHAR>(&nonce), sizeof(nonce), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+#endif
+  std::string suffix;
+  for (int shift = 20; shift >= 0; shift -= 4) suffix.push_back(digits[(nonce >> shift) & 0x0f]);
+  return "evidence-" + token + "-" + suffix;
+}
+
+void set_status(std::wstring_view status) { if (g_status) SetWindowTextW(g_status, std::wstring(status).c_str()); }
+void set_account_status(std::wstring_view status) { if (g_account_status) SetWindowTextW(g_account_status, std::wstring(status).c_str()); }
+void set_edit_cue(HWND control, std::wstring_view cue) {
+  if (!control) return;
+  SendMessageW(control, EM_SETCUEBANNER, TRUE,
+      reinterpret_cast<LPARAM>(std::wstring(cue).c_str()));
+}
+void set_edit_limit(HWND control, int characters) {
+  if (!control) return;
+  SendMessageW(control, EM_SETLIMITTEXT, static_cast<WPARAM>(characters), 0);
+}
+std::string control_text(HWND control) {
+  const int length = GetWindowTextLengthW(control);
+  std::wstring value(static_cast<size_t>(length) + 1, L'\0');
+  if (length > 0) GetWindowTextW(control, value.data(), length + 1);
+  value.resize(static_cast<size_t>(length));
+  auto text = utf8_from_wide(value);
+  for (size_t at = 0; (at = text.find("\r\n", at)) != std::string::npos;) text.replace(at, 2, "\n");
+  return text;
+}
+
+void set_multiline(HWND control, std::string_view text) {
+  std::string normalized;
+  normalized.reserve(text.size());
+  for (size_t at = 0; at < text.size(); ++at) {
+    if (text[at] == '\n' && (at == 0 || text[at - 1] != '\r')) normalized.push_back('\r');
+    normalized.push_back(text[at]);
+  }
+  SetWindowTextW(control, wide_from_utf8(normalized).c_str());
+}
+
+std::string draft_id() {
+  if (g_selected_content.empty()) return "scratch";
+  // Content IDs are stable ASCII identifiers; hash the complete ID to stay
+  // within the draft store's path limit without truncation collisions.
+  unsigned char hash[32]{};
+  if (BCryptHash(BCRYPT_SHA256_ALG_HANDLE, nullptr, 0,
+      reinterpret_cast<PUCHAR>(g_selected_content.data()), static_cast<ULONG>(g_selected_content.size()), hash, sizeof(hash)) != 0) return {};
+  constexpr char digits[] = "0123456789abcdef";
+  std::string result = "lesson-";

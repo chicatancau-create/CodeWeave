@@ -1,0 +1,100 @@
+  async function unbind(userId) {
+    const record = await ownerStore.unbind(userId)
+    return { bound: false, isOwner: false, vaultId: record.vaultId, publicContent: false }
+  }
+
+  async function setVisibility(userId, publicContent) {
+    const record = await ownerStore.setVisibility(userId, publicContent)
+    return { bound: true, isOwner: true, vaultId: record.vaultId, publicContent: record.publicContent }
+  }
+
+  /**
+   * 正式进度投影：**仅拥有者**。
+   * 返回值同时带上降级状态与被跳过/未适配的块，界面据此显示「结构待适配」。
+   */
+  async function vaultProgress(userId) {
+    const record = await ownerStore.read()
+    if (!record.ownerUserId) {
+      return { ok: false, code: 'owner_unbound', message: '正式进度未开放：资料库拥有者尚未绑定' }
+    }
+    if (record.ownerUserId !== userId) {
+      return { ok: false, code: 'forbidden', message: '正式进度只对资料库拥有者可见' }
+    }
+    const loaded = await loadProgress()
+    if (!loaded.projection) {
+      return { ok: false, code: 'progress_unavailable', message: loaded.reason || '进度追踪不可用' }
+    }
+    return { ok: true, data: loaded.projection }
+  }
+
+  /** 内容接口的准入判定（未绑定=开放；已绑定=仅拥有者或公开教材）。 */
+  async function contentAccess(userId, record) {
+    const owner = record ?? await ownerStore.read()
+    if (owner.ownerUserId && owner.vaultId !== await readVaultId()) return { allowed: false, reason: 'owner_vault_mismatch' }
+    return ownerStore.contentAccess(owner, userId)
+  }
+
+  // -------------------------------------------------------------------------
+  // LINK-09：证据暂存 → 预览 → 确认式写回
+  // -------------------------------------------------------------------------
+
+  /** 只对拥有者开放的写回操作统一鉴权。 */
+  async function requireOwner(userId) {
+    const record = await ownerStore.read()
+    if (record.ownerUserId && record.vaultId !== await readVaultId()) {
+      return { ok: false, code: 'owner_vault_mismatch', message: '拥有者绑定属于其他资料库' }
+    }
+    if (!record.ownerUserId) {
+      return { ok: false, code: 'owner_unbound', message: '写回未开放：资料库拥有者尚未绑定' }
+    }
+    if (record.ownerUserId !== userId) {
+      return { ok: false, code: 'forbidden', message: '只有资料库拥有者才能提交学习证据与写回' }
+    }
+    return { ok: true }
+  }
+
+  /** 步骤 1：暂存证据，标 pending。**不触碰资料库**。 */
+  async function stageEvidence(userId, input) {
+    const checked = validateEvidenceInput(input, { defaultDate: localToday() })
+    if (!checked.ok) return { ok: false, code: checked.code, message: checked.message }
+    const record = await evidenceStore.stage(userId, checked.value)
+    return { ok: true, data: record }
+  }
+
+  async function listEvidence(userId) {
+    const records = await evidenceStore.list(userId)
+    return {
+      ok: true,
+      data: {
+        pending: records.filter((record) => record.state !== EVIDENCE_STATE.SYNCED),
+        synced: records.filter((record) => record.state === EVIDENCE_STATE.SYNCED).slice(-20),
+      },
+    }
+  }
+
+  async function removeEvidence(userId, evidenceId) {
+    const target = await evidenceStore.get(userId, evidenceId)
+    if (!target) return { ok: false, code: 'evidence_not_found', message: '暂存证据不存在' }
+    if (target.state === EVIDENCE_STATE.SYNCED) {
+      return { ok: false, code: 'already_synced', message: '已同步的证据不能删除；如需撤销请使用回滚' }
+    }
+    await evidenceStore.remove(userId, evidenceId)
+    return { ok: true, data: { removed: true } }
+  }
+
+  /** 步骤 2：预览（只读，不修改 Markdown）。 */
+  async function previewEvidence(userId, { evidenceIds, masteryUpdates } = {}) {
+    const authorized = await requireOwner(userId)
+    if (!authorized.ok) return authorized
+    try {
+      return { ok: true, data: await writeback.preview({ userId, evidenceIds, masteryUpdates }) }
+    } catch (error) {
+      return { ok: false, code: error?.code ?? 'preview_failed', message: error?.message ?? '预览失败', details: error?.details }
+    }
+  }
+
+  /** 步骤 3：确认后提交（按日志 → 进度 → 索引顺序写入）。 */
+  async function commitEvidence(userId, { operationId, expectedHashes } = {}) {
+    const authorized = await requireOwner(userId)
+    if (!authorized.ok) return authorized
+    try {

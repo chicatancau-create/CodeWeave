@@ -1,0 +1,121 @@
+  const derived = Buffer.from(await scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS))
+  const expected = Buffer.from(expectedHex, 'hex')
+  return expected.length === derived.length && timingSafeEqual(expected, derived)
+}
+
+/**
+ * 会话是否已过期。
+ * 采用「按最近使用时间」的滑动过期：持续使用的会话不会被强制登出，
+ * 空闲超过 7 天才失效。这与淘汰策略（LRU）语义一致。
+ * 唯一的过期判定来源，避免多处比较产生漂移。
+ */
+function isSessionExpired(session, now = Date.now()) {
+  return now - (session.lastSeenAt ?? session.createdAt) > SESSION_TTL_MS
+}
+
+function createSession(userId) {
+  pruneSessions()
+  const sessionId = randomBytes(24).toString('hex')
+  const now = Date.now()
+  accounts.sessions.set(sessionId, { userId, createdAt: now, lastSeenAt: now })
+  accounts.sessions.trim(MAX_SESSIONS)
+  return sessionId
+}
+
+export function pruneSessions(now = Date.now()) {
+  return accounts?.sessions.expire(now - SESSION_TTL_MS) ?? 0
+}
+
+function destroySession(sessionId) {
+  if (sessionId) accounts.sessions.delete(sessionId)
+}
+
+export function sessionCount() {
+  return accounts?.sessions.count() ?? 0
+}
+
+export function debugSetSessionTimestamps(cookieValue, { createdAt, lastSeenAt }) {
+  const session = accounts?.sessions.get(cookieValue)
+  if (!session) return false
+  if (typeof createdAt === 'number') session.createdAt = createdAt
+  if (typeof lastSeenAt === 'number') session.lastSeenAt = lastSeenAt
+  accounts.sessions.set(cookieValue, session)
+  return true
+}
+
+function sessionUser(request, users) {
+  const sessionId = parseCookies(request)[SESSION_COOKIE]
+  const session = accounts.sessions.get(sessionId)
+  if (!session) return undefined
+  if (isSessionExpired(session)) {
+    accounts.sessions.delete(sessionId)
+    return undefined
+  }
+  session.lastSeenAt = Date.now()
+  accounts.sessions.set(sessionId, session)
+  return users.find((user) => user.id === session.userId)
+}
+
+// ---------------------------------------------------------------------------
+// 校验与工具
+// ---------------------------------------------------------------------------
+function publicUser(user) {
+  return { id: user.id, email: user.email, phone: user.phone, name: user.name, bio: user.bio, createdAt: user.createdAt }
+}
+
+function normalizePhone(value) { return String(value ?? '').replace(/[^\d]/g, '') }
+function isPhone(value) { return /^1[3-9]\d{9}$/.test(value) }
+function isEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) }
+
+/**
+ * 客户端标识：本地部署下取 socket 远端地址即可。
+ * 若将来置于反向代理之后，应显式信任并解析 X-Forwarded-For（当前不信任该头，防止伪造绕过限流）。
+ */
+function clientIp(request) {
+  return request.socket?.remoteAddress ?? 'unknown'
+}
+
+/** 无请求体的写操作：不要求 Content-Type: application/json。 */
+const BODYLESS_WRITE_PATHS = new Set(['/api/auth/logout', '/api/learning/owner'])
+
+/** R3：统一安全响应头（所有响应都带，含 JSON 与静态资源）。 */
+function securityHeaders() {
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    // 本应用为本地单机工具，CSP 收紧到同源。
+    // worker-src / script-src 必须显式允许 blob:：JavaScript 沙箱用
+    // `new Worker(URL.createObjectURL(blob))` 创建隔离线程；worker-src 缺省时
+    // 回退到 script-src，而 blob: 不会被 'self' 覆盖，沙箱会被静默阻断。
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      "img-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' blob:",
+      "worker-src 'self' blob:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+    ].join('; '),
+  }
+}
+
+function sendJson(response, status, data, code, extraHeaders) {
+  const body = JSON.stringify(status >= 400 ? { error: data, code: code ?? 'error' } : { data })
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+    ...extraHeaders,
+    ...securityHeaders(),
+  })
+  response.end(body)
+}
+
+/**
+ * 带结构化 details 的 JSON 响应（LINK-09 写回专用）。
+ * 冲突详情（逐字段差异）必须能到达界面，但仍不裸抛堆栈、不回显资料库绝对路径。
+ */

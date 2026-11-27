@@ -1,0 +1,103 @@
+      "height": 900,
+      "sha256": "d0dd70f14ef0ae25a0bb81520277fd9dd6dd00d9ce5decf0aaa54b27dccbb2a9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-privacy.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "82759130f4cf3a9a98f00a525462e8c8375cb04b3c50442b2e13cfa48f7d357f"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-login-intro.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "f34e302f3471ca6a2b98f3164296626bb00f6bbab02987aee39e6e20915584f1"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-drafts.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4a070eaded3211bdfdbe9f3ae5ad483c008b3f4b47f8899a3de4cc76ec2cde7d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-drafts-save-error.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "2a495b07fa7b2d57a6126d1607650bd9c35d1562a11537a2f9b4be6a37c18a0d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-drafts-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "3e2572f5e7cf591e973481ce1228953ba5600562ad001aac04c7af1a92799f4e"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-empty.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "7e30832af3f83a6619cc640a3e8867fe024d82f1ae04d8f3bb09a9ba20d0fe40"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-completed.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9a65cb715dc180335da460274495a23a0b1bb051a7db07694440157832c0ef95"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-details.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "e76b8cd3d74794e4fe0c5684e2bf2dbc388873497d676477b1226f4ac2620d7c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-details-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "e58280df56f01dbcdb4af5722ef9a52aeff990f8fbd79cef36ae82fca27dbb59"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-learning-details-selected.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "b54a11e7e5da4e29eebac738c9c3f46a36befdaaffe2417fedf09f184f814ca6"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review-nonempty.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "2484f57a7759ed5aa30dac54d9fc333876bd13c6116926e319e0f1673964676b"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review-hovered.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9006731e124b6303fd9d7f3e3f5d0e261882a0562d342505887d7e48a36c44a4"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-review-updated.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "6a17f40854bad9907402796f3cf85ee905fc6f372d782dce1c0ced6f89e8270a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-workspace-breadcrumb-unlisted-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "2dd1a7e13041e4cf7b60b69e1bfd187d6820908f472c6d51f55c1b90dd3d0e2f"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-read.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "9ddcea8937c52d9a8f3c45fae7e7e83c7b56a99cee1d76cf4491cf5d029afc3a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-missed-cases.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "cafd7f558b2025cbd90b5b106d72923d862146739cf54410ae730f2409451767"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-verified.png",
+      "width": 1440,
+      "height": 900,

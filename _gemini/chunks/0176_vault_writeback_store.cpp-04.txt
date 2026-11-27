@@ -1,0 +1,63 @@
+    if (!valid_relative(target.path) || paths.contains(target.path) || target.after.toUtf8().size() > kMaxVaultFileBytes) return false;
+    paths.insert(target.path);
+    const auto expected_kind = i == targets.size() - 1 ? QStringLiteral("index") :
+        i == targets.size() - 2 ? QStringLiteral("progress") : QStringLiteral("log");
+    if (target.kind != expected_kind || (target.existed && target.expected_hash.size() != 64) ||
+        (!target.existed && !target.expected_hash.isEmpty())) return false;
+    if (target.kind == "progress" && target.path != QString::fromUtf8(kProgressPath)) return false;
+    if (target.kind == "index" && target.path != QString::fromUtf8(kPlanPath)) return false;
+    const auto expected_backup = root / "learning" / "writeback" / operation.toStdWString() / L"backups" /
+        (QString::number(i).toStdWString() + L".bak");
+    if (!target.backup.isEmpty() && target.backup != qpath(expected_backup)) return false;
+    if (target.prepared && target.post_hash != hash_bytes(target.after.toUtf8())) return false;
+    if (target.applied && !target.prepared) return false;
+  }
+  return true;
+}
+}  // namespace
+
+VaultWritebackStore::VaultWritebackStore(std::filesystem::path app_root,
+    std::filesystem::path account_root, std::filesystem::path vault_root, std::string account_id)
+    : owner_root_(std::move(app_root)), account_root_(std::move(account_root)),
+      vault_root_(std::move(vault_root)),
+      account_id_(std::move(account_id)) {}
+
+Result VaultWritebackStore::ownerStatus(bool& is_owner) const {
+  is_owner = false;
+  const auto path = owner_root_ / "learning" / "vault-owner.v1.json";
+  if (!safe_path(path)) return Result::failure("资料库绑定记录路径无效");
+  QFile file(qpath(path));
+  if (!file.exists()) return Result::success("尚未绑定资料库拥有者");
+  if (!file.open(QIODevice::ReadOnly) || file.size() > 65536) return Result::failure("资料库绑定记录不可读");
+  QJsonParseError error;
+  const auto object = QJsonDocument::fromJson(file.readAll(), &error).object();
+  if (error.error != QJsonParseError::NoError || object.value("schemaVersion").toInt() != 1)
+    return Result::failure("资料库绑定记录损坏，已停止写回");
+  if (!object.value("accountId").isString() || object.value("accountId").toString().isEmpty() ||
+      !object.value("vaultRoot").isString() || object.value("vaultRoot").toString().isEmpty())
+    return Result::failure("资料库绑定字段损坏，已停止写回");
+  if (vault_root_.empty() || !safe_path(vault_root_)) return Result::success("请连接原先绑定的资料库");
+  is_owner = object.value("accountId").toString().toStdString() == account_id_ &&
+      QFileInfo(object.value("vaultRoot").toString()).canonicalFilePath() == QFileInfo(qpath(vault_root_)).canonicalFilePath();
+  return Result::success(is_owner ? "当前账户是资料库拥有者" : "资料库未绑定当前账户");
+}
+
+Result VaultWritebackStore::bindOwner() {
+  const auto lock = acquire_lock(owner_root_);
+  if (!lock) return Result::failure("资料库绑定记录正被使用，请稍后重试");
+  if (account_id_.empty() || !safe_path(vault_root_)) return Result::failure("账户或资料库路径无效");
+  QByteArray bytes; QString hash; bool exists = false;
+  if (!read_target(vault_root_, QString::fromUtf8(kProgressPath), bytes, hash, exists) || !exists)
+    return Result::failure("未找到受支持的资料库进度追踪文件");
+  if (!read_target(vault_root_, QString::fromUtf8(kPlanPath), bytes, hash, exists) || !exists)
+    return Result::failure("未找到资料库总计划索引文件");
+  const auto path = owner_root_ / "learning" / "vault-owner.v1.json";
+  if (!safe_path(path) || !QDir().mkpath(qpath(path.parent_path()))) return Result::failure("无法创建资料库绑定目录");
+  bool existing_owner = false;
+  const auto status = ownerStatus(existing_owner);
+  if (!status.ok) return status;
+  QFile current(qpath(path));
+  if (current.exists() && !existing_owner) return Result::failure("该设备上的资料库已绑定其他账户");
+  QSaveFile file(qpath(path)); file.setDirectWriteFallback(false);
+  const auto data = QJsonDocument(QJsonObject{{"schemaVersion", 1},
+      {"accountId", QString::fromStdString(account_id_)},

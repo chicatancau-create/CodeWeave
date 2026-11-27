@@ -1,0 +1,140 @@
+            "name": "lesson-dialog-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "detail": "doc=csharp-loop-sum title=01 · 让 C# 输出一句话 expected=让 C# 输出一句话 flow=6 expectedFlow=6 breadcrumb=Code Canvas / 编辑器 / 04 · 让 C# 输出一句话",
+            "name": "lesson-workspace-external-document-updates-title-and-flow",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-form-filled-with-required-date",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-submit-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-submitted-without-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-self-declaration-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-external-completion-is-self-declared",
+            "passed": true
+        },
+        {
+            "name": "lesson-evidence-small-scroll-width",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-fault-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-starts-and-disables",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-failure-visible-and-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-error-screenshot",
+            "passed": true
+        },
+        {
+            "name": "workspace-dismiss-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "workspace-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "workspace-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "detail": "草稿已保存",
+            "name": "review-normal-content-hides-error",
+            "passed": true
+        },
+        {
+            "name": "analytics-isolated-account-created",
+            "passed": true
+        },
+        {
+            "name": "analytics-empty-ledgers-show-zero-and-insufficient-sample",
+            "passed": true
+        },
+        {
+            "name": "analytics-window-fixture-created",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-完成课程单元",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-课程练习次数",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-挑战通过记录",
+            "passed": true
+        },
+        {
+            "detail": "actual=1 expected=1",
+            "name": "analytics-visible-复测通过",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-复测未通过",
+            "passed": true
+        },
+        {
+            "detail": "actual=33% expected=33%",
+            "name": "analytics-visible-近 7 天复测通过率",
+            "passed": true
+        },
+        {
+            "name": "analytics-window-dates-from-facade",
+            "passed": true
+        },
+        {
+            "name": "analytics-values-screenshot",
+            "passed": true
+        },
+        {
+            "name": "sidebar-review-eligible-fixture",
+            "passed": true
+        },
+        {
+            "name": "sidebar-review-due-badge",
+            "passed": true
+        },
+        {
+            "name": "checkin-authenticated-empty",
+            "passed": true
+        },
+        {
+            "name": "checkin-keyboard-write-and-disable",
+            "passed": true
+        },
+        {
+            "name": "checkin-calendar-focus-and-recorded-day",
+            "passed": true
+        },
+        {

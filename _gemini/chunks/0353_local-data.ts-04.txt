@@ -1,0 +1,11 @@
+        result.unresolved.push({ key, reason: `回滚失败：${error instanceof Error ? error.message : String(error)}` })
+      }
+    }
+    result.rolledBack = restored.length === result.applied.length
+    if (result.rolledBack) {
+      result.skipped.push(...result.applied)
+      result.applied = []
+    }
+  }
+  return result
+}

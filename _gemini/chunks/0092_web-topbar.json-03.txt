@@ -1,0 +1,125 @@
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "20.8px",
+            "color": "rgb(142, 213, 255)",
+            "backgroundColor": "rgba(56, 189, 248, 0.08)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(56, 189, 248, 0.3)",
+            "borderRadius": "5px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(142, 213, 255)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "个人中心",
+          "geometry": {
+            "x": 337.53125,
+            "y": 16.5,
+            "width": 101,
+            "height": 34
+          },
+          "computed": {
+            "fontSize": "13px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "20.8px",
+            "color": "rgb(163, 175, 190)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "borderRadius": "5px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(163, 175, 190)",
+            "outlineOffset": "0px"
+          }
+        }
+      ],
+      "search": {
+        "text": "",
+        "geometry": {
+          "x": 463.53125,
+          "y": 13.296875,
+          "width": 658.46875,
+          "height": 40.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "actions": {
+        "text": "本机工作空间R",
+        "geometry": {
+          "x": 1142,
+          "y": 15.5,
+          "width": 274,
+          "height": 36
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "breadcrumbs": [
+        {
+          "text": "Code Canvas/课程",
+          "geometry": {
+            "x": 24,
+            "y": 22.3125,
+            "width": 0,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "Code Canvas",
+          "geometry": {
+            "x": 24,
+            "y": 22.3125,
+            "width": 81.171875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "600",
+            "lineHeight": "22.4px",

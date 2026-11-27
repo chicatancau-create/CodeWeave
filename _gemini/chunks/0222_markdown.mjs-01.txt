@@ -1,0 +1,133 @@
+/**
+ * 资料库只读解析层（LINK-04）。
+ *
+ * 设计边界（02 号方案 §1 活动内容层）：
+ * - 只解析**受限 frontmatter 子集**：顶层 `key: value` 标量 + 行内 `[a, b]` 列表。
+ *   不支持嵌套映射、块标量（`|`/`>`）、锚点/别名（`&`/`*`）、标签（`!`）、块列表（`- `）。
+ *   遇到子集外的写法直接报 `frontmatter_unsupported` 错误，**不猜测、不静默降级**。
+ *   这样既不需要引入 YAML 依赖，也不会出现“几条正则假装完整解析器”的静默错误。
+ * - 正文按 `visible_lines` 剔除 frontmatter 与围栏代码块，代码块里的 `#` 不会被当成标题。
+ * - 与资料库既有 Python 工具（tools/check_vault.py、tools/build_topic_index.py）保持同一语义，
+ *   但本模块是应用侧的唯一实现；Python 工具只负责资料库自身门禁。
+ */
+import { createHash } from 'node:crypto'
+
+const KEY_LINE = /^([A-Za-z_][A-Za-z0-9_-]*):(?:[ \t]*(.*))?$/
+const FENCE = /^\s*(`{3,}|~{3,})/
+const HEADING = /^(#{1,6})\s+(.+?)\s*$/
+const CLOSING_HASHES = /\s+#+\s*$/
+const BRACKETED = /^\[(.*)\]$/
+
+export const SUPPORTED_SCHEMA_VERSION = 1
+
+/** 去掉 BOM；换行统一为 LF。换行规范化策略固定，重复同步同一内容不产生新版本。 */
+export function normalizeText(raw) {
+  return String(raw).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+}
+
+export function sha256(text) {
+  return createHash('sha256').update(text, 'utf8').digest('hex')
+}
+
+export class ContentError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = 'ContentError'
+    this.code = code
+  }
+}
+
+/** 拆分受限标量：去引号、去未加引号的尾注释。 */
+function scalar(raw) {
+  const value = String(raw ?? '').trim()
+  if (value.length >= 2 && value[0] === value.at(-1) && (value[0] === '"' || value[0] === "'")) {
+    return value.slice(1, -1)
+  }
+  const hash = value.indexOf(' #')
+  return (hash === -1 ? value : value.slice(0, hash)).trim()
+}
+
+/**
+ * 按顶层逗号切分行内列表；引号内与嵌套方括号内的逗号不作为分隔符。
+ * 这样 `["scores = [82, 45, 91] => 三行输出"]` 是一个元素而不是三个。
+ */
+function splitListItems(text) {
+  const items = []
+  let current = ''
+  let quote = null
+  let depth = 0
+  for (const char of text) {
+    if (quote) {
+      current += char
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      current += char
+      continue
+    }
+    if (char === '[') depth += 1
+    if (char === ']') depth -= 1
+    if (char === ',' && depth === 0) {
+      items.push(current)
+      current = ''
+      continue
+    }
+    current += char
+  }
+  items.push(current)
+  return items
+}
+
+function parseItem(raw) {
+  const item = raw.trim()
+  if (!item) return undefined
+  if (item[0] === '"' || item[0] === "'") {
+    if (item.length < 2 || item.at(-1) !== item[0]) {
+      throw new ContentError('frontmatter_unsupported', `列表项引号未闭合：${raw}`)
+    }
+    return item.slice(1, -1)
+  }
+  return scalar(item)
+}
+
+/**
+ * 解析受限 frontmatter。
+ * @returns {{ fields: Record<string, string|string[]>, lineCount: number, present: boolean, bodyStartLine: number }}
+ */
+export function parseRestrictedFrontmatter(text, where = '') {
+  const label = where ? `${where}: ` : ''
+  const lines = text.split('\n')
+  if (lines[0]?.trim() !== '---') {
+    return { fields: {}, lineCount: 0, present: false, bodyStartLine: 1 }
+  }
+  const fields = {}
+  // 先确认 frontmatter 有结束标记：否则后面每一行都会报“不符合子集”，
+  // 掩盖真正的错误原因（缺一个 ---）。
+  const closeLine = lines.findIndex((line, position) => position > 0 && line.trim() === '---')
+  if (closeLine === -1) {
+    throw new ContentError('frontmatter_unterminated', `${label}frontmatter 缺少结束的 ---`)
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (line.trim() === '---') {
+      return { fields, lineCount: index + 1, present: true, bodyStartLine: index + 2 }
+    }
+    if (!line.trim() || line.trimStart().startsWith('#')) continue
+    if (/^[ \t]/.test(line)) {
+      throw new ContentError(
+        'frontmatter_unsupported',
+        `${label}frontmatter 第 ${index + 1} 行使用了缩进（嵌套/块列表），本契约只支持顶层键与行内列表`,
+      )
+    }
+    if (/^-\s/.test(line)) {
+      throw new ContentError(
+        'frontmatter_unsupported',
+        `${label}frontmatter 第 ${index + 1} 行是块列表，请改写为行内形式 [a, b]`,
+      )
+    }
+    const match = KEY_LINE.exec(line)
+    if (!match) {
+      throw new ContentError(
+        'frontmatter_unsupported',

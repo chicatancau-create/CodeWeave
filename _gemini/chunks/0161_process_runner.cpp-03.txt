@@ -1,0 +1,100 @@
+  CloseHandle(input_read);
+  input_read_guard.value = nullptr;
+  const auto source = plan.source;
+  const HANDLE source_writer = input_write;
+  input_write_guard.value = nullptr;
+  std::thread input_writer([source, source_writer] {
+    const char* data = source.data();
+    std::size_t remaining = source.size();
+    while (remaining > 0) {
+      DWORD written = 0;
+      if (!WriteFile(source_writer, data, static_cast<DWORD>(std::min<std::size_t>(remaining, 64 * 1024)),
+          &written, nullptr) || written == 0) break;
+      data += written;
+      remaining -= written;
+    }
+    CloseHandle(source_writer);
+  });
+  result.started = true;
+  std::atomic<bool> output_limit_hit{false};
+  std::string captured_output;
+  std::mutex output_mutex;
+  bool captured_output_truncated = false;
+  std::thread reader([&captured_output, &output_mutex, &captured_output_truncated, &output_limit_hit,
+      raw_read, limit = plan.output_limit] {
+    char buffer[8192];
+    DWORD read = 0;
+    while (ReadFile(raw_read, buffer, sizeof(buffer), &read, nullptr) && read > 0) {
+      std::lock_guard lock(output_mutex);
+      const auto remaining = limit > captured_output.size() ? limit - captured_output.size() : 0;
+      const auto accepted = std::min<std::size_t>(remaining, read);
+      captured_output.append(buffer, accepted);
+      if (accepted < read) {
+        captured_output_truncated = true;
+        output_limit_hit.store(true);
+        break;
+      }
+    }
+  });
+
+  std::size_t output_offset = 0;
+  std::size_t control_offset = 0;
+  const auto publish = [&] {
+    if (!observer) return;
+    std::string output;
+    std::vector<ControlEvent> controls;
+    {
+      std::lock_guard lock(output_mutex);
+      output = captured_output.substr(output_offset);
+      output_offset = captured_output.size();
+    }
+    {
+      std::lock_guard lock(control_events_mutex);
+      controls.assign(control_events.begin() + control_offset, control_events.end());
+      control_offset = control_events.size();
+    }
+    observer(output, controls);
+  };
+
+  const auto deadline = GetTickCount64() + plan.timeout_ms;
+  DWORD wait = WAIT_TIMEOUT;
+  while (true) {
+    wait = WaitForSingleObject(process_info.hProcess, 50);
+    publish();
+    if (wait != WAIT_TIMEOUT || output_limit_hit.load() ||
+        (cancellation && cancellation->load())) break;
+    if (GetTickCount64() >= deadline) break;
+    if (control && control->is_paused()) continue;
+  }
+  if (cancellation && cancellation->load() && wait == WAIT_TIMEOUT && !output_limit_hit.load()) {
+    TerminateJobObject(job_guard.value, 126);
+    WaitForSingleObject(process_info.hProcess, 5000);
+    result.cancelled = true;
+    result.error_code = "execution_cancelled";
+  } else if (output_limit_hit.load()) {
+    TerminateJobObject(job_guard.value, 125);
+    WaitForSingleObject(process_info.hProcess, 5000);
+    result.error_code = "output_limit_exceeded";
+  } else if (wait == WAIT_TIMEOUT && result.error_code.empty()) {
+    result.timed_out = true;
+    TerminateJobObject(job_guard.value, 124);
+    WaitForSingleObject(process_info.hProcess, 5000);
+    result.error_code = "execution_timeout";
+  } else if (wait == WAIT_FAILED && result.error_code.empty()) {
+    TerminateJobObject(job_guard.value, 1);
+    result.error_code = "process_wait_failed";
+  }
+  GetExitCodeProcess(process_info.hProcess, &result.exit_code);
+  // Descendants can outlive their parent and retain the pipe handles. End the
+  // entire job before joining I/O threads, even after a normal parent exit.
+  TerminateJobObject(job_guard.value, 0);
+  if (input_writer.joinable()) {
+    if (result.cancelled || result.timed_out || result.output_truncated ||
+        !result.error_code.empty()) {
+      // A child may stop consuming stdin while it is being terminated. Cancel
+      // the synchronous WriteFile so shutdown cannot wait forever on the
+      // writer thread.
+      CancelSynchronousIo(reinterpret_cast<HANDLE>(input_writer.native_handle()));
+    }
+    input_writer.join();
+  }

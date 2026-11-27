@@ -1,0 +1,100 @@
+                    implicitHeight: 44
+                    label: "下一页 ›"
+                    enabled: challengePage.currentPage < challengePage.pageCount
+                    onClicked: challengePage.currentPage = Math.min(challengePage.pageCount,
+                                                                     challengePage.currentPage + 1)
+                }
+            }
+        }
+
+        ColumnLayout {
+            id: challengeDetailRoot
+            anchors.fill: parent
+            spacing: ds.s16
+            visible: uiShell.challengeDetailOpen
+            focus: visible
+            Keys.onEscapePressed: uiShell.closeChallenge()
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: ds.s12
+                QuietButton {
+                    id: detailBack
+                    objectName: "challengeDetailBack"
+                    ds: challengePage.ds
+                    implicitHeight: 44
+                    label: "‹ 返回挑战列表"
+                    onClicked: uiShell.closeChallenge()
+                }
+                Item { Layout.fillWidth: true }
+                Text {
+                    text: challengePage.challengeSequence(uiShell.selectedChallenge)
+                          + " / " + uiShell.challengeMeta.length
+                    color: ds.muted
+                    font.family: ds.mono
+                    font.pixelSize: 13
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: ds.s8
+                RowLayout {
+                    spacing: ds.s10
+                    Text {
+                        text: "阶段 " + (uiShell.selectedChallenge.stageId || "—")
+                        color: ds.accent
+                        font.family: ds.mono
+                        font.pixelSize: 13
+                    }
+                    Text {
+                        text: uiShell.selectedChallenge.track || "未分类"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                    }
+                    Text {
+                        text: uiShell.selectedChallenge.runner === "external" ? "外部环境实验"
+                              : uiShell.selectedChallenge.runner === "teaching" ? "教学运行器" : "Qt JS 隔离运行"
+                        color: uiShell.selectedChallenge.runner === "external" ? ds.warning : ds.success
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                    }
+                }
+                Text {
+                    objectName: "challengeDetailTitle"
+                    Layout.fillWidth: true
+                    text: uiShell.selectedChallenge.title || "挑战详情"
+                    color: ds.ink
+                    font.family: ds.ui
+                    font.pixelSize: 24
+                    font.weight: Font.DemiBold
+                    wrapMode: Text.WordWrap
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: uiShell.selectedChallenge.description || "暂无关卡说明。"
+                    color: ds.muted
+                    font.family: ds.ui
+                    font.pixelSize: 14
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: ds.s16
+                ScrollView {
+                    id: overviewScroll
+                    objectName: "challengeOverviewSection"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 1
+                    clip: true
+                    contentWidth: availableWidth
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ColumnLayout {
+                        width: overviewScroll.availableWidth
+                        spacing: ds.s12
+                        Text {

@@ -1,0 +1,75 @@
+      key: 'topic',
+      label: '规范主题',
+      value: lesson.contentId
+        ? `主题 ID ${lesson.contentId}${lesson.subject ? ` · 科目 ${lesson.subject}` : ''}`
+        : lesson.legacy
+          ? '旧内置课程：没有主题 ID，不并入资料库主题口径'
+          : '未标注主题 ID',
+    },
+    {
+      key: 'source',
+      label: '原文位置',
+      value: `${lesson.source.path}${heading ? `#${heading}` : ''}`,
+    },
+    {
+      key: 'verification',
+      label: '核验状态',
+      value: `${lesson.source.verificationStatus}（资料库侧登记口径，本界面不改强、不折算）`,
+      mark: (
+        <span
+          className={`cs-mark cs-mark--${verified ? 'verified' : 'unverified'}`}
+          data-cs-mark={verified ? 'verified' : 'unverified'}
+        >
+          <span className="cs-mark-glyph" aria-hidden>
+            {verified ? '存' : '外'}
+          </span>
+          <span className="cs-mark-text">{lesson.source.verificationStatus}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'sync',
+      label: '同步时间',
+      value: content?.buildTime
+        ? `当前快照 ${content.bundleId?.slice(0, 8) ?? '—'} · 构建于 ${new Date(content.buildTime).toLocaleString()}`
+        : '本组件未取到快照构建时间；见顶部来源状态条',
+    },
+    {
+      key: 'facts',
+      label: '正式事实',
+      value: lesson.legacy
+        ? '旧内置课程：不作为资料库正式事实'
+        : '资料库快照内的正式内容（只读投影，写回需另行确认）',
+    },
+  ]
+
+  return (
+    <section className="lesson-source cw-source" aria-label="课程来源">
+      <div className="lesson-source-head">
+        <span>来源</span>
+        <strong>{lesson.source.path.split('/').pop()}</strong>
+        {lesson.legacy ? <em className="tag-legacy">旧内置课程</em> : <em className="tag-vault">资料库</em>}
+        <em className={`tag-verification ${verified ? 'ok' : 'warn'}`}>{lesson.source.verificationStatus}</em>
+      </div>
+
+      <SourceSpecs fields={fields} className="cs-specs" />
+
+      {lesson.source.sourceIds.length > 0 && (
+        <p className="lesson-source-ids cs-meta">来源编号：{lesson.source.sourceIds.join('、')}</p>
+      )}
+      {lesson.content.stageId && lesson.legacy && (
+        <p className="lesson-source-ids cs-meta">旧阶段口径：{legacyStageLabel(lesson.content.stageId)}（不计入 S0—S9）</p>
+      )}
+      <p className="cs-note">
+        原文为资料库正文；本页只展示与定位，不改变任何核验结论。
+        {lesson.source.contentHash ? ` 原文指纹 ${lesson.source.contentHash.slice(0, 8)}。` : ' 本单元未提供原文指纹。'}
+      </p>
+      <div className="lesson-source-actions">
+        <button className="subtle-button cs-btn" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          {open ? '收起原文' : '查看主题原文'}
+        </button>
+      </div>
+      {open && lesson.reading && <MarkdownView markdown={lesson.reading.markdown} className="md-view lesson-reading" />}
+    </section>
+  )
+}

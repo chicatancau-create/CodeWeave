@@ -1,0 +1,105 @@
+            "passed": true
+        },
+        {
+            "name": "account-logout",
+            "passed": true
+        },
+        {
+            "name": "account-login-intro-visible-for-guest",
+            "passed": true
+        },
+        {
+            "name": "account-login",
+            "passed": true
+        },
+        {
+            "name": "draft-course-selection",
+            "passed": true
+        },
+        {
+            "name": "draft-structure-and-actual-capabilities",
+            "passed": true
+        },
+        {
+            "detail": "草稿已读取",
+            "name": "draft-loaded-success-hides-error-banner",
+            "passed": true
+        },
+        {
+            "name": "draft-empty-code-has-zero-lines",
+            "passed": true
+        },
+        {
+            "name": "draft-line-count-updates-after-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-fault-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "draft-save-action-starts-and-disables",
+            "passed": true
+        },
+        {
+            "name": "draft-save-failure-visible-and-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-error-dismiss-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "draft-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "name": "page-drafts",
+            "passed": true
+        },
+        {
+            "name": "draft-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "13",
+            "name": "thirteen-page-screenshots",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-drafts-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P1-1-9-20261107-a/draft-verified-run/u3-analysis.png"
+    ]
+}

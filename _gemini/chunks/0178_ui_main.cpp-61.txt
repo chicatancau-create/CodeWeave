@@ -1,0 +1,54 @@
+          shell.openPublishedContent(shell.publishedIds().indexOf(QStringLiteral("csharp-loop-sum")));
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 309: {
+          if (shell.contentBusy()) return;
+          QVariantMap lesson;
+          for (const auto& value : shell.lessonMeta())
+            if (value.toMap().value("id") == shell.documentId()) lesson = value.toMap();
+          auto* title = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonTitle"));
+          auto* flow = u3_find_item(view.rootObject(), QStringLiteral("workspaceFlowNodes"));
+          const auto title_text = title ? title->property("text").toString() : QStringLiteral("<missing>");
+          const auto expected_title = lesson.value("title").toString();
+          const auto flow_count = flow ? flow->property("nodeCount").toInt() : -1;
+          const auto expected_flow_count = lesson.value("flow").toList().size();
+          u3_record(*context, QStringLiteral("lesson-workspace-external-document-updates-title-and-flow"),
+              !lesson.isEmpty() && title_text.contains(expected_title) && flow_count == expected_flow_count &&
+              view.rootObject()->property("breadcrumbText").toString().contains(expected_title) &&
+              view.rootObject()->property("selectedLesson").toMap().value("id") == shell.documentId(),
+              QStringLiteral("doc=%1 title=%2 expected=%3 flow=%4 expectedFlow=%5 breadcrumb=%6")
+                  .arg(shell.documentId(), title_text, expected_title).arg(flow_count).arg(expected_flow_count)
+                  .arg(view.rootObject()->property("breadcrumbText").toString()));
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("lessonEvidenceOpen"));
+          if (open) QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 310: {
+          if (shell.operationBusy()) return;
+          const auto set = [&](const char* name, const QString& text) {
+            auto* field = u3_find_item(view.contentItem(), QString::fromLatin1(name));
+            return field && field->setProperty("text", text);
+          };
+          const bool filled = set("lessonExternalEnvironment", QStringLiteral("Windows .NET isolated matrix")) &&
+              set("lessonExternalCommand", QStringLiteral("dotnet run")) &&
+              set("lessonExternalSummary", QStringLiteral("能不看示例写出循环累加，并解释任意一轮 total 的值。输出 15。<b>保留原文</b>")) &&
+              set("lessonExternalArtifact", QStringLiteral("isolated-fixture.log")) &&
+              set("lessonExternalDate", QDate::currentDate().toString(Qt::ISODate));
+          u3_record(*context, QStringLiteral("lesson-external-form-filled-with-required-date"), filled && shell.lessonAssessment().value("external").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-external-small"));
+          auto* submit = u3_find_item(view.contentItem(), QStringLiteral("lessonSubmitExternal"));
+          u3_record(*context, QStringLiteral("lesson-external-submit-action"), submit && submit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 311: {
+          if (shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("csharp-loop-sum")).toMap();
+          u3_record(*context, QStringLiteral("lesson-external-submitted-without-completion"), states.value("submittedEvidence").toBool() &&
+              !states.value("selfDeclaredPassed").toBool() && !states.value("autoVerifiedPassed").toBool());
+          auto* complete = u3_find_item(view.contentItem(), QStringLiteral("lessonComplete"));
+          u3_record(*context, QStringLiteral("lesson-external-self-declaration-action"), complete && complete->property("enabled").toBool() &&

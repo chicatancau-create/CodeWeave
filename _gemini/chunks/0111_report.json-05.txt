@@ -1,0 +1,106 @@
+            "name": "review-three-group-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "review-three-groups-match-real-schedules",
+            "passed": true
+        },
+        {
+            "name": "review-nonempty-screenshot",
+            "passed": false
+        },
+        {
+            "detail": "found=1 visible=1 hovered=1 rect=296,653 1091x52",
+            "name": "review-row-hover-enters-without-layout-shift",
+            "passed": true
+        },
+        {
+            "name": "review-row-hover-screenshot",
+            "passed": false
+        },
+        {
+            "name": "review-row-hover-clears-on-pointer-leave",
+            "passed": true
+        },
+        {
+            "name": "review-pass-row-action",
+            "passed": true
+        },
+        {
+            "detail": "{\"contentId\":\"python-loop-sum\",\"dueKey\":\"2026-11-18\",\"evidenceCount\":4,\"exerciseId\":\"\",\"forgettingRisk\":\"low\",\"group\":\"upcoming\",\"hintLevel\":\"L1\",\"independent\":true,\"itemId\":\"python-loop-sum\",\"latestAt\":\"2026-11-14T17:41:54.338Z\",\"latestResult\":\"\",\"masteryLevel\":2,\"nextNodeIndex\":1,\"passed\":true,\"planSource\":\"fallback\"}",
+            "name": "review-pass-refreshes-level-step-and-due-date",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-refreshes-date-without-changing-mastery",
+            "passed": true
+        },
+        {
+            "name": "review-updated-screenshot",
+            "passed": false
+        },
+        {
+            "name": "review-open-course-row-action",
+            "passed": true
+        },
+        {
+            "detail": "page=复习与进度 document=java-loop-sum selected=1 body=1",
+            "name": "review-open-course-resolves-published-id",
+            "passed": true
+        },
+        {
+            "detail": "document=stage-d selected=1 publishedIndex=64 catalogTitle=D 关卡验收：JavaScript 数据处理 header=D 关卡验收：JavaScript 数据处理 isCourse=0 selectedLessonId=java-loop-sum indexVisible=0 indexText= entryLabel=stage-d breadcrumb=Code Canvas / 课程 / stage-d accessible=当前位置：Code Canvas / 课程 / stage-d",
+            "name": "challenge-document-workspace-header-matches-catalog",
+            "passed": true
+        },
+        {
+            "detail": "document=stage-d selected=1 publishedIndex=64 catalogTitle=D 关卡验收：JavaScript 数据处理 header=D 关卡验收：JavaScript 数据处理 isCourse=0 selectedLessonId=java-loop-sum indexVisible=0 indexText= entryLabel=stage-d breadcrumb=Code Canvas / 课程 / stage-d accessible=当前位置：Code Canvas / 课程 / stage-d",
+            "name": "challenge-document-breadcrumb-is-accessible-without-course-index",
+            "passed": true
+        },
+        {
+            "name": "lesson-workspace-breadcrumb-narrow-screenshot",
+            "passed": false
+        },
+        {
+            "name": "lesson-workspace-missing-metadata-clears-previous-flow",
+            "passed": true
+        },
+        {
+            "name": "lesson-evidence-opens-from-workspace",
+            "passed": true
+        },
+        {
+            "name": "lesson-contract-unrun-blocks-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-mark-read-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-read-is-persisted-without-completing",
+            "passed": true
+        },
+        {
+            "name": "lesson-run-miss-from-workspace",
+            "passed": true
+        },
+        {
+            "name": "lesson-successful-process-is-practice-not-completion",
+            "passed": true
+        },
+        {
+            "name": "lesson-current-code-all-cases-hit",
+            "passed": true
+        },
+        {
+            "name": "lesson-explicit-completion-action",
+            "passed": true
+        },
+        {
+            "name": "lesson-completion-reloads-verified-fact",

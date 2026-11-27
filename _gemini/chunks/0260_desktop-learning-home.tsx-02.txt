@@ -1,0 +1,21 @@
+          <div className="desktop-course-grid">
+            {visible.map((lesson, index) => {
+              const done = holdsCompletion(props.lessonStates?.[lesson.id])
+              return <button className="desktop-unit-card" key={lesson.id} onClick={() => props.onLessonChange(lesson)}>
+                <span className="desktop-unit-top"><span className="desktop-unit-number">{String(index + 1).padStart(2, '0')}</span><span className={done ? 'unit-state done' : 'unit-state'}>{done ? <CheckCircle2 size={12} /> : <span className="unit-dot" />}{done ? '已有完成证据' : '待学习'}</span></span>
+                <strong>{lesson.title}</strong><span className="desktop-unit-desc">{lesson.description || '打开课程查看内容、练习与来源。'}</span>
+                <span className="desktop-unit-bottom"><span>{lesson.level} · {lesson.reading ? '阅读单元' : lesson.languageLabel}</span><ArrowRight size={15} /></span>
+              </button>
+            })}
+          </div>
+          {!visible.length && props.lessons.length > 0 && <p className="desktop-empty-filter">此筛选下暂无课程。切换到“全部”查看学习内容。</p>}
+        </div>
+        <aside className="desktop-learning-rail" aria-label="学习辅助信息">
+          <section className="desktop-rail-panel"><h2><Terminal size={16} />代码速览<span className="desktop-small-tag">{selected?.languageLabel ?? 'CODE'}</span></h2><div className="desktop-snippet"><div><span /><span /><span /><small>{selected?.title ?? '选择课程'}</small></div>{selected?.code ? <pre><code>{selected.code.split('\n').slice(0, 13).join('\n')}</code></pre> : <div className="desktop-snippet-empty"><Braces size={30} /><p>先理解，再动手。</p><span>进入课程查看完整讲解与配套代码。</span></div>}</div><p className="desktop-rail-note">代码执行、单步追踪与变量观察在课程工作台中进行。</p></section>
+          <section className="desktop-rail-panel"><h2><RotateCcw size={16} />今日计划</h2><div className="desktop-plan-row"><span className="plan-icon"><BookOpen size={16} /></span><div><strong>继续一个学习单元</strong><span>{selected?.title ?? '从科目列表开始'}</span></div></div><button className="desktop-plan-row" onClick={onGoReviews}><span className="plan-icon"><RotateCcw size={16} /></span><div><strong>复习已学知识</strong><span>{dueCount ? `${dueCount} 项复习已到期` : '暂无到期复习，保持学习节奏'}</span></div><ChevronRight size={14} /></button><div className="desktop-plan-progress"><span>当前科目完成证据</span><strong>{complete.length}/{props.lessons.length}</strong><progress max={props.lessons.length || 1} value={complete.length} aria-label="当前科目完成证据" /></div></section>
+          <div className="desktop-note"><span>LEARN BY DOING</span><p>让抽象的代码，<br />变成看得见的思考。</p><small>阅读、练习和掌握分别记录。</small></div>
+        </aside>
+      </div>
+    </section>
+  )
+}

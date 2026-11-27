@@ -1,0 +1,60 @@
+              return;
+            }
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* line_numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            auto* code_scroll = u3_find_item(view.rootObject(), QStringLiteral("codeScroll"));
+            auto* font_size = u3_find_item(settings_scroll, QStringLiteral("settingsEditorFontSize"));
+            auto* line_toggle = u3_find_item(settings_scroll, QStringLiteral("settingsEditorLineNumbersToggle"));
+            if (!editor || !line_numbers || !code_scroll || !font_size || !line_toggle ||
+                !line_numbers->parentItem() || !code_scroll->parentItem() ||
+                editor->property("font").value<QFont>().pixelSize() != 13 ||
+                line_numbers->property("font").value<QFont>().pixelSize() != 13 ||
+                !line_numbers->parentItem()->isVisible() ||
+                std::abs(line_numbers->parentItem()->width() - 44) > 1 ||
+                std::abs(code_scroll->x() - 45) > 1 ||
+                (!shell.publishedIds().isEmpty() &&
+                    (!shell.hasSelectedContent() || shell.selectedContentBody().isEmpty() ||
+                     shell.starterLanguage().isEmpty() || editor->property("text").toString().isEmpty()))) {
+              diagnostic = QStringLiteral("Editor preference defaults failed: page=%1 busy=%2 editor=%3 lines=%4 scroll=%5 selected=%6 body=%7 language=%8 editorFont=%9 lineFont=%10 gutterVisible=%11 gutterWidth=%12 scrollX=%13 textEmpty=%14")
+                  .arg(shell.currentPage()).arg(shell.contentBusy()).arg(editor != nullptr)
+                  .arg(line_numbers != nullptr).arg(code_scroll != nullptr)
+                  .arg(shell.hasSelectedContent()).arg(!shell.selectedContentBody().isEmpty())
+                  .arg(!shell.starterLanguage().isEmpty())
+                  .arg(editor ? editor->property("font").value<QFont>().pixelSize() : -1)
+                  .arg(line_numbers ? line_numbers->property("font").value<QFont>().pixelSize() : -1)
+                  .arg(line_numbers && line_numbers->parentItem() && line_numbers->parentItem()->isVisible())
+                  .arg(line_numbers && line_numbers->parentItem() ? line_numbers->parentItem()->width() : -1)
+                  .arg(code_scroll ? code_scroll->x() : -1)
+                  .arg(editor && editor->property("text").toString().isEmpty());
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            smoke_preference_draft = shell.draftCode();
+            smoke_preference_revision = shell.draftRevision();
+            if (!QMetaObject::invokeMethod(settings, "open", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Editor preference settings dialog could not be opened");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+            if (!settings->property("opened").toBool()) {
+              diagnostic = QStringLiteral("Editor preference settings dialog did not become visible");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!font_size->property("enabled").toBool() || !line_toggle->property("enabled").toBool()) {
+              diagnostic = QStringLiteral("Editor preference controls were disabled while storage was ready");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(font_size, "activated", Qt::DirectConnection, Q_ARG(int, 4))) {
+              diagnostic = QStringLiteral("Loaded editor font size action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            auto* line_interface = QAccessible::queryAccessibleInterface(line_toggle);

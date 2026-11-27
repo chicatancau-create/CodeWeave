@@ -1,0 +1,92 @@
+  if (!prepare_learning_json(source)) return {};
+  codeweave::migration::LegacyImportReport report;
+  return measure([&] {
+    const auto result = codeweave::migration::import_legacy_learning(source, "benchmark-user", target, report);
+    if (!result.ok) std::cerr << "legacy_learning_import: " << result.message << '\n';
+    return result.ok;
+  });
+}
+
+Sample measure_register(const std::filesystem::path& run_root) {
+  codeweave::account::AccountStore store(run_root / "register");
+  codeweave::account::AccountService service(store);
+  return measure([&] {
+    return service.register_account("Benchmark", "register@example.test", kPassword).ok;
+  });
+}
+
+bool prepare_account(codeweave::account::AccountService& service) {
+  return service.register_account("Benchmark", "login@example.test", kPassword).ok;
+}
+
+Sample measure_login(const std::filesystem::path& run_root) {
+  codeweave::account::AccountStore store(run_root / "login");
+  codeweave::account::AccountService service(store);
+  if (!prepare_account(service) || !service.logout().ok) return {};
+  return measure([&] {
+    return service.login("login@example.test", kPassword).ok;
+  });
+}
+
+Sample measure_change_password(const std::filesystem::path& run_root) {
+  codeweave::account::AccountStore store(run_root / "change-password");
+  codeweave::account::AccountService service(store);
+  if (!prepare_account(service)) return {};
+  return measure([&] {
+    return service.change_password(kPassword, "Benchmark-Password-456!").ok;
+  });
+}
+
+void write_json(const std::filesystem::path& output, const std::filesystem::path& run_root,
+    const std::vector<Operation>& operations) {
+  std::error_code error;
+  std::filesystem::create_directories(output.parent_path(), error);
+  if (error) throw std::runtime_error("cannot create evidence directory");
+  std::ofstream file(output, std::ios::binary | std::ios::trunc);
+  if (!file) throw std::runtime_error("cannot open evidence output");
+  file << "{\n  \"schema\": \"codeweave.backend-timing.v1\",\n"
+       << "  \"status\": \"raw_samples\",\n"
+       << "  \"sample_count\": " << kSamples << ",\n"
+       << "  \"fixture\": \"synthetic-isolated\",\n"
+       << "  \"run_root_not_recorded\": true,\n"
+       << "  \"operations\": [\n";
+  for (std::size_t operation_index = 0; operation_index < operations.size(); ++operation_index) {
+    const auto& operation = operations[operation_index];
+    file << "    {\"name\":\"" << json_escape(operation.name) << "\",\"samples\":[";
+    for (std::size_t sample_index = 0; sample_index < operation.samples.size(); ++sample_index) {
+      const auto& sample = operation.samples[sample_index];
+      if (sample_index != 0) file << ',';
+      file << "{\"ok\":" << (sample.ok ? "true" : "false")
+           << ",\"duration_us\":" << sample.duration_us << '}';
+    }
+    file << "]}" << (operation_index + 1 == operations.size() ? "\n" : ",\n");
+  }
+  file << "  ]\n}\n";
+  if (!file.good()) throw std::runtime_error("cannot write evidence output");
+  (void)run_root;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  if (argc != 3 || std::string_view(argv[1]) != "--out") {
+    std::cerr << "usage: codeweave-backend-benchmark --out <evidence.json>\n";
+    return 2;
+  }
+  const auto output = std::filesystem::path(argv[2]);
+  const auto run_root = make_run_root();
+  if (run_root.empty()) {
+    std::cerr << "failed to create isolated benchmark root\n";
+    return 1;
+  }
+
+  std::vector<Operation> operations{
+      {"native_backup", {}}, {"legacy_users_import", {}},
+      {"legacy_learning_import", {}}, {"account_register", {}},
+      {"account_login", {}}, {"account_change_password", {}},
+      {"progress_append_100", {}}, {"progress_append_1000", {}},
+      {"progress_append_10000", {}},
+      {"progress_hot_append_100", {}}, {"progress_hot_append_1000", {}},
+      {"progress_hot_append_10000", {}}};
+  for (int sample = 0; sample < kSamples; ++sample) {
+    const auto sample_root = run_root / ("sample-" + std::to_string(sample));

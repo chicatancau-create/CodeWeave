@@ -1,0 +1,53 @@
+    return app::Result::failure("掌握度执行者无效");
+  }
+  if (evidence.hint_level != "L1" && evidence.hint_level != "L2" &&
+      evidence.hint_level != "L3" && evidence.hint_level != "L4") {
+    return app::Result::failure("掌握度提示等级无效");
+  }
+  if (!is_operation_id(evidence.operation_id)) {
+    return app::Result::failure("掌握度 operationId 无效");
+  }
+  if (evidence.independent && (evidence.ran_by != RanBy::Learner ||
+      evidence.hint_level == "L3" || evidence.hint_level == "L4")) {
+    return app::Result::failure("独立掌握度证据不符合学习者资格");
+  }
+  if (evidence.kind == MasteryEvidenceKind::Snooze && evidence.passed) {
+    return app::Result::failure("延期复习事件不能标记为通过");
+  }
+  return app::Result::success("掌握度证据有效");
+}
+
+bool mastery_eligible(const MasteryEvidence& evidence) {
+  return evidence.passed && evidence.independent && evidence.ran_by == RanBy::Learner &&
+      (evidence.hint_level == "L1" || evidence.hint_level == "L2");
+}
+
+app::Result apply_mastery_evidence(const MasteryRecord* record,
+    const MasteryEvidence& evidence, std::size_t plan_length, MasteryRecord& output) {
+  const auto valid = validate_mastery_evidence(evidence);
+  if (!valid.ok) return valid;
+  if (record && (record->level < 0 || record->level > kMaximumMasteryLevel)) {
+    return app::Result::failure("现有掌握等级超出范围");
+  }
+  output = record ? *record : MasteryRecord{evidence.ref_id, evidence.kind, 0, {}, evidence.at};
+  if (output.ref_id != evidence.ref_id) return app::Result::failure("掌握度记录引用不匹配");
+  output.evidence.push_back(evidence);
+  output.kind = evidence.kind;
+  output.updated_at = evidence.at;
+  if (evidence.kind == MasteryEvidenceKind::Snooze) {
+    // Snooze is an auditable scheduling event; it never changes mastery.
+  } else if (evidence.passed && mastery_eligible(evidence)) {
+    output.level = std::min(kMaximumMasteryLevel, output.level + 1);
+    if (evidence.kind == MasteryEvidenceKind::Review) {
+      output.review_step = std::min(plan_length, output.review_step + 1);
+      output.review_due_key.clear();
+    }
+  } else if (!evidence.passed && evidence.kind == MasteryEvidenceKind::Review &&
+      evidence.ran_by == RanBy::Learner &&
+      (evidence.hint_level == "L1" || evidence.hint_level == "L2")) {
+    output.level = std::max(0, output.level - 1);
+  }
+  return app::Result::success("掌握度已更新");
+}
+
+}  // namespace codeweave::learning

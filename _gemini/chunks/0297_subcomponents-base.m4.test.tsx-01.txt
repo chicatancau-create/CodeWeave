@@ -1,0 +1,101 @@
+// @vitest-environment jsdom
+/**
+ * M4 全站统一 · 编辑器 / 控制台 / 变量 / 运行控制 / 流程图 —— **子组件基座**契约测试
+ *
+ * 背景（为什么这一组断言值得存在）：M3 做学习工作台时把外观限定在页面容器作用域内
+ * （learning-workspace-view.css 的 169 条规则全部以 `.cw-workspace` 起头），基座本身
+ * 仍散落在 styles.css 的裸类名规则里。本路把基座切到 --ds-* 令牌，于是必须同时证明两件事：
+ *
+ *   A. 基座自己确实是黑场 + 发丝线 + 三档圆角 + 无泛光 + 无持续动画（§5.1 / §5.3 / §5.4）；
+ *   B. 基座改动**没有**把工作台带偏 —— 页面作用域的覆写仍然赢。
+ *
+ * B 的证法不是「跑一遍看像不像」，而是可机读的层叠审计（第二组）：
+ * 实测 dist/assets/index-*.css 里 styles.css 排在全部组件样式**之后**
+ * （组件样式占 0–95k，styles.css 的 :root 起于 94879），所以同特异度时 styles.css 赢。
+ * 基座因此只在 (c) 档（类型选择器）抬一位、(b) 档（类）与 styles.css 保持相等；
+ * 而 `.cw-workspace X` 比 styles.css 的 `X` 恰好多一个类 → 恒高于基座。
+ * 这里逐条解析三方（基座 / styles.css / 页面覆写）的同一条选择器，把该关系当成断言而不是注释。
+ *
+ * jsdom 不做层叠与布局，观感类判定一律走样式表源码文本（与
+ * learning-workspace-view.m3.test.tsx、tests/styles.focus.test.mjs 同一口径）；
+ * 结构、文案与回调（运行 / 单步 / 重置的调用）用真实渲染核对。
+ */
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { CodeEditor } from './code-editor'
+import { ConsolePanel } from './console-panel'
+import { FlowChart, type FlowStep } from './flow-chart'
+import { RuntimeControls } from './runtime-controls'
+import { VariablePanel } from './variable-panel'
+import type { VariableValue } from '../types/lesson'
+
+type NodeFsModule = { readFileSync: (path: string, encoding: 'utf8') => string }
+type NodePathModule = { resolve: (...parts: string[]) => string }
+type NodeProcessModule = { cwd: () => string }
+
+type SelectorRef = { raw: string; key: string }
+type CssRule = { selector: string; selectors: SelectorRef[]; block: string; atRules: string[]; insideKeyframes: boolean }
+
+/** 本路的六个基座文件：五个同名文件 + 两个面板共用的一份外壳。 */
+const BASE_FILES = [
+  'code-editor.css',
+  'panel-shell.css',
+  'console-panel.css',
+  'variable-panel.css',
+  'runtime-controls.css',
+  'flow-chart.css',
+] as const
+
+const STYLESHEET = 'styles.css'
+const WORKSPACE = 'learning-workspace-view.css'
+
+const rawSources = import.meta.glob(
+  ['./code-editor.tsx', './console-panel.tsx', './variable-panel.tsx', './runtime-controls.tsx', './flow-chart.tsx'],
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>
+
+const cssText = new Map<string, string>()
+const cssRules = new Map<string, CssRule[]>()
+
+beforeAll(async () => {
+  const fs = await vi.importActual<NodeFsModule>('node:fs')
+  const path = await vi.importActual<NodePathModule>('node:path')
+  const proc = await vi.importActual<NodeProcessModule>('node:process')
+  const root = proc.cwd()
+  const targets = [...BASE_FILES.map((file) => [file, `src/components/${file}`] as const), [STYLESHEET, `src/${STYLESHEET}`] as const, [WORKSPACE, `src/components/${WORKSPACE}`] as const]
+  for (const [name, relative] of targets) {
+    const source = stripComments(fs.readFileSync(path.resolve(root, relative), 'utf8'))
+    cssText.set(name, source)
+    cssRules.set(name, collectRules(source))
+  }
+  // 防假通过：三方都确实读到了规则
+  expect((cssRules.get(STYLESHEET) ?? []).length).toBeGreaterThan(400)
+  expect((cssRules.get(WORKSPACE) ?? []).length).toBeGreaterThan(150)
+  for (const file of BASE_FILES) expect((cssRules.get(file) ?? []).length, file).toBeGreaterThan(5)
+})
+
+/** 注释里的示例与说明不参与判定（M3 记录 §3 同一口径：只核规则）。 */
+function stripComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/** 扁平收集「选择器 → 声明块」，同时标记 @media / @keyframes 归属。 */
+function collectRules(source: string): CssRule[] {
+  const collected: CssRule[] = []
+  const atStack: string[] = []
+  let buffer = ''
+  let index = 0
+  while (index < source.length) {
+    const char = source[index] as string
+    if (char === '{') {
+      const head = buffer.trim()
+      buffer = ''
+      index += 1
+      if (head.startsWith('@')) {
+        atStack.push((head.split(/\s+/)[0] as string) ?? head)
+        continue
+      }
+      let depth = 1
+      const start = index
+      while (index < source.length && depth > 0) {
+        const inner = source[index] as string

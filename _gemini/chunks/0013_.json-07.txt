@@ -1,0 +1,108 @@
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.1-internal-r2-setup.exe",
+      "files": 1,
+      "bytes": 31200773.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.1-internal-r3-setup.exe",
+      "files": 1,
+      "bytes": 31201133.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.1-internal-r4-setup.exe",
+      "files": 1,
+      "bytes": 31201266.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.1-internal-r5-setup.exe",
+      "files": 1,
+      "bytes": 31201333.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.1-internal-r6-setup.exe",
+      "files": 1,
+      "bytes": 31201345.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.1-internal-setup.exe",
+      "files": 1,
+      "bytes": 31198557.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\cycle.cmd",
+      "files": 1,
+      "bytes": 1180.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\diag.cmd",
+      "files": 1,
+      "bytes": 444.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\diag2.cmd",
+      "files": 1,
+      "bytes": 375.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\dumpenv.cmd",
+      "files": 1,
+      "bytes": 149.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\env.txt",
+      "files": 1,
+      "bytes": 13023.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\gate-1011.cmd",
+      "files": 1,
+      "bytes": 955.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\gate-1011.log",
+      "files": 1,
+      "bytes": 11702.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\gate-2049.log",
+      "files": 1,
+      "bytes": 8056.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\gate-initial.json",
+      "files": 1,
+      "bytes": 114084.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\gate-visible-01.json",
+      "files": 1,
+      "bytes": 42456.0,

@@ -1,0 +1,71 @@
+import type { LanguageId, Lesson, LessonUnit } from '../types/lesson'
+
+/** 统一复测节点：当天复习由完成即算，之后 1/3/7/14/30 天各复测一次。 */
+const REVIEW_OFFSETS = [1, 3, 7, 14, 30]
+
+const unit = (
+  objective: string,
+  extra: Partial<LessonUnit> & {
+    explanation: string[]
+    examples: LessonUnit['examples']
+    guidedSteps: string[]
+    exercise: string
+    variant: string
+    projectTask: string
+    mistakes: string[]
+    runCommand: string
+    completion: string
+  },
+  stageId?: string,
+): LessonUnit => ({
+  objective,
+  prerequisites: [],
+  reviewOffsetsDays: REVIEW_OFFSETS,
+  stageId,
+  ...extra,
+})
+
+const sumFlow = (start: string, init: string, decision: string, update: string, output: string): Lesson['flow'] => [
+  { id: 'start', label: start, kind: 'start', tone: 'purple', line: 1 },
+  { id: 'init', label: init, kind: 'process', tone: 'blue', line: 1 },
+  { id: 'condition', label: decision, kind: 'decision', tone: 'yellow', line: 2 },
+  { id: 'update', label: update, kind: 'process', tone: 'coral', line: 3 },
+  { id: 'output', label: output, kind: 'output', tone: 'green' },
+  { id: 'end', label: '结束', kind: 'end', tone: 'purple' },
+]
+
+const languages: { id: LanguageId; label: string; shortLabel: string; color: string; runtime: string }[] = [
+  { id: 'python', label: 'Python', shortLabel: 'Py', color: 'blue', runtime: 'Python 3.11' },
+  { id: 'c', label: 'C', shortLabel: 'C', color: 'teal', runtime: '教学运行器 · C 子集' },
+  { id: 'csharp', label: 'C#', shortLabel: 'C#', color: 'purple', runtime: '教学运行器 · C# 子集' },
+  { id: 'java', label: 'Java', shortLabel: 'J', color: 'orange', runtime: '教学运行器 · Java 子集' },
+  { id: 'javascript', label: 'JavaScript', shortLabel: 'JS', color: 'yellow', runtime: 'Browser JS 子集' },
+]
+
+function getLanguage(index: number) {
+  const language = languages[index]
+  if (!language) throw new Error(`Missing language at index ${index}`)
+  return language
+}
+
+/** 各语言在课程阶段 A—M 中的归属：JS → D 前端基础，Java → B 核心编程，其余为通用入门。 */
+const stageByLanguage: Partial<Record<LanguageId, string>> = { javascript: 'D', java: 'B' }
+
+const createSumLesson = (language: (typeof languages)[number]): Lesson => {
+  const snippets: Record<LanguageId, { code: string; fileName: string; title: string; description: string; insight: string }> = {
+    python: { code: 'total = 0\nfor i in range(1, 6):\n    total = total + i\nprint(total)', fileName: 'main.py', title: '循环是怎么工作的？', description: '用 for 循环数一数 1 到 5', insight: '每轮循环都会把 i 加到 total 上；修改 range 或 total，执行结果也会跟着改变。' },
+    c: { code: '#include <stdio.h>\n\nint main() {\n    int total = 0;\n    for (int i = 1; i <= 5; i++) {\n        total += i;\n    }\n    printf("%d\\n", total);\n    return 0;\n}', fileName: 'main.c', title: '认识 C 的第一步', description: '用变量和循环计算 1 到 5 的和', insight: 'C 语言需要先声明变量类型；花括号会把循环体包成一个代码块。' },
+    csharp: { code: 'int total = 0;\nfor (int i = 1; i <= 5; i++)\n{\n    total += i;\n}\nConsole.WriteLine(total);', fileName: 'Program.cs', title: '让 C# 输出一句话', description: '认识变量、for 循环和控制台输出', insight: 'C# 的 Console.WriteLine 会把结果写到控制台，for 循环结构和 C 很接近。' },
+    java: { code: 'public class Main {\n    public static void main(String[] args) {\n        int total = 0;\n        for (int i = 1; i <= 5; i++) {\n            total += i;\n        }\n        System.out.println(total);\n    }\n}', fileName: 'Main.java', title: 'Java 的第一个循环', description: '从 main 方法开始理解 Java 程序', insight: 'Java 从 main 方法开始执行，System.out.println 负责输出一行文字。' },
+    javascript: { code: 'let total = 0;\nfor (let i = 1; i <= 5; i++) {\n  total += i;\n}\nconsole.log(total);', fileName: 'main.js', title: '在浏览器里运行 JavaScript', description: '用 let、for 和 console.log 观察变量变化', insight: 'JavaScript 可以直接在浏览器中运行；修改循环上限，流程和输出会实时改变。' },
+  }
+  const snippet = snippets[language.id]
+  return {
+    id: `${language.id}-loop-sum`,
+    language: language.id,
+    languageLabel: language.label,
+    label: '01',
+    title: snippet.title,
+    description: snippet.description,
+    duration: '8 min',
+    level: '入门',

@@ -1,0 +1,99 @@
+                  inputMode={isPhone ? 'tel' : 'email'}
+                  placeholder={isPhone ? '13800138000' : 'your@email.com'}
+                  required
+                  autoComplete={isPhone ? 'tel' : 'email'}
+                />
+              </label>
+            </>
+          )}
+          {mode === 'login' && (
+            <label className="cv-auth__field">
+              <span className="cv-auth__field-label">邮箱或手机号</span>
+              <input
+                className="cv-auth__input"
+                name="identifier"
+                type="text"
+                placeholder="your@email.com 或 13800138000"
+                required
+                autoComplete="username"
+              />
+            </label>
+          )}
+          <label className="cv-auth__field" htmlFor={passwordId}>
+            <span className="cv-auth__field-label">密码</span>
+            <span className="cv-auth__password">
+              <input
+                className="cv-auth__input"
+                id={passwordId}
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={`至少 ${PASSWORD_MIN_LENGTH} 个字符`}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
+                required
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                aria-describedby={noticeId}
+              />
+              {/* LOGIN-01 第 6 条：动作标签随状态改字（显示↔隐藏）又同时挂 aria-pressed，
+                  按下后会被读成「显示密码，已按下」——名字说要做的动作与状态自相矛盾。
+                  改为稳定名称 + 按压态，动作提示留在 title 里给目视用户。 */}
+              <button
+                type="button"
+                className="cv-auth__toggle"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label="密码可见性"
+                aria-pressed={showPassword}
+                title={showPassword ? '隐藏密码' : '显示密码'}
+              >
+                {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+              </button>
+            </span>
+          </label>
+          {error && (
+            <div className="cv-auth__notice auth-error" id="auth-error" role="alert">
+              <AlertTriangle size={16} aria-hidden="true" />
+              <span>{error}</span>
+            </div>
+          )}
+          {!error && connectionHint && (
+            <div className="cv-auth__notice auth-error" id="auth-connection" role="alert">
+              <AlertTriangle size={16} aria-hidden="true" />
+              <span>{connectionHint}</span>
+            </div>
+          )}
+          {/* 细线主按钮：黑场 + 发丝线 + 药丸，无渐变、无泛光（§5.1 表「形态」行） */}
+          {/* §4 disabled 行：改版前忙态只把整颗按钮压到 opacity .56，界面没说为什么按不了。
+              条件只有一条（上一次请求还没返回），所以直接写成一句可见的话，
+              并同时给提交按钮与模式切换按钮用 aria-describedby 指过来。 */}
+          {busy && (
+            <p className="cv-auth__disabled-hint" id={busyHintId} role="status">
+              现在不能提交，也不能切换登录 / 注册：上一次的请求还没返回，返回后这两处自动恢复可点。
+            </p>
+          )}
+          <button
+            type="submit"
+            className="auth-submit cv-auth__submit"
+            disabled={busy}
+            aria-disabled={busy || undefined}
+            aria-describedby={busy ? busyHintId : undefined}
+            data-busy={busy ? 'true' : undefined}
+          >
+            <LogIn size={16} aria-hidden="true" />
+            <span>{busy ? SUBMIT_LABEL[mode].busy : SUBMIT_LABEL[mode].idle}</span>
+          </button>
+        </form>
+
+        <div className="cv-auth__switch">
+          {mode === 'login' ? '还没有账户？' : '已经有账户了？'}
+          <button
+            type="button"
+            className="cv-auth__link"
+            disabled={busy}
+            aria-disabled={busy || undefined}
+            aria-describedby={busy ? busyHintId : undefined}
+            onClick={() => onModeChange(mode === 'login' ? 'register' : 'login')}
+          >
+            {mode === 'login' ? '注册新账户' : '返回登录'}
+          </button>
+        </div>
+

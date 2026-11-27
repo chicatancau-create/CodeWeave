@@ -1,0 +1,144 @@
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 页头：沿用共享 .module-heading，正文抬到 16px 档 ─────────────────────── */
+.cw-analytics .module-heading {
+  align-items: flex-end;
+  margin-bottom: 0;
+}
+
+.cw-analytics .module-heading p:not(.eyebrow) {
+  font-size: var(--an-body);
+  line-height: var(--an-leading);
+  color: var(--an-dim);
+  max-width: var(--ds-measure-lead, 44ch);
+}
+
+/* ── specs 细线键值（site.css L286-L305）：窗口口径 ───────────────────────── */
+.cw-analytics .an-specs {
+  display: grid;
+  gap: 0;
+  border-top: var(--ds-line-width, 1px) solid var(--an-hair);
+  max-width: 78ch;
+}
+
+.cw-analytics .an-spec {
+  display: grid;
+  grid-template-columns: minmax(0, 11ch) minmax(0, 1fr);
+  gap: var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--an-hair);
+}
+
+.cw-analytics .an-spec dt {
+  font-size: var(--an-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--an-dim);
+}
+
+.cw-analytics .an-spec dd {
+  font-size: var(--an-body);
+  line-height: 1.6;
+  color: var(--an-ink);
+  opacity: var(--ds-text-emphasis, 0.82); /* L306 */
+}
+
+/* ── 分组标题：编号 01/02/03 + 发丝线 ─────────────────────────────────────── */
+.cw-analytics .an-block {
+  display: grid;
+  gap: clamp(var(--ds-space-10, 10px), 1.4vw, var(--ds-space-16, 16px));
+  min-width: 0;
+}
+
+.cw-analytics .an-block-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  font-size: clamp(16px, 1.6vw, 20px);
+  line-height: var(--ds-leading-title, 1.15);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--an-hair-raised);
+}
+
+.cw-analytics .an-block-idx {
+  font-size: clamp(20px, 2.8vw, 32px);
+  line-height: 1;
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-display, -0.03em);
+  color: var(--an-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-analytics .an-block-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--an-dim);
+}
+
+/* ── ledger 细线表格 ──────────────────────────────────────────────────────── */
+.cw-analytics .an-ledger {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: var(--ds-line-width, 1px) solid var(--an-hair);
+}
+
+/* 窄屏横向滚动容器（与复习中心同一做法，理由见 `M6` §18.9） */
+.cw-analytics .an-table-scroll {
+  overflow-x: auto;
+}
+
+.cw-analytics .an-ledger th,
+.cw-analytics .an-ledger td {
+  padding: var(--ds-space-14, 14px) var(--ds-space-10, 10px) var(--ds-space-16, 16px) 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: var(--ds-weight-body, 400);
+  font-size: var(--an-body);
+  line-height: 1.55;
+  border-bottom: var(--ds-line-width, 1px) solid var(--an-hair);
+  transition: background-color var(--an-quick) var(--an-ease);
+}
+
+.cw-analytics .an-ledger thead th {
+  padding: var(--ds-space-10, 10px) var(--ds-space-10, 10px) var(--ds-space-8, 8px) 0;
+  font-size: var(--an-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--an-dim);
+  border-bottom-color: var(--an-hair-raised);
+}
+
+.cw-analytics .an-ledger tbody tr th,
+.cw-analytics .an-ledger tbody tr td {
+  transition: background-color var(--an-quick, 150ms) var(--an-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.cw-analytics .an-ledger tbody tr:hover th,
+.cw-analytics .an-ledger tbody tr:hover td {
+  background-color: var(--an-wash);
+  box-shadow: var(--an-glow-inset);             /* 悬停行：只给内高光，不动行高、不位移 */
+}
+
+.cw-analytics .an-col-num,
+.cw-analytics .an-cell-num {
+  width: 3.2em;
+}
+
+.cw-analytics .an-col-value,
+.cw-analytics .an-cell-value {
+  width: 7em;
+}
+
+.cw-analytics .an-col:nth-child(2),
+.cw-analytics .an-cell-name {
+  width: 24%;
+}
+
+.cw-analytics .an-cell-num {

@@ -1,0 +1,76 @@
+  assert(listed.ok && units.size() == 1 && units[0].content_id == "lesson-01");
+  codeweave::content::LoadedUnit loaded;
+  assert(!repository.read_published("../lesson-01", loaded).ok);
+  assert(!repository.read_published("lesson/01", loaded).ok);
+  const auto read = repository.read_published("lesson-01", loaded);
+  assert(read.ok && (loaded.body == "native lesson\n" || loaded.body == "native lesson\r\n"));
+  assert(!repository.read_published("draft-01", loaded).ok);
+  std::ofstream(root / "lesson-01.txt", std::ios::binary | std::ios::trunc) << "\xC3\x28";
+  assert(!repository.read_published("lesson-01", loaded).ok);
+  std::ofstream(root / "lesson-01.txt", std::ios::binary | std::ios::trunc) << "native lesson\n";
+  std::ofstream(root / "catalog.v1.tsv", std::ios::trunc) << hex("lesson-01") << '\t' << hex("循环") << '\t' << hex("published") << '\t' << hex("cpp") << '\t' << hex(hash + "0") << '\t' << hex("1") << '\n';
+  assert(!repository.read_published("lesson-01", loaded).ok);
+}
+
+void test_content_repository_rejects_symlink_files() {
+  Fixture fixture;
+  const auto root = fixture.root / "content-symlink";
+  const auto outside = fixture.root / "content-outside";
+  std::filesystem::create_directories(root);
+  std::filesystem::create_directories(outside);
+  const auto hex = [](std::string_view value) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result;
+    for (const unsigned char character : value) {
+      result.push_back(digits[character >> 4]);
+      result.push_back(digits[character & 0x0f]);
+    }
+    return result;
+  };
+  const std::string body = "native lesson\n";
+  const std::string hash = "1e4e588064256e81ac0170f60d10b64daa6e9407bfc0dc7ade40341aa3afe7d0";
+  std::ofstream(outside / "catalog.v1.tsv") << hex("lesson-01") << '\t' << hex("标题") << '\t'
+      << hex("published") << '\t' << hex("cpp") << '\t' << hex(hash) << '\t' << hex("1") << '\n';
+  std::ofstream(outside / "lesson-01.txt") << body;
+  std::error_code error;
+  std::filesystem::create_symlink(outside / "catalog.v1.tsv", root / "catalog.v1.tsv", error);
+  if (!error) {
+    codeweave::content::ContentRepository repository(root);
+    std::vector<codeweave::content::Unit> units;
+    assert(!repository.list_published(units).ok);
+    std::filesystem::remove(root / "catalog.v1.tsv", error);
+  }
+  error.clear();
+  std::ofstream(root / "catalog.v1.tsv") << hex("lesson-01") << '\t' << hex("标题") << '\t'
+      << hex("published") << '\t' << hex("cpp") << '\t' << hex(hash) << '\t' << hex("1") << '\n';
+  std::filesystem::create_symlink(outside / "lesson-01.txt", root / "lesson-01.txt", error);
+  if (!error) {
+    codeweave::content::ContentRepository repository(root);
+    codeweave::content::LoadedUnit loaded;
+    assert(!repository.read_published("lesson-01", loaded).ok);
+    std::filesystem::remove(root / "lesson-01.txt", error);
+  }
+}
+
+void test_content_repository_reads_versioned_exercise_metadata() {
+  Fixture fixture;
+  const auto root = fixture.root / "content-exercises";
+  std::filesystem::create_directories(root);
+  const auto hex = [](std::string_view value) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result;
+    for (const unsigned char character : value) {
+      result.push_back(digits[character >> 4]);
+      result.push_back(digits[character & 0x0f]);
+    }
+    return result;
+  };
+  const std::string hash(64, 'a');
+  std::ofstream(root / "catalog.v1.tsv") << hex("lesson-01") << '\t' << hex("循环") << '\t'
+      << hex("published") << '\t' << hex("cpp") << '\t' << hex(hash) << '\t' << hex("1") << '\n';
+  std::ofstream(root / "exercises.v1.tsv") << hex("lesson-01") << '\t' << hex("exercise-01")
+      << '\t' << hex("42") << '\t' << hex("L1") << '\n'
+      << hex("draft-01") << '\t' << hex("exercise-draft") << '\t' << hex("bad") << '\t'
+      << hex("L1") << '\n';
+  codeweave::content::ContentRepository repository(root);
+  std::vector<codeweave::content::Exercise> exercises;

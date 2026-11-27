@@ -1,0 +1,78 @@
+                    工作区/全栈工程师学习资料库
+                               │
+                  分批投影 / 来源卡 / 规则 / 稳定 ID
+                               │
+                    CodeWeave/content-manifest.json
+                               │
+                    compile + dry-run + 人工审批
+                               │
+                不可变正文快照 + 内容寻址附件 + current 指针
+                               │
+        ┌──────────────────────┴──────────────────────┐
+        │             统一数据服务（现有 Node 服务演进）           │
+        │ 初始化/邀请 │ 阅读/发布分权 │ 内容 API │ 学习事实 │ 同步/写回 │
+        └───────────┬───────────────┬───────────────┬───────────┘
+                    │               │               │
+              同源 HTTPS      可选 HTTPS       HTTPS
+                    │               │               │
+              网页端 React      应用端 Qt/C++    移动端 Android
+              内存详情缓存       原生内容包回退     Room/本地缓存
+              localStorage草稿  本地账本+outbox    离线队列
+                    │               │               │
+              浏览器执行能力     本地原生执行引擎    后续再评估执行
+                    │               │               │
+              只上传用户确认的    只上传用户确认的    只上传用户确认的
+              学习证据，不上传    学习证据；不自动    学习证据
+              任意缓存           上传源码/变量
+```
+
+**核心边界：** 内容快照可以缓存，正式学习事实以服务端同步日志为准；本地缓存永不反向覆盖原始资料库。
+
+## 4. 数据权威与分类
+
+| 数据类别 | 权威来源 | 三端可见形式 | 允许写入 |
+| --- | --- | --- | --- |
+| 原始课程正文 | 原始资料库白名单来源 | 编译后的发布正文 | 只在原库修改，经生成器与复核进入投影 |
+| 发布投影、规则、来源卡 | 资料库 `CodeWeave/` | 不作为客户端任意文件入口 | 生成器/受控编辑；稳定 ID 不可清空重建 |
+| 正式内容快照 | 统一服务 `content/snapshots` 与附件存储 | catalog/detail/exercise/asset | 正文与全部引用附件经清单和哈希固化后才可切换 current；跨文件用可恢复发布状态机 |
+| 旧内置课程 | 过渡期网页/原生版本化只读资产 | `legacy` 兼容内容或已审核映射别名 | 不按标题自动映射；映射生效后旧卡去重并保留旧 ID 引用 |
+| 账户与会话 | 统一服务 | 当前用户与安全会话 | 服务端校验；客户端不提交 userId 取得越权 |
+| 正式进度、证据、掌握事件 | 统一服务账户域事件存储 | 按账户投影 | 幂等追加、服务端计算投影 |
+| 代码与项目草稿 | 本地优先，用户选择同步后的服务端副本 | 编辑器与冲突视图 | `baseRevision` 冲突检测，不静默覆盖 |
+| 内容/账户缓存 | 各端本地 | 离线视图 | 可失效/重建，不冒充正式事实 |
+| 执行输出、变量与轨迹 | 当前执行端本地 | 当前工作台 | 默认不离开设备；只暂存用户明确选择的证据 |
+| 资料库日志/进度写回 | 统一服务事务 | 预览、结果、回滚账本 | 预览指纹 + 明确确认 + 单写者 |
+
+## 5. 契约设计
+
+### 5.1 复用现有接口
+
+以下接口是当前兼容起点，**不代表现有实现可以直接远程开放**：
+
+| 能力 | 接口 | 复用条件 |
+| --- | --- | --- |
+| 认证 | `POST /api/auth/login`、`POST /api/auth/logout`、`GET /api/auth/me` | 登录可复用；注册默认关闭，仅初始化/邀请流程开放 |
+| 内容状态与目录 | `GET /api/content/status`、`GET /api/content/catalog` | 保持阅读权限；增加版本协商、分页和缓存规则 |
+| 正文与练习 | `GET /api/content/lessons/{id}`、`GET /api/content/exercises/{id}` | 增加 bundle 固定和版本不匹配处理 |
+| 附件 | 旧 `GET /api/content/asset` 仅作本机兼容；新契约使用 `GET /api/content/assets/{assetId}?bundleId=...` | 对外只暴露 opaque assetId；字节只读已发布 CAS 对象，不再接受源路径 |
+| 内容同步 | `POST /api/content/sync`、`GET /api/content/sync/{jobId}` | dry-run/真实发布均要求发布权限；真实发布绑定精确审批；任务终态持久化，普通读者无发布诊断权限 |
+| 拥有者与进度 | `GET /api/learning/status`、`GET /api/learning/vault-progress` 及现有 owner 接口 | 现有 `POST /api/learning/owner` 不再承担远程首次认领；初始化、转移、解绑和恢复分别授权并撤销相关会话 |
+| 证据写回 | 现有 evidence 暂存、预览、提交、回滚、导出和事务接口 | 暂存与正式写回分权；提交前检查契约版本、预览指纹和操作归属 |
+
+### 5.2 必补的增量契约
+
+| 新能力 | 建议契约 | 目的 |
+| --- | --- | --- |
+| 固定内容版本 | catalog/detail/exercise/asset 接受 `bundleId`；响应统一返回实际 `bundleId` 与 `manifestHash` | 防止目录、正文、练习和附件跨版本混读 |
+| 条件请求 | catalog/asset 支持 `If-None-Match`/304，且先鉴权再命中缓存 | 降低三端轮询成本，不让 304 绕过权限 |
+| 固化附件 | `GET /api/content/assets/{assetId}?bundleId=...` | 按清单与内容 SHA-256 读取，不再访问实时资料库 |
+| 桌面离线包 | `GET /api/content/bundles/{bundleId}/manifest` 与 `.../payload` | 下载完整 JSON 快照、包内相对路径、文件清单和 SHA-256 |
+| 增量拉取 | `GET /api/sync/pull?cursor=<opaque>&limit=<n>` | 按账户游标获取变化、删除 tombstone 和下一游标 |
+| 幂等推送 | `POST /api/sync/push`，带 `Idempotency-Key` | 重试不产生重复事实，返回 accepted/duplicate/conflict |
+| 同步状态 | `GET /api/sync/state` | 提供服务端游标、syncEpoch、账户域和待处理冲突数量 |
+
+#### 5.2.1 固定 bundle 的读取上下文
+
+1. catalog 必须返回 `serviceInstance`、`vaultId`、`bundleId`、`manifestHash`、契约版本、能力集合和该版本的 `legacyAliases`。
+2. 新三端从一次 catalog 建立读取上下文，后续 detail、exercise、asset、manifest/payload **必须携带同一 bundleId**。服务端能读取仍保留的指定 bundle；不得把指定旧 bundle 的请求静默改发到 current。
+3. 旧调用暂时允许省略 `bundleId`，仅表示“本次请求读取当前版本”；响应仍必须给出实际版本。客户端一旦发现同组响应版本变化，必须丢弃整组内存/缓存结果并从 catalog 重建，不能把 A 目录与 B 正文拼在一起。

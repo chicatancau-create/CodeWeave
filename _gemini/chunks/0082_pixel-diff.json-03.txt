@@ -1,0 +1,145 @@
+      "webSha256": "571e90e0f9b54692f106e90b3f35b303134283b19cf7280802bf7688b931752c"
+    },
+    {
+      "name": "review",
+      "qt": "qt-workspace/qt-review.png",
+      "web": "web-pages/web-review.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 491800,
+      "differentPixelPercent": 37.9475,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 24.2083,
+        "16": 16.0272,
+        "32": 8.8393
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        8.5566,
+        9.3075,
+        10.9816
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "b96d12c0afc799a17f75573f2d16ac211f053dfed4d18164d5e31e6aebe024ba",
+      "webSha256": "1320f60914f251ed8409b5a5d74a58dfae0f4f15d8902f5c1e6454050d084a64"
+    },
+    {
+      "name": "challenge",
+      "qt": "qt-workspace/qt-challenge.png",
+      "web": "web-pages/web-challenge.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 685598,
+      "differentPixelPercent": 52.9011,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 28.0201,
+        "16": 17.6834,
+        "32": 12.1959
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        14.6408,
+        15.4236,
+        15.9805
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "c7948c3cadca6116ff97f62cd55d3d298bca2167458f45343ec9210d20ff1d61",
+      "webSha256": "355d29e3726c4f9fe6f7e35e248d075da04496b86090e5e145d602ed1c9d840b"
+    },
+    {
+      "name": "workbench-code",
+      "qt": "qt-workspace/qt-workbench.png",
+      "web": "web-pages/web-workbench-code.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 678017,
+      "differentPixelPercent": 52.3161,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 40.1576,
+        "16": 16.2152,
+        "32": 4.0312
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        6.1275,
+        7.6171,
+        10.5649
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "a6b0ab903b5053d043eae1f5892bef479511004e6958519d198222ca19cea898",
+      "webSha256": "67055ca623a30c9989cfc78fc95e17d5bba3ed75c27e38f5dccadb7c83894bf4"
+    },
+    {
+      "name": "workbench-reading",
+      "qt": "qt-workspace/qt-workbench-reading.png",
+      "web": "web-workspace/web-workbench-reading.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 622167,
+      "differentPixelPercent": 48.0067,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 37.0946,
+        "16": 17.5043,
+        "32": 6.6117
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        9.456,
+        10.8318,
+        12.7198
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "84283ce241e78d5a24658c071cdbe7aa66535d3fa9640848992db482d10fa669",
+      "webSha256": "587d2d6fdd68d5e4aa1ffaadcf3c91a46cd6df7287939c7d9082942cd6a77c33"
+    },
+    {
+      "name": "workbench-guide",
+      "qt": "qt-workspace/qt-workbench-guide.png",
+      "web": "web-workspace/web-workbench-guide.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1295999,
+      "differentPixelPercent": 99.9999,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 99.4069,
+        "16": 61.7353,
+        "32": 9.6804
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        17.3955,
+        20.9707,
+        25.6243
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "98d9099eb53b642a407e07f3ca169f81ab3dd3fffa4524a66cdbd6baea792c11",

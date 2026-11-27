@@ -1,0 +1,33 @@
+            {LESSON_STATE_ITEMS.filter((item) => (evidenceStates ?? NO_LESSON_STATES)[item.key]).length} /{' '}
+            {LESSON_STATE_ITEMS.length}
+          </span>
+        </summary>
+        <ul className="cw-evidence-state-list">
+          {LESSON_STATE_ITEMS.map((item) => {
+            const held = (evidenceStates ?? NO_LESSON_STATES)[item.key]
+            return (
+              <li key={item.key} className={held ? 'is-held' : 'is-absent'}>
+                {/* 双通道：勾/横线符号 + 文字，加上下面的实线与虚线边框，不靠颜色单传 */}
+                <span className="cw-evidence-state-glyph" aria-hidden="true">
+                  {held ? '✓' : '—'}
+                </span>
+                <span className="cw-evidence-state-label">{item.label}</span>
+                <span className="cw-evidence-state-meaning">{item.meaning}</span>
+              </li>
+            )
+          })}
+        </ul>
+        {onMarkRead && !readMarked ? (
+          <button type="button" className="subtle-button cw-mark-read" onClick={onMarkRead}>
+            <BookOpen size={13} aria-hidden="true" />
+            标记已阅读
+          </button>
+        ) : readMarked ? (
+          <p className="cw-verify-none">
+            已标记阅读：这一条只是阅读痕迹，不是完成证明，也不推进掌握等级。
+          </p>
+        ) : null}
+      </details>
+    </>
+  )
+})

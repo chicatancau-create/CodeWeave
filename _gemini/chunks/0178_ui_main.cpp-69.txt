@@ -1,0 +1,60 @@
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (commit && flick) flick->setProperty("contentY", std::max(0.0, commit->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - flick->height() + 60));
+          if (panel) panel->setProperty("rollbackId", preview.value("operationId"));
+          context->step++;
+          return;
+        }
+        case 704: {
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-confirmation"));
+          auto* consent = u3_find_item(view.rootObject(), QStringLiteral("vaultCommitConsent"));
+          auto* commit = u3_find_item(view.rootObject(), QStringLiteral("vaultCommit"));
+          if (consent) consent->setProperty("checked", true);
+          u3_record(*context, QStringLiteral("vault-commit-explicit-confirmed-action"), commit && commit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(commit, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 705: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto state = shell.vaultWriteback();
+          u3_record(*context, QStringLiteral("vault-committed-refresh-and-reload"), state.value("synced").toList().size() == 1 &&
+              state.value("pending").toList().size() == 1 && !state.contains("preview") &&
+              state.value("transactions").toList().size() == 1 && state.value("transactions").toList().first().toMap().value("state") == "synced");
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          if (panel) panel->setProperty("viewIndex", 2);
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 706: {
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (panel && flick) flick->setProperty("contentY", std::max(0.0, panel->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - 8));
+          context->step++;
+          return;
+        }
+        case 707: {
+          u3_record(*context, QStringLiteral("vault-narrow-ledger-screenshot"), u3_screenshot(*context, view,
+              QStringLiteral("u3-vault-ledger-narrow"), QSize(1100, 720)));
+          const auto ledger = shell.vaultWriteback().value("transactions").toList();
+          if (!ledger.isEmpty()) shell.rollbackVaultWriteback(ledger.first().toMap().value("operationId").toString());
+          context->step++;
+          return;
+        }
+        case 708: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto state = shell.vaultWriteback();
+          u3_record(*context, QStringLiteral("vault-rollback-restores-pending-state"), state.value("synced").toList().isEmpty() &&
+              state.value("pending").toList().size() == 2 && state.value("transactions").toList().first().toMap().value("state") == "rolled_back");
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-rolled-back"), QSize(1100, 720));
+          view.resize(1440, 900);
+          shell.selectPage(QStringLiteral("分析"));
+          u3_screenshot(*context, view, QStringLiteral("u3-analysis"));
+          context->step = 23;
+          return;
+        }
+        case 23:
+          u3_record(*context, QStringLiteral("page-analysis"), shell.currentPage() == QStringLiteral("分析"));
+          u3_record(*context, QStringLiteral("page-challenge-lesson-evidence-execution-trace-and-vault-screenshots"), context->screenshots.size() == 60 &&

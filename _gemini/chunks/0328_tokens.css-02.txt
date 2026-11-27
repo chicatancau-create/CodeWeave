@@ -1,0 +1,73 @@
+  --ds-scene-glow-ring: 1.5px;                    /* L120 / L433 圆环描边宽度 */
+  --ds-scene-glow-near: 14px;                     /* L120 品牌点泛光 */
+  --ds-scene-glow-far: 26px;                      /* L433 启动点泛光 —— 业务界面禁用 */
+
+  /* ── 4. 语义状态：固定值，永不参与场景插值（01 号方案 §2.2 末段） ────────── */
+  /* 科技档：语义色相**刻意保持不变**（绿=成功 / 黄=警告 / 珊瑚=危险 / 蓝=信息）。
+     状态色是「用户必须一眼读懂」的通道，把成功改成青色会和强调色撞在一起，
+     反而让「这是强调还是成功」变模糊——所以这里只动一个值：信息蓝。
+     原因是画布从纯黑改成 #05070d 后，原 #4f7cff 掉到 5.43:1（低于在纯黑上的 5.66），
+     提亮到 #5b86ff 取回 6.04:1，且色相与冷青强调色仍拉得开（不混）。
+     对 --ds-canvas(#05070d) 实测：绿 10.61、黄 12.74、珊瑚 8.38、蓝 6.04，均 ≥4.5:1。
+     相邻色相在冷调下更难辨，所以状态必须同时带文字与图标，颜色不作唯一载体（机制不变）。 */
+  --ds-status-success: #3fd3a4;
+  --ds-status-warning: #ffc457;
+  --ds-status-danger: #ff8371;
+  --ds-status-info: #5b86ff;                      /* 原 #4f7cff，提亮以补画布变冷的对比度损失 */
+  --ds-status-success-wash: rgba(63, 211, 164, 0.12);
+  --ds-status-warning-wash: rgba(255, 196, 87, 0.12);
+  --ds-status-danger-wash: rgba(255, 131, 113, 0.16); /* 对齐现有 styles.css L695 危险态 */
+  --ds-status-info-wash: rgba(91, 134, 255, 0.16);
+  /* 约束：--ds-status-* 不得被 --ds-scene-active 覆写，也不得写进动画关键帧。 */
+
+  /* ── 4.5 语义描边档（01 号方案 §2.2；模板里状态既不携带文字也不带描边，本节为产品规则值） ──
+     同一族色在 0.45 α 上专门承担**1px 描边**：比 --ds-line-* 三档都可辨，又不会像实色那样
+     把整块染出来。改版前这一档在 styles.css 里逐处写死 `rgba(<同族色>, 0.45)` 共 19 处
+     （flow-node 四色、stage-status 三态、execution-tier 三档、挑战结果与证据边界等），
+     同一个意思十九种写法，正属 §2.2 要收的「硬编码同义值」。取值与那些原句逐字节相同，
+     所以这一档只是把已经在用的数说一次，不改外观。
+     科技档：语义三档的基色未变，所以这三行值不动；场景两档跟着新场景族换。 */
+  --ds-status-success-edge: rgba(63, 211, 164, 0.45);
+  --ds-status-warning-edge: rgba(255, 196, 87, 0.45);
+  --ds-status-danger-edge: rgba(255, 131, 113, 0.45);
+  --ds-scene-tides-edge: rgba(46, 230, 200, 0.45);   /* 跟 --ds-scene-tides 换 */
+  --ds-scene-nebula-edge: rgba(167, 139, 250, 0.5);  /* 跟 --ds-scene-nebula 换 */
+  /* 遮光层的第三、四、五档（§2.2 同一口径：styles.css :root 已有 --scrim / --scrim-raised
+     两档，这里补齐「滚动条滑块」「内凹分区」「hover」三个实际在用的数）。
+     科技档：由暖白半透明改为冷蓝半透明——在黑场上叠出来的是「冷金属压光」，
+     暖白会在这块冷画布上显脏。α 三档的相对关系保持不变。 */
+  --ds-wash-inset: rgba(120, 165, 220, 0.07);
+  --ds-wash-hover: rgba(120, 175, 235, 0.11);
+  --ds-wash-thumb: rgba(140, 180, 225, 0.24);
+  /* 科技档新增：发光档。原模板「零投影」（§7 --ds-shadow-panel: none），
+     科技风改走**冷色外发光**而不是黑色投影——黑底上黑投影等于没有，
+     发光才是能在黑场里表达层级的手段。三档强度递进，业务界面只用近档。 */
+  --ds-glow-near: 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14);
+  --ds-glow-far: 0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 24px rgba(34, 211, 238, 0.22);
+  --ds-glow-panel: 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55);
+  --ds-glow-inset: inset 0 1px 0 rgba(180, 215, 255, 0.07);
+
+  /* ── 5. 焦点与关键边界（模板无表单：本节为产品规则值，非提取值） ────────── */
+  /* 01 号方案 §5「焦点可见」+ 旧总工程方案 §5.1「关键输入/焦点边界单独提高可辨识度」（原文由 Git 保留）。模板 0.14 细线在
+     黑底上只有 1.32:1，不能承担焦点；暖白需 ≥ 0.37 才过非文本 3:1、≥ 0.49 过 4.5:1。
+     科技档换冷白后必须重算——冷白比暖白暗，同一 α 下对比度会掉：
+       · 焦点环：冷白 #dce9fb @0.72 合成到 #05070d 得 8.57:1，仍远超要求（原 9.23:1）。
+       · 字段静止边：#b8cfe8 @0.38 只剩 2.92:1，**低于非文本 3:1 线**，故 α 提到 0.46 → 3.29:1。
+       这两条是换冷色后唯一的达标风险点，改值不是调风格而是修回归。 */
+  --ds-focus-ring: rgba(220, 233, 251, 0.72);
+  --ds-focus-ring-width: 2px;
+  --ds-focus-offset: 2px;
+  --ds-field-border: rgba(184, 207, 232, 0.46);       /* 输入框静止态，3.29:1 ≥ 3:1 */
+  --ds-field-border-active: rgba(200, 224, 248, 0.68); /* 焦点/激活态，比静止态亮一档 */
+
+  /* ── 6. 字体（site.css L24-L25 原栈 + Windows 中文回退） ────────────────── */
+  /* 模板回退链只有 PingFang SC（macOS）与 Noto Sans SC（Android/Linux），
+     Windows 上两者通常都不存在，中文会掉到 monospace 靠系统字形链接兜底。
+     01 号方案 §2.2 要求「中文采用可靠系统回退字体」并实测，故显式补
+     Microsoft YaHei / JhengHei 与 Consolas。
+     Geist Mono 不含 CJK（site.css L21-L23 注释自陈，包内亦无中文字形），
+     任何「已覆盖中文排版」的表述都不成立，见 provenance.md §1。 */
+  --ds-font-display: 'Geist Mono', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei',
+    'Microsoft JhengHei', ui-monospace, monospace;
+  --ds-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', monospace;

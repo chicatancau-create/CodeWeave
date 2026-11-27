@@ -1,0 +1,107 @@
+/**
+ * 双链 `[[目标|别名]]` 的目标解析与放行判定（DATA-10）。
+ *
+ * 口径（02 号方案 §1 活动内容层与 §2 数据对象、ID 和关系）：
+ * - **只在已发布内容里定位**：候选集来自内容快照的 lessons 元数据
+ *   （contentId / 标题 / 库根相对来源路径 / 标题链），前端不拼磁盘路径、
+ *   不访问文件系统、不为未发布文件编造链接。
+ * - 命中 → 返回可跳转的 `contentId`；未命中或目标不唯一 → `unresolved`，
+ *   界面必须明确提示「指向未发布/未登记内容」，不允许静默变成死链。
+ * - 危险目标一律 `rejected`：脚本/数据协议（`javascript:`、`data:text/html`、
+ *   `vbscript:`）、绝对路径与网络路径、`..` 越界（含 `%2e%2e` 编码绕过）、
+ *   HTML 标签片段、超长目标。被拒绝的目标**只作为文本渲染**，永不进入 href。
+ *
+ * 本模块是纯函数：不依赖 React，便于单测覆盖安全边界。
+ */
+import type { Lesson } from '../types/lesson'
+
+/** 可定位目标：字段全部来自内容快照。 */
+export type WikiLinkCandidate = {
+  contentId: string
+  title: string
+  /** 快照里的库根相对路径，如 `复习大纲/01-编程语言/C/C语言基础.md`（不是磁盘路径） */
+  sourcePath: string
+  /** 主题在来源文件里的完整标题链 */
+  headingPath: string[]
+}
+
+export type WikiLinkDecision =
+  | { kind: 'resolved'; display: string; tooltip: string; contentId: string; title: string }
+  | { kind: 'unresolved'; display: string; tooltip: string; reason: string }
+  | { kind: 'rejected'; display: string; tooltip: string; reason: string }
+
+/** 协议形目标：`scheme:` 前缀（javascript:/data:/http:/file:/C: 等）。 */
+const SCHEME_LIKE = /^[a-z][a-z0-9+.-]*:/i
+/** 非法路径字符（控制字符另用码位判断，避免 eslint 的 no-control-regex）。 */
+const ILLEGAL_SEGMENT_CHAR = /[:*?"|\\]/
+const ZERO_WIDTH = new Set([0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0xfeff])
+
+function isStrippedChar(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0
+  return code <= 0x20 || code === 0x7f || ZERO_WIDTH.has(code)
+}
+
+function hasControlChar(value: string): boolean {
+  return Array.from(value).some((char) => (char.codePointAt(0) ?? 0) < 0x20 || (char.codePointAt(0) ?? 0) === 0x7f)
+}
+
+/** 零宽/双向格式字符：常被用来拆散 `javascript:` 这类关键字（按码位判断）。 */
+function hasInvisibleFormatChar(value: string): boolean {
+  return Array.from(value).some((char) => {
+    const code = char.codePointAt(0) ?? 0
+    return (code >= 0x200b && code <= 0x200f) || code === 0x2060 || code === 0xfeff
+  })
+}
+
+const MAX_TARGET_LENGTH = 300
+
+/** 路径归一：反斜杠转正斜杠、折叠重复斜杠、去掉 `./` 前缀与 `.md` 后缀、转小写。 */
+function normalizePath(value: string): string {
+  return value
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\.\//, '')
+    .replace(/\.md$/i, '')
+    .trim()
+    .toLowerCase()
+}
+
+function normalizeTitle(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+/** 清掉空白、控制字符与零宽字符后的形态：安全判定用它，避免 `java\nscript:` 之类绕过。 */
+function compact(value: string): string {
+  return Array.from(value)
+    .filter((char) => !isStrippedChar(char))
+    .join('')
+}
+
+/**
+ * 拆分 `[[目标|别名]]`（含表格单元格里 `\|` 的转义写法）。
+ * 别名取第一个未转义 `|` 之后的全部内容；无别名时取路径最后一段（Obsidian 口径）。
+ */
+export function splitWikiLink(raw: string): { target: string; display: string } {
+  const unified = String(raw ?? '').replace(/\\\|/g, '|')
+  const pipe = unified.indexOf('|')
+  const target = (pipe === -1 ? unified : unified.slice(0, pipe)).trim()
+  const alias = pipe === -1 ? '' : unified.slice(pipe + 1).trim()
+  if (alias) return { target, display: alias }
+  const withoutAnchor = target.split('#')[0] ?? ''
+  const segments = withoutAnchor.split('/').filter((segment) => segment !== '')
+  return { target, display: (segments.length > 1 ? segments.at(-1) : withoutAnchor)?.trim() || target }
+}
+
+/** 危险/越界目标的拒绝理由；返回 null 表示目标形态可进入发布状态判定。 */
+export function rejectReasonFor(target: string): string | null {
+  // 先拒绝控制字符与零宽字符：它们只被用来绕过协议/越界判定，正文里没有合法用途
+  if (hasControlChar(target) || hasInvisibleFormatChar(target)) return '目标含控制字符或零宽字符'
+  // 反斜杠先归一为 `/`：`\..\` 这类写法必须能被越界规则看到，而不是当成合法文件名
+  const value = compact(target).replace(/\\/g, '/')
+  if (!value) return '引用目标为空'
+  if (target.length > MAX_TARGET_LENGTH) return `引用目标过长（超过 ${MAX_TARGET_LENGTH} 字符）`
+  if (/[<>]/.test(value)) return '目标含 HTML 标签片段'
+  if (value.startsWith('/')) return '不接受绝对路径或网络路径（//host、/abs、盘符另由协议规则处理）'
+  if (SCHEME_LIKE.test(value)) return '不接受带协议的目标（javascript:、data:、http:、盘符等）'
+  if (/%2e/i.test(value)) return '不接受编码后的越界路径'
+  const segments = value.split('/')

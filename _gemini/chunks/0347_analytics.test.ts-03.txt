@@ -1,0 +1,91 @@
+      masteryRecords: [
+        recordOf('a', 'lesson', [evidenceOf('a', 'lesson', '2026-09-13T08:00:00.000Z', true)]),
+        recordOf('b', 'lesson', [evidenceOf('b', 'lesson', '2026-09-13T09:00:00.000Z', true)]),
+      ],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(2)
+    expect(stats.lessonPracticeCount).toBe(2)
+  })
+
+  it('课程窗口外的证据既不进完成单元也不进练习次数', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [recordOf('a', 'lesson', [evidenceOf('a', 'lesson', '2026-08-01T08:00:00.000Z', true)])],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(0)
+    expect(stats.lessonPracticeCount).toBe(0)
+  })
+
+  it('课程口径与挑战口径互不串用：challenge 类证据不计入课程单元', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [
+        recordOf('c1', 'challenge', [evidenceOf('c1', 'challenge', '2026-09-13T08:00:00.000Z', true)]),
+      ],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(0)
+    expect(stats.lessonPracticeCount).toBe(0)
+  })
+})
+
+describe('STAT-01 复测口径独立：通过率与到期任务完成率分开', () => {
+  const todayKey = '2026-09-13'
+
+  it('复测通过率只由 review 证据决定，与课程完成数无关', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [
+        recordOf('a', 'lesson', [evidenceOf('a', 'lesson', '2026-09-13T08:00:00.000Z', true)]),
+        recordOf('a', 'review', [
+          evidenceOf('a', 'review', '2026-09-13T09:00:00.000Z', true),
+          evidenceOf('a', 'review', '2026-09-13T10:00:00.000Z', false),
+        ]),
+      ],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(1)
+    expect(stats.reviewsPassed).toBe(1)
+    expect(stats.reviewsFailed).toBe(1)
+    expect(stats.reviewRate).toBe(50)
+  })
+
+  it('复测通过率取整到百分位，全通过为 100', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [
+        recordOf('a', 'review', [
+          evidenceOf('a', 'review', '2026-09-13T09:00:00.000Z', true),
+          evidenceOf('a', 'review', '2026-09-13T10:00:00.000Z', true),
+        ]),
+      ],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.reviewRate).toBe(100)
+  })
+
+  it('无复测样本时通过率为 null，且窗口外复测不计入', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [recordOf('a', 'review', [evidenceOf('a', 'review', '2026-08-01T09:00:00.000Z', true)])],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.reviewsPassed).toBe(0)
+    expect(stats.reviewsFailed).toBe(0)
+    expect(stats.reviewRate).toBeNull()
+  })
+
+  it('空样本：所有计数为 0、通过率为 null，周期键仍然正确', () => {
+    const stats = computeWeeklyStats({ masteryRecords: [], challengeRecords: {}, todayKey })
+    expect(stats.lessonsCompleted).toBe(0)
+    expect(stats.lessonPracticeCount).toBe(0)
+    expect(stats.challengesPassed).toBe(0)
+    expect(stats.challengesLegacyPassed).toBe(0)
+    expect(stats.reviewRate).toBeNull()
+    expect(stats.periodStartKey).toBe('2026-09-07')
+    expect(stats.todayKey).toBe(todayKey)
+  })
+})

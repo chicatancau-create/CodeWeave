@@ -1,0 +1,64 @@
+| 路径 | 写入者 | 格式 |
+|---|---|---|
+| `<data_root>/learning/evidence.v1.log` | `evidence_store.cpp:141` | 每行 `\t` 分隔、**逐字段 hex**；11 标量 + 两个变长列表 |
+| `<data_root>/learning/progress.v1.log` | `progress_store.cpp:158` | 6 个 hex 字段/行 |
+| `<data_root>/execution/trace.v1.log` | `trace_store.cpp:131` | 4 个 hex 字段：sequence/kind/session/payload |
+| `<data_root>/profile/accounts.v1.tsv` | `account_store.cpp:180` | 5 个 hex 字段 |
+| `<data_root>/drafts/<id>.txt` | `app_core.cpp:17,170` | 原始字节 |
+| `<data_root>/.native.lock` | `app_core.cpp:118` | `FILE_FLAG_DELETE_ON_CLOSE` |
+| `<native_data_root>/accounts/<record.id>/` | `account_service.cpp:90` | **每账户独立数据根** |
+| `<content_root>/{catalog.v1.tsv, exercises.v1.tsv, hints.v1.tsv, starter-code.v1.tsv, metadata.v1.tsv, <id>.txt, hints/<id>.txt}` | `content_repository.cpp:139…342` | hex TSV + **正文 sha256 必须等于 catalog 里的 content_hash** |
+
+不变量（**这些是代码强制的，不是约定**）：
+
+| 不变量 | 强制方式 | 证据 |
+|---|---|---|
+| 掌握度只能由「通过 + 独立 + 低提示」的证据推进 | 只有 `ChallengeService` 能写 `ProgressFact`，且要求 `passed && independent && hint_level ∉ {L3,L4}` | `challenge_service.cpp:18-36` |
+| AI 代跑不得算独立 | 硬拒 | `learning_contract.cpp:138-140` |
+| L3/L4 提示后不得算独立 | 硬拒 | `:142-144` |
+| 外部环境证据永不推进进度 | 强制 `Pending` + `independent=false` + `unfinished_items` 非空，且不碰 ProgressStore | `external_evidence_service.cpp:105-111` |
+| 投影永不改动 | `parse_progress` 只返回值，注入只读告示 | `progress_projection.cpp:163-165` |
+| 写盘原子 | 写 `.tmp.<clock>.<rand>` → `FlushFileBuffers` → `MoveFileExW(REPLACE_EXISTING\|WRITE_THROUGH)`，失败删临时 | 5 处台账各自实现 |
+| 幂等 | 同 `operation_id` 同载荷→duplicate 成功；同 id 不同载荷→**失败** | `evidence_store.cpp:154-159` |
+| `operation_id` 格式 | `^op-[a-z0-9]{6,20}-[0-9a-f]{6}$` | `learning_contract.cpp:122` |
+| 符号链接逐段拒绝 | 文件本身 + 路径每个前缀都 `symlink_status` | 各台账 |
+| 记录坏一行→整档 fail-closed | `read_all` 任一行解析失败即中止 | 各台账 |
+| 敏感信息不入库 | 6 条正则（私钥/pwd=/api key/bearer/cookie/DB URI）命中即拒 | `external_evidence_service.cpp:49-59` |
+| 旧数据导入不 mint 进度 | 只写 `legacy-learning.json`，报告 `accounts=0` | `legacy_import.cpp:295-306` |
+| 导入源只读 | 源仅以读打开，全部写进新建目标，失败删目标 | `legacy_import.cpp:183-191` |
+| 备份不许覆盖 | 目标必须 `not_found`，源不得是目标的祖先 | `backup_service.cpp:170,21-62` |
+| 备份时点一致 | 复制后再采集一次源，不一致→`remove_all(target)` | `:213-224` |
+
+**已知缺陷（后端 AI 必须知道自己在改什么）**：
+
+| # | 缺陷 | 影响 |
+|---|---|---|
+| L1 | 台账 append = **读整档 + 重写整档**（`evidence_store.cpp:151-167`、`progress_store.cpp:170-186`） | 每次记一条证据是 O(全台账字节)。§101 要求主线程 P95 ≤ 16.7 ms，这条在台账长大后必超；且这是**唯一一处真正的规模化性能债** |
+| L2 | 证据与进度**两次写之间无跨档事务**（`challenge_service.cpp:25-36`） | 证据已提交而进度写失败 → 半状态 |
+| L3 | 无 SQL、无 journal、台账无文件锁（只有进程内 mutex） | 单进程设计，多开靠 `.native.lock` |
+
+### 1.4 facade 面
+
+35 个 `Q_PROPERTY` · 23 个 `Q_INVOKABLE` · 25 个 signal · **14 个 `backend_tasks_.submit` 站点**。
+
+关键结构事实：**QML 里 `Connections {` 命中 0 次** —— 25 个 signal 一个都没被界面接。全部界面刷新靠属性绑定，而属性只在回调里改，因此凡是「回调提前 return」的路径界面就不动（见 1.6 的卡死项）。
+
+### 1.5 QML 面（Main.qml 4,705 行，7 页 + 3 个死组件）
+
+| 页 | 行范围 | 绑定的 facade |
+|---|---|---|
+| 学习 StudyPage | 1139-2229 | lessonMeta, openPublishedContent, reloadPublishedContent, **publishedIds（不存在，见 G2）** |
+| 挑战 ChallengePage | 3291-3773 | 只有 challengeMeta |
+| 草稿 DraftsPage | 3776-4230 | draft* 全套 |
+| 复习与进度 ReviewPage | 2769-3049 | progressSummary, reviewSummary, refreshReviewSummary |
+| 分析 AnalyticsPage | 4231-4638 | **无 —— 本地自算，数据写死** |
+| 账户 AccountPage | 3050-3288 | login/register/logout/changePassword/requestDataAction(仅 backup/restore) |
+| 编辑器 EditorPage | 2231-2671 | draft*/execution* 全套，**但不调 loadStarterCode（见 G1）** |
+| RunLogPage | 2673-2767 | **定义后实例化 0 次** |
+| passwordDialog / evidenceDialog | 4640-4703 | **`.open()` 调用 0 次** |
+
+### 1.6 四个「整条功能不通」的断点（全绿门禁下看不见）
+
+| ID | 断点 | 证据（本轮我亲自复核过） | 后果 |
+|---|---|---|---|
+| **G1** | `loadStarterCode()` 在 Main.qml 里 **0 次调用**；`starter_language_` 只在 `ui_shell.cpp:337`（该任务的回调里）赋值 | `grep -c loadStarterCode Main.qml` = 0 | 交互路径永远拿不到起始代码 → `updateDraftCode` 在 `ui_shell_draft.cpp:369` 因 `starter_language_.isEmpty()` **直接 return** → 编辑器打字无反应；`saveDraft`(:191) 与 `runCode`(:296) 双双拒绝 |

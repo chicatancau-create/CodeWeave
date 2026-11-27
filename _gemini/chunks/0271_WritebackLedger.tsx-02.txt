@@ -1,0 +1,83 @@
+          </p>
+          <p className="ewb-state-text">这里不会被说成「还没有写回事务」：读不到不等于一笔都没有，磁盘上的记录也没因此消失。</p>
+        </div>
+      )}
+
+      {/* 已经读到过、这一次重读失败：不退回加载态、不清空列表，只标出「这一次没读回来」。 */}
+      {ledger !== null && ledgerPhase === 'failed' && (
+        <p className="ewb-tx-reread">
+          <StateMark tone="failed" />
+          <span className="ewb-tx-reread-text">
+            账本重读失败：{ledgerFailure?.reason || '服务端未给出原因'}（错误码 {ledgerFailure?.code || 'unknown'}）。
+            下面仍是上一次读到的记录，未清空，也不代表这次读取成功。
+          </span>
+        </p>
+      )}
+
+      {ledger !== null && ledgerRows.length === 0 && (
+        <p className="ewb-state ewb-state--empty">
+          <StateMark tone="empty" />
+          <span className="ewb-state-text">
+            服务端还没有留下这笔账户的写回事务记录。至少预览过一次，才会在这里出现可核对的事务。
+          </span>
+        </p>
+      )}
+
+      {ledger !== null && ledgerHiddenCount > 0 && (
+        <p className="ewb-tx-note">
+        另有 {ledgerHiddenCount} 笔更早的事务没有列在这里（账本单次最多 {ledger.capped} 笔）。
+          它们没有消失：知道 operationId 时仍可逐笔读回。
+        </p>
+      )}
+
+      {ledger !== null && ledger.unreadable > 0 && (
+        <p className="ewb-tx-note">
+          另有 {ledger.unreadable} 条事务记录读不出来（记录损坏等），已从这一列里跳过——
+          它们不会被当成「不存在」，请按数据目录里的事务文件人工核对。
+        </p>
+      )}
+
+      {ledgerRows.length > 0 && (
+        <ul className="ewb-tx-list">
+          {ledgerRows.map((item) => {
+            const opened = openTxId === item.operationId
+            const shown = opened && detail && detail.operationId === item.operationId ? detail : null
+            const outcome = rollbackOutcome && rollbackOutcome.operationId === item.operationId ? rollbackOutcome : null
+            return (
+              <li className="ewb-tx-item" key={item.operationId}>
+                <div className="ewb-tx-row">
+                  <span className="ewb-row-static">
+                    <StateMark tone={ledgerTone(item)} />
+                    <span className="ewb-tx-topic">{item.topic || '（这条事务没记主题）'}</span>
+                    <small>{ledgerMeta(item)}</small>
+                  </span>
+                  <button className="subtle-button" aria-expanded={opened} onClick={() => onToggleTransaction(item.operationId)}>
+                    <History size={16} aria-hidden="true" />
+                    {opened ? '收起逐步明细' : '查看这一笔做了什么'}
+                  </button>
+                </div>
+
+                {opened && (
+                  <TransactionDetail
+                    operationId={item.operationId}
+                    detail={shown}
+                    detailPhase={detailPhase}
+                    detailFailure={detailFailure}
+                    busy={busy}
+                    outcome={outcome}
+                    confirming={rollbackConfirmId === item.operationId}
+                    rollbackBusy={rollbackBusy}
+                    onRetryDetail={onRetryDetail}
+                    onAskRollback={onAskRollback}
+                    onCancelRollback={onCancelRollback}
+                    onConfirmRollback={onConfirmRollback}
+                  />
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+})

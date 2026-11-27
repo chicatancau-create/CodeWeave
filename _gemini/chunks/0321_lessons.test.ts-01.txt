@@ -1,0 +1,102 @@
+import { describe, expect, it } from 'vitest'
+import { lessons } from './lessons'
+import { simulateProgram } from '../engine/teaching-runtime'
+import { validateJavaScriptSandbox } from '../engine/javascript-sandbox'
+import type { Lesson } from '../types/lesson'
+
+const byStage = (stageId: string) => lessons.filter((lesson) => lesson.content.stageId === stageId)
+
+const dummyLesson: Lesson = lessons[0]!
+
+describe('lessons 数据（B3 第一批）', () => {
+  it('全部单元 id 唯一', () => {
+    const ids = lessons.map((lesson) => lesson.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('阶段 A 至少 3 个可访问单元，且全部标注 external', () => {
+    const units = byStage('A')
+    expect(units.length).toBeGreaterThanOrEqual(3)
+    for (const unit of units) {
+      expect(unit.content.runEnvironment).toBe('external')
+      expect(unit.content.evidenceChecklist?.length ?? 0).toBeGreaterThan(0)
+      expect(unit.content.acceptanceCriteria?.length ?? 0).toBeGreaterThan(0)
+    }
+  })
+
+  it('阶段 C 至少 3 个可访问单元，且全部可在教学运行器执行', () => {
+    const units = byStage('C')
+    expect(units.length).toBeGreaterThanOrEqual(3)
+    for (const unit of units) {
+      expect(unit.content.runEnvironment).toBe('teaching')
+    }
+  })
+
+  it('C1 运行结果与验收点一致（较大值 8）', () => {
+    const c1 = byStage('C').find((lesson) => lesson.id === 'java-algo-c1')!
+    const result = simulateProgram(c1.code, c1.language, dummyLesson)
+    expect(result.error).toBeUndefined()
+    expect(result.output).toEqual(['8'])
+  })
+
+  it('C3 倒数输出 5 4 3 2 1', () => {
+    const c3 = byStage('C').find((lesson) => lesson.id === 'java-algo-c3')!
+    const result = simulateProgram(c3.code, c3.language, dummyLesson)
+    expect(result.error).toBeUndefined()
+    expect(result.output).toEqual(['5', '4', '3', '2', '1'])
+  })
+
+  it('每个单元都有唯一 unitId（id）与预计时长或明确外部说明', () => {
+    for (const lesson of lessons) {
+      expect(lesson.id).toBeTruthy()
+      if (lesson.content.runEnvironment === 'external') {
+        // 外部单元必须给出真实环境说明，不能冒充可运行
+        expect(lesson.runtime).toMatch(/外部环境/)
+      }
+    }
+  })
+})
+
+describe('lessons 数据（B3 第二批：阶段 B、D）', () => {
+  const stageB = lessons.filter((lesson) => lesson.content.stageId === 'B')
+  const stageD = lessons.filter((lesson) => lesson.content.stageId === 'D')
+
+  it('阶段 B 至少 3 个单元，id 为 b1/b2/b3 前缀且属于 B 阶段', () => {
+    const ids = stageB.map((lesson) => lesson.id)
+    expect(ids).toEqual(expect.arrayContaining(['b1-array-basics', 'b2-bubble-sort', 'b3-binary-search']))
+    for (const unit of stageB) {
+      expect(unit.content.stageId).toBe('B')
+    }
+  })
+
+  it('B 单元先修链正确：b2 依赖 b1，b3 依赖 b1+b2', () => {
+    const byId = new Map(stageB.map((lesson) => [lesson.id, lesson]))
+    expect(byId.get('b2-bubble-sort')?.content.prerequisites.join(' ')).toContain('b1-array-basics')
+    const b3 = byId.get('b3-binary-search')?.content.prerequisites.join(' ') ?? ''
+    expect(b3).toContain('b1-array-basics')
+    expect(b3).toContain('b2-bubble-sort')
+  })
+
+  it('B 单元为 JS 沙箱可执行：语言 javascript、代码全部通过安全校验', () => {
+    for (const unit of stageB.filter((lesson) => lesson.id.startsWith('b'))) {
+      expect(unit.language).toBe('javascript')
+      expect(unit.content.runEnvironment).toBe('teaching')
+      expect(validateJavaScriptSandbox(unit.code)).toBeUndefined()
+    }
+  })
+
+  it('阶段 D 至少 3 个单元，id 为 d1/d2/d3 前缀且全部为外部环境实验', () => {
+    const ids = stageD.map((lesson) => lesson.id)
+    expect(ids).toEqual(
+      expect.arrayContaining(['d1-html-semantics', 'd2-css-box-model', 'd3-dom-events']),
+    )
+    for (const unit of stageD.filter((lesson) => lesson.id.startsWith('d'))) {
+      expect(unit.content.runEnvironment).toBe('external')
+      expect(unit.runtime).toMatch(/外部环境/)
+    }
+  })
+
+  it('D 单元都有验收标准与证据清单', () => {
+    for (const unit of stageD.filter((lesson) => lesson.id.startsWith('d'))) {
+      expect(unit.content.acceptanceCriteria?.length ?? 0).toBeGreaterThan(0)
+      expect(unit.content.evidenceChecklist?.length ?? 0).toBeGreaterThan(0)

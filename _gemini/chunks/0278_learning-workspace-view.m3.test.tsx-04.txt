@@ -1,0 +1,79 @@
+  it('执行流程只在 lesson.flow 有数据时出现，不拿空数组画假节点', () => {
+    const { container } = renderWorkspace({ lesson: baseLesson({ flow: [] }) })
+    expect(container.querySelector('.flow-chart')).toBeNull()
+    const withFlow = renderWorkspace()
+    expect(withFlow.container.querySelectorAll('.flow-node')).toHaveLength(4)
+  })
+})
+
+/* ──────────────────── 2. 保留的业务行为（§5.2 右列） ─────────────────── */
+
+describe('M3 学习工作台 · 业务行为不丢失', () => {
+  it('编辑：输入与 Tab 缩进都上抛新代码（编辑器行为不变）', () => {
+    const { container, props } = renderWorkspace()
+    const area = container.querySelector('textarea') as HTMLTextAreaElement
+    expect(area.value).toBe(props.code)
+    fireEvent.change(area, { target: { value: 'x = 1' } })
+    expect(props.onCodeChange).toHaveBeenCalledWith('x = 1')
+
+    area.focus()
+    area.setSelectionRange(2, 2)
+    fireEvent.keyDown(area, { key: 'Tab' })
+    const inserted = vi.mocked(props.onCodeChange).mock.calls.at(-1)?.[0] as string
+    expect(inserted.length).toBe(props.code.length + 2)
+    expect(inserted.startsWith('de  f ')).toBe(true)
+  })
+
+  it('保存态：未保存时同时出现在文件名行与保存提示里，已保存时不显示', () => {
+    const dirty = renderWorkspace({ isDirty: true })
+    expect(dirty.container.textContent).toContain('未保存的修改')
+    expect(dirty.container.textContent).toContain('Ctrl')
+    expect(dirty.container.textContent).toContain('保存草稿')
+    const clean = renderWorkspace({ isDirty: false })
+    expect(clean.container.textContent).not.toContain('未保存的修改')
+  })
+
+  it('运行 / 单步 / 重置：三个入口分别上抛对应回调', () => {
+    const { props } = renderWorkspace({ runStatus: 'idle' })
+    fireEvent.click(screen.getByRole('button', { name: /开始运行/ }))
+    expect(props.onRun).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: /单步执行/ }))
+    expect(props.onStep).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: /重置/ }))
+    expect(props.onReset).toHaveBeenCalledTimes(1)
+  })
+
+  it('单步回放与结果：当前行号、流程当前节点、变量表、stdout 全部跟随事件游标', () => {
+    const { container } = renderWorkspace({ currentEvent: returnEvent, eventIndex: 2 })
+    const active = container.querySelector('.line-numbers span.active')
+    expect(active?.textContent).toBe('02')
+    // 2026-09-29 重做竖向步进器：当前拍是 `li.flow-step.is-now`（带 aria-current），
+    // 走过的拍是 `.is-done`——「visited / current」那套节点自己的类已随旧横排一并退役。
+    expect(container.querySelector('li.flow-step.is-now .flow-node')?.textContent).toContain('是否三参数')
+    // 游标停在第 3 拍：前两拍 is-done，当前那一拍单独是 is-now（旧写法把当前也算进
+    // `visited`，两者相加仍是走到的 3 拍——现在分开了，「现在在哪」与「走过哪些」不再混为一谈）。
+    expect(container.querySelectorAll('li.flow-step.is-done')).toHaveLength(2)
+    expect(container.querySelectorAll('li.flow-step.is-now')).toHaveLength(1)
+    expect(container.querySelectorAll('li.flow-step.is-done, li.flow-step.is-now')).toHaveLength(3)
+    expect(container.querySelector('.variables-panel')?.textContent).toContain('result')
+    expect(container.querySelector('.variables-panel')?.textContent).toContain('步骤 3 / 3')
+    expect(container.querySelector('.console-body')?.textContent).toContain('5')
+    expect(container.querySelector('.code-highlight')).toBeTruthy()
+  })
+
+  it('运行态文案与状态色点仍然表达状态（不再依赖闪烁动画）', () => {
+    const running = renderWorkspace({ runStatus: 'running' })
+    expect(running.container.querySelector('.run-indicator.running')).toBeTruthy()
+    expect(running.container.textContent).toContain('正在执行代码')
+    const done = renderWorkspace({ runStatus: 'completed' })
+    expect(done.container.querySelector('.run-indicator.completed')).toBeTruthy()
+    expect(done.container.querySelector('.run-button')?.textContent).toContain('再运行一次')
+  })
+
+  it('错误结果：控制台显示行号与原文，不静默', () => {
+    const { container } = renderWorkspace({
+      runStatus: 'error',
+      execution: executionResult({ error: { line: 4, message: 'NameError: c 未定义' } }),
+    })
+    expect(container.querySelector('.console-status')?.textContent).toContain('第 4 行错误')
+    expect(container.querySelector('.console-error')?.textContent).toContain('NameError')

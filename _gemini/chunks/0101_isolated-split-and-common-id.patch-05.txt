@@ -1,0 +1,107 @@
+-                             : (pbtnHover.hovered ? ds.accentHi : ds.accent)
+-        border.color: pbtn.enabled ? ds.accentEdge : Qt.rgba(32/255, 36/255, 43/255, 0.5)
+-        border.width: 1
+-        opacity: pbtn.enabled ? 1.0 : 0.5
+ 
+-        // Smooth transitions
+-        Behavior on color {
+-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-        }
+-        Behavior on border.color {
+-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-        }
+-        Behavior on opacity {
+-            NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
+-        }
+-
+-        Text {
+-            id: pLabel
+-            anchors.centerIn: parent
+-            text: pbtn.label
+-            // 禁用态: faint 色 opacity 0.4
+-            color: pbtn.enabled ? ds.inkOnAccent : Qt.rgba(141/255, 155/255, 172/255, 0.4)
+-            font.family: ds.ui
+-            font.pixelSize: 13
+-            font.weight: Font.DemiBold
+-            font.letterSpacing: 0.26
+-
+-            Behavior on color {
+-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-            }
+-        }
+-        HoverHandler {
+-            id: pbtnHover
+-            enabled: pbtn.enabled
+-            cursorShape: pbtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+-        }
+-        TapHandler { enabled: pbtn.enabled; onTapped: pbtn.clicked() }
+-        Accessible.role: Accessible.Button
+-        Accessible.name: pbtn.label
+-    }
+ 
+     // web .subtle-button — quiet bordered action
+-    component QuietButton: Rectangle {
+-        id: qbtn
+-        property string label: ""
+-        property bool enabled: true
+-        signal clicked
+-        implicitWidth: qLabel.implicitWidth + ds.s24
+-        implicitHeight: 36
+-        radius: ds.radiusSm
+-        // 禁用态: 遮光层一档 opacity 0.5
+-        color: !qbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
+-                             : (qbtnHover.hovered ? ds.accentSoft : "transparent")
+-        border.color: !qbtn.enabled ? Qt.rgba(32/255, 36/255, 43/255, 0.5)
+-                                    : (qbtnHover.hovered ? ds.accent : ds.lineStrong)
+-        border.width: 1
+-        opacity: qbtn.enabled ? 1.0 : 0.5
+ 
+-        // Smooth transitions
+-        Behavior on color {
+-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-        }
+-        Behavior on border.color {
+-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-        }
+-        Behavior on opacity {
+-            NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
+-        }
+-
+-        Text {
+-            id: qLabel
+-            anchors.centerIn: parent
+-            text: qbtn.label
+-            // 禁用态: faint 色 opacity 0.4
+-            color: !qbtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
+-                                 : (qbtnHover.hovered ? ds.accentHi : ds.ink)
+-            font.family: ds.ui
+-            font.pixelSize: 13
+-
+-            Behavior on color {
+-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-            }
+-        }
+-        HoverHandler {
+-            id: qbtnHover
+-            enabled: qbtn.enabled
+-            cursorShape: qbtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+-        }
+-        TapHandler { enabled: qbtn.enabled; onTapped: qbtn.clicked() }
+-        Accessible.role: Accessible.Button
+-        Accessible.name: qbtn.label
+-    }
+ 
+     // web .global-search__input
+-    component ShellField: TextField {
+-        id: sf
+-        implicitHeight: 36
+-        color: ds.ink
+-        placeholderTextColor: ds.muted
+-        font.family: ds.ui
+-        font.pixelSize: 14
+-        leftPadding: ds.s12
+-        rightPadding: ds.s12
+-        background: Rectangle {
+-            radius: ds.radius
+-            color: ds.inset
+-            border.color: sf.activeFocus ? ds.accent

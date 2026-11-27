@@ -1,0 +1,89 @@
+  auto plaintext = protectSession(loadFile(sessionFile()), false);
+  const auto session = QJsonDocument::fromJson(plaintext).object();
+  SecureZeroMemory(plaintext.data(), static_cast<size_t>(plaintext.size()));
+  const auto address = localOrigin(session.value("origin").toString());
+  const auto account = session.value("id").toString();
+  const auto cookie = session.value("cookie").toString().toLatin1();
+  const auto elapsed = QDateTime::currentSecsSinceEpoch() - session.value("validatedAt").toInteger();
+  static const QRegularExpression token(QStringLiteral("^code_canvas_session=[a-f0-9]{48}$"));
+  if (address.isEmpty() || address != localOrigin(defaultOrigin()) || account.isEmpty() ||
+      !token.match(QString::fromLatin1(cookie)).hasMatch() || elapsed < 0 || elapsed >= 7 * 24 * 60 * 60) return;
+  origin_ = address;
+  cookie_ = cookie;
+  account_ = account;
+  busy_ = true;
+  status_ = QStringLiteral("正在恢复会话");
+  emit changed();
+  run(QStringLiteral("/api/auth/me"), {}, [this](int status, const QByteArray& reply, const QNetworkReply&) {
+    if (status != 0 && (status != 200 || responseData(reply).value("id").toString() != account_)) {
+      clearAccount();
+      finish(QStringLiteral("请重新登录统一服务"));
+      return;
+    }
+    if (status == 200) saveSession();
+    busy_ = false;
+    loadCatalog();
+  });
+#endif
+}
+
+void UnifiedContentSource::finish(const QString& status) {
+  busy_ = false;
+  status_ = status;
+  emit changed();
+}
+
+void UnifiedContentSource::clearAccount() {
+  ++generation_;
+  if (!sessionFile().isEmpty()) QFile::remove(sessionFile());
+  if (!account_.isEmpty() && !cacheDir_.isEmpty()) {
+    const auto prefix = QString::fromLatin1(digest(origin_.toEncoded() + '\0' + account_.toUtf8())) + '-';
+    QDir cache(cacheDir_);
+    for (const auto& file : cache.entryList({prefix + QStringLiteral("*")}, QDir::Files)) cache.remove(file);
+    const auto saved = offlineRoot();
+    const auto canonicalCache = QDir(cacheDir_).canonicalPath();
+    const auto canonicalSaved = QDir(saved).canonicalPath();
+    if (!canonicalCache.isEmpty() && canonicalSaved.startsWith(canonicalCache + '/')) {
+      QDir(saved).removeRecursively();
+    }
+  }
+  account_.clear();
+  cookie_.clear();
+  catalog_.clear();
+  page_.clear();
+  checkinDates_.clear();
+  syncStatus_.clear();
+  syncBusy_ = false;
+  offlineBusy_ = false;
+  offlineStatus_.clear();
+}
+
+QString UnifiedContentSource::cacheFile(const QString& record) const {
+  if (cacheDir_.isEmpty() || account_.isEmpty()) return {};
+  const auto prefix = digest(origin_.toEncoded() + '\0' + account_.toUtf8());
+  return QDir(cacheDir_).filePath(QString::fromLatin1(prefix + '-' + digest(record.toUtf8())));
+}
+
+bool UnifiedContentSource::saveCache(const QString& record, const QByteArray& bytes) const {
+  const auto path = cacheFile(record);
+  if (path.isEmpty() || !QDir().mkpath(cacheDir_)) return false;
+  return saveFile(path, bytes);
+}
+
+QByteArray UnifiedContentSource::readCache(const QString& record) const {
+  return loadFile(cacheFile(record));
+}
+
+QString UnifiedContentSource::contextKey() const {
+  return catalog_.value("serviceInstance").toString() + '/' + catalog_.value("vaultId").toString() + '/' +
+         catalog_.value("bundleId").toString() + '/' + catalog_.value("manifestHash").toString();
+}
+
+void UnifiedContentSource::run(const QString& path, const QByteArray& body, Reply callback, const QByteArray& idempotencyKey) {
+  const auto token = generation_;
+  QNetworkRequest request(QUrl::fromEncoded(origin_.toEncoded() + path.toUtf8(), QUrl::StrictMode));
+  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+  request.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
+  request.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+  request.setTransferTimeout(7000);
+  if (!cookie_.isEmpty()) request.setRawHeader("Cookie", cookie_);

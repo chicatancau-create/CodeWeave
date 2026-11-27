@@ -1,0 +1,74 @@
+        <div className="challenge-more-filters" id="challenge-more-filters">
+          <label className="challenge-filter">
+            轨道
+            <select value={filters.track} onChange={(event) => onChange({ track: event.target.value })}>
+              <option value="all">全部</option>
+              {tracks.map((track) => (
+                <option key={track} value={track}>
+                  {track}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="challenge-filter">
+            难度
+            <select value={filters.difficulty} onChange={(event) => onChange({ difficulty: event.target.value })}>
+              <option value="all">全部</option>
+              {DIFFICULTY_ORDER.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="challenge-filter">
+            运行方式
+            <select
+              value={filters.runner}
+              onChange={(event) => onChange({ runner: event.target.value as RunnerFilter })}
+            >
+              {RUNNER_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="challenge-filter">
+            排序
+            <select value={filters.sort} onChange={(event) => onChange({ sort: event.target.value as SortMode })}>
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {dirty && (
+        <div className="challenge-filter-chips">
+          {chips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              className="filter-chip"
+              aria-label={`移除筛选：${chip.label} ${chip.value}`}
+              onClick={() => onChange({ [chip.key]: DEFAULT_FILTERS[chip.key] } as Partial<FiltersState>)}
+            >
+              {chip.label}：{chip.value}
+              <X size={10} />
+            </button>
+          ))}
+          <button type="button" className="subtle-button" onClick={onReset}>
+            <RotateCcw size={12} />
+            清除筛选
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export const ChallengeFilters = memo(ChallengeFiltersBar)

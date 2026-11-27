@@ -1,0 +1,53 @@
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          u3_record(*context, QStringLiteral("learning-details-escape-restores-trigger-focus"),
+              study && !study->property("showDetails").toBool() && open && open->hasActiveFocus());
+          if (open) QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 88: {
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          const auto subjects = study ? study->property("subjectOptions").toStringList() : QStringList{};
+          auto* subject = u3_find_item(view.rootObject(), QStringLiteral("detailSubject-") +
+              QString::number(subjects.indexOf(QStringLiteral("Java"))));
+          u3_record(*context, QStringLiteral("learning-details-subject-selection"), subject &&
+              QMetaObject::invokeMethod(subject, "clicked", Qt::DirectConnection) && study &&
+              study->property("subjectFilter").toInt() == subjects.indexOf(QStringLiteral("Java")));
+          context->step++;
+          return;
+        }
+        case 89: {
+          auto* lesson = u3_find_item(view.rootObject(), QStringLiteral("detailLesson-java-loop-sum"));
+          if (lesson) lesson->forceActiveFocus();
+          send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+          auto* selected = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("detailSelectedTitle"));
+          u3_record(*context, QStringLiteral("learning-details-lesson-keyboard-selection"), lesson && selected &&
+              view.rootObject()->property("selectedLesson").toMap().value(QStringLiteral("id")) == QStringLiteral("java-loop-sum") &&
+              selected->property("text") == lesson->property("text"));
+          auto* scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsScroll"));
+          const auto lesson_top = lesson && scroll ? lesson->mapToItem(scroll, QPointF(0, 0)).y() : -1;
+          u3_record(*context, QStringLiteral("learning-details-keyboard-focus-scrolls-to-lesson"),
+              lesson && scroll && lesson_top >= 0 && lesson_top + lesson->height() <= scroll->height() + 1);
+          auto* header = u3_find_item(view.rootObject(), QStringLiteral("detailLedgerHeader-unnumbered"));
+          auto* lesson_body = u3_find_item(view.rootObject(), QStringLiteral("detailLessonBody-java-loop-sum"));
+          const auto header_children = header ? header->childItems() : QList<QQuickItem*>{};
+          u3_record(*context, QStringLiteral("learning-details-ledger-title-column-aligns-with-header"),
+              header_children.size() >= 3 && lesson_body &&
+              std::abs(header_children.at(1)->mapToItem(lesson_body, QPointF(0, 0)).x()) <= 1);
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 90: {
+          auto* scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsScroll"));
+          auto* enter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningDetailsContinue"));
+          auto* title = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("detailSelectedTitle"));
+          u3_record(*context, QStringLiteral("learning-details-small-window-scrolls-without-overlap"),
+              scroll && scroll->property("contentHeight").toReal() > scroll->height() &&
+              scroll->property("contentWidth").toReal() <= scroll->width() && enter && title &&
+              title->mapToItem(enter, QPointF(0, title->height())).y() <= 0);
+          u3_record(*context, QStringLiteral("learning-details-small-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-details-small")));
+          if (scroll) {
+            auto* flickable = scroll->property("contentItem").value<QObject*>();
+            if (flickable) flickable->setProperty("contentY", std::max(0.0,

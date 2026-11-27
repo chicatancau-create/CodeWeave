@@ -1,0 +1,146 @@
+.projects-view .checkpoint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .checkpoint-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+  font-size: var(--pv-body);
+}
+
+.projects-view .checkpoint-no {
+  color: var(--pv-scene);
+  font-size: var(--pv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .checkpoint-at {
+  color: var(--pv-ink);
+}
+
+.projects-view .checkpoint-files {
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+}
+
+.projects-view .checkpoint-row .subtle-button {
+  grid-column: 4;
+}
+
+/* ============================================================================
+   5. 响应式：320px 不破版（§5.4）
+   ========================================================================== */
+
+@media (max-width: 1080px) {
+  .projects-view .projects-layout {
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .projects-view .projects-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .projects-view .project-zone {
+    padding: var(--ds-space-12, 12px);
+  }
+
+  .projects-view .detail-header,
+  .projects-view .detail-actions {
+    width: 100%;
+  }
+
+  .projects-view .detail-actions button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .projects-view {
+    --pv-pad: 12px;
+  }
+
+  .projects-view .checkpoint-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--ds-space-8, 8px);
+  }
+
+  .projects-view .checkpoint-files,
+  .projects-view .checkpoint-row .subtle-button {
+    grid-column: 1 / -1;
+  }
+
+  .projects-view .project-card > div.project-icon:nth-child(2) {
+    display: none;                                                  /* 320px 下让位给编号与名称 */
+  }
+}
+
+/* ============================================================================
+   6. §5.3 降级：本页新增动效只有 border/background 的 150ms 过渡，无循环动画。
+   两条路径各写真停（动画名归零、过渡取消），终态可读。本文件 !important 仅此一块。
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .projects-view *,
+  .projects-view *::before,
+  .projects-view *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .projects-view .project-card:hover {
+    transform: none !important;
+  }
+}
+
+.reduce-motion .projects-view *,
+.reduce-motion .projects-view *::before,
+.reduce-motion .projects-view *::after,
+.projects-view.reduce-motion *,
+.projects-view.reduce-motion *::before,
+.projects-view.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion .projects-view .project-card:hover,
+.projects-view.reduce-motion .project-card:hover {
+  transform: none !important;
+}
+
+/* ============================================================================
+   落盘失败那一块（01 号方案 §4 的 error 行 + §2.1 状态层）
+   语义色之外还要有文字与边界，不只靠颜色承载；颜色与线宽全部走令牌，不自写色值。
+   ========================================================================== */
+.projects-view .projects-persist-error {
+  margin: 0 0 var(--ds-space-14, 14px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--hair) solid var(--ds-status-danger, #ff8371);
+  border-left-width: 3px;
+  background: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  color: var(--ink);
+}
+
+.projects-view .projects-persist-error strong {
+  display: block;
+  color: var(--ds-status-danger, #ff8371);
+  letter-spacing: var(--ds-track-title, -0.02em);
+}
+
+.projects-view .projects-persist-error-reason,
+.projects-view .projects-persist-error-note {
+  margin: var(--ds-space-6, 6px) 0 0;
+  color: var(--muted);
+  font-size: var(--ds-size-body, 16px);

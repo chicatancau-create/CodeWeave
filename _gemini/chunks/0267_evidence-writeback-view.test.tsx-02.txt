@@ -1,0 +1,95 @@
+  queue?: { pending: unknown[]; synced: unknown[] }
+  stage?: () => { ok: boolean; status?: number; json: () => Promise<unknown> }
+  preview?: () => { ok: boolean; status?: number; json: () => Promise<unknown> }
+  commit?: () => { ok: boolean; status?: number; json: () => Promise<unknown> }
+  onPost?: (path: string, body: unknown) => void
+} = {}) {
+  return stubFetch((input, init) => {
+    const method = init?.method ?? 'GET'
+    const body = init?.body ? JSON.parse(String(init.body)) : {}
+    if (method !== 'GET') onPost?.(input, body)
+    if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+    if (input === '/api/learning/status') return json({ data: learningStatus })
+    if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+    if (input === '/api/learning/evidence' && method === 'GET') return json({ data: queue })
+    if (input === '/api/learning/evidence' && method === 'POST') return stage ? stage() : json({ data: stagedRecord() }, 201)
+    if (input === '/api/learning/evidence-preview') return preview ? preview() : json({ data: PREVIEW })
+    if (input === '/api/learning/evidence-commit') return commit ? commit() : json({ data: { synced: true, idempotent: false, operationId: 'op-test-abc123', targets: [] } })
+    if (input === '/api/learning/evidence/remove') return json({ data: { removed: true } })
+    if (input === '/api/learning/evidence-export') return json({ data: { markdown: '# 待保存\n', evidenceIds: ['ev-1'], logPath: 'x.md' } })
+    return json({ error: '未模拟的接口', code: 'not_mocked' }, 404)
+  })
+}
+
+function renderPanel() {
+  return render(
+    <ContentProvider enabled>
+      <EvidenceWritebackPanel />
+    </ContentProvider>,
+  )
+}
+
+const stageOne = async (topic = 'Java Hello World') => {
+  fireEvent.change(screen.getByLabelText('学习主题'), { target: { value: topic } })
+  fireEvent.click(screen.getByRole('button', { name: '暂存证据' }))
+}
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('LINK-09 写回界面', () => {
+  it('非拥有者：明确说明不能写入，且预览按钮禁用', async () => {
+    route({ learningStatus: LEARNING_STATUS_OTHER })
+    renderPanel()
+
+    expect(await screen.findByText(/当前账户不是资料库拥有者/)).toBeTruthy()
+    const preview = screen.getByRole('button', { name: /③ 预览将写入的内容/ })
+    expect((preview as HTMLButtonElement).disabled).toBe(true)
+    // 暂存与导出仍然可用（本机数据）
+    expect(screen.getByRole('button', { name: '暂存证据' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /导出待保存 Markdown/ })).toBeTruthy()
+  })
+
+  it('队列为空时说明暂存不等于写回', async () => {
+    route()
+    renderPanel()
+    expect(await screen.findByText(/没有待写回证据/)).toBeTruthy()
+  })
+
+  it('暂存成功：提示未修改资料库，并把条目放入队列', async () => {
+    let posted: unknown = null
+    route({
+      onPost: (path, body) => {
+        if (path === '/api/learning/evidence') posted = body
+      },
+      stage: () => json({ data: stagedRecord() }, 201),
+    })
+    // 第一次 GET 返回空队列，暂存后第二次返回新条目
+    let calls = 0
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>
+    const base = fetchMock.getMockImplementation() as Handler
+    fetchMock.mockImplementation((input: string, init?: RequestInit) => {
+      if (input === '/api/learning/evidence' && (init?.method ?? 'GET') === 'GET') {
+        calls += 1
+        return json({ data: calls === 1 ? { pending: [], synced: [] } : { pending: [stagedRecord()], synced: [] } })
+      }
+      return base(input, init)
+    })
+
+    renderPanel()
+    await screen.findByText(/没有待写回证据/)
+    await stageOne()
+
+    expect(await screen.findByText(/已暂存为待写回证据（pending）/)).toBeTruthy()
+    expect(await screen.findByText('Java Hello World')).toBeTruthy()
+    expect(posted).toMatchObject({ topic: 'Java Hello World', ranBy: 'learner', independent: true })
+  })
+
+  it('暂存被拒时如实显示服务端理由', async () => {
+    route({ stage: () => json({ error: 'AI 助手运行的记录不能标记为「学习者独立完成」', code: 'invalid_evidence' }, 400) })
+    renderPanel()
+    await screen.findByText(/没有待写回证据/)
+    await stageOne()

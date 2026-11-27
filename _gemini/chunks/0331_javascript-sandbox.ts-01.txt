@@ -1,0 +1,75 @@
+import type { ExecutionResult, Lesson, TraceEvent, VariableValue } from '../types/lesson'
+import { EXECUTION_SETTINGS } from '../utils/constants'
+
+const maxOutputLines = EXECUTION_SETTINGS.MAX_OUTPUT_LINES
+const maxExecutionMs = EXECUTION_SETTINGS.MAX_EXECUTION_MS
+
+/**
+ * 主线程正则黑名单：仅作为**用户提示与早期拦截**，不是安全边界（R4 G.3 第 4 条）。
+ * 真正的执行隔离依赖 Worker（无 DOM、无同源存储、可终止）与超时上限。
+ * 该列表无法覆盖字符串拼接、动态属性等构造形式，UI 不得据此宣称“绝对安全”。
+ */
+const ADVISORY_PATTERNS: RegExp[] = [
+  /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|importScripts)\b/i,
+  // 只拦截 eval/Function 的“调用形式”（动态执行代码）；function 关键字声明合法
+  /\beval\s*\(/,
+  /\bFunction\s*\(/,
+  /\b(?:WebAssembly|indexedDB|serviceWorker|caches)\b/i,
+  /\b(?:globalThis|self|location|navigator|document|window|postMessage)\b/i,
+  /\b(?:require|process|child_process|Deno|Bun)\b/i,
+  /\bthis\b/i,
+]
+
+type WorkerMessage =
+  | { type: 'output'; value: string }
+  | { type: 'trace'; line: number; label: string; variables: VariableValue[] }
+  | { type: 'done' }
+  | { type: 'error'; message: string; line?: number }
+
+const makeEvent = (id: string, type: TraceEvent['type'], line: number, label: string, detail: string, variables: VariableValue[], nodeId?: string): TraceEvent => ({ id, type, line, label, detail, variables, nodeId })
+
+export function validateJavaScriptSandbox(code: string): { line: number; message: string } | undefined {
+  const lines = code.split('\n')
+  for (const pattern of ADVISORY_PATTERNS) {
+    const line = lines.findIndex((sourceLine) => pattern.test(sourceLine))
+    if (line >= 0) return { line: line + 1, message: '教学沙箱禁止访问网络、页面、系统和动态代码能力（提示性检查）。' }
+  }
+  return undefined
+}
+
+/**
+ * 生成 Worker 脚本正文：用户代码作为**脚本自身的一行**交给浏览器编译，不在运行时求值。
+ *
+ * 为什么要改掉 `new Function`：完整 Node 服务发的 CSP 里 `script-src 'self' blob:` 不含
+ * `'unsafe-eval'`，而 CSP 会传给 blob Worker 作用域。旧写法先建好 Worker、再把代码 postMessage
+ * 进去 `new Function` 编译，于是**每一次真实运行都被 CSP 拦死**（2026-09-23 在真浏览器里第一次
+ * 点 D 关「运行检查」即报 “Evaluating a string as JavaScript violates … script-src 'self' blob:”）。
+ * 单测里 Worker 是 mock、jsdom 没有 CSP，所以这道拦截至被发现前从未进入过任何断言。
+ *
+ * 改法只搬「代码在哪一段文本里编译」，不搬隔离面：仍然是 `new Worker(blob:)`，
+ * 仍然无 DOM、无同源存储、可 terminate，超时与输出上限一字不变；CSP 一个字都不放宽，
+ * 也不需要 `unsafe-eval`——副作用是用户代码里的 `new Function` / `eval` 现在被 CSP 真正挡住，
+ * 不再只靠下面那份提示性黑名单。
+ */
+function buildWorkerScript(code: string): { source: string; codeLineOffset: number; lineMap: number[] } {
+  const identifiers = [...new Set([
+    ...[...code.matchAll(/\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)/g)].map((match) => match[1]!),
+    ...[...code.matchAll(/\bfunction\s+[A-Za-z_$][\w$]*\s*\(([^)]*)\)/g)].flatMap((match) =>
+      match[1]!.split(',').map((item) => item.trim()).filter((item) => /^[A-Za-z_$][\w$]*$/.test(item)),
+    ),
+    ...[...code.matchAll(/\b(?:for|catch)\s*\(\s*(?:let|const|var)\s+([A-Za-z_$][\w$]*)/g)].map((match) => match[1]!),
+  ])]
+  const variableEntries = identifiers.map((name) => `__cwGet(${JSON.stringify(name)}, () => ${name})`).join(',')
+  const sourceLines = code.split('\n')
+  const traceLineEntries = sourceLines.map((sourceLine, index) => {
+    const line = index + 1
+    const trimmed = sourceLine.trim()
+    // Do not inject into a multiline literal or call. Inserting a statement before the
+    // closing bracket is invalid JavaScript (and was the source of the original syntax regression).
+    const before = sourceLines.slice(0, index).join('\n')
+    const bracketDepth = (before.match(/\[|\(/g)?.length ?? 0) - (before.match(/\]|\)/g)?.length ?? 0)
+    const after = `${before}\n${sourceLine}`
+    const afterDepth = (after.match(/\[|\(/g)?.length ?? 0) - (after.match(/\]|\)/g)?.length ?? 0)
+    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*') || trimmed.startsWith('}') || /^else\b/.test(trimmed) || /^case\b/.test(trimmed) || /^default\b/.test(trimmed) || bracketDepth > 0 || afterDepth > 0) return sourceLine
+    const label = JSON.stringify(trimmed.slice(0, 160))
+    const trace = `__cwTrace(${line}, ${label}, [${variableEntries}]);`

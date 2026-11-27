@@ -1,0 +1,105 @@
++    // Glow effects (from web tokens.css L111-114)
++    // Note: Qt doesn't support CSS box-shadow syntax directly
++    // These will be implemented using DropShadow or layer effects in components
++    readonly property string glowNear: "0 0 0 1px rgba(34,211,238,0.28), 0 0 12px rgba(34,211,238,0.14)"
++    readonly property string glowPanel: "0 0 0 1px rgba(120,175,235,0.14), 0 8px 32px rgba(0,0,0,0.55)"
++    readonly property color glowNearColor: Qt.rgba(34/255, 211/255, 238/255, 0.14)
++    readonly property color glowPanelColor: Qt.rgba(0, 0, 0, 0.55)
++}
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/IconButton.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/IconButton.qml"
+new file mode 100644
+index 0000000..486e512
+--- /dev/null
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/IconButton.qml"
+@@ -0,0 +1,47 @@
++import QtQuick
++import QtQuick.Controls.Basic
++
++Rectangle {
++    property QtObject ds
++    id: ibtn
++    property string glyph: ""
++    property string tip: ""
++    property bool active: false
++    property bool enabled: true
++    signal clicked
++    implicitWidth: 36
++    implicitHeight: 36
++    radius: 8
++    color: !ibtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
++                         : (ibtn.active || ibHover.hovered ? ds.accentSoft : "transparent")
++    opacity: ibtn.enabled ? 1.0 : 0.5
++
++    // Smooth transition
++    Behavior on color {
++        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
++    }
++    Behavior on opacity {
++        NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
++    }
++
++    Text {
++        anchors.centerIn: parent
++        text: ibtn.glyph
++        color: !ibtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
++                             : (ibtn.active || ibHover.hovered ? ds.accentHi : ds.muted)
++        font.family: ds.ui
++        font.pixelSize: 15
++
++        Behavior on color {
++            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
++        }
++    }
++    HoverHandler {
++        id: ibHover
++        enabled: ibtn.enabled
++        cursorShape: ibtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
++    }
++    TapHandler { enabled: ibtn.enabled; onTapped: ibtn.clicked() }
++    Accessible.role: Accessible.Button
++    Accessible.name: ibtn.tip !== "" ? ibtn.tip : ibtn.glyph
++}
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/NavItem.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/NavItem.qml"
+new file mode 100644
+index 0000000..6cc51c4
+--- /dev/null
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/NavItem.qml"
+@@ -0,0 +1,153 @@
++import QtQuick
++import QtQuick.Controls.Basic
++import QtQuick.Layouts
++import QtQuick.Effects
++
++Item {
++    property QtObject ds
++    id: nav
++    property string glyph: ""
++    property string label: ""
++    property string index: ""
++    property string badge: ""
++    property bool active: false
++    signal activated
++
++    implicitHeight: 44
++    Rectangle {
++        id: navRect
++        anchors.fill: parent
++        radius: 6
++
++        // 静止态: 透明，文字 muted
++        // 悬停态: --scrim 底色，文字 ink-strong
++        // 选中态: linear-gradient(90deg, accent-soft, transparent 85%) + 1px line-accent 内描边
++        color: {
++            if (nav.active) return "transparent"  // 选中态用渐变，不用纯色
++            if (navHover.hovered) return ds.scrim
++            return "transparent"
++        }
++        border.color: nav.active ? ds.lineAccent : "transparent"
++        border.width: nav.active ? 1 : 0
++
++        // 选中态：横向渐变底色
++        Rectangle {
++            visible: nav.active
++            anchors.fill: parent
++            radius: parent.radius
++            gradient: Gradient {

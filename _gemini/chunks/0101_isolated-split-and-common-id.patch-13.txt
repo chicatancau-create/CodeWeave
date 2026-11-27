@@ -1,0 +1,53 @@
++    TapHandler { onTapped: nav.activated() }
++    Accessible.role: Accessible.PageTab
++    Accessible.name: nav.label
++    Accessible.selected: nav.active
++}
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/ShellField.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/ShellField.qml"
+new file mode 100644
+index 0000000..b58f538
+--- /dev/null
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/components/ShellField.qml"
+@@ -0,0 +1,42 @@
++import QtQuick
++import QtQuick.Controls.Basic
++
++TextField {
++    property QtObject ds
++    id: sf
++    implicitHeight: 36
++    color: ds.ink
++    placeholderTextColor: ds.muted
++    font.family: ds.ui
++    font.pixelSize: 14
++    leftPadding: ds.s12
++    rightPadding: ds.s12
++    background: Rectangle {
++        radius: ds.radius
++        color: ds.inset
++        border.color: sf.activeFocus ? ds.accent
++                      : (sfHover.hovered ? Qt.rgba(200/255, 224/255, 248/255, 0.5) : ds.lineStrong)
++        border.width: 1
++
++        // Inner highlight layer
++        Rectangle {
++            anchors { top: parent.top; left: parent.left; right: parent.right }
++            height: 1
++            color: "#ffffff"
++            opacity: sf.activeFocus ? 0.15 : (sfHover.hovered ? 0.08 : 0.05)
++            Behavior on opacity {
++                NumberAnimation { duration: ds.durQuick; easing.type: ds.easingType }
++            }
++        }
++
++        // Smooth focus transition
++        Behavior on border.color {
++            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
++        }
++    }
++    HoverHandler {
++        id: sfHover
++        enabled: sf.enabled
++    }
++    Accessible.role: Accessible.EditableText
++}

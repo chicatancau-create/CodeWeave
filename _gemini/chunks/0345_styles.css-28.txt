@@ -1,0 +1,119 @@
+   规则位置：A = 本文件 §5.3-A 块（媒体查询内），B = §5.3-B 块（.reduce-motion）。
+   ========================================================================== */
+
+/* 一次性反馈专用：无位移、无缩放，只有 150ms 一步不透明度变化 */
+@keyframes cw-flash {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+/* ── §5.3-A 系统 prefers-reduced-motion：真停，不是减速 ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  /* 1) 令牌层：所有 --ds-dur-* 归 1ms（tokens.css 已做，这里对 :root 再兜一次，
+        防止有人绕过 tokens 直接引 --ds-dur-*）。 */
+  :root {
+    --ds-anim-play-state: paused;
+    --anim-play-state: paused;
+    --ds-dur-quick: 1ms;
+    --ds-dur-base: 1ms;
+    --ds-dur-slow: 1ms;
+    --ds-dur-hover: 1ms;
+    --ds-dur-state: 1ms;
+    --ds-dur-color: 1ms;
+    --ds-dur-exit: 1ms;
+    --ds-dur-enter: 1ms;
+    --ds-dur-loop-pulse: 1ms;
+    --ds-dur-loop-sweep: 1ms;
+    --ds-dur-loop-breathe: 1ms;
+  }
+
+  /* 2) 持续/循环动画：直接摘掉 animation-name，而不是把时长压短。
+        覆盖 blink（运行中脉冲）、moving-border-spin（旋转光束）以及任何
+        后续新增的 infinite 动画 —— 因为这里用统一兜底而不是逐类点名。 */
+  *, *::before, *::after {
+    animation-iteration-count: 1 !important;
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    animation-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* 3) 已知装饰性循环：连一次都不必跑 */
+  .run-indicator.running span,
+  .shell-decor::before,
+  .shell-decor::after,
+  .moving-border__beam {
+    animation: none !important;
+  }
+
+  /* 4) 位移/缩放类过渡停止，但状态差异保留为静态可辨（描边、填色、文字）
+        M4 死规则核对：.language-card / .lesson-card 实测 0 引用，已从清单移除；
+        .flow-node.current 亦已随旧横排退役（当前拍的表达在基座里靠泛光 + 左侧竖条，
+        本身不含位移，故不在此清单）。 */
+  .stage-card:hover,
+  .project-card:hover { transform: none !important; }
+}
+
+/* ── §5.3-B 应用内「减少动效」设置（settings.reduceMotion → 根类 .reduce-motion） ──
+   M4 收口：类的权威挂载点是 documentElement（app.tsx 的 useEffect），壳层
+   `.app-shell` 上保留同名类只为兼容。因此本块的每个选择器都是**裸类选择器**，
+   类落在 html / body / 壳节点上均成立；自定义属性沿子树继承，与路径 A 的
+   `:root` 覆写取值逐字相同（类在 html 上时两块命中同一元素，等值不互相抵消）。 */
+.reduce-motion {
+  --ds-anim-play-state: paused;
+  --anim-play-state: paused;
+  --ds-dur-quick: 1ms;
+  --ds-dur-base: 1ms;
+  --ds-dur-slow: 1ms;
+  --ds-dur-hover: 1ms;
+  --ds-dur-state: 1ms;
+  --ds-dur-color: 1ms;
+  --ds-dur-exit: 1ms;
+  --ds-dur-enter: 1ms;
+  --ds-dur-loop-pulse: 1ms;
+  --ds-dur-loop-sweep: 1ms;
+  --ds-dur-loop-breathe: 1ms;
+}
+/* 带类的那个元素自身也要禁动：`.reduce-motion *` 匹配不到它自己（根元素带类时
+   就是 html 本体），所以把 `.reduce-motion` 并列进兜底选择器。 */
+.reduce-motion, .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+  animation-iteration-count: 1 !important;
+  animation-duration: 1ms !important;
+  transition-duration: 1ms !important;
+  transition-delay: 0ms !important;
+  animation-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+.reduce-motion .run-indicator.running span,
+.reduce-motion .shell-decor::before,
+.reduce-motion .shell-decor::after,
+.reduce-motion .moving-border__beam {
+  animation: none !important;
+}
+/* 与路径 A 的 4) 逐条同清单（M4 死规则核对：.language-card / .lesson-card 已删） */
+.reduce-motion .stage-card:hover,
+.reduce-motion .project-card:hover { transform: none !important; }
+
+/* 一次性状态反馈在两路径下都保留（降级为纯不透明度的一步变化，150ms，1 次）：
+   变量值变化、结果徽标出现等仍被看见，只是不再有位移与循环。
+   写在兜底 *!important* 之后，用更高优先级把这一类点名放行。 */
+@media (prefers-reduced-motion: reduce) {
+  .variable-row.changed .variable-value {
+    /* 字面量 150ms：这里不能再用 --ds-dur-*，因为它在本块里已被压到 1ms */
+    animation: cw-flash 150ms linear 1 !important;
+    animation-play-state: running !important;
+  }
+}
+.reduce-motion .variable-row.changed .variable-value {
+  animation: cw-flash 150ms linear 1 !important;
+  animation-play-state: running !important;
+}
+/* M3 §8 挂账关闭：`.reduce-motion` 原先只挂在 `.app-shell` 上，而登录页与加载态在
+   `App` 里提前 return、位于壳外，设置项压不住它们。现由 app.tsx 镜像到
+   documentElement（根类），壳外子树同样命中本块；壳层上的同名类保留，两处等价。
+   系统 `prefers-reduced-motion` 这条路径（A）与本条（B）互不依赖：任一生效都足以禁动。 */
+
+/* 已知限制：模板的「场景变色」是每帧往 html 行内写 --accent（main.js L288），
+   属于 JS/RAF 驱动的持续动画，CSS 侧停不住它。本工程未接入逐帧场景变色
+   （styles.css 里 --accent 恒指向 --ds-scene-active，不插值），因此无残留；

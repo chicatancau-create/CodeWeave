@@ -1,0 +1,118 @@
+#include "mastery_store.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <charconv>
+#include <chrono>
+#include <fstream>
+#include <random>
+#include <system_error>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::learning {
+namespace {
+
+constexpr std::uintmax_t kMaxFileBytes = 16 * 1024 * 1024;
+constexpr std::size_t kMaxLineBytes = 128 * 1024;
+constexpr std::size_t kMaxRecords = 100'000;
+
+std::filesystem::path pending_path(const std::filesystem::path& destination) {
+  return destination.string() + ".append.txn";
+}
+
+std::filesystem::path temporary_path(const std::filesystem::path& destination) {
+  return destination.string() + ".tmp." +
+      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "." +
+      std::to_string(std::random_device{}());
+}
+
+std::string encode_hex(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string encoded;
+  encoded.reserve(value.size() * 2);
+  for (const unsigned char byte : value) {
+    encoded.push_back(digits[byte >> 4]);
+    encoded.push_back(digits[byte & 0x0f]);
+  }
+  return encoded;
+}
+
+bool decode_hex(std::string_view value, std::string& output) {
+  if (value.size() % 2 != 0) return false;
+  const auto digit = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+  };
+  output.clear();
+  output.reserve(value.size() / 2);
+  for (std::size_t index = 0; index < value.size(); index += 2) {
+    const int high = digit(value[index]);
+    const int low = digit(value[index + 1]);
+    if (high < 0 || low < 0) return false;
+    output.push_back(static_cast<char>((high << 4) | low));
+  }
+  return true;
+}
+
+std::string kind_text(MasteryEvidenceKind kind) {
+  switch (kind) {
+    case MasteryEvidenceKind::Lesson: return "lesson";
+    case MasteryEvidenceKind::Challenge: return "challenge";
+    case MasteryEvidenceKind::Review: return "review";
+    case MasteryEvidenceKind::Bugfix: return "bugfix";
+    case MasteryEvidenceKind::Snooze: return "snooze";
+  }
+  return {};
+}
+
+bool parse_kind(std::string_view value, MasteryEvidenceKind& kind) {
+  if (value == "lesson") kind = MasteryEvidenceKind::Lesson;
+  else if (value == "challenge") kind = MasteryEvidenceKind::Challenge;
+  else if (value == "review") kind = MasteryEvidenceKind::Review;
+  else if (value == "bugfix") kind = MasteryEvidenceKind::Bugfix;
+  else if (value == "snooze") kind = MasteryEvidenceKind::Snooze;
+  else return false;
+  return true;
+}
+
+std::string verification_text(CompletionVerification value) {
+  return value == CompletionVerification::AutoVerified ? "auto-verified" : "self-declared";
+}
+
+bool parse_verification(std::string_view value, CompletionVerification& output) {
+  if (value == "auto-verified") output = CompletionVerification::AutoVerified;
+  else if (value == "self-declared") output = CompletionVerification::SelfDeclared;
+  else return false;
+  return true;
+}
+
+std::string ran_by_text(RanBy value) {
+  if (value == RanBy::Learner) return "Learner";
+  if (value == RanBy::Assistant) return "Assistant";
+  return "Unknown";
+}
+
+bool parse_ran_by(std::string_view value, RanBy& output) {
+  if (value == "Learner") output = RanBy::Learner;
+  else if (value == "Assistant") output = RanBy::Assistant;
+  else if (value == "Unknown") output = RanBy::Unknown;
+  else return false;
+  return true;
+}
+
+bool safe_identifier(std::string_view value, std::size_t maximum) {
+  return !value.empty() && value.size() <= maximum &&
+      std::isalnum(static_cast<unsigned char>(value.front())) != 0 &&
+      std::all_of(value.begin(), value.end(), [](unsigned char c) {
+        return std::isalnum(c) != 0 || c == '-' || c == '_' || c == '.';
+      });
+}
+
+bool is_missing_error(const std::error_code& error) {
+  return error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+#ifdef _WIN32

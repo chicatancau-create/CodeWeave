@@ -1,0 +1,102 @@
+      "sha256": "5dbdb95e22e149d3834a243a1b5b1317f4bb0a60331f90e5d8456469a309196c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-external-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "e9bd9c2b7f54d98793f49cfa71854893f58821cc30fc17435eb9c638afa20801"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-lesson-external-states-small.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "7f800f7aa12bc0dc04d9aef5faf3d375fba05690bed32dbaecb1ea127c2761f0"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-workspace-save-error.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "972f7712fb08210f35035d3511480f2d70294ccc76340227f1ae24632985a9df"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis-empty.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "a90320bf5c36ec5b85981f29fa02154531fcbe1c4a74a367bdc342c70d1954f2"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis-values.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "ff9c64f16f92b0f1df25cd676718a4089efc97276ee07cab6a93bb27ade3e4f7"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis-review-rate.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "a8559850657f9150198036f9bf0cd649319dbed5d4c96ae6c6139c44323a2f6c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-sidebar.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "14526f6020dd4f0bc637a26ae02e9de87b3ca6301d335b2848bf593116d34b4a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-calendar.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "b2ddfeb74ebae093b351431f96a428cb0a9f3973fb07ad57c83d1571bce0b2e9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-error.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4d8927d30c3d8f4be4d21f8dac3eb4aabbae02dac12451ecf5335924af5282c8"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-checkin-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "47e25f02ab368c36caa5f2879af509d9d52420796835908b0be979a1bc9d13f4"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-connected-name.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "1f9139c9c8e2b02f1440bd0a2c93c0277db0cd5da85ce88a671063905a241c0b"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-evidence-preview.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "d244cc6b3c730556e8b6a0e69fed8a632b42352540cee35330328bc2aad1c84d"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-confirmation.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "4ec9e24aa60c2183ac0a98ee5472d40993395b6bda6e69eab06d046e55618ca9"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-ledger-narrow.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "c0c6985a80ee39d62792022f65bf311852333db6fde62fdbee183592b360ed9c"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-vault-rolled-back.png",
+      "width": 1100,
+      "height": 720,
+      "sha256": "312986f9a79116815902f4c62451bce81a7eea66b4dd92ed005dad74d256380a"
+    },
+    {
+      "file": "应用端/工程文件/验收证据/修缮收口-20261115/qt-matrix-windows-visible/u3-analysis.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5c99eb09e1f568010e1b6496a1db492e1179c24c0393fcbcf6dd45eac6a670a4"
+    }
+  ],
+  "limitations": [
+    "Android APK/Lint/device not executed: SDK unavailable",
+    "No production account or real workspace data accessed",

@@ -1,0 +1,35 @@
+      std::vector<std::string> values;
+      std::size_t start = 0;
+      while (start <= line.size()) {
+        const auto end = line.find('\t', start);
+        std::string value;
+        if (!decode_hex(std::string_view(line).substr(start,
+            end == std::string::npos ? line.size() - start : end - start), value) ||
+            !valid_utf8_without_nul(value)) return app::Result::failure("课程配置编码无效");
+        values.push_back(std::move(value));
+        if (end == std::string::npos) break;
+        start = end + 1;
+      }
+      if (values.size() != width || !is_stable_id(values[0]) ||
+          !ids.insert(values[0]).second) return app::Result::failure("课程配置字段或 ID 无效");
+      if (values[0] == content_id) selected = std::move(values);
+    }
+    if (!input.eof()) return app::Result::failure("读取课程配置失败");
+    if (selected.empty()) return app::Result::failure("课程没有起始代码配置");
+    return app::Result::success("课程配置已读取");
+  };
+  std::vector<std::string> starter, metadata;
+  auto result = read_row("starter-code.v1.tsv", 3, starter);
+  if (!result.ok) return result;
+  result = read_row("metadata.v1.tsv", 6, metadata);
+  if (!result.ok) return result;
+  if (starter[1] != unit->language ||
+      (metadata[3] != "native" && metadata[3] != "external")) {
+    return app::Result::failure("课程运行配置与内容清单不一致");
+  }
+  language = std::move(starter[1]); code = std::move(starter[2]);
+  execution_policy = std::move(metadata[3]);
+  return app::Result::success("已读取起始代码与运行要求");
+}
+
+}  // namespace codeweave::content

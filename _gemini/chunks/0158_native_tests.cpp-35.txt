@@ -1,0 +1,60 @@
+  test_native_backup_supports_another_windows_volume();
+  test_review_summary_is_read_only_and_latest_first();
+  test_analysis_window_filters_dates_and_evidence_types();
+  test_review_schedule_uses_local_day_at_midnight_boundaries();
+  test_content_owner_and_attachment_boundary_is_read_only();
+  test_progress_projection_is_read_only_and_conservative();
+  test_manifest_dry_run_is_non_mutating_and_blocks_conflicts();
+  test_migration_preflight_is_metadata_only();
+  test_migration_and_backup_reject_incomplete_symlink_sources();
+  test_migration_preflight_rejects_symlink_root();
+  test_migration_contract_is_field_level_and_fail_closed();
+  test_legacy_account_import_preserves_identity_and_rejects_bad_input();
+  test_legacy_learning_import_keeps_history_out_of_formal_progress();
+  test_execution_contract_controls_state_and_output_budget();
+  test_process_contract_requires_whitelisted_absolute_tools();
+  test_test_runner_is_not_a_production_tool();
+  test_execution_plan_reuses_both_request_and_process_guards();
+  test_process_runner_rejects_unvalidated_plan_without_starting();
+  test_execution_service_keeps_validation_before_process_start();
+  test_process_runner_executes_and_enforces_limits(
+      argc > 1 ? std::filesystem::path(argv[1]) : sibling_process_tool());
+  test_process_runner_control_contract(
+      argc > 1 ? std::filesystem::path(argv[1]) : sibling_process_tool());
+  test_execution_service_compiles_and_runs_cpp(
+      argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
+  test_cpp_source_trace_preserves_failures_and_bounds(
+      argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
+  test_execution_service_rejects_failed_cpp_compilation(
+      argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
+  test_execution_service_compiles_and_runs_java(
+      argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
+  test_java_source_trace_preserves_failures_and_bounds(
+      argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
+  test_execution_service_runs_external_language("python",
+      argc > 4 ? std::filesystem::path(argv[4]) : std::filesystem::path{},
+      "print(42)\n", "42\r\n");
+  test_execution_service_runs_external_language("javascript",
+      argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{},
+      "let total = 7;\ntotal += 2;\nconsole.log(total);\n", "9\n");
+  test_javascript_source_trace_preserves_failures_and_bounds(
+      argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{});
+  test_trace_contract_is_ordered_and_bounded();
+  const auto cpp_tool = argc > 2 ? std::filesystem::path(argv[2]) : std::filesystem::path{};
+  const auto java_tool = argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{};
+  const auto python_tool = argc > 4 ? std::filesystem::path(argv[4]) : std::filesystem::path{};
+  const auto javascript_tool = argc > 5 ? std::filesystem::path(argv[5]) : std::filesystem::path{};
+  test_execution_stream_arrives_before_exit(python_tool, "python",
+      "import time\nvalue = 15\nprint('stream-ready', flush=True)\ntime.sleep(10)\n");
+  test_execution_stream_arrives_before_exit(javascript_tool, "javascript",
+      "let value = 15;\nconsole.log('stream-ready');\nsetTimeout(() => {}, 10000);\n");
+  test_execution_stream_arrives_before_exit(java_tool, "java",
+      "public class Main { public static void main(String[] args) throws Exception {\n"
+      "int value = 15;\nSystem.out.println(\"stream-ready\");\nThread.sleep(10000);\n} }\n");
+  const auto ascii_path = [](const std::filesystem::path& path) {
+    const auto text = path.wstring();
+    return std::all_of(text.begin(), text.end(), [](wchar_t value) { return value > 0 && value < 128; });
+  };
+  test_execution_stream_arrives_before_exit(cpp_tool, "cpp",
+      "#include <chrono>\n#include <iostream>\n#include <thread>\nint main() {\n"
+      "int value = 15;\nstd::cout << \"stream-ready\" << std::flush;\n"

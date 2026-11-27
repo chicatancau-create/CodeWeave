@@ -1,0 +1,134 @@
+import { Activity, CalendarClock, Trophy } from 'lucide-react'
+import type { ReactNode } from 'react'
+import type { WeeklyStats } from '../utils/analytics'
+import './analytics-view.css'
+
+/**
+ * F5 学习分析仪表盘：近 7 天（按证据时间），全部指标来自真实学习记录；
+ * 复测完成率无样本时显示“样本不足”，学习时长无数据源显示“未统计”。
+ *
+ * M4 全站统一（01 号方案 §3.4 + geometry.md §2「复习与分析」）：
+ * - 三块指标一律用模板 `.ledger` / `.specs` 的**细线表格**表达（真 `<table>` +
+ *   `<caption>` + `th[scope]`），层次靠编号 01/02/03 与 1px 发丝线，不靠卡片；
+ * - **每个指标必须带真实分母**（§5.2 保留项 + 清单 §7「分母可复现」口径）：没有
+ *   分母的只报计数并写明「无分母，不折算百分比」，样本不足时如实显示「样本不足」
+ *   与「未统计」，绝不用百分比冒充（`utils/analytics.ts` 的 STAT-01 口径不变）。
+ * - 改版前后**逐字保留**的诚实文案：「样本不足：近 7 天还没有复测记录…」、
+ *   「未统计」（title=「学习时长统计尚未实现」）、统计周期整句。
+ */
+
+type AnalyticsViewProps = {
+  stats: WeeklyStats
+  streak: number
+  checkedInToday: boolean
+}
+
+/** 一行指标：数值 + 口径 + 真实分母（分母缺失时如实说明，不折算）。 */
+type MetricRow = {
+  name: string
+  value: string
+  /** 派生口径：数据来自哪个字段、按什么规则归窗口 */
+  basis: string
+  /** 分母；null 表示本机没有可复现的分母，界面因此不显示百分比 */
+  denominator: string | null
+  /**
+   * 下一步动作（01 号方案 §4 的 empty 行：说明为空的原因**和下一步**）。
+   * 「样本不足」「未统计」以前只有原因，看完不知道该做什么；这一列只写用户真能做的事，
+   * 不承诺本页没有的入口，也不改任何统计口径（STAT-01 判定仍在 `utils/analytics.ts`）。
+   */
+  action?: string
+}
+
+function MetricLedger({
+  idx,
+  icon,
+  title,
+  caption,
+  rows,
+  honestNote,
+}: {
+  idx: string
+  icon: ReactNode
+  title: string
+  caption: string
+  rows: MetricRow[]
+  honestNote?: string
+}) {
+  return (
+    <section className="an-block">
+      <h2 className="an-block-heading">
+        <span className="an-block-idx" aria-hidden>
+          {idx}
+        </span>
+        <span className="an-block-icon" aria-hidden>
+          {icon}
+        </span>
+        <span className="an-block-title">{title}</span>
+      </h2>
+      {/* 五列台账在 320px 下会把「指标名」挤到 37px（页面不溢出，但一个字一行）——
+          与复习中心同一处理：列有可读下限，溢出交给这个可 Tab 到的滚动区。见 `M6` §18.9 */}
+      <div className="an-table-scroll" role="region" tabIndex={0} aria-label={`${caption}表格，可横向滚动`}>
+      <table className="an-ledger">
+        <caption className="an-sr-only">{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col" className="an-col an-col-num">
+              次
+            </th>
+            <th scope="col" className="an-col">
+              指标
+            </th>
+            <th scope="col" className="an-col an-col-value">
+              数值
+            </th>
+            <th scope="col" className="an-col">
+              派生口径
+            </th>
+            <th scope="col" className="an-col">
+              分母
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr className="an-row" key={row.name}>
+              <th scope="row" className="an-cell an-cell-num">
+                <span className="an-row-idx">{String(index + 1).padStart(2, '0')}</span>
+              </th>
+              <td className="an-cell an-cell-name">{row.name}</td>
+              <td className="an-cell an-cell-value">{row.value}</td>
+              <td className="an-cell an-cell-basis">
+                {row.basis}
+                {row.action && <span className="an-cell-action">{row.action}</span>}
+              </td>
+              <td className="an-cell an-cell-den">
+                {row.denominator ?? <span className="an-no-den">无分母，不折算百分比</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      </div>
+      {honestNote && (
+        <p className="review-empty an-honest" role="status">
+          {honestNote}
+        </p>
+      )}
+    </section>
+  )
+}
+
+export function AnalyticsView({ stats, streak, checkedInToday }: AnalyticsViewProps) {
+  const reviewTotal = stats.reviewsPassed + stats.reviewsFailed
+  const period = `${stats.periodStartKey} 至 ${stats.todayKey}`
+
+  const activityRows: MetricRow[] = [
+    {
+      name: '完成课程单元',
+      value: String(stats.lessonsCompleted),
+      basis: '按 lessonId 去重，仅计通过证据',
+      denominator: `窗口 ${period} 内的课程证据`,
+    },
+    {
+      name: '课程练习次数',
+      value: String(stats.lessonPracticeCount),

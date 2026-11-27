@@ -1,0 +1,101 @@
+            <p className="ewb-state ewb-state--failed">
+              <StateMark tone="failed" />
+              <span className="ewb-state-text">已同步记录同样没读到：与上方一起重试，不把「读不到」写成「还没有」。</span>
+            </p>
+          )}
+          {queue !== null && syncedRecords.length === 0 && (
+            <p className="ewb-state ewb-state--empty">
+              <StateMark tone="empty" />
+              <span className="ewb-state-text">还没有已同步的证据。只有实际写入并复核后才算已同步。</span>
+            </p>
+          )}
+          {queue !== null && syncedRecords.length > 0 && (
+            <ul className="evidence-list">
+              {syncedRecords.map((record) => (
+                <li key={record.evidenceId} className={`ewb-row ewb-row--${record.state}`}>
+                  <span className="ewb-row-static">
+                    <StateMark tone={recordTone(record)} />
+                    <span className="evidence-topic">{record.topic}</span>
+                    <small>{evidenceMeta(record)}</small>
+                  </span>
+                  <small className="ewb-synced-meta">
+                    <span className="ewb-meta-key">复核时间</span>
+                    <span className="ewb-meta-value">{record.syncedAt ?? '—'}</span>
+                    <span className="ewb-meta-key">日志落点</span>
+                    <code className="ewb-meta-value">{record.logPath ?? '—'}</code>
+                    {record.operationId ? (
+                      <>
+                        <span className="ewb-meta-key">operationId</span>
+                        <code className="ewb-meta-value">{record.operationId}</code>
+                      </>
+                    ) : null}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {message && (
+        <p className="ewb-banner ewb-banner--ok" role="status">
+          <StateMark tone="result" />
+          <span className="ewb-banner-body">{message}</span>
+        </p>
+      )}
+      {error && (
+        <p className="ewb-banner ewb-banner--bad" role="status">
+          <StateMark tone="failed" />
+          <span className="ewb-banner-body">{error}</span>
+        </p>
+      )}
+
+      {preview && (
+        <EvidencePreview
+          preview={preview}
+          busy={busy}
+          confirmed={confirmed}
+          isOwner={isOwner}
+          onConfirmChange={handleConfirmChange}
+          onCommit={commitPreview}
+        />
+      )}
+
+      {conflict && (
+        <div className="evidence-conflict ewb-conflict" role="alert">
+          <div className="ewb-head-row">
+            <span className="ewb-num" aria-hidden="true">
+              05
+            </span>
+            <h4 className="vault-progress-subtitle">检测到第三方改动，未覆盖任何内容</h4>
+            <StateMark tone="conflict" />
+          </div>
+          <p className="vault-progress-notice">
+            以文件指纹判断冲突，<strong>不按修改时间决胜</strong>。请重新预览，或先在 Obsidian 中人工合并后再提交。
+          </p>
+          {conflict.files?.map((file) => (
+            <div className="ewb-conflict-file" key={file.path}>
+              <p className="ewb-conflict-path">
+                <code>{file.path}</code>
+              </p>
+              <div
+                className="ewb-scroll"
+                role="group"
+                aria-label="冲突字段逐值对照（窄视口下可横向滚动）"
+                tabIndex={0}
+              >
+                <table className="ewb-table ewb-table--diff">
+                  <thead>
+                    <tr>
+                      <th scope="col">冲突字段</th>
+                      <th scope="col">预览时的值</th>
+                      <th scope="col">当前文件的值</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {file.fieldDiffs.map((diff: FieldDiff) => (
+                      <tr key={`${file.path}-${diff.field}`}>
+                        <td>
+                          <strong>{diff.field}</strong>
+                        </td>
+                        <td>

@@ -1,0 +1,120 @@
+  function localHalfPastMidnight(dateKey: string): string {
+    const probe = new Date(`${dateKey}T12:00:00.000Z`)
+    const offsetMinutes = probe.getTimezoneOffset()
+    const [year, month, day] = dateKey.split('-').map(Number)
+    const utcMidnightMs = Date.UTC(year!, month! - 1, day!)
+    return new Date(utcMidnightMs + 30 * 60_000 + offsetMinutes * 60_000).toISOString()
+  }
+
+  it('时区可移植性：跨窗口边界的证据按本地日期归日，不被 UTC 日期挤出窗口', () => {
+    const todayKey = getLocalDateKey(new Date())
+    const startKey = shiftDateKey(todayKey, -6)
+    // 取窗口首日（第 7 天前）的当地 00:30：旧口径会把它的 UTC 日期算成窗口前一天而漏统计。
+    const at = localHalfPastMidnight(startKey)
+
+    // 前置断言：确认这个瞬间确实能区分两种口径，否则用例本身无效。
+    expect(getLocalDateKey(new Date(at))).toBe(startKey)
+    expect(at.slice(0, 10)).not.toBe(startKey)
+
+    const stats = computeWeeklyStats({
+      masteryRecords: [recordOf('a', 'lesson', [evidenceOf('a', 'lesson', at, true)])],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(1)
+    expect(stats.lessonPracticeCount).toBe(1)
+  })
+
+  it('时区可移植性：挑战记录窗口判断同样按本地日期', () => {
+    const todayKey = getLocalDateKey(new Date())
+    const startKey = shiftDateKey(todayKey, -6)
+    const at = localHalfPastMidnight(startKey)
+    expect(getLocalDateKey(new Date(at))).toBe(startKey)
+    expect(at.slice(0, 10)).not.toBe(startKey)
+
+    const stats = computeWeeklyStats({
+      masteryRecords: [],
+      challengeRecords: { c1: challenge(at, 'passed') },
+      todayKey,
+    })
+    expect(stats.challengesPassed).toBe(1)
+  })
+})
+
+describe('STAT-01 挑战通过口径：仅 passed / verified 计入', () => {
+  const todayKey = '2026-09-13'
+  const completedAt = '2026-09-12T08:00:00.000Z'
+
+  it('submitted / rejected / none 不计入“挑战通过”', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [],
+      challengeRecords: {
+        passed: challenge(completedAt, 'passed'),
+        verified: challenge(completedAt, 'verified'),
+        submitted: challenge(completedAt, 'submitted'),
+        rejected: challenge(completedAt, 'rejected'),
+        none: challenge(completedAt, 'none'),
+      },
+      todayKey,
+    })
+    expect(stats.challengesPassed).toBe(2)
+  })
+
+  it('未带 status 的历史记录按旧版迁移语义视为已通过，并单独计数', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [],
+      challengeRecords: {
+        legacy: challenge(completedAt),
+        legacyOutOfWindow: challenge('2026-08-01T08:00:00.000Z'),
+      },
+      todayKey,
+    })
+    // 旧版记录不混入 challengesPassed（该口径只认 passed / verified）……
+    expect(stats.challengesPassed).toBe(0)
+    // ……而是单列为旧版通过，便于界面如实标注来源。
+    expect(stats.challengesLegacyPassed).toBe(1)
+  })
+
+  it('窗口外的通过记录不计入', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [],
+      challengeRecords: { old: challenge('2026-08-12T08:00:00.000Z', 'passed') },
+      todayKey,
+    })
+    expect(stats.challengesPassed).toBe(0)
+    expect(stats.challengesLegacyPassed).toBe(0)
+  })
+})
+
+describe('STAT-01 完成课程去重：按 lessonId 计一次', () => {
+  const todayKey = '2026-09-13'
+
+  it('同一 lessonId 的多条通过证据只计 1 个完成单元', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [
+        recordOf('a', 'lesson', [
+          evidenceOf('a', 'lesson', '2026-09-11T08:00:00.000Z', true),
+          evidenceOf('a', 'lesson', '2026-09-12T08:00:00.000Z', true),
+          evidenceOf('a', 'lesson', '2026-09-13T08:00:00.000Z', true),
+        ]),
+      ],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(1)
+    // 重复练习次数单独命名，不与“完成单元数”混用同一口径。
+    expect(stats.lessonPracticeCount).toBe(3)
+  })
+
+  it('未通过的课程证据不计入完成单元，但计入练习次数', () => {
+    const stats = computeWeeklyStats({
+      masteryRecords: [recordOf('a', 'lesson', [evidenceOf('a', 'lesson', '2026-09-13T08:00:00.000Z', false)])],
+      challengeRecords: {},
+      todayKey,
+    })
+    expect(stats.lessonsCompleted).toBe(0)
+    expect(stats.lessonPracticeCount).toBe(1)
+  })
+
+  it('多个 lessonId 分别计入', () => {
+    const stats = computeWeeklyStats({

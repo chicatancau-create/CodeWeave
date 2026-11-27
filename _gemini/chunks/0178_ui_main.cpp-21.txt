@@ -1,0 +1,60 @@
+                    .arg(index).arg(row->width()).arg(control_right_inset).arg(expected_right_inset);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              const bool supported = index == 3 || index == 4 || index == 7;
+              if (control->property("enabled").toBool() != supported) {
+                diagnostic = QStringLiteral("Settings preference row %1 has incorrect availability").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              auto* title_text = u3_find_item(row,
+                  QStringLiteral("settingsPreferenceTitle%1").arg(index));
+              auto* description_text = u3_find_item(row,
+                  QStringLiteral("settingsPreferenceDescription%1").arg(index));
+              const auto text_metrics = [&](QQuickItem* item) {
+                if (!item) return QJsonObject{{"found", false}};
+                const auto metric = [item](const char* name) {
+                  bool valid = false;
+                  const auto value = item->property(name).toDouble(&valid);
+                  return QJsonObject{{"valid", valid}, {"value", value}};
+                };
+                const auto origin = item->mapToItem(row, QPointF());
+                return QJsonObject{{"found", true}, {"visible", item->isVisible()},
+                    {"x", origin.x()}, {"y", origin.y()}, {"width", item->width()},
+                    {"height", item->height()}, {"implicitHeight", metric("implicitHeight")},
+                    {"contentHeight", metric("contentHeight")},
+                    {"paintedWidth", metric("paintedWidth")},
+                    {"paintedHeight", metric("paintedHeight")},
+                    {"truncated", item->property("truncated").toBool()}};
+              };
+              const auto title_metrics = text_metrics(title_text);
+              const auto description_metrics = text_metrics(description_text);
+              const auto text_fits_row = [&](QQuickItem* item, const QJsonObject& metrics) {
+                if (!item || !metrics.value("visible").toBool() ||
+                    metrics.value("truncated").toBool() || item->width() <= 0 || item->height() <= 0)
+                  return false;
+                const auto metric_fits = [&](const QString& property, double limit) {
+                  const auto value = metrics.value(property).toObject();
+                  const auto number = value.value("value").toDouble();
+                  return value.value("valid").toBool() && std::isfinite(number) && number <= limit + 1;
+                };
+                const auto x = metrics.value("x").toDouble();
+                const auto y = metrics.value("y").toDouble();
+                return x >= -1 && y >= -1 && x + item->width() <= row->width() + 1 &&
+                    y + item->height() <= row->height() + 1 &&
+                    metric_fits(QStringLiteral("implicitHeight"), item->height()) &&
+                    metric_fits(QStringLiteral("contentHeight"), item->height()) &&
+                    metric_fits(QStringLiteral("paintedWidth"), item->width()) &&
+                    metric_fits(QStringLiteral("paintedHeight"), item->height());
+              };
+              const auto title_fits = text_fits_row(title_text, title_metrics);
+              const auto description_fits = text_fits_row(description_text, description_metrics);
+              if (!title_fits || !description_fits) {
+                diagnostic = QStringLiteral("Settings preference text is clipped at 1100x720: row=%1 title=%2 description=%3 rowSize=%4x%5")
+                    .arg(index)
+                    .arg(QString::fromUtf8(QJsonDocument(title_metrics).toJson(QJsonDocument::Compact)))
+                    .arg(QString::fromUtf8(QJsonDocument(description_metrics).toJson(QJsonDocument::Compact)))
+                    .arg(row->width()).arg(row->height());

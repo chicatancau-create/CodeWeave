@@ -1,0 +1,86 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "../components"
+
+Item {
+    property QtObject ds
+        id: challengePage
+        objectName: "challengePageRoot"
+        property string searchText: ""
+        property string stageFilter: "全部"
+        property string trackFilter: "全部"
+        property string difficultyFilter: "全部"
+        property string runnerFilter: "全部"
+        property string sortFilter: "A—M 顺序"
+        property bool moreFiltersOpen: false
+        property int currentPage: 1
+        property var detailTrigger: null
+        function openDetail(challengeId, trigger) {
+            detailTrigger = trigger;
+            uiShell.openChallenge(challengeId);
+        }
+        Connections {
+            target: uiShell
+            function onChallengeSelectionChanged() {
+                if (!challengePage.visible) return;
+                if (uiShell.challengeDetailOpen) {
+                    Qt.callLater(function() {
+                        detailBack.forceActiveFocus();
+                    });
+                } else {
+                    Qt.callLater(function() {
+                        if (challengePage.detailTrigger) challengePage.detailTrigger.forceActiveFocus();
+                        else challengeSearch.forceActiveFocus();
+                    });
+                }
+            }
+        }
+        readonly property int pageSize: 12
+        readonly property var filteredChallenges: filterChallenges()
+        function chStatus(item) {
+            const record = uiShell.challengeProgress[item.id];
+            if (record && (record.status === "passed" || record.status === "verified")) return "passed";
+            if (record && record.status === "submitted") return "pending-verify";
+            if (record && record.status === "rejected") return "rejected";
+            return item.runner === "external" ? "external-pending" : "not-started";
+        }
+        function statusLabel(item) {
+            const status = chStatus(item);
+            if (status === "passed") return "已通过";
+            if (status === "pending-verify") return "待确认";
+            if (status === "rejected") return "未通过";
+            return status === "external-pending" ? "待实验" : "未开始";
+        }
+        function statusColor(item) {
+            const status = chStatus(item);
+            if (status === "passed") return ds.success;
+            if (status === "pending-verify") return ds.accent;
+            if (status === "rejected") return ds.danger;
+            return status === "external-pending" ? ds.warning : ds.faint;
+        }
+        function challengeSequence(item) {
+            const index = uiShell.challengeMeta.findIndex(function(challenge) {
+                return challenge.id === item.id;
+            });
+            return index < 0 ? "" : (index + 1 < 10 ? "0" : "") + (index + 1);
+        }
+        readonly property int pageCount: Math.max(1, Math.ceil(filteredChallenges.length / pageSize))
+        onPageCountChanged: currentPage = Math.min(currentPage, pageCount)
+        readonly property var pageChallenges: filteredChallenges.slice((currentPage - 1) * pageSize,
+                                                                       currentPage * pageSize)
+        readonly property string activeFilterSummary: {
+            const labels = [];
+            if (searchText.trim()) labels.push("搜索：" + searchText.trim());
+            if (stageFilter !== "全部") labels.push("阶段：" + stageFilter);
+            if (trackFilter !== "全部") labels.push("轨道：" + trackFilter);
+            if (difficultyFilter !== "全部") labels.push("难度：" + difficultyFilter);
+            if (runnerFilter !== "全部") labels.push("运行方式：" + runnerFilter);
+            if (sortFilter !== "A—M 顺序") labels.push("排序：" + sortFilter);
+            return labels.join("  ·  ");
+        }
+
+        function uniqueValues(field) {
+            const values = [];
+            uiShell.challengeMeta.forEach(function(item) {
+                const value = item[field] || "";

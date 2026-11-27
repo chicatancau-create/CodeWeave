@@ -1,0 +1,72 @@
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        GridView {
+                            id: courseGrid
+                            objectName: "courseList"
+                            anchors.fill: parent
+                            cellWidth: Math.floor(width / 2) - 1
+                            cellHeight: 150
+                            model: studyPage.filteredLessons
+                            clip: true
+
+                            Text {
+                                objectName: "learningEmptyFilter"
+                                anchors.centerIn: parent
+                                visible: courseGrid.count === 0
+                                text: "当前筛选暂无课程"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                            }
+
+                            NumberAnimation on contentY {
+                                running: hostRoot.benchmarkScrolling
+                                from: 0
+                                to: Math.max(1, courseGrid.contentHeight - courseGrid.height)
+                                duration: 3000
+                                loops: Animation.Infinite
+                            }
+
+                            delegate: Item {
+                                required property var modelData
+                                required property int index
+                                width: courseGrid.cellWidth
+                                height: courseGrid.cellHeight
+
+                                // .desktop-unit-card
+                                Rectangle {
+                                    id: unitCard
+                                    anchors {
+                                        left: parent.left
+                                        right: parent.right
+                                        top: parent.top
+                                        bottom: parent.bottom
+                                        rightMargin: ds.s12
+                                        bottomMargin: ds.s12
+                                    }
+                                    radius: ds.radius
+                                    // 静止态: 遮光层底色 rgba(220, 233, 251, 0.028)
+                                    // 悬停态: 遮光层二档 rgba(220, 233, 251, 0.055)
+                                    color: unitHover.hovered ? ds.lessonTileHoverFill : ds.lessonTileFill
+                                    border.color: activeFocus ? ds.accent : modelData.originalIndex === hostRoot.selectedLessonIndex
+                                                  ? ds.accentRing
+                                                  : (unitHover.hovered ? ds.lineRaised : ds.line)
+                                    border.width: 1
+
+                                    // 220ms 缓动过渡
+                                    Behavior on color {
+                                        ColorAnimation { duration: ds.durBase; easing.type: ds.easingType }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: ds.durBase; easing.type: ds.easingType }
+                                    }
+
+                                    // 内高光（悬停态）
+                                    Rectangle {
+                                        anchors { top: parent.top; left: parent.left; right: parent.right }
+                                        height: 1
+                                        color: ds.lessonTileHighlight
+                                        opacity: unitHover.hovered ? 1.0 : 0
+                                        Behavior on opacity {

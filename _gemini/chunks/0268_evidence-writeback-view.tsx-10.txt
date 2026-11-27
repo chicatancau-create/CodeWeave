@@ -1,0 +1,58 @@
+                          <span className="ewb-sign ewb-sign--minus">旧 −</span>
+                          <span className="evidence-before">{diff.previewed ?? '—'}</span>
+                        </td>
+                        <td>
+                          <span className="ewb-sign ewb-sign--plus">新 +</span>
+                          <span className="evidence-after">{diff.current ?? '—'}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+          <div className="evidence-actions">
+            <button className="subtle-button" disabled={busy} onClick={() => void runPreview()}>
+              <RefreshCw size={16} aria-hidden="true" /> 重新预览
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 06 事务账本（挂账 #35）：这一区的内容全部读自服务端事务记录，不依赖本次会话的
+          React 状态——刷新界面后「刚才那次写回做了什么、能不能回滚」仍然问得出。
+          取证闸门依赖的 01 / 03 两区行数与文案在此一律不动，新区用独立 aria-label。
+          M4 拆分（01 号方案 §4）后这一区的 JSX 住在 `./evidence-writeback/WritebackLedger`，
+          「只有拥有者才挂载」这道门槛仍然写在这里。 */}
+      {isOwner && (
+        <WritebackLedger
+          ledger={ledger}
+          ledgerPhase={ledgerPhase}
+          ledgerFailure={ledgerFailure}
+          openTxId={openTxId}
+          detail={detail}
+          detailPhase={detailPhase}
+          detailFailure={detailFailure}
+          busy={busy}
+          rollbackConfirmId={rollbackConfirmId}
+          rollbackBusy={rollbackBusy}
+          rollbackOutcome={rollbackOutcome}
+          onRefreshLedger={refreshLedger}
+          onToggleTransaction={toggleTransaction}
+          onRetryDetail={loadDetail}
+          onAskRollback={askRollback}
+          onCancelRollback={cancelRollback}
+          onConfirmRollback={confirmRollback}
+        />
+      )}
+
+      {message && !error && !preview && !partial && (
+        <p className="ewb-final-note">
+          <StateMark tone="result" />
+          <span className="ewb-state-text">只有实际写入并复核后才算已同步。</span>
+        </p>
+      )}
+    </section>
+  )
+}

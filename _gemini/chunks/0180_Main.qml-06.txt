@@ -1,0 +1,90 @@
+                            else searchPopup.close();
+                        }
+                        onActiveFocusChanged: if (!activeFocus) Qt.callLater(function() {
+                            if (!searchField.activeFocus && !searchResultsView.activeFocus && !clearSearchButton.activeFocus)
+                                searchPopup.closeForTransfer();
+                        })
+                        Keys.onEscapePressed: searchPopup.close()
+                        Keys.onDownPressed: {
+                            if (searchResultsView.count) {
+                                searchPopup.open();
+                                searchResultsView.currentIndex = 0;
+                                searchResultsView.forceActiveFocus();
+                            }
+                        }
+                        Accessible.name: "全局搜索课程、挑战与项目"
+                    }
+                }
+            }
+
+            // .topbar-actions
+            RowLayout {
+                objectName: "topbarActions"
+                spacing: root.width <= 1200 ? ds.s12 : ds.s8
+                Layout.alignment: Qt.AlignVCenter
+
+                MotionAwareBusyIndicator {
+                    objectName: "topbarBusyIndicator"
+                    ds: root.designSystem
+                    busy: uiShell.operationBusy || uiShell.contentBusy
+                          || uiShell.draftSaving || uiShell.executionBusy
+                    implicitWidth: 20
+                    implicitHeight: 20
+                    accessibleName: "正在处理"
+                }
+
+                IconButton {
+                    ds: root.designSystem
+                    id: quickButton
+                    implicitWidth: root.width <= 1200 ? 44 : 36
+                    implicitHeight: implicitWidth
+                    objectName: "quickButton"
+                    iconName: "Zap"
+                    tip: "快捷动作"
+                    active: root.quickActionsOpen
+                    onClicked: {
+                        const shouldOpen = !quickPopup.opened;
+                        root.closeTopbarPopups();
+                        root.quickActionsOpen = shouldOpen;
+                        if (root.quickActionsOpen) quickPopup.open(); else quickPopup.close();
+                    }
+                }
+                IconButton {
+                    ds: root.designSystem
+                    id: notificationButton
+                    implicitWidth: root.width <= 1200 ? 44 : 36
+                    implicitHeight: implicitWidth
+                    objectName: "notificationButton"
+                    iconName: "Bell"
+                    tip: "通知中心（无未读）"
+                    active: root.notificationsOpen
+                    onClicked: {
+                        const shouldOpen = !notificationPopup.opened;
+                        root.closeTopbarPopups();
+                        root.notificationsOpen = shouldOpen;
+                        if (root.notificationsOpen) notificationPopup.open(); else notificationPopup.close();
+                    }
+                }
+
+                // .desktop-local — 本机工作空间
+                Rectangle {
+                    visible: root.width > 1200
+                    implicitWidth: localRow.implicitWidth + ds.s20
+                    implicitHeight: 28
+                    radius: ds.radiusSm
+                    color: "transparent"
+                    border.color: ds.cyanEdge
+                    border.width: 1
+                    RowLayout {
+                        id: localRow
+                        anchors.centerIn: parent
+                        spacing: ds.s6
+                        Rectangle {
+                            implicitWidth: 6
+                            implicitHeight: 6
+                            radius: 3
+                            color: ds.cyan
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "本机工作空间"

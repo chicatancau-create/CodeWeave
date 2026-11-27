@@ -1,0 +1,68 @@
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </label>
+          <label className="field-label cw-account-field">
+            新密码（至少 8 个字符）
+            <input
+              type="password"
+              value={newPassword}
+              autoComplete="new-password"
+              onChange={(event) => setNewPassword(event.target.value)}
+            />
+          </label>
+          <label className="field-label cw-account-field">
+            确认新密码
+            <input
+              type="password"
+              value={confirmPassword}
+              autoComplete="new-password"
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </label>
+          {submitDisabled && (
+            <p className="cw-account-disabled-hint" id={disabledHintId}>
+              {disabledHint}
+            </p>
+          )}
+          <div className="security-form-footer">
+            <span
+              className={`cw-account-status ${error ? 'security-error cw-account-status--error' : 'security-ok cw-account-status--ok'}`}
+              role={error ? 'alert' : 'status'}
+            >
+              {statusText ? (
+                <>
+                  <span className="cw-account-status-glyph" aria-hidden="true">
+                    {error ? '×' : '✓'}
+                  </span>
+                  <span className="cw-account-status-text">{statusText}</span>
+                </>
+              ) : null}
+            </span>
+            <button
+              className="primary-action cw-account-btn"
+              onClick={changePassword}
+              disabled={submitDisabled}
+              aria-disabled={submitDisabled || undefined}
+              aria-describedby={submitDisabled ? disabledHintId : undefined}
+            >
+              {busy ? '提交中…' : '修改密码'}
+            </button>
+          </div>
+        </section>
+
+        <section className="security-card security-danger cw-account-card--danger">
+          <h2 className="security-card-title">
+            <ShieldAlert size={14} />
+            删除账户
+          </h2>
+          <p className="security-line cw-account-note">
+            删除账户将清除服务端账号与全部学习记录，属于不可逆操作。
+          </p>
+          <p className="security-line security-locked cw-account-note cw-account-note--locked">
+            该功能尚未开放。当前版本不提供删除入口，也不会伪造删除成功。
+          </p>
+        </section>
+      </div>
+    </section>
+  )
+}

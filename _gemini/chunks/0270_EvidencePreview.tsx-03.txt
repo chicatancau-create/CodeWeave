@@ -1,0 +1,11 @@
+          {busy ? '写入中…' : '确认写入'}
+        </button>
+        <EwbDisabledHint id="ewb-commit-disabled-hint" reasons={commitBlockers} />
+      </div>
+      <p className="ewb-opid">
+        <span className="ewb-opid-key">operationId</span>
+        <code className="ewb-opid-value">{preview.operationId}</code>
+      </p>
+    </div>
+  )
+})

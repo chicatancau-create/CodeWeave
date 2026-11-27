@@ -1,0 +1,120 @@
+#include "app_core.hpp"
+#include "backend_task_service.hpp"
+#include "account_store.hpp"
+#include "password_crypto.hpp"
+#include "account_service.hpp"
+#include "progress_store.hpp"
+#include "operation_index.hpp"
+#include "challenge_service.hpp"
+#include "external_evidence_service.hpp"
+#include "migration_staging.hpp"
+#include "migration_contract.hpp"
+#include "legacy_import.hpp"
+#include "backup_service.hpp"
+#include "review_service.hpp"
+#include "content_access.hpp"
+#include "account.hpp"
+#include "content_contract.hpp"
+#include "content_repository.hpp"
+#include "learning_contract.hpp"
+#include "mastery_contract.hpp"
+#include "mastery_service.hpp"
+#include "review_scheduler.hpp"
+#include "evidence_store.hpp"
+#include "progress_projection.hpp"
+#include "manifest_dry_run.hpp"
+#include "migration_dry_run.hpp"
+#include "execution_contract.hpp"
+#include "process_contract.hpp"
+#include "execution_plan.hpp"
+#include "process_runner.hpp"
+#include "execution_service.hpp"
+#include "trace_contract.hpp"
+#include "trace_store.hpp"
+
+#include <cassert>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <algorithm>
+#include <cstdio>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <random>
+#include <string>
+#include <thread>
+#include <vector>
+#include <thread>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace {
+
+struct Fixture {
+  std::filesystem::path root = std::filesystem::temp_directory_path() /
+      ("codeweave-native-core-fixture-" + std::to_string(std::random_device{}()));
+
+  Fixture() {
+    std::error_code error;
+    std::filesystem::create_directories(root / "config", error);
+    assert(!error);
+    std::ofstream(root / "config" / "codeweave.config.example.json") << "{}\n";
+  }
+
+  ~Fixture() {
+    std::error_code error;
+    std::filesystem::remove_all(root, error);
+  }
+};
+
+void test_workspace_and_draft_round_trip() {
+  Fixture fixture;
+  codeweave::app::ApplicationCore core;
+  assert(!core.open_workspace(fixture.root / "missing").ok);
+  const auto open_result = core.open_workspace(fixture.root);
+  assert(open_result.ok);
+  assert(core.is_open());
+
+  const std::string source = "中文 draft\nreturn 42;\n";
+  const auto save_result = core.save_draft("lesson-01", source);
+  assert(save_result.ok);
+  std::string restored;
+  assert(core.load_draft("lesson-01", restored).ok);
+  assert(restored == source);
+  assert(std::filesystem::exists(fixture.root / "data/runtime/native/drafts/lesson-01.txt"));
+  codeweave::app::ApplicationCore second;
+  assert(!second.open_workspace(fixture.root).ok);
+  assert(core.close_workspace().ok);
+  assert(second.open_workspace(fixture.root).ok);
+}
+
+void test_backend_task_service_is_bounded_cancellable_and_generation_safe() {
+  using codeweave::backend::BackendTaskService;
+  using codeweave::backend::TaskKind;
+  using codeweave::backend::TaskRequest;
+  std::mutex mutex;
+  std::condition_variable condition;
+  std::vector<codeweave::backend::TaskResult> completed;
+  BackendTaskService service(1);
+  std::atomic_bool release{false};
+  assert(service.submit({"task-1", "account-1", 7, TaskKind::Backup,
+      [&](const auto& token) {
+        while (!release.load(std::memory_order_acquire) && !token.cancelled()) {
+          std::this_thread::yield();
+        }
+        return token.cancelled() ? codeweave::app::Result::failure("cancelled") : codeweave::app::Result::success("done");
+      }}, [&](auto result) {
+        std::lock_guard lock(mutex); completed.push_back(std::move(result)); condition.notify_all();
+      }).ok);
+  assert(!service.submit({"task-2", "account-1", 7, TaskKind::Read,
+      [](const auto&) { return codeweave::app::Result::success(); }}, {}).ok);
+  assert(service.cancel("task-1").ok);
+  release.store(true, std::memory_order_release);
+  {
+    std::unique_lock lock(mutex);
+    assert(condition.wait_for(lock, std::chrono::seconds(2), [&] { return completed.size() == 1; }));
+  }

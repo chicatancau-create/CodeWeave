@@ -1,0 +1,118 @@
+/**
+ * 资料库正文的受限 Markdown 渲染（LINK-05；DATA-10 扩展表格与双链跳转）。
+ *
+ * 安全边界（02 号方案 §1 活动内容层）：
+ * - 只渲染受支持的块级结构（标题/段落/列表/引用/围栏代码/**管道表格**）；
+ * - **不解析原始 HTML**：所有文本（含表格单元格）一律经 React 文本节点输出，
+ *   天然转义，全文件没有 `dangerouslySetInnerHTML`、没有 innerHTML 赋值，
+ *   因此 `<script>`、未闭合标签、`<img onerror=…>` 只会显示成文字，永不执行；
+ * - 不生成任何 `href`：`[[双链]]` 的跳转走内容 Provider 已有的详情能力
+ *   （见 wiki-link.tsx），危险协议与越界目标在解析阶段就被拒绝（wikilink.ts）；
+ *   `[文字](url)` 这类普通链接语法同样**只按文本显示**（本轮不开外部跳转面），
+ *   因此 `javascript:`、`data:text/html`、`vbscript:`、`file:`、`..`、绝对路径都无出口；
+ * - 图片按 DATA-10 §4 的白名单访问：`![说明](库根相对路径)` 只有同时满足
+ *   「`rejectReasonFor()` 不拒绝 + 位图白名单扩展名」才渲染成
+ *   `<img src="/api/content/asset?path=…">`（同源、无 `href`、无外部域），
+ *   其余（svg/html/js/css、绝对路径、`javascript:`、`..`）**继续按纯文本显示**；
+ *   加载失败/403/404 显示「附件不可用（未发布或类型不允许）」，不静默消失；
+ *   pdf/txt/csv/json 由服务端白名单受控读取，但正文里不生成任何可点出口。
+ *   笔记里的命令只显示，不能执行。
+ *
+ * 这是「通用渲染实现」，不是第二份教材：输入永远来自内容快照里的资料库正文。
+ */
+import { useCallback, useState } from 'react'
+import type { ReactNode } from 'react'
+import { MarkdownBodyContext, MAX_MARKDOWN_DEPTH, type MarkdownRenderer } from './markdown-body'
+import { useOptionalContent } from './provider'
+import { WikiLink } from './wiki-link'
+import { resolveImageAttachment } from './wikilink'
+
+type Block =
+  | { kind: 'heading'; level: number; text: string }
+  | { kind: 'paragraph'; text: string }
+  | { kind: 'list'; ordered: boolean; items: string[] }
+  | { kind: 'quote'; lines: string[] }
+  | { kind: 'code'; language: string; code: string }
+  | { kind: 'table'; header: string[]; rows: string[][] }
+
+/** 宿主可接管双链跳转（例如在工作台里打开该课）；不接管时就地展开已发布原文。 */
+export type MarkdownNavigateHandler = (target: { contentId: string; title: string }) => void
+
+type LinkOptions = { depth: number; onNavigate?: MarkdownNavigateHandler; bundleId?: string }
+
+const HEADING = /^(#{1,6})\s+(.+?)\s*$/
+const UNORDERED = /^\s*[-*]\s+(.+)$/
+const ORDERED = /^\s*\d+[.)]\s+(.+)$/
+const FENCE = /^\s*```+\s*([\w+#.-]*)\s*$/
+const QUOTE = /^\s*>\s?(.*)$/
+/** 表格分隔行单元：`---`、`:---`、`---:`、`:---:`（对齐信息按 DATA-10 忽略） */
+const DELIMITER_CELL = /^:?-{1,}:?$/
+/** 图片语法 `![说明](目标 "可选标题")`；判定不过就整段按纯文本显示。 */
+const IMAGE_TOKEN = /^!\[([^\]]*)\]\(([^\s)]+)(?:\s+(?:"[^"]*"|'[^']*'))?\)$/
+/** 本轮不允许改 styles.css：附件只用最小内联样式保证可读与不溢出。 */
+const IMAGE_STYLE = {
+  maxWidth: '100%',
+  width: '100%',
+  aspectRatio: '16 / 9',
+  objectFit: 'contain' as const,
+  height: 'auto',
+  display: 'block',
+  margin: '8px 0',
+}
+const IMAGE_NOTE_STYLE = { color: 'var(--muted)', fontSize: '0.9em' }
+
+/**
+ * 按**未转义**的 `|` 切分表格行。
+ * - 反引号内的 `|` 不算分隔符（单元格里的 `` `a|b` `` 保持完整）；
+ * - `\|` 是 Obsidian 双链别名的转义写法，原样保留交给行内解析处理；
+ * - 只剥掉**首尾各一个**竖线，因此中间的空单元格不会被吞掉。
+ * 返回 null 表示这一行不是表格行。
+ */
+function splitRow(line: string): string[] | null {
+  let text = line.trim()
+  if (!text || !text.includes('|')) return null
+  if (text.startsWith('|')) text = text.slice(1)
+  if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1)
+  const cells: string[] = []
+  let current = ''
+  let inCode = false
+  let escaped = false
+  for (const char of text) {
+    if (escaped) {
+      escaped = false
+      current += char === '|' ? '\\|' : char
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '`') {
+      inCode = !inCode
+      current += char
+      continue
+    }
+    if (char === '|' && !inCode) {
+      cells.push(current.trim())
+      current = ''
+      continue
+    }
+    current += char
+  }
+  cells.push(current.trim())
+  return cells.length > 0 ? cells : null
+}
+
+/** 表格候选：表头行 + 合法分隔行，且两者列数一致。 */
+function tableShape(lines: string[], start: number): { header: string[] } | null {
+  const header = splitRow(lines[start] ?? '')
+  if (!header) return null
+  const delimiter = splitRow(lines[start + 1] ?? '')
+  if (!delimiter || delimiter.length !== header.length) return null
+  if (!delimiter.every((cell) => DELIMITER_CELL.test(cell))) return null
+  return { header }
+}
+
+/**
+ * 尝试从 `start` 解析一个表格。
+ * - `null`：这里没有表格（缺分隔行、分隔行列数不符等），交给段落分支原样显示；

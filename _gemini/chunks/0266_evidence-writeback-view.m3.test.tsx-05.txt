@@ -1,0 +1,102 @@
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+
+    const reason = await screen.findByText(/这些证据已同步过/)
+    expect(reason.closest('.ewb-banner--bad')).not.toBeNull()
+    // 限定在横幅内部：#35 之后页面还有一条「事务账本读取失败」（本文件的桩没模拟那个端点，
+    // 新区如实停在失败态），全页找「失败」会一次抓到两个标识。
+    expect(reason.closest('.ewb-banner--bad')?.querySelector('.ewb-mark-text')?.textContent).toContain('失败')
+    // 钉住「这一页现在确实有两个失败标识」：一个是本次写回失败的横幅，另一个是
+    // 06 区如实报出的账本读取失败。数字变了要说得出为什么变，不许靠全页找文本。
+    expect(screen.getAllByText('失败').length).toBe(2)
+    expect(screen.queryByText('预览（尚未写入任何文件）')).toBeNull()
+  })
+})
+
+describe('M3 写路径回归：改版不掉上下文', () => {
+  it('部分成功保留 operationId 与事务说明，且不同时宣称已同步', async () => {
+    let commits = 0
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      commit: () => {
+        commits += 1
+        return progressPending()
+      },
+    })
+    renderPanel()
+    await openPreview()
+    confirmWrite()
+    await screen.findByText(/日志已保存，进度待合并/)
+
+    expect(screen.getByText('op-test-abc123')).toBeTruthy()
+    expect(screen.queryByText(/已写入并复核/)).toBeNull()
+    expect(screen.queryByText('预览（尚未写入任何文件）')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /重试补齐/ }))
+    await waitFor(() => expect(commits).toBe(2))
+  })
+
+  it('确认写入门槛不变：未勾选禁用、勾选后可用，预览免责说明在位', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    renderPanel()
+    await openPreview()
+
+    const button = screen.getByRole('button', { name: '确认写入' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    expect(button.disabled).toBe(false)
+    expect(screen.getByText(/预览不会修改任何资料库文件/)).toBeTruthy()
+  })
+})
+
+/**
+ * §5.4 的两枚 CSS 钉子（44px 命中区、320px 换版）。
+ *
+ * 这两条结论都是在真浏览器里量出来的（tools/visual/probes.mjs + tmp-m6-visual 下的复核脚本），
+ * jsdom 不做样式计算，所以这里不伪造「计算后」的断言，只把**规则本身**钉住：
+ * 改坏了会让 CI 红，而不是等下一轮多视口矩阵才发现。
+ */
+type NodeFsModule = { readFileSync: (path: string, encoding: 'utf8') => string }
+type NodePathModule = { resolve: (...parts: string[]) => string }
+type NodeProcessModule = { cwd: () => string }
+
+async function panelCss() {
+  const fs = await vi.importActual<NodeFsModule>('node:fs')
+  const path = await vi.importActual<NodePathModule>('node:path')
+  const proc = await vi.importActual<NodeProcessModule>('node:process')
+  const text = fs.readFileSync(path.resolve(proc.cwd(), 'src/components/evidence-writeback-view.css'), 'utf8')
+  /** 注释里的示例与说明不参与判定（口径同 learning-workspace-view.m3.test.tsx）。 */
+  return text.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/** 扁平收集「选择器 → 声明块」，本文件只用到一层嵌套，够用。 */
+function cssRules(css: string) {
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selector: (m[1] ?? '').trim().replace(/\s+/g, ' '),
+    block: m[2] ?? '',
+  }))
+}
+
+describe('§5.4 CSS 钉子：44px 命中区与 320px 换版', () => {
+  it('#51 复选框靠 appearance:none 自绘 + ::before 外扩撑命中区，两者缺一不可', async () => {
+    const rules = cssRules(await panelCss())
+    const box = rules.filter((r) => /input\[type='checkbox'\]$/.test(r.selector))
+    const hit = rules.filter((r) => /input\[type='checkbox'\]::before$/.test(r.selector))
+
+    expect(box.length).toBeGreaterThan(0)
+    expect(hit.length).toBeGreaterThan(0)
+    // 原生外观的复选框是**替换元素**，::before 根本不参与命中：
+    // 实测 appearance:auto + ::before{inset:-11px} 时 computed style 报 44×44，
+    // 但那个坐标上 elementFromPoint 给的是 MAIN.content-wrap，受信点击也不翻转 checked。
+    for (const rule of box) expect(rule.block).toMatch(/appearance:\s*none/)
+    for (const rule of hit) {
+      expect(rule.block).toMatch(/content:\s*''/)
+      expect(rule.block).toMatch(/position:\s*absolute/)
+      // 22px 视觉框要外扩到 44px 命中区：每边至少 11px
+      expect(rule.block).toMatch(/inset:\s*-11px/)
+    }
+  })
+
+  it('#55 面板按钮允许换行：共享层的 nowrap 在 320px 会撑破 .evidence-actions', async () => {
+    const rules = cssRules(await panelCss())
+    const buttonRules = rules.filter((r) => /\.(primary-action|subtle-button)/.test(r.selector))
+    expect(buttonRules.length).toBeGreaterThan(0)

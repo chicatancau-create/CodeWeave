@@ -1,0 +1,62 @@
+import { createHash } from 'node:crypto'
+import { cp, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { basename, dirname, join, relative, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const root = resolve(import.meta.dirname, '..')
+const hash = (bytes) => createHash('sha256').update(bytes).digest('hex')
+const exists = async (path) => { try { await lstat(path); return true } catch (error) { if (error.code === 'ENOENT') return false; throw error } }
+const regular = async (path) => {
+  const status = await lstat(path)
+  if (!status.isFile() || status.isSymbolicLink()) throw new Error(`Expected regular file: ${path}`)
+}
+const decodeRows = (text, width) => text.split('\n').filter(Boolean).map((line) => {
+  const row = line.replace(/\r$/, '').split('\t')
+  if (row.length !== width || row.some((x) => !/^(?:[a-fA-F0-9]{2})*$/.test(x))) throw new Error('Malformed content table')
+  return row.map((x) => new TextDecoder('utf-8', { fatal: true }).decode(Buffer.from(x, 'hex')))
+})
+
+export async function validateContent(content) {
+  const status = await lstat(content)
+  if (!status.isDirectory() || status.isSymbolicLink()) throw new Error('Content root must be a real directory')
+  for (const entry of await readdir(content)) {
+    if (entry === 'hints') {
+      const hints = await lstat(join(content, entry))
+      if (!hints.isDirectory() || hints.isSymbolicLink()) throw new Error('Invalid hints directory')
+      for (const hint of await readdir(join(content, entry))) await regular(join(content, entry, hint))
+    } else await regular(join(content, entry))
+  }
+  for (const name of ['catalog.v1.tsv', 'exercises.v1.tsv', 'starter-code.v1.tsv', 'metadata.v1.tsv', 'curriculum.v1.json']) await regular(join(content, name))
+  const rows = decodeRows(await readFile(join(content, 'catalog.v1.tsv'), 'utf8'), 6)
+  const ids = new Set()
+  for (const [id, title, state, language, digest, version] of rows) {
+    if (!/^[a-zA-Z0-9_-]{1,120}$/.test(id) || ids.has(id) || !title || !language || state !== 'published' || version !== '1') throw new Error('Invalid catalog record')
+    ids.add(id)
+    await regular(join(content, `${id}.txt`))
+    if (hash(await readFile(join(content, `${id}.txt`))) !== digest) throw new Error(`Body hash mismatch: ${id}`)
+  }
+  if (!ids.size) throw new Error('Empty native curriculum')
+  for (const [name, width] of [['starter-code.v1.tsv', 3], ['metadata.v1.tsv', 6]]) {
+    const entries = decodeRows(await readFile(join(content, name), 'utf8'), width)
+    const found = new Set(entries.map((entry) => entry[0]))
+    if (entries.length !== ids.size || found.size !== ids.size || [...found].some((id) => !ids.has(id))) throw new Error(`Incomplete or duplicate ${name}`)
+  }
+  await regular(join(content, 'hints.v1.tsv'))
+  const hinted = new Set()
+  for (const [id, digest] of decodeRows(await readFile(join(content, 'hints.v1.tsv'), 'utf8'), 2)) {
+    if (!ids.has(id) || hinted.has(id)) throw new Error('Invalid or duplicate hint ID')
+    hinted.add(id)
+    if (hash(await readFile(join(content, 'hints', `${id}.txt`))) !== digest) throw new Error(`Hint hash mismatch: ${id}`)
+  }
+  const expected = new Set(['catalog.v1.tsv', 'exercises.v1.tsv', 'starter-code.v1.tsv', 'metadata.v1.tsv',
+    'curriculum.v1.json', 'hints.v1.tsv', 'hints', ...[...ids].map((id) => `${id}.txt`)])
+  for (const entry of await readdir(content)) if (!expected.has(entry)) throw new Error(`Unexpected packaged content: ${entry}`)
+  for (const hint of await readdir(join(content, 'hints'))) {
+    if (!hint.endsWith('.txt') || !hinted.has(hint.slice(0, -4))) throw new Error(`Unexpected packaged hint: ${hint}`)
+  }
+  return rows.length
+}
+
+export async function packageNative({ exe, content = join(root, 'native/content'), output = join(root, 'dist/native') }) {
+  if (!exe) throw new Error('Supply --exe with the verified native executable')
+  exe = resolve(exe); content = resolve(content); output = resolve(output)

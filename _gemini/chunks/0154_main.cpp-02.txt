@@ -1,0 +1,75 @@
+bool g_draft_read_failed = false;
+bool g_draft_dirty = false;
+bool g_loading_draft = false;
+codeweave::execution::ExecutionService g_execution;
+std::shared_ptr<codeweave::execution::TraceStore> g_trace_store;
+std::unique_ptr<codeweave::account::AccountStore> g_account_store;
+std::unique_ptr<codeweave::account::AccountService> g_account_service;
+std::shared_ptr<codeweave::learning::EvidenceStore> g_evidence_store;
+std::shared_ptr<codeweave::learning::ProgressStore> g_progress_store;
+std::shared_ptr<codeweave::learning::ChallengeService> g_challenge_service;
+std::thread g_execution_thread;
+std::atomic<bool> g_execution_running{false};
+std::atomic<bool> g_execution_cancelled{false};
+codeweave::execution::ExecutionControl g_execution_control;
+std::atomic<bool> g_window_closing{false};
+bool g_gui_smoke = false;
+bool g_gui_interaction_smoke = false;
+bool g_gui_smoke_ok = false;
+std::mutex g_result_mutex;
+std::atomic<std::uint64_t> g_execution_generation{0};
+struct PendingResult {
+  std::uint64_t generation{};
+  std::unique_ptr<codeweave::execution::ServiceResult> result;
+  std::string challenge_message;
+};
+std::deque<PendingResult> g_result_queue;
+HANDLE g_single_instance = nullptr;
+
+void layout_controls(HWND window, int width, int height) {
+  if (!g_draft_edit) return;
+  width = std::max(width, kMinimumClientWidth);
+  height = std::max(height, kMinimumClientHeight);
+  const int left = width * 3 / 5;
+  const int right = left + 24;
+  const int bottom = height - 210;
+  MoveWindow(g_draft_edit, 24, 142, left - 36, bottom - 142, TRUE);
+  MoveWindow(g_output, 24, bottom + 8, left - 36, 92, TRUE);
+  MoveWindow(g_content_list, right, 142, width - right - 24, (bottom - 142) / 3, TRUE);
+  const int body_top = 152 + (bottom - 142) / 3;
+  MoveWindow(g_content_body, right, body_top, width - right - 24, bottom + 100 - body_top, TRUE);
+  MoveWindow(GetDlgItem(window, kToolButtonId), 24, 110, 140, 26, TRUE);
+  MoveWindow(g_language_edit, 170, 110, 110, 26, TRUE);
+  MoveWindow(g_timeout_edit, 286, 110, 80, 26, TRUE);
+  MoveWindow(GetDlgItem(window, kValidateExecutionButtonId), 372, 110, 116, 26, TRUE);
+  MoveWindow(g_run_button, 494, 110, 100, 26, TRUE);
+  MoveWindow(g_cancel_button, 600, 110, 70, 26, TRUE);
+  MoveWindow(g_pause_button, 676, 110, 60, 26, TRUE);
+  MoveWindow(g_resume_button, 742, 110, 60, 26, TRUE);
+  MoveWindow(g_step_button, 808, 110, 60, 26, TRUE);
+  MoveWindow(GetDlgItem(window, kListContentButtonId), 874, 110, 100, 26, TRUE);
+  MoveWindow(GetDlgItem(window, kHintId), 980, 110, 80, 26, TRUE);
+  MoveWindow(GetDlgItem(window, kScratchId), 1066, 110, 80, 26, TRUE);
+  MoveWindow(GetDlgItem(window, kSaveButtonId), 24, height - 100, 110, 28, TRUE);
+  MoveWindow(GetDlgItem(window, kReviewButtonId), 140, height - 100, 140, 28, TRUE);
+  MoveWindow(g_exercise_id, 286, height - 100, 210, 28, TRUE);
+  MoveWindow(g_independent_check, 502, height - 100, 130, 28, TRUE);
+  MoveWindow(g_progress_status, 640, height - 100, width - 664, 28, TRUE);
+  MoveWindow(g_review_status, 24, height - 66, left - 36, 24, TRUE);
+  MoveWindow(g_trace_status, right, height - 66, width - right - 24, 24, TRUE);
+  MoveWindow(g_status, 24, height - 34, width - 48, 24, TRUE);
+  ShowWindow(g_session_edit, SW_HIDE);
+}
+
+std::string utf8_from_wide(std::wstring_view value) {
+  if (value.empty()) return {};
+  const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+  if (size <= 0) return {};
+  std::string result(static_cast<size_t>(size), '\0');
+  return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), result.data(), size, nullptr, nullptr) == size ? result : std::string{};
+}
+
+std::wstring wide_from_utf8(std::string_view value) {
+  if (value.empty()) return {};
+  const int size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), nullptr, 0);
+  if (size <= 0) return {};

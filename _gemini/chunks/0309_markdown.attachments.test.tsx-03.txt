@@ -1,0 +1,23 @@
+describe('加载失败与 403/404 不静默消失', () => {
+  it('图片错误事件 → 显示「附件不可用（未发布或类型不允许）」，并保留图片说明', () => {
+    const { container } = render(<MarkdownView markdown={`![分支流程图](${DIR}/分支流程图.png)`} />)
+    const img = container.querySelector('img')
+    expect(img).not.toBeNull()
+    fireEvent.error(img as unknown as Element)
+    expect(container.querySelector('img')).toBeNull()
+    const note = container.querySelector('.md-attachment--error')
+    expect(note?.textContent).toContain('附件不可用（未发布或类型不允许）')
+    expect(note?.textContent).toContain('分支流程图')
+    expect(note?.getAttribute('role')).toBe('note')
+    expect(urlAttributes(container)).toEqual([])
+  })
+
+  it('空说明的图片失败时仍给出可见提示，不留空白', () => {
+    const { container } = render(<MarkdownView markdown={`![](${DIR}/x.png)`} />)
+    const img = container.querySelector('img')
+    expect(img).not.toBeNull()
+    fireEvent.error(img as unknown as Element)
+    expect(container.textContent).toBe('附件不可用（未发布或类型不允许）')
+    expect(container.querySelector('img')).toBeNull()
+  })
+})

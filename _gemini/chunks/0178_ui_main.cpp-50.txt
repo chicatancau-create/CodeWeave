@@ -1,0 +1,63 @@
+          u3_record(*context, QStringLiteral("draft-save-failure-visible-and-preserves-edit"),
+              banner && banner->property("visible").toBool() && shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("print('draft page save')\n# 第二行"));
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts-save-error"));
+          const bool dismissed = dismiss && QMetaObject::invokeMethod(dismiss, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("draft-save-error-dismiss-preserves-edit"),
+              dismissed && banner && !banner->property("visible").toBool() && shell.draftDirty());
+          shell.saveDraft();
+          context->step++;
+          return;
+        }
+        case 19: {
+          if (shell.draftSaving()) return;
+          auto* banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          auto* retry = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftRetrySave"));
+          std::error_code error;
+          const bool unblocked = std::filesystem::remove(
+              std::filesystem::path(context->blocked_draft_path.toStdWString()), error);
+          u3_record(*context, QStringLiteral("draft-save-fault-fixture-removed"), unblocked && !error);
+          const bool retried = unblocked && !error && banner && banner->property("visible").toBool() &&
+              retry && retry->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(retry, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("draft-save-retry-starts"), retried && shell.draftSaving());
+          context->step++;
+          return;
+        }
+        case 20: {
+          if (shell.draftSaving()) return;
+          auto* banner = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveError"));
+          QFile saved(context->blocked_draft_path);
+          const bool persisted = saved.open(QIODevice::ReadOnly) &&
+              saved.readAll() == shell.draftCode().toUtf8();
+          u3_record(*context, QStringLiteral("draft-save-retry-persists-and-hides-error"),
+              persisted && !shell.draftDirty() && shell.savedRevision() == shell.draftRevision() &&
+              banner && !banner->property("visible").toBool());
+          u3_record(*context, QStringLiteral("page-drafts"), shell.currentPage() == QStringLiteral("草稿"));
+          view.resize(1100, 720);
+          context->step++;
+          return;
+        }
+        case 21: {
+          auto* scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftScrollView"));
+          auto* save = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSaveButton"));
+          auto* checkpoint = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("draftSnapshotPanel"));
+          const bool scrollable = scroll && scroll->property("contentHeight").toReal() >= scroll->height() &&
+              scroll->property("contentWidth").toReal() <= scroll->width() && save && checkpoint &&
+              save->mapToItem(checkpoint, QPointF(0, save->height())).y() <= 0;
+          u3_record(*context, QStringLiteral("draft-small-window-scrolls-without-overlap"), scrollable);
+          u3_screenshot(*context, view, QStringLiteral("u3-drafts-small"));
+          view.resize(1440, 900);
+          context->step++;
+          return;
+        }
+        case 22:
+          shell.selectPage(QStringLiteral("学习"));
+          context->step = 80;
+          return;
+        case 80: {
+          if (shell.contentBusy() || shell.operationBusy() || shell.accountBusy()) return;
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          u3_record(*context, QStringLiteral("learning-completion-evidence-loaded"),
+              study && shell.lessonEvidenceReady() && study->property("completedLessonCount").toInt() == 0);
+          if (!study || !shell.lessonEvidenceReady()) { context->step = 99; return; }

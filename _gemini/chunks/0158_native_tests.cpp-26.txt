@@ -1,0 +1,62 @@
+      "int main() { std::ofstream(\"relative-output\") << answer; std::cout << answer; }\n", 20'000, 4096},
+      compiler, relative_root);
+  assert(relative.process && relative.process->exit_code == 0 && relative.process->output == "42");
+  assert(std::filesystem::exists(relative_root / "relative-output"));
+  const auto fallback_binary = service.run({"cpp-fallback-binary", "cpp",
+      "#include <filesystem>\n#include <iostream>\nint main(int argc, char** argv) {\n"
+      "if (argc > 1) { std::cout << 42; return 0; }\n"
+      "std::filesystem::copy_file(argv[0], \"codeweave-program-fallback.exe\");\n}\n", 20'000, 4096}, compiler, execution_root);
+  assert(fallback_binary.process && fallback_binary.process->exit_code == 0);
+  {
+    struct EnvironmentRestore {
+      std::map<std::wstring, std::wstring> previous;
+      ~EnvironmentRestore() {
+        for (const auto& [name, value] : previous)
+          SetEnvironmentVariableW(name.c_str(), value.empty() ? nullptr : value.c_str());
+      }
+      void set(const wchar_t* name, const std::wstring& value) {
+        const auto size = GetEnvironmentVariableW(name, nullptr, 0);
+        std::wstring original(size, L'\0');
+        if (size) {
+          GetEnvironmentVariableW(name, original.data(), size);
+          original.resize(size - 1);
+        }
+        previous.emplace(name, std::move(original));
+        assert(SetEnvironmentVariableW(name, value.c_str()));
+      }
+    } environment;
+    const auto fallback_temp = fixture.root / L"中文 TEMP";
+    assert(std::filesystem::create_directory(fallback_temp));
+    environment.set(L"TEMP", fallback_temp.wstring());
+    environment.set(L"TMP", fallback_temp.wstring());
+    environment.set(L"PATH", L"C:/Windows/System32");
+    codeweave::execution::ProcessRunner runner;
+    const std::string fallback_source = "#include <iostream>\nint main() { std::cout << 42; }\n";
+    const auto baseline = runner.run({{compiler,
+        {L"-std=c++23", L"-O0", L"-pipe", L"-x", L"c++", L"-o", L"codeweave-program-baseline.exe", L"-"},
+        execution_root, "cpp"}, fallback_source, 20'000, 4096});
+    const auto fallback = service.run({"cpp-fallback-unicode-temp", "cpp",
+        fallback_source, 20'000, 4096}, compiler, execution_root);
+    assert(baseline.started && fallback.process && fallback.process->started);
+    assert((baseline.exit_code == 0) == (fallback.process->exit_code == 0));
+    if (baseline.exit_code == 0) assert(fallback.process->output == "42");
+    else assert(!fallback.process->execution_output_valid && !fallback.process->output.empty());
+    assert(fallback.trace && std::none_of(fallback.trace->events().begin(), fallback.trace->events().end(), [](const auto& event) {
+      return event.kind == codeweave::execution::EventKind::SourceStep;
+    }));
+    assert(std::filesystem::is_empty(fallback_temp));
+    const auto runtime = runner.run({
+        {execution_root / "codeweave-program-fallback.exe", {L"--runtime"}, execution_root, "cpp-runtime"},
+        {}, 10'000, 4096, compiler.parent_path()});
+    assert(runtime.started && runtime.exit_code == 0 && runtime.error_code.empty() && runtime.output == "42");
+    environment.set(L"TEMP", (fixture.root / "missing-temp").wstring());
+    environment.set(L"TMP", (fixture.root / "missing-temp").wstring());
+    std::vector<codeweave::execution::EventKind> unavailable_events;
+    const auto unavailable = service.run({"cpp-missing-temp", "cpp", fallback_source, 10'000, 4096},
+        compiler, execution_root, nullptr, nullptr,
+        [&](const auto& event) { unavailable_events.push_back(event.kind); });
+    assert(!unavailable.validation.ok && unavailable.trace && !unavailable.process);
+    assert(unavailable_events.size() == 2 && unavailable_events.front() == codeweave::execution::EventKind::Started &&
+        unavailable_events.back() == codeweave::execution::EventKind::Failed);
+  }
+  std::filesystem::remove(execution_root / "codeweave-program-baseline.exe");

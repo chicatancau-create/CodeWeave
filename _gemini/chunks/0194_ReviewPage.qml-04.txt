@@ -1,0 +1,68 @@
+                                    font.family: ds.mono
+                                    font.pixelSize: 13
+                                }
+                                Item { Layout.fillWidth: true }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s6
+                                spacing: ds.s10
+                                Repeater {
+                                    model: ["课程 / 练习", "到期日", "下一节点", "掌握度", "操作"]
+                                    delegate: Text {
+                                        required property string modelData
+                                        Layout.fillWidth: true
+                                        text: modelData
+                                        color: ds.faint
+                                        font.family: ds.ui
+                                        font.pixelSize: 12
+                                    }
+                                }
+                            }
+
+                            Repeater {
+                                model: reviewPage.itemsForGroup(modelData.key)
+                                delegate: ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: ds.s6
+
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+                                    Item {
+                                        id: reviewRow
+                                        objectName: "review-row-" + modelData.itemId
+                                        Layout.fillWidth: true
+                                        implicitHeight: reviewRowContent.implicitHeight + ds.s16
+                                        readonly property bool hovered: rowHover.hovered
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            color: reviewRow.hovered ? ds.lessonTileHoverFill : "transparent"
+                                            Behavior on color {
+                                                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                                            }
+                                        }
+                                        HoverHandler { id: rowHover }
+
+                                        RowLayout {
+                                            id: reviewRowContent
+                                            anchors.fill: parent
+                                            anchors.topMargin: ds.s8
+                                            anchors.bottomMargin: ds.s8
+                                            spacing: ds.s10
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 260
+                                                text: reviewPage.lessonTitle(modelData.contentId)
+                                                      + " / " + modelData.exerciseId
+                                                color: ds.ink
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                elide: Text.ElideRight
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                Layout.preferredWidth: 110
+                                                text: modelData.dueKey || "—"
+                                                color: ds.muted

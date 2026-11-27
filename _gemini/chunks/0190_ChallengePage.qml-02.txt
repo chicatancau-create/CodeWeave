@@ -1,0 +1,97 @@
+                if (value && values.indexOf(value) < 0) values.push(value);
+            });
+            values.sort();
+            values.unshift("全部");
+            return values;
+        }
+
+        function filterChallenges() {
+            const query = searchText.trim().toLocaleLowerCase();
+            const result = uiShell.challengeMeta.filter(function(item) {
+                const searchable = [item.title, item.description, item.stageId, item.track,
+                                    (item.stack || []).join(" ")].join(" ").toLocaleLowerCase();
+                return (!query || searchable.indexOf(query) >= 0)
+                    && (stageFilter === "全部" || item.stageId === stageFilter)
+                    && (trackFilter === "全部" || item.track === trackFilter)
+                    && (difficultyFilter === "全部" || item.difficulty === difficultyFilter)
+                    && (runnerFilter === "全部" || item.runner === runnerFilter);
+            });
+            if (sortFilter === "标题") result.sort(function(a, b) { return a.title.localeCompare(b.title); });
+            return result;
+        }
+
+        function clearFilters() {
+            challengeSearch.text = "";
+            searchText = "";
+            stageFilter = "全部";
+            trackFilter = "全部";
+            difficultyFilter = "全部";
+            runnerFilter = "全部";
+            sortFilter = "A—M 顺序";
+            currentPage = 1;
+        }
+
+        ColumnLayout {
+            objectName: "challengeListRoot"
+            anchors.fill: parent
+            spacing: 0
+            visible: !uiShell.challengeDetailOpen
+
+            // .module-heading.challenge-overview
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s20
+                spacing: ds.s32
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    // .eyebrow — mono 13px, 0.24em tracking, uppercase, 7px ring
+                    RowLayout {
+                        spacing: ds.s10
+                        Rectangle {
+                            implicitWidth: 7
+                            implicitHeight: 7
+                            radius: 4
+                            color: "transparent"
+                            border.color: ds.accent
+                            border.width: 1
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "实战挑战"
+                            color: ds.muted
+                            font.family: ds.mono
+                            font.pixelSize: 13
+                            font.letterSpacing: 3.1
+                            font.capitalization: Font.AllUppercase
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    Text {
+                        Layout.topMargin: ds.s6
+                        Layout.bottomMargin: ds.s8
+                        text: "挑战关卡"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 24
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: -0.5
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "通过实际问题检验学习效果，每个关卡独立验收。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        elide: Text.ElideRight
+                    }
+                }
+
+                // .challenge-overview-stats — right-aligned column, 2px bar
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: 240
+                    spacing: ds.s10
+                    Text {
+                        Layout.fillWidth: true

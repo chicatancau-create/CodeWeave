@@ -1,0 +1,84 @@
+    why: '两门旧内置课程的**正文**在教「延迟复测（1/3/7 天后重做核心题）」这个学习方法，是教材叙述不是排期定义',
+  },
+]
+
+const counted = (list, rows) => {
+  const byKey = new Map()
+  for (const row of list) {
+    for (const literal of planLiterals(row.code)) {
+      const key = `${row.path}|${literal}`
+      byKey.set(key, (byKey.get(key) ?? 0) + 1)
+    }
+  }
+  const allowed = new Map(rows.map((row) => [`${row.path}|${row.literal ?? ''}`, row]))
+  return { byKey, allowed }
+}
+
+describe('#33 · 复测节点只许有一份标准', () => {
+  it('扫到源码文件（防空跑）', () => {
+    expect(files.length).toBeGreaterThan(60)
+  })
+
+  it('白名单之外没有任何一处独立的复测节点数组定义', () => {
+    const { byKey, allowed } = counted(files, LITERAL_ALLOWLIST)
+    const offenders = [...byKey.keys()].filter((key) => !allowed.has(key)).map((key) => `${key.replace('|', ' 的 ')}`)
+    expect(offenders, `这些位置又抄了一份节点表：${offenders.join('; ')}`).toEqual([])
+  })
+
+  it('白名单里每一写的数量不许变多（新增一处独立定义就红）', () => {
+    const { byKey } = counted(files, LITERAL_ALLOWLIST)
+    for (const row of LITERAL_ALLOWLIST) {
+      const key = `${row.path}|${row.literal}`
+      const seen = byKey.get(key) ?? 0
+      expect(seen, `${key} 比登记的 ${row.count} 处更多了（理由：${row.why}）`).toBeLessThanOrEqual(row.count)
+    }
+  })
+
+  it('存量账棘轮：全仓独立节点数组字面量总数 = 38，只许减不许增', () => {
+    // 38 = mastery.ts 的 1 处兜底常量 + lessons.ts 的 37 处旧内置单元字面量。
+    // 变小了说明有人在删旧覆盖（正是 #33 想要的方向）：把这里的数一并下调，别让它悬着。
+    const { byKey } = counted(files, LITERAL_ALLOWLIST)
+    const total = [...byKey.values()].reduce((sum, n) => sum + n, 0)
+    expect(total, '复测节点数组字面量总数变多了：新写的独立定义必须改成读发布规则').toBeLessThanOrEqual(38)
+    expect(total, '存量账变少了，请把本条与白名单的计数一起下调，别让门禁假装什么都没发生').toBe(38)
+  })
+
+  it('散文节奏棘轮：抄写在文案里的节点串 = 3 处，只许减不许增', () => {
+    const rows = files.flatMap((row) => cadenceProse(row.code).map(() => row.path))
+    const total = rows.length
+    expect(total, `界面/正文里又多处把节点抄了一遍：${[...new Set(rows)].join(', ')}`).toBeLessThanOrEqual(3)
+    expect(total, '抄写变少了就把这条与 PROSE_ALLOWLIST 的计数一起下调').toBe(3)
+    const byPath = rows.reduce((a, p) => { a[p] = (a[p] ?? 0) + 1; return a }, {})
+    for (const row of PROSE_ALLOWLIST) {
+      expect(byPath[row.path] ?? 0, `${row.path} 的抄写数量与登记不符（理由：${row.why}）`).toBeLessThanOrEqual(row.count)
+    }
+    const offenders = Object.keys(byPath).filter((path) => !PROSE_ALLOWLIST.some((row) => row.path === path))
+    expect(offenders, `这些文件在文案里另抄了一份节点：${offenders.join(', ')}`).toEqual([])
+  })
+
+  it('兜底常量的注释不许再和取值互相矛盾', () => {
+    const row = files.find((item) => item.path === 'src/data/mastery.ts')
+    expect(row, '找不到 src/data/mastery.ts').toBeTruthy()
+    const literal = /export const REVIEW_OFFSET_DAYS\s*=\s*\[([^\]]*)\]/.exec(row.code)
+    expect(literal, 'REVIEW_OFFSET_DAYS 的定义方式变了，请同步本门禁').toBeTruthy()
+    const values = literal[1].split(',').map((s) => Number(s.trim()))
+    // 注释里必须自述它是兜底，并按 `兜底节点=…（共 N 档` 的格式报出自己取值——机器可比对，杜绝「注释 6 档、值 5 档」
+    const declared = /兜底节点=([\d、]+)（共 (\d+) 档/.exec(row.raw)
+    expect(declared, '兜底常量的注释必须自述取值（格式：兜底节点=1、3、7、14、30（共 5 档…））').toBeTruthy()
+    expect(declared[1].split('、').map(Number)).toEqual(values)
+    expect(Number(declared[2])).toBe(values.length)
+    expect(row.raw, '兜底常量该说明自己只在读不到发布规则时上场').toMatch(/不是排期标准|本机兜底/)
+  })
+
+  it('复习中心不再自带节点：既不抄数组，也不抄节奏，更不留「两侧不一致」的免责说明', () => {
+    const row = files.find((item) => item.path === 'src/components/review-center-view.tsx')
+    expect(row, '找不到 src/components/review-center-view.tsx').toBeTruthy()
+    expect(planLiterals(row.code), '界面里不许出现节点数组字面量').toEqual([])
+    expect(cadenceProse(row.code), '界面里不许抄写节点节奏，文案一律由生效计划派生').toEqual([])
+    expect(row.raw, '口径已统一，界面不许再留「两侧各一套、界面不折算」的免责说明').not.toMatch(/不折算|两侧不一致/)
+    expect(row.raw, '分母该取生效计划的节点数').toMatch(/nodeTotal\s*=\s*plan\.offsets\.length/)
+  })
+
+  it('单元级「没写」不许再被折成空计划（adapter 与类型两端都要诚实）', () => {
+    const adapter = files.find((item) => item.path === 'src/content/adapter.ts')
+    expect(adapter, '找不到 src/content/adapter.ts').toBeTruthy()

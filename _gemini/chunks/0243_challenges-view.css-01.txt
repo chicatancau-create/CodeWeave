@@ -1,0 +1,68 @@
+/* ============================================================================
+   挑战与项目页族 · M4 全站统一 —— challenges-view.css
+   ----------------------------------------------------------------------------
+   规格：docs/00-CodeWeave三合一总工程方案.md §5.2「挑战与项目：编号列表、轻边界信息区、
+   明确的提交与草稿状态；保留筛选、检查点、证据提交、恢复」+ §5.1（形态/语义色）
+   + §5.3（降级）+ §5.4（验收）。做法沿用 docs/01-应用前端与交互重构方案.md §3：
+   形态值一律走 --ds-* 令牌并逐条带兜底值（app/src/design/tokens.css）。
+
+   形态来源（staging/style-pack/source/css/site.css，行号见 geometry.md §1）：
+     发丝线分行  L291/L299/L365/L372 .specs / .ledger —— 1px 线即分区，不铺底色
+     编号        L236-L249 .eyebrow（0.24em 字距）、L287-L307 编号键值
+     圆环/圆点   L118/L128/L431 —— 全站只有 50% 与 100px 两种圆角
+   geometry.md §2 把「挑战与项目」归入与「学习工作台」同族的**业务信息区**：
+   黑场 + 1px 发丝线 + 遮光层，**不挂装饰取景框、不做持续动画**。
+
+   科技档反转（由 challenges-view.m4.test.tsx 以源码文本不变式锁住）：
+   旧规「全站零投影」的前提是**亮底黑投影**，深色画布上黑投影等于没有，层级无处表达。
+   故本文件改走 tokens §4.5 的**冷色外发光**：`box-shadow` 一律消费 --cv-glow-*，
+   且这些别名只能落到 --ds-glow-*（不允许裸字面量）。仍刻意不出现：
+     backdrop-filter / linear-gradient / radial-gradient / conic-gradient /
+     text-shadow / outline: none / counter( / animation 循环
+   —— 发光承担层级之后，玻璃与渐变在本页没有位置（保留给共享层）；
+   以及**任何注入文本的伪元素** —— `content:` 只允许出现 `content: ''`（画几何
+   图形），编号全部是 DOM 里的真实文本（§5.2「编号列表」+ §5.3 第 6 条）。
+   `!important` 只出现在文末 §8 的两条 reduced-motion 真停开关里，其余位置为 0。
+   本文件仍补页面侧的两件事：① 语义状态**不再借用场景点缀色**（§5.1 末段）；
+   ② 提交与草稿分成两个信息区（§5.2）。
+
+   层叠纪律：styles.css 由 main.tsx 在组件样式**之后**引入，同名规则它会赢，
+   所以这里只靠**更高的选择器权重**取胜（页面根类 + 原类名 + 状态类），
+   一律不使用 !important，也不重命名/删除任何旧类名（各视图仍在引用）。
+   全局裸选择器：0 条 —— 每条规则都以 .challenges-view 起头。
+   ========================================================================== */
+
+.challenges-view {
+  /* ── 局部别名：全部落到 --ds-* 令牌 + 兜底 ─────────────────────────────── */
+  --cv-canvas: var(--ds-canvas, #000);                             /* site.css L14 */
+  --cv-ink: var(--ds-text-primary, #f4f1ee);                       /* L15 暖白 18.66:1 */
+  --cv-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));   /* L16 · 5.86:1 */
+  --cv-faint: rgba(220, 233, 251, 0.52);                           /* 产品档：三级文字 5.44:1，与 styles.css --faint 同值 */
+  --cv-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14));       /* L18 发丝线 */
+  --cv-hair-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16)); /* L176/L447 */
+  --cv-edge: var(--ds-field-border, rgba(220, 233, 251, 0.38));    /* 输入/卡片静止边界 3.13:1 */
+  --cv-edge-active: var(--ds-field-border-active, rgba(220, 233, 251, 0.62)); /* 聚焦 7.07:1 */
+  --cv-hair-width: var(--ds-line-width, 1px);
+  --cv-scrim: rgba(220, 233, 251, 0.028);                          /* 遮光层一档（分区用，不表意） */
+  --cv-scrim-raised: rgba(220, 233, 251, 0.055);                   /* 遮光层二档（hover / 选中） */
+  --cv-scene: var(--ds-scene-active, rgb(34, 211, 238));           /* 场景点缀：只用于编号与细线，**不用于语义状态** */
+
+  /* 科技档发光三档：tokens §4.5 把旧「零投影」改成冷色外发光（黑底上黑投影等于没有，
+     发光才是黑场里表达层级的手段）。与 --cv-scene 同族——都是装饰，都不表意，
+     所以语义状态一律不消费这三个值。兜底值与 tokens 同值，令牌缺席时外观不回退到旧体系。 */
+  --cv-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --cv-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --cv-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --cv-glow-mark: 0 0 8px rgba(34, 211, 238, 0.5);                  /* 细标记自发光（进度条）：比近档更收，只照自己 */
+
+  /* 语义状态：恒定四档（tokens §4），永不指向 --ds-scene-*。橙/金/品红/珊瑚相邻
+     难辨，所以每一档同时带「图形 + 文字」，颜色只是第三重提示（§5.1 末段）。 */
+  --cv-ok: var(--ds-status-success, #3fd3a4);
+  --cv-warn: var(--ds-status-warning, #ffc457);
+  --cv-bad: var(--ds-status-danger, #ff8371);
+  --cv-info: var(--ds-status-info, #4f7cff);
+  --cv-ok-wash: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+  --cv-warn-wash: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+  --cv-bad-wash: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+  --cv-info-wash: var(--ds-status-info-wash, rgba(79, 124, 255, 0.16));
+

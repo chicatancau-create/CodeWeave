@@ -1,0 +1,60 @@
+              page->property("weekStartKey") == snapshot.value("periodStartKey") &&
+              snapshot.value("periodStartKey") == QDate::currentDate().addDays(-6).toString(Qt::ISODate));
+          u3_record(*context, QStringLiteral("analytics-values-screenshot"), values_match &&
+              u3_screenshot(*context, view, QStringLiteral("u3-analysis-values")));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("analyticsScrollView"));
+          auto* flickable = scroll ? scroll->property("contentItem").value<QObject*>() : nullptr;
+          if (flickable) flickable->setProperty("contentY", std::max(0.0,
+              scroll->property("contentHeight").toReal() - scroll->property("availableHeight").toReal()));
+          context->step++;
+          return;
+        }
+        case 413:
+          u3_screenshot(*context, view, QStringLiteral("u3-analysis-review-rate"));
+          context->step = 419;
+          return;
+        case 419: {
+          if (shell.operationBusy()) return;
+          codeweave::learning::MasteryStore mastery(shell.nativeDataRoot() / "accounts" / shell.activeAccountId().toStdWString());
+          const codeweave::learning::MasteryEvidence record{"matrix-checkin-review", codeweave::learning::MasteryEvidenceKind::Lesson,
+              "python-loop-sum", "isolated eligible review schedule", QDateTime(QDate::currentDate().addDays(-2), QTime(12, 0))
+                  .toUTC().toString(Qt::ISODateWithMs).toStdString(),
+              true, codeweave::learning::CompletionVerification::SelfDeclared, codeweave::learning::RanBy::Learner,
+              true, "L1", "op-checkinreview-0123ab"};
+          bool duplicate = false;
+          u3_record(*context, QStringLiteral("sidebar-review-eligible-fixture"), mastery.append_idempotent(record, duplicate).ok && !duplicate);
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 420: {
+          if (shell.checkinSummary().value("busy").toBool() || shell.operationBusy()) return;
+          auto* card = u3_find_item(view.rootObject(), QStringLiteral("sidebarCheckinCard"));
+          auto* review = u3_find_item(view.rootObject(), QStringLiteral("sidebarReviewNavigation"));
+          const auto due = shell.analysisSnapshot().value("reviewDueCount").toInt();
+          u3_record(*context, QStringLiteral("sidebar-review-due-badge"), review && due > 0 &&
+              review->property("badge").toString() == QString::number(due));
+          u3_record(*context, QStringLiteral("checkin-authenticated-empty"), card &&
+              shell.checkinSummary().value("ready").toBool() && shell.checkinSummary().value("totalDays").toInt() == 0 &&
+              !shell.checkinSummary().value("checkedIn").toBool() && card->property("canCheckIn").toBool());
+          if (card) card->forceActiveFocus(Qt::TabFocusReason);
+          send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 421: {
+          if (shell.checkinSummary().value("busy").toBool()) return;
+          auto* card = u3_find_item(view.rootObject(), QStringLiteral("sidebarCheckinCard"));
+          u3_record(*context, QStringLiteral("checkin-keyboard-write-and-disable"), card &&
+              shell.checkinSummary().value("checkedIn").toBool() &&
+              shell.checkinSummary().value("streakDays").toInt() == 1 && !card->property("canCheckIn").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-checkin-sidebar"));
+          send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+          auto* button = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+          if (button) button->forceActiveFocus(Qt::TabFocusReason);
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 422: {
+          if (!view.rootObject()->property("checkinCalendarOpen").toBool()) return;

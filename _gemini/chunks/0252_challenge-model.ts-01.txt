@@ -1,0 +1,128 @@
+import type {
+  AchievementObservation,
+  Challenge,
+  ChallengeRecord,
+  LanguageId,
+  Lesson,
+} from '../../types/lesson'
+import { isPassedRecord } from '../../types/lesson'
+
+export type RunnerFilter = 'all' | 'browser' | 'teaching' | 'external'
+export type StatusFilter = 'all' | 'not-started' | 'ran' | 'passed' | 'pending'
+export type SortMode = 'stage' | 'status' | 'difficulty'
+
+export type ChallengeFilters = {
+  /** 主筛选：搜索关键字（匹配标题 / 技术栈 / 说明 / 阶段） */
+  q: string
+  /** 主筛选：阶段（A—M） */
+  stage: string
+  track: string
+  difficulty: string
+  runner: RunnerFilter
+  status: StatusFilter
+  sort: SortMode
+}
+
+/**
+ * 派生状态（R4）：passed/pending-verify 来自持久化记录；
+ * external-pending / unsupported / ready-to-submit 只在当前会话有效。
+ */
+export type CardStatus = 'not-started' | 'external-pending' | 'unsupported' | 'ready-to-submit' | 'pending-verify' | 'passed'
+
+export const STATUS_LABEL: Record<CardStatus, string> = {
+  'not-started': '未开始',
+  'external-pending': '待实验',
+  unsupported: '未识别',
+  'ready-to-submit': '待验证',
+  'pending-verify': '待人工确认',
+  passed: '已通过',
+}
+
+export const STATUS_RANK: Record<CardStatus, number> = {
+  'not-started': 0,
+  'external-pending': 1,
+  unsupported: 2,
+  'ready-to-submit': 3,
+  'pending-verify': 4,
+  passed: 5,
+}
+
+export const DIFFICULTY_ORDER = ['入门', '基础', '进阶']
+
+/**
+ * R4 学习状态标注（`AchievementObservation`）：由学员自己标注，**不参与通过判定**，
+ * 也不谎称系统已验证。人工确认时顺手带上它，是为了让记录留下「当时学员怎么说」。
+ */
+export const OBSERVATION_OPTIONS: { value: AchievementObservation; label: string }[] = [
+  { value: 'completed', label: '我已完成全部验收点' },
+  { value: 'partially-completed', label: '部分完成' },
+  { value: 'attempted', label: '只做了尝试' },
+]
+
+export const RUNNER_FILTER_OPTIONS: { value: RunnerFilter; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'browser', label: '浏览器沙箱验证' },
+  { value: 'teaching', label: '教学运行器' },
+  { value: 'external', label: '外部环境实验' },
+]
+
+export const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'not-started', label: '未开始' },
+  { value: 'ran', label: '已运行未提交' },
+  { value: 'pending', label: '待人工确认' },
+  { value: 'passed', label: '已通过' },
+]
+
+export const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: 'stage', label: '按 A—M 顺序' },
+  { value: 'status', label: '按完成状态' },
+  { value: 'difficulty', label: '按难度' },
+]
+
+export const DEFAULT_FILTERS: ChallengeFilters = {
+  q: '',
+  stage: 'all',
+  track: 'all',
+  difficulty: 'all',
+  runner: 'all',
+  status: 'all',
+  sort: 'stage',
+}
+const FILTERS_STORAGE_KEY = 'code-canvas.challenge-filters.v2'
+
+/** CHAL-01：列表 / 详情两个视图；视图模式、选中题与页码一起持久化到 sessionStorage。 */
+export type ViewMode = 'list' | 'detail'
+export type ChallengeViewState = { mode: ViewMode; selectedId: string; page: number }
+const VIEW_STORAGE_KEY = 'code-canvas.challenge-view.v2'
+export const PAGE_SIZE = 12
+
+export function loadFilters(): ChallengeFilters {
+  try {
+    const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY)
+    if (!raw) return DEFAULT_FILTERS
+    const merged = { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<ChallengeFilters>) }
+    if (!RUNNER_FILTER_OPTIONS.some((option) => option.value === merged.runner)) merged.runner = 'all'
+    if (!STATUS_FILTER_OPTIONS.some((option) => option.value === merged.status)) merged.status = 'all'
+    if (!SORT_OPTIONS.some((option) => option.value === merged.sort)) merged.sort = 'stage'
+    if (typeof merged.q !== 'string') merged.q = ''
+    return merged
+  } catch {
+    return DEFAULT_FILTERS
+  }
+}
+
+export function saveFilters(filters: ChallengeFilters): void {
+  try {
+    sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters))
+  } catch {
+    // 隐私模式等写入失败时退化为会话内状态
+  }
+}
+
+export function loadViewState(challenges: Challenge[]): ChallengeViewState {
+  try {
+    const raw = sessionStorage.getItem(VIEW_STORAGE_KEY)
+    if (!raw) return { mode: 'list', selectedId: '', page: 1 }
+    const parsed = JSON.parse(raw) as Partial<ChallengeViewState>
+    const selectedId =

@@ -1,0 +1,77 @@
+      for (const auto& item : page.value("events").toList()) {
+        const auto event = item.toMap().value("change").toMap();
+        const auto date = event.value("localDate").toString();
+        if (event.value("kind").toString() == QStringLiteral("learning.checkin.recorded") && !date.isEmpty()) dates.append(date);
+      }
+      if (page.value("hasMore").toBool()) {
+        pullLearningFacts(nextCursor, std::move(dates));
+        return;
+      }
+      dates.removeDuplicates();
+      dates.sort(Qt::CaseSensitive);
+      checkinDates_ = std::move(dates);
+      syncStatus_ = QStringLiteral("已同步学习记录");
+    }
+    syncBusy_ = false;
+    emit changed();
+  });
+}
+
+QString UnifiedContentSource::offlineRoot() const {
+  if (cacheDir_.isEmpty() || account_.isEmpty()) return {};
+  const auto scope = digest(origin_.toEncoded() + '\0' + account_.toUtf8());
+  return QDir(cacheDir_).filePath(QString::fromLatin1(scope) + QStringLiteral("/content"));
+}
+
+void UnifiedContentSource::finishOffline(const QString& message) {
+  offlineBusy_ = false;
+  offlineStatus_ = message;
+  emit changed();
+}
+
+void UnifiedContentSource::saveOfflineBundle() {
+  const auto root = offlineRoot();
+  const auto bundle = catalog_.value("bundleId").toString();
+  const auto hash = catalog_.value("manifestHash").toString();
+  if (!connected() || offlineBusy_ || root.isEmpty() || !validBundle(bundle) || !validDigest(hash) ||
+      !catalog_.value("capabilities").toStringList().contains(QStringLiteral("offlineBundle"))) return;
+  const auto identity = contextKey();
+  const auto service = catalog_.value("serviceInstance").toString();
+  const auto vault = catalog_.value("vaultId").toString();
+  const auto url = QStringLiteral("/api/content/bundles/") + bundle;
+  const auto target = QDir(root).filePath(bundle);
+  offlineBusy_ = true;
+  offlineStatus_ = QStringLiteral("正在下载离线课程");
+  emit changed();
+  run(url + QStringLiteral("/manifest"), {}, [this, identity, service, vault, bundle, hash, url, target](int status, const QByteArray& bytes, const QNetworkReply&) {
+    const auto meta = responseData(bytes);
+    const auto files = meta.value("files").toList();
+    const auto file = files.isEmpty() ? QVariantMap{} : files.first().toMap();
+    const auto assets = meta.value("assets").toList();
+    if (status != 200 || identity != contextKey() || meta.value("schemaVersion").toInt() != 1 ||
+        meta.value("serviceInstance").toString() != service || meta.value("vaultId").toString() != vault ||
+        meta.value("bundleId").toString() != bundle || meta.value("manifestHash").toString() != hash ||
+        files.size() != 1 || file.value("path").toString() != QStringLiteral("content.json") ||
+        file.value("sha256").toString() != hash || assets.size() > 250) {
+      finishOffline(QStringLiteral("离线包清单校验失败"));
+      return;
+    }
+    run(url + QStringLiteral("/payload"), {}, [this, identity, bundle, hash, target, file, assets](int payloadStatus, const QByteArray& payload, const QNetworkReply& reply) {
+      if (payloadStatus != 200 || identity != contextKey() || reply.rawHeader("X-Content-Bundle") != bundle.toUtf8() ||
+          payload.size() != file.value("size").toLongLong() || digest(payload) != hash.toUtf8() ||
+          !QDir().mkpath(QDir(target).filePath(QStringLiteral("objects"))) ||
+          !saveFile(QDir(target).filePath(QStringLiteral("content.json")), payload)) {
+        finishOffline(QStringLiteral("离线课程正文校验失败"));
+        return;
+      }
+      saveOfflineAssets(assets, 0, bundle, hash, target);
+    });
+  });
+}
+
+QVariantMap UnifiedContentSource::verifiedOfflineBundle(QVariantMap* outputPointer) const {
+  const auto root = offlineRoot();
+  if (root.isEmpty()) return {};
+  const auto pointer = QJsonDocument::fromJson(loadFile(QDir(root).filePath(QStringLiteral("current.json")))).object().toVariantMap();
+  const auto bundle = pointer.value("bundleId").toString();
+  const auto hash = pointer.value("manifestHash").toString();

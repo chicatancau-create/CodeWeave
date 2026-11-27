@@ -1,0 +1,106 @@
+#include "migration_staging.hpp"
+
+#include <fstream>
+#include <cstdint>
+#include <system_error>
+#include <algorithm>
+#include <cwctype>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::migration {
+namespace {
+
+constexpr const char* kMarker = "codeweave.migration-fixture";
+
+std::filesystem::path canonical_for_comparison(const std::filesystem::path& value) {
+  std::error_code error;
+  const auto canonical = std::filesystem::weakly_canonical(value, error);
+  return error ? value.lexically_normal() : canonical.lexically_normal();
+}
+
+bool same_path(const std::filesystem::path& left, const std::filesystem::path& right) {
+  auto left_value = left.generic_wstring();
+  auto right_value = right.generic_wstring();
+#ifdef _WIN32
+  std::transform(left_value.begin(), left_value.end(), left_value.begin(),
+      [](wchar_t character) { return std::towlower(character); });
+  std::transform(right_value.begin(), right_value.end(), right_value.begin(),
+      [](wchar_t character) { return std::towlower(character); });
+#endif
+  return left_value == right_value;
+}
+
+bool is_same_or_descendant(const std::filesystem::path& candidate,
+    const std::filesystem::path& root) {
+  const auto candidate_value = canonical_for_comparison(candidate);
+  const auto root_value = canonical_for_comparison(root);
+  const auto relative = candidate_value.lexically_relative(root_value);
+  if (same_path(candidate_value, root_value)) return true;
+  if (relative.empty()) return false;
+  for (const auto& component : relative) {
+    if (same_path(component, "..")) return false;
+  }
+  return true;
+}
+
+bool safe_roots(const std::filesystem::path& source, const std::filesystem::path& target) {
+  if (source.empty() || target.empty() || !source.is_absolute() || !target.is_absolute()) {
+    return false;
+  }
+  std::error_code error;
+  const auto source_status = std::filesystem::symlink_status(source, error);
+  if (error || !std::filesystem::is_directory(source_status) ||
+      std::filesystem::is_symlink(source_status)) return false;
+  // Keep the staged copy outside the source tree so rollback cannot traverse
+  // into source data through a path alias.
+  return !is_same_or_descendant(target, source);
+}
+
+bool marker_present(const std::filesystem::path& root) {
+  const auto marker_path = root / std::filesystem::path(kMarker);
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(marker_path, error);
+  if (error || std::filesystem::is_symlink(status) ||
+      !std::filesystem::is_regular_file(status)) return false;
+  std::ifstream marker(marker_path, std::ios::binary);
+  return marker.good();
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+        error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND) {
+      error.clear();
+      continue;
+    }
+    if (error) return true;
+  }
+  return false;
+}
+
+bool fingerprint_file(const std::filesystem::path& path, std::uintmax_t& size,
+    std::uint64_t& fingerprint) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return false;
+  constexpr std::uint64_t offset = 14695981039346656037ull;
+  constexpr std::uint64_t prime = 1099511628211ull;
+  fingerprint = offset;
+  size = 0;
+  char buffer[8192];
+  while (input.read(buffer, sizeof(buffer)) || input.gcount() > 0) {
+    const auto count = input.gcount();
+    for (std::streamsize index = 0; index < count; ++index) {
+      fingerprint ^= static_cast<unsigned char>(buffer[index]);
+      fingerprint *= prime;
+    }
+    size += static_cast<std::uintmax_t>(count);
+  }

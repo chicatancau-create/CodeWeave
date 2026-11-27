@@ -1,0 +1,16 @@
+    overviewTab.focus()
+    fireEvent.keyDown(overviewTab, { key: 'ArrowRight' })
+    expect(screen.getByRole('tab', { name: '编写与运行' }).getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: '编写与运行' }))
+    fireEvent.keyDown(screen.getByRole('tab', { name: '编写与运行' }), { key: 'ArrowLeft' })
+    expect(screen.getByRole('tab', { name: '题目' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('概览进度条带 aria 数值与文本', () => {
+    renderView(record())
+    const bar = screen.getByRole('progressbar', { name: '挑战完成进度' })
+    expect(bar.getAttribute('aria-valuemax')).toBe('13')
+    expect(bar.getAttribute('aria-valuenow')).toBe('1')
+    expect(screen.getByText(/已完成 1 \/ 13/)).toBeTruthy()
+  })
+})

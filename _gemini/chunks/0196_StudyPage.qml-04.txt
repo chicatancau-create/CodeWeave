@@ -1,0 +1,90 @@
+                ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+                ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                RowLayout {
+                    spacing: ds.s8
+                    Repeater {
+                        model: {
+                            return studyPage.subjectOptions;
+                        }
+                        delegate: SubjectPill {
+                            ds: studyPage.ds
+                            required property var modelData
+                            required property int index
+                            symbol: modelData.slice(0, 2).toUpperCase()
+                            label: modelData
+                            count: {
+                                return "" + studyPage.allLessons.filter(function(item) {
+                                    return Catalog.subjectLabel(item) === modelData;
+                                }).length;
+                            }
+                            active: studyPage.subjectFilter === index
+                            onClicked: studyPage.selectSubject(studyPage.subjectFilter === index ? -1 : index)
+                        }
+                    }
+                }
+            }
+
+            // .desktop-learning-columns
+            RowLayout {
+                visible: !studyPage.showDetails
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: ds.s24
+
+                // .desktop-learning-primary
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.horizontalStretchFactor: 6
+                    spacing: 0
+
+                    // .desktop-section-heading
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: ds.s16
+                        spacing: ds.s12
+                        ColumnLayout {
+                            spacing: 0
+                            RowLayout {
+                                spacing: ds.s8
+                                Rectangle {   // .desktop-eyebrow dot
+                                    implicitWidth: 6
+                                    implicitHeight: 6
+                                    radius: 3
+                                    color: ds.cyan
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Text {
+                                    text: "LEARNING PATH"
+                                    color: ds.faint
+                                    font.family: ds.mono
+                                    font.pixelSize: 10
+                                    font.letterSpacing: 1
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Text {
+                                Layout.topMargin: ds.s4
+                                text: "你的学习路径"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 20
+                                font.weight: Font.Bold
+                                font.letterSpacing: -0.5
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
+                        QuietButton {
+                            id: detailsButton
+                            ds: studyPage.ds
+                            objectName: "learningDetailsOpen"
+                            label: "阶段与来源明细"
+                            onClicked: studyPage.showDetails = true
+                            Layout.alignment: Qt.AlignBottom
+                        }
+                    }
+
+                    // .desktop-course-hero
+                    Rectangle {
+                        id: hero
+                        Layout.fillWidth: true

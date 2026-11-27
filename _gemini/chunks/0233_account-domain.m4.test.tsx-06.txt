@@ -1,0 +1,64 @@
+    for (const selector of profileSelectors) {
+      const tail = selector.split(/\s+/).pop() ?? ''
+      for (const name of foreign) {
+        expect(tail).not.toContain(`.${name}`)
+      }
+    }
+    // 自有类名必须真的存在，否则上面那条是空断言（个人中心的卡与表单都靠它们落形）
+    const every = allSelectors(cssText)
+    expect(every.some((selector) => selector.startsWith('.cw-profile') || selector.startsWith('.cw-account'))).toBe(true)
+    expect(every.filter((selector) => selector.includes('.cw-account-card')).length).toBeGreaterThan(0)
+    expect(every.filter((selector) => selector.includes('.cw-account-field')).length).toBeGreaterThan(0)
+    expect(every.filter((selector) => selector.includes('.cw-account-btn')).length).toBeGreaterThan(0)
+  })
+
+  it('圆角只有 0 / 50% / 100px 三档，本域取 0 与圆环', () => {
+    const radii = [...cssCode.matchAll(/border-radius:\s*([^;]+);/g)].map((match) => (match[1] ?? '').trim())
+    expect(radii.length).toBeGreaterThan(0)
+    for (const value of radii) expect(['var(--ca-radius)', 'var(--ca-circle)', 'var(--ds-shape-none, 0)']).toContain(value)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+  })
+
+  it('黑场 + 发丝线 + 零投影零玻璃零泛光，颜色全部走带兜底的令牌', () => {
+    const root = declarationBlock('.cw-account')
+    expect(root).toContain('--ca-canvas: var(--ds-canvas, #000)')
+    expect(root).toContain('--ca-hair: var(--ds-line-hair, rgba(220, 233, 251, 0.14))')
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|text-shadow/)
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+);/g)].map((match) => (match[1] ?? '').trim())
+    for (const value of shadows) expect(value).toBe('var(--ds-shadow-panel, none)')
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+    // 场景点缀**色**不参与语义状态；长度档 --ds-scene-glow-ring（1.5px 描边环）不在此列
+    expect(cssCode).not.toMatch(/--ds-scene-singularity|--ds-scene-nebula|--ds-scene-tides|--ds-scene-firstlight|--ds-scene-active|--accent/)
+    expect(declarationBlock('.cw-profile .profile-large-avatar')).toContain('var(--ds-scene-glow-ring, 1.5px)')
+    expect(declarationBlock('.cw-profile .profile-large-avatar')).toContain('border-radius: var(--ca-circle)')
+    expect(declarationBlock('.cw-profile .mastery-bar span')).toContain('background: var(--ca-ink-2)')
+  })
+
+  it('正文 16px / 行高 1.7、控件与行 ≥44px、焦点可见、320px 有降级', () => {
+    const root = declarationBlock('.cw-account')
+    expect(root).toContain('--ca-body: var(--ds-size-body, 16px)')
+    expect(root).toContain('--ca-leading: var(--ds-leading-body, 1.7)')
+    expect(root).toContain('--ca-tap: var(--ds-tap-min, 44px)')
+    expect(declarationBlock('.cw-account .cw-account-field input')).toContain('min-height: var(--ca-tap)')
+    expect(declarationBlock('.cw-account .cw-account-btn')).toContain('min-height: var(--ca-tap)')
+    expect(declarationBlock('.cw-account .cw-account-table th')).toContain('height: var(--ca-tap)')
+    expect(declarationBlock('.cw-profile .mastery-map li')).toContain('min-height: var(--ca-tap)')
+    expect(declarationBlock('.cw-account :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring-width, 2px)',
+    )
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+    expect(mediaBlock('max-width: 420px')).toContain('flex-direction: column')
+  })
+
+  it('旧 10–11px 档已抬起：本域不出现 10px/10.5px/11px 字号（M3 §8.3 挂账）', () => {
+    expect(cssCode).not.toMatch(/font-size:\s*1[01](\.[0-9])?px/)
+    expect(cssCode).not.toMatch(/var\(--ds-size-meta|var\(--ds-size-rail|var\(--ds-size-hud/)
+  })
+
+  it('无持续动画；两条减动效路径各自真停，!important 只出现在这两处', () => {
+    expect(cssCode).not.toMatch(/infinite|@keyframes|animation:/)
+    expect(mediaBlock('prefers-reduced-motion: reduce')).toContain('transition: none !important')
+    expect(declarationBlock('.reduce-motion .cw-account :is(a, button, input, select, textarea, .cw-account-btn)')).toContain(
+      'transition: none !important',
+    )
+    const total = (cssCode.match(/!important/g) ?? []).length

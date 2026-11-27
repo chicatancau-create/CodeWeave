@@ -1,0 +1,97 @@
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+    expect(screen.getByText(/待人工确认（未计入已通过）/)).toBeTruthy()
+  })
+
+  it('R4 人工复核（LEARN-01 第 4 条）：submitted 这一档真有出口，状态迁移整个交回 hook', () => {
+    const onVerifySubmission = vi.fn()
+    const onRejectSubmission = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{
+          'stage-a': {
+            completedAt: '2026-09-13T00:00:00.000Z',
+            evidence: '执行环境：Windows 11',
+            status: 'submitted',
+            tier: 'external',
+          },
+        }}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={vi.fn()}
+        onVerifySubmission={onVerifySubmission}
+        onRejectSubmission={onRejectSubmission}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+    // 这一行说的是**谁在判定**：人工确认不等于系统验证过外部结果。
+    expect(screen.getByText(/人工复核改的就是这条记录的状态/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /确认通过（人工复核）/ }))
+    expect(onVerifySubmission).toHaveBeenCalledWith('stage-a', undefined)
+
+    selectOption('学习状态标注（可选，不参与通过判定）', 'partially-completed')
+    fireEvent.click(screen.getByRole('button', { name: /标记不通过/ }))
+    expect(onRejectSubmission).toHaveBeenCalledWith('stage-a')
+    expect(onVerifySubmission).toHaveBeenCalledTimes(1)
+  })
+
+  it('调用方没有复核能力时不画这两个按钮：不给一个按了没用的假动作', () => {
+    renderView({
+      'stage-a': {
+        completedAt: '2026-09-13T00:00:00.000Z',
+        evidence: '执行环境：Windows 11',
+        status: 'submitted',
+        tier: 'external',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+    expect(screen.getByText(/待人工确认（未计入已通过）/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /确认通过（人工复核）/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /标记不通过/ })).toBeNull()
+  })
+
+  it('切换标签页不清空代码草稿与证据说明', async () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    const editor = screen.getByRole('textbox', { name: /代码编辑器/ })
+    fireEvent.change(editor, { target: { value: 'int total = 999; // 我的草稿' } })
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), {
+      target: { value: '证据草稿内容' },
+    })
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    const editor2 = screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement
+    expect(editor2.value).toContain('我的草稿')
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    expect((screen.getByRole('textbox', { name: '完成证据说明' }) as HTMLTextAreaElement).value).toBe('证据草稿内容')
+  })
+
+  it('空筛选结果显示清除筛选按钮，点击后回到第 1 页 12 张卡片', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /更多筛选/ }))
+    selectOption('轨道', '安全')
+    selectOption('难度', '入门')
+    expect(screen.getByText('当前筛选条件下一个关卡都不匹配。')).toBeTruthy()
+    // 空态内也提供清除筛选；与筛选条中的清除按钮并存
+    const emptyState = screen.getByText('当前筛选条件下一个关卡都不匹配。').parentElement!
+    fireEvent.click(emptyState.querySelector('button')!)
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(12)
+  })
+
+  it('键盘：卡片可聚焦并回车选择；标签页支持方向键切换', () => {
+    renderView()
+    // Tab 进入网格后用 Enter 选择 M 关（先用阶段筛选定位到第 1 页）
+    selectOption('阶段', 'M')
+    const mCard = screen.getByRole('button', { name: /M 关：竞赛综合实战/ })
+    mCard.focus()
+    fireEvent.keyDown(mCard, { key: 'Enter' })
+    fireEvent.click(mCard) // 浏览器原生按钮 Enter 触发 click；jsdom 中显式验证 click 生效
+    expect(screen.getByRole('heading', { level: 2, name: /M 关卡验收/ })).toBeTruthy()
+
+    // 详情标签页：焦点在第一个标签（题目），ArrowRight 切到第二个并移动焦点
+    const overviewTab = screen.getByRole('tab', { name: '题目' })

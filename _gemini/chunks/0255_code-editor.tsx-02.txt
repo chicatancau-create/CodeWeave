@@ -1,0 +1,113 @@
+  top: number
+  tabSize: number
+  wordWrap: boolean
+}) {
+  return (
+    <pre
+      className="code-tokens"
+      aria-hidden="true"
+      style={{
+        transform: `translate(${-left}px, ${-top}px)`,
+        tabSize,
+        whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
+      }}
+    >
+      <CodeTokenContent tokens={tokens} />
+      {'\n'}
+    </pre>
+  )
+})
+
+const CodeTokenContent = memo(function CodeTokenContent({ tokens }: { tokens: Token[] }) {
+  return tokens.map((token, index) => token.type === 'plain'
+    ? token.text
+    : <span key={index} className={`tok-${token.type}`}>{token.text}</span>)
+})
+
+export function CodeEditor({ code, language, languageLabel, runtime, activeLine, onChange, tabSize = 2, wordWrap = false, lineNumbers = true, reveal }: Props) {
+  const editorRef = useRef<HTMLTextAreaElement>(null)
+  const [scroll, setScroll] = useState({ top: 0, left: 0 })
+  const scrollFrame = useRef<number | null>(null)
+  const pendingScroll = useRef({ top: 0, left: 0 })
+  /**
+   * EDIT-01 第 2 条要的那个「明确机制」：Tab 默认用来缩进，**按 Esc 交还给焦点导航**，
+   * 再按一次 Esc 收回。状态写在页脚那句可见文字里（不是只在 title 里），
+   * 因为「键盘能不能离开编辑区」是键盘用户当下必须知道的一件事。
+   */
+  const [tabReleasesFocus, setTabReleasesFocus] = useState(false)
+  /** 复制只报**真实发生过**的结果：await 之后才定性，失败就说失败并给出手动回退。 */
+  const [copyResult, setCopyResult] = useState<'idle' | 'ok' | 'fail'>('idle')
+  const lines = useMemo(() => code.split('\n'), [code])
+  const tokenize = useMemo(() => createCachedTokenizer(), [])
+  const tokens = useMemo(() => tokenize(code, language), [code, language, tokenize])
+
+  useEffect(() => () => {
+    if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
+  }, [])
+
+  /**
+   * 错误定位（EDIT-01 第 6 条）：把光标放到那一行的行首并聚焦，滚动由浏览器按
+   * 「选区变化即把光标滚进可视区」完成。这里**不**用 scrollTop 乘行高来算——
+   * 开了自动换行之后一行占多高是内容决定的，算出来的位置会偏。
+   */
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!reveal || !editor) return
+    const editorLines = editor.value.split('\n')
+    const target = Math.max(1, Math.min(reveal.line, editorLines.length))
+    const index = editorLines
+      .slice(0, target - 1)
+      .reduce((offset, line) => offset + line.length + 1, 0)
+    editor.focus()
+    editor.setSelectionRange(index, index)
+  }, [reveal])
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      const editor = editorRef.current
+      if (!editor || event.target !== editor) return
+      // 输入法合成期间的按键不归编辑器管：中文候选框里按 Esc 是取消候选，
+      // 不该顺手把「Tab 交还焦点导航」这件事翻过去（EDIT-01 第 5 条）。
+      if (event.isComposing) return
+      if (event.key === 'Escape') {
+        // 只翻转本编辑器这一处，不拦下 Esc 的其他用途（关弹窗由 app.tsx 的全局处理负责）。
+        setTabReleasesFocus((current) => !current)
+        return
+      }
+      if (event.key !== 'Tab' || tabReleasesFocus) return
+      event.preventDefault()
+      const next = indentBlock(code, editor.selectionStart, editor.selectionEnd, tabSize, event.shiftKey ? -1 : 1)
+      onChange(next.value)
+      window.requestAnimationFrame(() => {
+        editor.selectionStart = next.selectionStart
+        editor.selectionEnd = next.selectionEnd
+      })
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [code, onChange, tabSize, tabReleasesFocus])
+
+  const handleCopy = async () => {
+    const snapshot = code // 只复制点下去这一刻的快照，之后改的不算进这次复制
+    const clip = navigator.clipboard
+    if (!clip?.writeText) {
+      editorRef.current?.select()
+      setCopyResult('fail')
+      return
+    }
+    try {
+      await clip.writeText(snapshot)
+      setCopyResult('ok')
+    } catch {
+      // 权限被拒 / 非安全上下文：把文本选好，交回手动 Ctrl+C，不谎报成功。
+      editorRef.current?.select()
+      setCopyResult('fail')
+    }
+  }
+
+  const handleScroll = (event: React.UIEvent<HTMLTextAreaElement>) => {
+    const el = event.currentTarget
+    pendingScroll.current = { top: el.scrollTop, left: el.scrollLeft }
+    if (scrollFrame.current !== null) return
+    scrollFrame.current = window.requestAnimationFrame(() => {
+      scrollFrame.current = null

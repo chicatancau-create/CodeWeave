@@ -1,0 +1,75 @@
+/* Desktop design adapter. Source: the supplied Stitch HTML, October 2026.
+   Existing business components keep their contracts; these tokens unify their surfaces. */
+:root {
+  color-scheme: dark;
+  --ds-canvas: #0f131b;
+  --ds-canvas-solid: #0a0e15;
+  --ds-canvas-raised: #181d25;
+  --ds-canvas-overlay: #141b25;
+  --ds-text-primary: #e2e7ef;
+  --ds-text-secondary: #a3afbe;
+  --ds-text-tertiary: #7e8b9d;
+  --ds-text-on-accent: #052536;
+  --ds-scene-singularity: #8ed5ff;
+  --ds-scene-firstlight: #b9e6ff;
+  --ds-scene-tides: #6be9f1;
+  --ds-scene-nebula: #adb7ff;
+  --ds-line-hair: #ffffff12;
+  --ds-line-raised: #ffffff20;
+  --ds-line-frame: #ffffff0a;
+  --ds-field-border: #576578;
+  --ds-field-border-active: #8ed5ff;
+  --ds-focus-ring: #8ed5ff;
+  --ds-font-display: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --ds-size-body: 14px;
+  --ds-size-title: 26px;
+  --ds-size-lead: 14px;
+  --ds-weight-display: 600;
+  --ds-leading-body: 1.6;
+  --ds-radius-panel: 8px;
+  --ds-radius-control: 5px;
+  --ds-glow-panel: 0 1px 0 #ffffff03;
+  --ds-glow-near: 0 0 12px #38bdf81a;
+  --ds-glow-inset: inset 0 1px 0 #ffffff03;
+  --ds-pad-page: 24px;
+  --font-ui: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-display: var(--font-ui);
+  --chrome: #0b1018;
+  --panel-2: #1b222d;
+  --muted: #a3afbe;
+  --faint: #8d9bac;
+  --accent-soft: #38bdf814;
+  --accent-ring: #38bdf84d;
+  --accent-gradient: linear-gradient(120deg, #8ed5ff, #63ddeb);
+  --glow-accent: 0 0 16px #38bdf826;
+  --glow-soft: 0 0 12px #38bdf81a;
+  --radius-pill: 6px;
+}
+
+.desktop-brand, .desktop-areas, .desktop-local { display: none; }
+body { background: var(--page); font-family: var(--font-ui); }
+button, input, select, textarea { font-family: inherit; }
+button { transition: background 160ms, border-color 160ms, color 160ms; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { color: #052536; background: #8ed5ff; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-thumb { background: #3a4655; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (min-width: 1201px) {
+  html, body, #root { height: 100%; overflow: hidden; }
+  :root {
+    --sidebar-w: 240px;
+    --topbar-h: 68px;
+    --tap-min: 36px;
+  }
+
+.app-shell { height: 100dvh; min-height: 0; display: block; }
+.app-shell .main-content { height: 100%; min-height: 0; margin-left: var(--sidebar-w); padding-top: var(--topbar-h); }
+.app-shell .content-wrap { height: 100%; max-width: none; padding: var(--ds-space-20) var(--ds-space-24); overflow: auto; scrollbar-gutter: stable; }
+.app-shell .shell-decor { display: none; }
+.app-shell .topbar { position: fixed; inset: 0 0 auto; height: var(--topbar-h); min-height: 0; width: 100%; display: flex; gap: var(--ds-space-20); padding: 0 var(--ds-space-24); background: var(--chrome); border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 #38bdf80a; z-index: 30; }
+.desktop-brand { display: flex; flex-shrink: 0; align-items: center; gap: var(--ds-space-10); border: 0; padding: 0; color: var(--ink); background: transparent; font-size: 21px; font-weight: 650; letter-spacing: -0.8px; }
+.desktop-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--accent-ring); border-radius: 5px; background: #182632; color: var(--accent); box-shadow: 0 0 14px #38bdf828; }
+.desktop-brand small { color: var(--accent); border: 1px solid var(--accent-ring); background: var(--accent-soft); font: 10px var(--font-mono); letter-spacing: 1px; padding: var(--ds-space-4) var(--ds-space-6); border-radius: 3px; }
+.desktop-areas { display: flex; gap: var(--ds-space-4); padding: var(--ds-space-4); background: #090d14; border: 1px solid var(--line); border-radius: 8px; flex-shrink: 0; }

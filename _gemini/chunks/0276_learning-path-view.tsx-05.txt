@@ -1,0 +1,77 @@
+                  <h3 className="lp-stage-heading" id={headingId}>
+                    <span className="lp-stage-heading-num">{groupLabel}</span>
+                    <span className="lp-stage-heading-count">
+                      {group.lessons.length > 0 ? `${group.lessons.length} 个单元` : '本阶段无已发布单元'}
+                    </span>
+                  </h3>
+                  {group.numbered ? (
+                    <div className="lp-stage-competence">
+                      <p className="lp-stage-competence-line">
+                        <span className="lp-stage-competence-key">阶段验收</span>
+                        <span className="lp-stage-competence-text">
+                          {stage?.checkpoint ?? (stages ? '资料库这一阶段没写验收点' : '阶段表未载入，能力点无从显示')}
+                        </span>
+                      </p>
+                      {/* 这一行要装一个 ul，所以它是 div 不是 p：`<p>` 里放块级列表会被浏览器
+                          就地补一个结束标签，DOM 与 React 虚拟树随即对不上（React 会当场警告）。 */}
+                      <div className="lp-stage-competence-line">
+                        <span className="lp-stage-competence-key">交付物</span>
+                        {(stage?.deliverables ?? []).length > 0 ? (
+                          <ul className="lp-stage-deliverables">
+                            {(stage?.deliverables ?? []).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="lp-stage-competence-text">
+                            {stage ? '资料库这一阶段没写交付物' : '无从显示：上层没递阶段表'}
+                          </span>
+                        )}
+                      </div>
+                      {group.lessons.length > 0 ? (
+                        <p className="lp-stage-competence-line">
+                          <span className="lp-stage-competence-key">完成证据</span>
+                          <span className="lp-stage-competence-text">
+                            {`${evidenced}/${group.lessons.length} 个单元有完成证据`}
+                            {evidenced === 0
+                              ? '——本阶段按「未掌握」读：已阅读与已练习只是痕迹，不算掌握。'
+                              : '。折算只到阶段级：交付物本身没有一项被本机比对过，所以这里不逐条打勾。'}
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {group.lessons.length === 0 ? (
+                    <p className="lp-stage-gap">
+                      <MarkList marks={[{ kind: 'gap', glyph: '缺', text: '阶段缺口' }]} />
+                      <span className="lp-stage-gap-text">
+                        {`本科目在 ${group.title} 没有已发布单元；未发布的主题不会自动补位，也不以相邻主题顶替。`}
+                      </span>
+                    </p>
+                  ) : (
+                    /* #95（承 #88 / #89 的同一做法）：窄屏下「课程单元」列实测 113px≈7.5 字/行，
+                       页面不溢出但长中文课名被切成一行一字——列给地板，多出来的宽度交给这个可 Tab 到的滚动区。 */
+                    <div
+                      className="lp-table-scroll"
+                      role="region"
+                      tabIndex={0}
+                      aria-label={`${groupLabel}课程清单表格，可横向滚动`}
+                    >
+                      <table className="lp-ledger">
+                        <caption className="lp-sr-only">
+                          {group.numbered
+                            ? `${group.title} 阶段课程清单，共 ${group.lessons.length} 个单元`
+                            : `未并入 S0—S9 编号阶段的课程清单，共 ${group.lessons.length} 个单元`}
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th scope="col" className="lp-col-num">
+                              次
+                            </th>
+                            <th scope="col">课程单元</th>
+                            <th scope="col" className="lp-col-status">
+                              状态
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>

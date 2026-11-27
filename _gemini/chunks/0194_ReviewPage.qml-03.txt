@@ -1,0 +1,88 @@
+                                font.family: ds.ui
+                                font.pixelSize: 15
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "当前没有任何计划的复测。完成课程单元后会自动按计划安排。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 14
+                            lineHeight: 1.6
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    // Records, when the native ledger has any.
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        spacing: 0
+                        visible: uiShell.reviewSummary !== ""
+
+                        // .rv-block-heading
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: ds.s10
+                            spacing: ds.s12
+                            Text {
+                                text: "01"
+                                color: ds.accent
+                                font.family: ds.ui
+                                font.pixelSize: 32
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.96
+                                Layout.alignment: Qt.AlignBaseline
+                            }
+                            Text {
+                                text: "复测记录"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 20
+                                font.letterSpacing: -0.4
+                                lineHeight: 1.15
+                                Layout.alignment: Qt.AlignBaseline
+                            }
+                            Item { Layout.fillWidth: true }
+                            // .rv-mark--today — text only in a heading
+                            Text {
+                                text: "今日到期"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                Layout.alignment: Qt.AlignBaseline
+                            }
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: ds.s16
+                            height: 1
+                            color: ds.lineRaised
+                        }
+                    }
+
+                    Repeater {
+                        model: [
+                            { key: "overdue", label: "逾期复测" },
+                            { key: "today", label: "今日到期" },
+                            { key: "upcoming", label: "未来 7 天" }
+                        ]
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.topMargin: ds.s24
+                            spacing: 0
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s10
+                                Text {
+                                    text: modelData.label
+                                    color: ds.ink
+                                    font.family: ds.ui
+                                    font.pixelSize: 18
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    text: "(" + reviewPage.itemsForGroup(modelData.key).length + ")"
+                                    color: ds.muted

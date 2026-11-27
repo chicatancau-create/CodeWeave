@@ -1,0 +1,88 @@
+.stage-status.status-ready-to-submit::before { border-radius: var(--radius-circle); }
+.stage-status.status-pending-verify { color: var(--c-purple); border: var(--hair) solid var(--ds-scene-nebula-edge, rgba(255, 95, 210, 0.5)); background: var(--accent-3-soft); }
+.stage-status.status-pending-verify::before { transform: rotate(45deg); }
+.stage-status.status-passed { color: var(--c-green); border: var(--hair) solid rgba(63, 211, 164, 0.55); background: var(--ok-wash); }
+.stage-status.status-passed::before { background: currentColor; }
+.stage-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+/* CHAL-01：卡片摘要（两行截断）与主操作 */
+.stage-card-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--ds-size-body);
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.stage-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ds-space-6, 6px); margin-top: auto; }
+.stage-runner { color: var(--faint); font-size: var(--ds-size-control, 13px); white-space: nowrap; }
+.stage-card-action {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: var(--ds-size-control, 13px);   /* 原 `font-size: 13`：无单位对 font-size 非法，整条被丢弃 */
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stage-track { overflow: hidden; color: var(--faint); font-size: var(--ds-size-control, 13px); white-space: nowrap; text-overflow: ellipsis; }
+
+.challenge-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ds-space-6, 6px); color: var(--faint); font-size: var(--ds-size-control, 13px); }
+.challenge-meta svg { color: var(--accent); }
+
+.difficulty {
+  display: inline-flex;
+  width: fit-content;
+  padding: var(--ds-space-4, 4px) var(--ds-space-8, 8px);
+  color: var(--c-cyan);
+  border: var(--hair) solid var(--ds-scene-tides-edge, rgba(63, 240, 200, 0.45));
+  border-radius: var(--radius);
+  background: var(--accent-2-soft);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud);
+}
+.difficulty.基础 { color: var(--c-yellow); border-color: rgba(255, 196, 87, 0.32); background: rgba(255, 196, 87, 0.1); }
+.difficulty.进阶 { color: var(--c-coral); border-color: rgba(255, 131, 113, 0.32); background: rgba(255, 131, 113, 0.1); }
+
+.challenge-detail { padding: var(--ds-space-24, 24px); border: var(--hair) solid var(--line); border-radius: var(--radius); background: var(--panel); }
+
+/* 详情标签页：概览 / 编码·实验 / 证据与提交 */
+.detail-tabs {
+  display: flex;
+  gap: var(--ds-space-4, 4px);
+  margin: var(--ds-space-16, 16px) 0 var(--ds-space-14, 14px);
+  padding: var(--ds-space-4, 4px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--inset);
+}
+.detail-tab {
+  flex: 1;
+  min-height: var(--tap-min);
+  color: var(--muted);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 800;
+  transition: background var(--ds-dur-quick) var(--ease), color var(--ds-dur-quick) var(--ease);
+}
+.detail-tab:hover { color: var(--ink-strong); background: var(--panel-2); }
+.detail-tab:active { color: var(--ink-strong); background: var(--scrim-raised); }
+.detail-tab.active { color: var(--ink-strong); background: var(--accent-soft); }
+.detail-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* CHAL-01：手机为标签页（仅激活面板可见）；桌面由下方 media query 展开双栏 */
+.detail-tabpanel { display: none; flex-direction: column; gap: var(--ds-space-12, 12px); }
+.detail-tabpanel.active { display: flex; }
+/* 桌面双栏：题目（左）+ 编写与运行（右），提交记录横跨底部 */
+@media (min-width: 1024px) {
+  .detail-tabs { display: none; }
+  .challenge-detail { display: grid; grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr); gap: var(--ds-space-16, 16px); align-items: start; }
+  .detail-tabpanel { display: flex; }
+  .detail-tabpanel--overview { grid-column: 1; grid-row: 1; }

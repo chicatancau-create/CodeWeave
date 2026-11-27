@@ -1,0 +1,88 @@
+                 Layout.fillWidth: true
+@@ -1171,10 +675,8 @@ Rectangle {
+                 active: root.page === "账户" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.hostRoot = root;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/AccountPage.qml"
++                sourceComponent: AccountPage { hostRoot: root; ds: root.designSystem }
+             }
+             Loader {
+                 Layout.fillWidth: true
+@@ -1183,10 +685,8 @@ Rectangle {
+                 active: root.page === "编辑器" || visited
+                 onLoaded: {
+                     visited = true;
+-                    item.hostRoot = root;
+-                    item.ds = root.designSystem;
+                 }
+-                source: "pages/EditorPage.qml"
++                sourceComponent: EditorPage { hostRoot: root; ds: root.designSystem }
+             }
+         }
+     }
+@@ -1226,12 +726,14 @@ Rectangle {
+                 font.pixelSize: 13
+             }
+             ShellField {
++                ds: root.designSystem
+                 id: dlgCurrent
+                 Layout.fillWidth: true
+                 placeholderText: "当前密码"
+                 echoMode: TextInput.Password
+             }
+             ShellField {
++                ds: root.designSystem
+                 id: dlgNext
+                 Layout.fillWidth: true
+                 placeholderText: "新密码（至少 8 个字符）"
+@@ -1262,9 +764,12 @@ Rectangle {
+                 font.family: ds.ui
+                 font.pixelSize: 13
+             }
+-            ShellField { id: evEnv; Layout.fillWidth: true; placeholderText: "环境" }
+-            ShellField { id: evCmd; Layout.fillWidth: true; placeholderText: "命令" }
+-            ShellField { id: evSum; Layout.fillWidth: true; placeholderText: "结论摘要" }
++            ShellField {
++                ds: root.designSystem; id: evEnv; Layout.fillWidth: true; placeholderText: "环境" }
++            ShellField {
++                ds: root.designSystem; id: evCmd; Layout.fillWidth: true; placeholderText: "命令" }
++            ShellField {
++                ds: root.designSystem; id: evSum; Layout.fillWidth: true; placeholderText: "结论摘要" }
+         }
+         onAccepted: uiShell.saveExternalEvidence(evEnv.text, evCmd.text, evSum.text, "", "")
+     }
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/AccountPage.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/AccountPage.qml"
+index 538c35d..4dc96cb 100644
+--- "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/AccountPage.qml"
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/AccountPage.qml"
+@@ -134,18 +134,21 @@ Item {
+                         font.weight: Font.DemiBold
+                     }
+                     ShellField {
++                        ds: accountPage.ds
+                         id: identField
+                         Layout.fillWidth: true
+                         visible: !uiShell.hasActiveAccount
+                         placeholderText: "邮箱或手机号"
+                     }
+                     ShellField {
++                        ds: accountPage.ds
+                         id: nameField
+                         Layout.fillWidth: true
+                         visible: !uiShell.hasActiveAccount
+                         placeholderText: "你的昵称（注册时填写）"
+                     }
+                     ShellField {
++                        ds: accountPage.ds
+                         id: pwField
+                         Layout.fillWidth: true
+                         placeholderText: uiShell.hasActiveAccount
+@@ -153,6 +156,7 @@ Item {
+                         echoMode: TextInput.Password
+                     }
+                     ShellField {
++                        ds: accountPage.ds
+                         id: newPwField

@@ -1,0 +1,107 @@
+ * M4 拆分（本轮）——**只搬运 + 记忆化，不改业务行为、判定口径、DOM 结构、className、文案、
+ * `aria-*`、`id`、`role`**。拆分前 660 行一个函数：编辑器改一个字、运行一次、填一格外部证据，
+ * 都会把原文（Markdown）、流程图、六态清单连着重渲染一遍。现在的形状是：
+ * - `./learning-workspace/WorkspaceHeader`：返回 + 页级 h1 + 等级时长 + 图标动作 + 分区锚点导航；
+ * - `./learning-workspace/LessonReader`：主题原文的三种形态（正常 / 详情在路上 / 读取失败）；
+ * - `./learning-workspace/CodeEditorPane`：terminal 区头 + 编辑器 + 保存提示 + 代码草稿的四种说法；
+ * - `./learning-workspace/RuntimeTrace`：运行控制那一块 + 流程图 + 变量面板 + 控制台；
+ * - `./learning-workspace/EvidenceStateGrid`：完成入口那一行与该单元的六态清单（「谁判的」）；
+ * - `./learning-workspace/workspace-model`：只服务本页的纯函数与常量（锚点表、完成口径折算、
+ *   三档文案），五个子组件共用这一份，不再各写一遍。
+ *
+ * 留在本文件的三样东西都不是呈现：课程指南开合（`guideOpen`，它决定的是页面末尾那块内容的挂载点）、
+ * 错误定位令牌（`reveal`，编辑器与控制台共用）、外部环境证据表单（填的是「这一课」的材料，
+ * 换课即作废）。取数、写草稿、运行仍然全部在 `app.tsx`，本组件不碰。
+ *
+ * 判定与展示的唯一出口没有新增：完成判定读 `utils/lesson-evidence.ts`
+ * （`holdsCompletion` / `completionSourceOf` / `LESSON_COMPLETION_SOURCE_LABEL`）、
+ * 日期键读 `utils/date-helpers.ts` 的 `getLocalDateKey`、判题读 `engine/challenge-judge.ts`
+ * 的 `judgeOutput`、外部证据读 `utils/external-evidence.ts`（01 号方案 §9）。
+ */
+export function LearningWorkspaceView({
+  lesson,
+  code,
+  isDirty,
+  currentEvent,
+  runStatus,
+  eventIndex,
+  execution,
+  visibleOutput,
+  variables,
+  completed,
+  completionSource = null,
+  evidenceStates = null,
+  detailPending = false,
+  detailError = null,
+  onRetryDetail,
+  onMarkRead,
+  readMarked = false,
+  onComplete,
+  onBack,
+  onHelp,
+  onCodeChange,
+  onRun,
+  onPlay,
+  onStep,
+  onSeek,
+  onReset,
+  saveFeedback = '',
+  editorTabSize = 2,
+  editorWordWrap = false,
+  editorLineNumbers = true,
+}: LearningWorkspaceViewProps) {
+  const [guideOpen, setGuideOpen] = useState(false)
+  const toggleGuide = useCallback(() => setGuideOpen((open) => !open), [])
+  /**
+   * 代码模式：把本页收成「编辑区在左、运行画布在右」的单屏布局——用户要的是
+   * 参考实现 `algorithm-visualization-replica/` 那个形状，只留与写代码直接相关的那几块。
+   *
+   * 为什么是**一个类名**而不是另一套 DOM。默认布局的四个分区锚点（`#cw-pane-*`）与
+   * 导航 href 列表是契约测试逐条钉死的（`learning-workspace-view.m3.test.tsx` L285-305），
+   * 换一套 DOM 就要在「两套渲染」之间维护同一份可达性、焦点顺序与锚点表——那正是
+   * 「改一处忘一处就开始撒谎」的写法。所以这里只切根节点的类，元素一个不增不减：
+   * 默认视图与代码模式共用同一棵树，靠 CSS 决定哪一块此刻可见、摆在哪。
+   *
+   * 只改**呈现**：不隐藏焦点陷阱、不移除 tabindex，隐藏的那几块用 `display: none`
+   * （连同子树一起离开 tab 顺序与读屏顺序），不留「看不见但 Tab 能到」的暗门。
+   */
+  const [codeMode, setCodeMode] = useState(() => Boolean(lesson.code) || lesson.flow.length > 0)
+  const toggleCodeMode = useCallback(() => setCodeMode((on) => !on), [])
+  /**
+   * 换课就按新课重算默认档（2026-10-04）。
+   *
+   * 用户的诉求是「**只要点进跟代码有关的内容，就直接占满整个页面**」——也就是说
+   * 默认值不该是「关」，而是「这一课有没有代码/画布」。有 → 一进来就是沉浸式全屏；
+   * 没有（纯阅读单元）→ 保持普通版式，那时把编辑器铺满整屏反而是空场子。
+   *
+   * 为什么用**渲染期重置**而不是 `useEffect`：换课时 `lesson.id` 在这一次渲染里就已经
+   * 是新的了，用 effect 会先按旧值画一帧（全屏闪一下再收回），而渲染期 setState
+   * 由 React 立刻重渲染，那一帧不会出现。本文件对 `evidenceLessonId` 用的是同一写法。
+   * 只在**换课**时重置：用户在同一次学习里手动切回普通版式，不该被下一条笔记打断。
+   */
+  const [codeModeLessonId, setCodeModeLessonId] = useState(lesson.id)
+  if (codeModeLessonId !== lesson.id) {
+    setCodeModeLessonId(lesson.id)
+    setCodeMode(Boolean(lesson.code) || lesson.flow.length > 0)
+  }
+  /**
+   * EDIT-01 第 6 条「错误定位」：控制台只知道行号，光标与滚动住在编辑器里。
+   * 每次点击都换一个新 token，编辑器按 token 变化触发——同一行连点两次也要真的滚过去。
+   */
+  const [reveal, setReveal] = useState<{ line: number; token: number } | undefined>(undefined)
+  const locateError = useCallback(
+    (line: number) => setReveal((current) => ({ line, token: (current?.token ?? 0) + 1 })),
+    [],
+  )
+  const unit = lesson.content
+  const isExternal = unit.runEnvironment === 'external'
+  /**
+   * LEARN-01 第 5a 条：外部真实环境的课也要交**结构化**证据——与挑战页同一份模型、
+   * 同一个校验器（utils/external-evidence.ts），这里只是把它搬到工作台里来填。
+   * 表单状态留在本组件：填的是「这一课」的材料，换课即作废（下面用渲染期重置清掉，
+   * 与 ChallengesView 的 lastFocusId、app.tsx 的 lastTrackedView 同一写法）。
+   */
+  const [evidenceLessonId, setEvidenceLessonId] = useState(lesson.id)
+  const [externalEvidence, setExternalEvidence] = useState<ExternalEvidence>(() => emptyEvidence(getLocalDateKey()))
+  if (evidenceLessonId !== lesson.id) {
+    setEvidenceLessonId(lesson.id)

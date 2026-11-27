@@ -1,0 +1,101 @@
+    setExternalEvidence(emptyEvidence(getLocalDateKey()))
+  }
+  /** 外部证据的逐字段写入：稳定引用，EvidenceStateGrid 因此可以在父层重渲染时原地不动。 */
+  const patchExternalEvidence = useCallback(
+    (updates: Partial<ExternalEvidence>) => setExternalEvidence((current) => ({ ...current, ...updates })),
+    [],
+  )
+  /** 校验一次算好当事实传下去（仍是 utils/external-evidence.ts 那份口径，本组件不重算规则）。 */
+  const externalCheck = useMemo(
+    () => (isExternal ? validateExternalEvidence(externalEvidence, lessonAcceptancePoints(lesson)) : null),
+    [isExternal, externalEvidence, lesson],
+  )
+  /** 「能不能标完成、按哪一档标」的折算：整块搬到 workspace-model 的 `assessCompletion()`，算一次。 */
+  const {
+    hasCode,
+    hasFlow,
+    canAutoRun,
+    autoVerified,
+    needsRun,
+    needsVerify,
+    needsExternalEvidence,
+    completeDisabled,
+    contractJudge,
+  } = useMemo(
+    () => assessCompletion({ lesson, runStatus, execution, visibleOutput, isExternal, externalCheck, detailPending }),
+    [lesson, runStatus, execution, visibleOutput, isExternal, externalCheck, detailPending],
+  )
+  /** 四个分区的锚点：只列此刻真实存在的分区，导航不会指向不存在的 id（同一处折算）。 */
+  const panes = useMemo(() => visiblePanes(lesson, detailPending, detailError), [lesson, detailPending, detailError])
+  /** 完成那句话的三档文案出自 utils/lesson-evidence.ts 的同一张表，界面不自己抄一遍。 */
+  const completedLabel = completedLabelOf(completionSource)
+  const buttonLabel = pendingLabelOf({
+    detailPending,
+    needsRun,
+    needsVerify,
+    contractJudge,
+    canAutoRun,
+    needsExternalEvidence,
+  })
+  /**
+   * 交上去的 payload 在点这一下的当下现算（外部证据的每一项都进了依赖），
+   * 而不是把「怎么拼」下放到按钮那一格里。
+   */
+  const handleComplete = useCallback(
+    () =>
+      onComplete(
+        completionPayloadOf({ ran: autoVerified, contractJudge, isExternal, externalCheck, externalEvidence }),
+      ),
+    [onComplete, autoVerified, contractJudge, isExternal, externalCheck, externalEvidence],
+  )
+  /** 播放头走过的流程节点：以前写在 JSX 里，每次渲染都新建一个数组；现在只在游标真的动过时折一次。 */
+  const completedNodeIds = useMemo(
+    () => execution.events.slice(0, eventIndex + 1).map((e) => e.nodeId).filter(Boolean) as string[],
+    [execution.events, eventIndex],
+  )
+  /**
+   * 流程图骨架 + 每一拍的数据：把 `flow` 的节点与 `events` 按 `nodeId` 合到一处。
+   * 一个节点可能被走到多次（循环体），取**最后一次**那一拍——图上「当前」亮的是它，
+   * 右侧数据栏给的也必须是同一个快照，否则图和数据说的不是同一件事。
+   * `ordinal` 是该节点第一次被走到的次序（1 起），未走到则为 undefined（图上显示 `--`）。
+   */
+  const flowSteps = useMemo(() => {
+    const runtimeFlow = lesson.flow.length > 0
+      ? lesson.flow
+      : execution.tier === 'worker'
+        ? deriveRuntimeFlow(execution.events.filter((event) => event.type === 'line' || event.type === 'output' || event.type === 'condition' || event.type === 'loop'), code).filter((node) => node.id.startsWith('line-'))
+        : []
+    const lastEventByNode = new Map<string, { event: (typeof execution.events)[number]; ordinal: number }>()
+    execution.events.forEach((event, index) => {
+      if (!event.nodeId) return
+      const seen = lastEventByNode.get(event.nodeId)
+      lastEventByNode.set(event.nodeId, { event, ordinal: seen?.ordinal ?? index + 1 })
+    })
+    return runtimeFlow.map((node) => {
+      const hit = lastEventByNode.get(node.id)
+      return {
+        id: node.id,
+        label: node.label,
+        kind: node.kind,
+        tone: node.tone,
+        line: hit?.event.line ?? node.line,
+        event: hit?.event,
+        ordinal: hit?.ordinal,
+      }
+    })
+  }, [lesson.flow, execution, code])
+  const effectiveFlow = lesson.flow.length > 0
+    ? lesson.flow
+    : execution.tier === 'worker'
+      ? deriveRuntimeFlow(execution.events.filter((event) => event.type === 'line' || event.type === 'output' || event.type === 'condition' || event.type === 'loop'), code).filter((node) => node.id.startsWith('line-'))
+      : []
+
+  /**
+   * 画布这一拍的一帧：`flowSteps`（已经折好的节点骨架 × 每一拍）+ 当前播放下标。
+   * 只算当前这一帧，不把整段运行都折一遍——`events` 长的时候那是白算的。
+   * 帧模型是纯函数（`engine/run-stage-model.ts`），没有事件时返回 null，整块不画。
+   */
+  /**
+   * 画布这一拍的一帧。取不到帧（还没运行 / 这一段没有事件）时退到**骨架帧**：
+   * 把「这段程序有哪几步」按图形画出来，每个节点都是未走到。
+   *

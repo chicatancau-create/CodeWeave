@@ -1,0 +1,112 @@
+   * 平时未走到的节点是**不画**的（`run-stage.css` 的 `g.rs-node.is-todo { opacity: 0 }`），
+   * 因为运行时「后面还有几步」由已画出的节点与计数器交代。但运行前没有任何节点画出来，
+   * 那样整块画布是空的——用户第一眼看到工作台时会以为「这里什么都没有」。
+   * 骨架态把全部节点显出来（虚线描边、`--` 序号、无数据格），说的是
+   * 「这段程序有这几步，还没开始跑」。
+   */
+  const skeleton = stepTotal === 0
+
+  return (
+    <div className={`rs-stage${skeleton ? ' is-skeleton' : ''}`}>
+      <div className="rs-stage-head">
+        <span className="rs-stage-caption">{skeleton ? '这段程序的骨架' : frame.caption}</span>
+        {/* 骨架态不画计数器：没有拍的时候 `01 / 00` 是个假数——分子说了「第 1 拍」，
+            分母说「一共 0 拍」，两句话互相矛盾。宁可什么都不显示。 */}
+        {skeleton ? (
+          <span className="rs-counter is-idle">尚未运行</span>
+        ) : (
+          <span className="rs-counter" aria-label={`第 ${stepIndex + 1} 拍，共 ${stepTotal} 拍`}>
+            {counter(stepIndex, stepTotal)}
+          </span>
+        )}
+      </div>
+
+      {/* 回环摘要：只在真的有回边时出现，说的是「绕回来过」这件事实，不是装饰。 */}
+      {frame.loopBackFrom !== null && (
+        <p className="rs-loop-note" role="status">
+          程序在此处绕回：已经回到上面的判定 {frame.loops} 次。
+        </p>
+      )}
+
+      {/* 网格纸画布。`viewBox` 按内容算（`stage-layout`），`width:100%` 等比缩放。
+          `preserveAspectRatio` 显式写出来（默认就是 xMidYMid meet，这里是因为它承重）：
+          CSS 给了 `max-height: 34svh`，高度被压到不足等比值时，靠 `meet` 把整张图
+          完整居中缩进去，而不是裁掉两头——画布宁可小，不能缺。 */}
+      <div className="rs-canvas-wrap">
+        <svg
+          className="rs-canvas"
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="list"
+          aria-label={`程序状态图，当前第 ${stepIndex + 1} 拍，共 ${stepTotal} 拍`}
+        >
+          <defs aria-hidden="true">
+            {ARROW_STATES.map((state) => (
+              <marker
+                key={state}
+                id={`rs-arrow-${state}`}
+                className={`rs-arrow is-${state}`}
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+              >
+                <path d="M0,0 L8,4 L0,8 z" />
+              </marker>
+            ))}
+          </defs>
+
+          {/* 绘制顺序：边 → 节点 → 指针（后画的盖前面的，照参考实现）。 */}
+          <g className="rs-edges" aria-hidden="true">
+            {layout.edges.map((edge) => (
+              <Edge key={edge.id} edge={edge} />
+            ))}
+          </g>
+
+          {layout.nodes.map((laid) => (
+            <Node key={laid.node.id} laid={laid} loopBack={frame.loopBackFrom === laid.index} />
+          ))}
+
+          {/* 指针：一根短竖线 + 「此刻」，指着播放头那一格。参考实现的 pointer 那一层。 */}
+          {layout.current && (
+            <g className="rs-pointer" aria-hidden="true">
+              <text className="rs-pointer-label" x={layout.current.x + NODE_W / 2} y={layout.current.y - 22}>
+                此刻
+              </text>
+              <path
+                className="rs-pointer-line"
+                d={`M ${layout.current.x + NODE_W / 2} ${layout.current.y - 16} L ${layout.current.x + NODE_W / 2} ${layout.current.y - 4}`}
+                markerEnd="url(#rs-arrow-active)"
+              />
+            </g>
+          )}
+        </svg>
+      </div>
+
+      {/* 输出区：落下的每一行。空的时候整块不画——空框不是信息。 */}
+      {frame.outputLines.length > 0 && (
+        <div className="rs-out">
+          <span className="rs-out-title">输出</span>
+          <ol className="rs-out-list">
+            {frame.outputLines.map((line, i) => (
+              <li key={`${i}-${line}`}>{line}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* 没有拍就不画控制条：一排永远禁用的按钮是假动作（`RuntimeTrace.tsx` 同一条纪律）。 */}
+      {canStep && (
+        <div className="rs-bar">
+          <button type="button" className="rs-btn" onClick={onPrev} disabled={atStart}>
+            <SkipBack size={14} aria-hidden="true" />
+            上一步
+          </button>
+          <button
+            type="button"
+            className={`rs-btn rs-btn--play${playing ? ' is-playing' : ''}`}
+            onClick={onTogglePlay}
+            aria-pressed={playing}
+          >
+            {playing ? '暂停' : '播放'}

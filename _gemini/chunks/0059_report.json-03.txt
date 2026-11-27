@@ -1,0 +1,150 @@
+            "reviewOffsetsDays": [
+                1,
+                3,
+                7,
+                14,
+                30
+            ],
+            "runCommand": "运行按钮（教学运行器支持变量、循环、输出子集）",
+            "variant": "改成只累加偶数（2 + 4 + … + 100），提示：在循环体里加一个 if 判断。"
+        },
+        "description": "用 for 循环数一数 1 到 5",
+        "duration": "8 min",
+        "evidenceChecklist": [
+            "能不看示例写出循环累加，并解释任意一轮 total 的值。"
+        ],
+        "fileName": "main.py",
+        "flow": [
+            {
+                "id": "start",
+                "kind": "start",
+                "label": "开始",
+                "line": 1,
+                "tone": "purple"
+            },
+            {
+                "id": "init",
+                "kind": "process",
+                "label": "total = 0",
+                "line": 1,
+                "tone": "blue"
+            },
+            {
+                "id": "condition",
+                "kind": "decision",
+                "label": "i ≤ 5 ?",
+                "line": 2,
+                "tone": "yellow"
+            },
+            {
+                "id": "update",
+                "kind": "process",
+                "label": "total += i",
+                "line": 3,
+                "tone": "coral"
+            },
+            {
+                "id": "output",
+                "kind": "output",
+                "label": "输出 total",
+                "line": 0,
+                "tone": "green"
+            },
+            {
+                "id": "end",
+                "kind": "end",
+                "label": "结束",
+                "line": 0,
+                "tone": "purple"
+            }
+        ],
+        "id": "python-loop-sum",
+        "label": "01",
+        "language": "python",
+        "languageLabel": "Python",
+        "level": "入门",
+        "prerequisites": [
+            "知道什么是变量",
+            "会读写一行代码"
+        ],
+        "title": "循环是怎么工作的？"
+    },
+    "settingsInitialViewport": [
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0,
+            "storageReady": true,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 58
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1,
+            "storageReady": true,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 130
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 2,
+            "storageReady": true,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 202
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3,
+            "storageReady": true,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 274
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4,
+            "storageReady": true,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 346
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 5,
+            "storageReady": true,
+            "viewportHeight": 638,
+            "viewportWidth": 493,

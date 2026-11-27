@@ -1,0 +1,96 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick.Shapes
+import QtQuick.Effects
+import "components"
+import "pages"
+
+// ── CodeCanvas desktop shell ────────────────────────────────────────────────
+// Visual replica of the web frontend (网页端). The language stays Qt Quick/QML
+// + C++; only the presentation layer is rebuilt.
+//
+// Every number here is the RESOLVED computed value from the live web app. The
+// web loads tokens.css, then styles.css, then desktop-theme.css — and the last
+// one wins every tie. So the accent is #8ed5ff (not tokens.css' #22d3ee), the
+// page is #0f131b (not #05070d), the topbar is 68px (not 64px), and
+// --radius-panel is 8px. Measured 2026-10-06 at 1440x900.
+
+Rectangle {
+    id: root
+    width: 1440
+    height: 900
+    color: ds.page
+
+    // Performance probe hooks — these exact names must survive.
+    property bool benchmarkScrolling: false
+    property int selectedLessonIndex: 0
+    property int lessonStatusFilter: 0
+    property alias designSystem: ds
+    property bool quickActionsOpen: false
+    property bool notificationsOpen: false
+    property bool accountMenuOpen: false
+    property bool settingsOpen: false
+    property bool helpOpen: false
+    property bool checkinCalendarOpen: false
+    property string sidebarReviewDay: ""
+    function refreshSidebarReview() {
+        const today = uiShell.checkinSummary.todayKey;
+        if (!uiShell.hasActiveAccount || uiShell.operationBusy || uiShell.executionBusy
+                || uiShell.accountBusy || sidebarReviewDay === today) return;
+        sidebarReviewDay = today;
+        if (uiShell.analysisSnapshot.todayKey !== today) uiShell.refreshReviewSummary();
+    }
+    property Item dialogReturnFocusItem
+    function returnDialogFocus() {
+        const item = dialogReturnFocusItem;
+        if (item) Qt.callLater(function() { item.forceActiveFocus(Qt.PopupFocusReason); });
+    }
+    function openEvidenceDialog() {
+        evidenceDialog.open();
+        if (uiShell.hasActiveAccount && !uiShell.operationBusy && !uiShell.executionBusy)
+            uiShell.refreshReviewSummary();
+    }
+    function openLearningHelp(trigger) {
+        dialogReturnFocusItem = trigger;
+        helpDialog.open();
+    }
+    function openLesson(index) {
+        if (index < 0 || index >= uiShell.lessonMeta.length || uiShell.contentBusy
+                || uiShell.operationBusy || uiShell.accountBusy || uiShell.draftSaving) return false;
+        const lesson = uiShell.lessonMeta[index];
+        const publishedIndex = uiShell.publishedIds.indexOf(lesson.id);
+        if (publishedIndex < 0) return false;
+        if (uiShell.documentId !== lesson.id || !uiShell.hasSelectedContent) {
+            uiShell.openPublishedContent(publishedIndex);
+            if (uiShell.documentId !== lesson.id) return false;
+        }
+        selectedLessonIndex = index;
+        uiShell.selectPage("编辑器");
+        return true;
+    }
+
+    Connections {
+        target: uiShell
+        function onAccountChanged() {
+            root.sidebarReviewDay = "";
+            checkinDialog.close();
+            Qt.callLater(root.refreshSidebarReview);
+        }
+        function onOperationBusyChanged() { if (!uiShell.operationBusy) Qt.callLater(root.refreshSidebarReview); }
+        function onAccountBusyChanged() { if (!uiShell.accountBusy) Qt.callLater(root.refreshSidebarReview); }
+        function onExecutionBusyChanged() { if (!uiShell.executionBusy) Qt.callLater(root.refreshSidebarReview); }
+        function onSelectedContentChanged() {
+            for (let index = 0; index < uiShell.lessonMeta.length; index++) {
+                if (uiShell.lessonMeta[index].id === uiShell.documentId) {
+                    root.selectedLessonIndex = index;
+                    return;
+                }
+            }
+        }
+    }
+
+    function searchResults(query) {
+        const needle = query.trim().toLocaleLowerCase();
+        if (!needle) return [];
+        const rows = [];

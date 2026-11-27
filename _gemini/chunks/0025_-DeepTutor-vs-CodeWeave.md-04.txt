@@ -1,0 +1,55 @@
+| `assessment.py` | 558 | **0** | `[移植-无LLM]` |
+| `objective_relations.py` | 181 | **0** | `[移植-无LLM]` 前置知识 DAG |
+| `visual_practice.py` | 250 | 0 | `[借设计]` |
+| `migration.py` | 324 | 0 | `[借设计]` |
+| `models.py` | 623 | 1 | `[移植-无LLM]` **24 个数据类** |
+| `storage.py` | 2,060 | 1 | `[借设计]` 纯持久化，几乎无 LLM |
+| `mastery.py` / `identity.py` / `event_hub.py` | 40/67/140 | 0 | `[借设计]` |
+| `policy.py` | 555 | 4 | `[禁]` 下一步推荐靠 LLM |
+| `pending.py` / `service.py` | 283/1,996 | 4/3 | `[禁]` |
+| `prompts.py` / `topic_generation.py` / `topic_naming.py` | 156/601/166 | 43/8/8 | `[禁]` 内容生成 |
+
+**结论**：约 **2,100 行纯算法 + 2,060 行纯持久化不依赖 LLM**，可以直接照语义翻译成 C++；需要 LLM 的只有「生成内容和给建议」。
+
+### 2.4 值得借的数据模型词汇（`learning/models.py` 实读）
+
+| 概念 | 定义 | 对 CodeWeave 的价值 |
+|---|---|---|
+| `LearningStage` | `diagnostic → explain → **feynman_check** → practice → error_diagnosis → review → completed` | 你只有 `ProgressStatus` 的 `started/completed/review` 三态。**`feynman_check`（能用自己的话讲清才算过）与 `error_diagnosis` 是纯流程状态，不需要模型** |
+| `ErrorType` | `structural / deviation / application / **metacognitive**` | 错题归因四分类。你现在错题只有 `latest_result` 一个字符串 |
+| `KnowledgeType` | `memory / concept / procedure / design` | 冷启动先验按类型分档，调度器要用 |
+| `QuizAttempt` | 含 **`voided` + `void_reason`**（坏题保留审计但不计入掌握度）、`independent`、`self_attribution`、`mastery_estimate` | **`voided` 你现在完全没有**——题目本身出错了会永久污染掌握度 |
+| `LearningEvidence` | 「一次可重算保持度的持久事件」；`quality` 明确注为**从结果推断而非自评**；带 `hints_used` `attempt_count` `confidence` `response_time` `session_id` `turn_id` | 与你的 `EvidenceRecord` 同位，但多了可重算语义与 `hints_used` 计数 |
+| `RepetitionState` | `interval_index` `consecutive_correct/wrong` `next_review_at` **`difficulty` `stability` `retrievability` `desired_retention`** `review_count` `lapse_count` | **这是你原生端最缺的一整块** |
+| `ReviewTask` | `due_at` `priority` `state` **`forgetting_risk`** `reason` `evidence_source` `evidence_id` | 复习中心表格的行模型，直接对应 P2.1 |
+| `MasteryEvent` | `path_id` `revision` `event_type` `payload` ——「已提交的路径事件，供恢复与后续实时 UI 消费」 | **事件溯源 + 可重放**，与你「只追加台账」的哲学同源 |
+| `MasteryPathLease` | 路径租约 | 并发写保护（你 L3 缺的正是这个） |
+
+### 2.5 调度算法本体（`scheduler.py` 实读）
+
+- `class RetentionScheduler(Protocol)` + `class SpacedRepetitionScheduler` —— **可插拔保持度模型**
+- 自述：「默认基线是**指数遗忘 + 按知识类型的冷启动先验**，**不是标定过的 FSRS 拟合**」——诚实标注，值得学
+- 数学：`interval = max(ε, stability · −ln(desired_retention))`，`stability` 与 `interval` 互逆换算，`desired_retention` 默认 0.9
+- 排序：`review_sort_key = (−forgetting_risk, −overdue, priority)`
+- **`replay()`**：从证据流重算全部保持度状态
+- `hydrate()`：旧 JSON 无 `stability` 时从 `interval_index` 反推，**不改到期时间**（向后兼容写法）
+
+### 2.6 记忆三层（`services/memory/`）
+
+`L1 trace` = 按 surface 按天的**只追加 JSONL** + ULID 主键；`L2/L3 document` = **带脚注引用的 markdown**，解析/序列化是纯函数；`ops` = add/edit/delete 批量应用器（纯函数）；`consolidator` = **LLM 驱动的 L1→L2、L2→L3**，模式有 audit/dedup/merge/update。
+
+**可借的是 L1 这一半**：只追加 JSONL + ULID + 纯函数 ops，零 LLM。你的 `evidence.v1.log` 已经是同构物（只是 hex-TSV 而非 JSONL）。L2/L3 的蒸馏层 `[禁]`。
+
+### 2.7 为什么 agentic 层不能碰
+
+`agents/loop/agent_loop.py` 1,862 行 + `pipeline.py` 1,953 行是真正的 LLM 编排运行时（上下文折叠检查点、强制收束、延迟输出、能力拒绝）。它的价值 100% 来自背后有个模型在调；搬进应用端必须先给 `native/src` 加网络栈与密钥管理 → **直接违反 C1/C2，且每次交互烧额度**。
+
+---
+
+## 3. 能力对照图
+
+| 能力域 | DeepTutor（证据） | CodeWeave 原生（证据） | 差距与判定 |
+|---|---|---|---|
+| **内容来源** | 文档/epub/YouTube·B站/教材编译（`book/` `reading/` `video_learning/` 20,986 行） | 版本化内容包 61 课 + 正文 sha256 校验（`content_repository.cpp:181`） | 路线不同，**不借**。你的内容不可变+可校验，是它的投影做不到的 |
+| **知识图谱/RAG** | LlamaIndex + LightRAG（`knowledge/` 5,386 行） | 无 | `[禁]` 需模型与索引服务 |
+| **掌握度模型** | 6 级？→ 实为 `MasteryTopic`+`RepetitionState`+`difficulty/stability`（models.py） | **原生无掌握度存储**；6 级只在网页端 `网页端/项目/src/data/mastery.ts:12` `MASTERY_LEVEL_NAMES`（未开始/了解/模仿完成/独立完成/能教别人/能优化扩展/稳定掌握） | **两边都要补，但先补自己的**：把 TS 语义移植进 C++（见 4.1）。`[移植-无LLM]` |

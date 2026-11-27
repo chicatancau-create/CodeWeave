@@ -1,0 +1,118 @@
+  baseCssCode = fs
+    .readFileSync(path.resolve(proc.cwd(), 'src/components/flow-chart.css'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+  cssRules = collectRules(cssCode)
+  styleRules = cssRules.filter((rule) => !rule.insideKeyframes)
+})
+
+/** 扁平收集「选择器 → 声明块」，同时标记 @keyframes / @media 归属。 */
+function collectRules(css: string): CssRule[] {
+  const rules: CssRule[] = []
+  const atStack: string[] = []
+  let buffer = ''
+  let index = 0
+  while (index < css.length) {
+    const char = css[index] as string
+    if (char === '{') {
+      const head = buffer.trim()
+      buffer = ''
+      index += 1
+      if (head.startsWith('@')) {
+        atStack.push((head.split(/\s+/)[0] as string) ?? head)
+        continue
+      }
+      let depth = 1
+      const start = index
+      while (index < css.length && depth > 0) {
+        const inner = css[index] as string
+        if (inner === '{') depth += 1
+        else if (inner === '}') depth -= 1
+        index += 1
+      }
+      rules.push({ selector: head, insideKeyframes: atStack.includes('@keyframes'), block: css.slice(start, index - 1) })
+      continue
+    }
+    if (char === '}') {
+      atStack.pop()
+      buffer = ''
+      index += 1
+      continue
+    }
+    buffer += char
+    index += 1
+  }
+  return rules
+}
+
+function blockOf(selector: string): string {
+  const rule = styleRules.find((item) =>
+    item.selector
+      .split(',')
+      .map((part) => part.trim())
+      .includes(selector),
+  )
+  return rule ? rule.block : ''
+}
+
+/** 读组件源码字节：审计持续资源用，不看注释推断。 */
+function sourceOf(key: string): string {
+  const text = rawSources[key]
+  if (text === undefined) throw new Error(`源码未被打进测试：${key}`)
+  return text
+}
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
+
+/* ──────────────────────── 1. 分栏骨架（§5.2） ──────────────────────── */
+
+describe('M3 学习工作台 · 黑场分栏四区骨架', () => {
+  it('阅读 / 代码 / 变量 / 控制台四区都有独立锚点', () => {
+    const { container } = renderWorkspace()
+    for (const id of ['cw-pane-reading', 'cw-pane-code', 'cw-pane-variables', 'cw-pane-console']) {
+      expect(container.querySelector(`#${id}`)).toBeTruthy()
+    }
+    // 四区各自成块：阅读区带原文头，代码区带编辑器，变量/控制台带 panel 头
+    expect(container.querySelector('#cw-pane-reading .reading-head')).toBeTruthy()
+    expect(container.querySelector('#cw-pane-code textarea')).toBeTruthy()
+    expect(container.querySelector('#cw-pane-variables .variables-panel')).toBeTruthy()
+    expect(container.querySelector('#cw-pane-console .console-panel')).toBeTruthy()
+  })
+
+  it('分区导航只列真实存在的分区，且每个 href 都有对应锚点', () => {
+    const { container } = renderWorkspace()
+    const nav = container.querySelector('nav.cw-pane-nav')
+    expect(nav?.getAttribute('aria-label')).toBe('工作台分区导航')
+    const links = Array.from(nav?.querySelectorAll('a') ?? [])
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '#cw-pane-reading',
+      '#cw-pane-code',
+      '#cw-pane-variables',
+      '#cw-pane-console',
+    ])
+    for (const link of links) {
+      const id = (link.getAttribute('href') ?? '').slice(1)
+      expect(container.querySelector(`#${id}`)).toBeTruthy()
+    }
+    expect(nav?.textContent).toContain('01')
+    expect(nav?.textContent).toContain('04')
+  })
+
+  it('无代码单元不留下死锚点：导航只剩阅读 + 变量 + 控制台', () => {
+    const { container } = renderWorkspace({ lesson: baseLesson({ code: '', reading: undefined }) })
+    const links = Array.from(container.querySelectorAll('nav.cw-pane-nav a'))
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['#cw-pane-variables', '#cw-pane-console'])
+    expect(container.querySelector('#cw-pane-code')).toBeNull()
+    expect(container.querySelector('#cw-pane-reading')).toBeNull()
+  })
+
+  it('返回路径与帮助入口始终在页首（手机上不照搬模板隐藏轨道文字）', () => {
+    const { props } = renderWorkspace()
+    fireEvent.click(screen.getByRole('button', { name: '返回课程列表' }))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: '查看学习指南' }))
+    expect(props.onHelp).toHaveBeenCalledTimes(1)
+  })
+

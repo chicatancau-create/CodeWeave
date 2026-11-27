@@ -1,0 +1,145 @@
+      "webSha256": "916d5a76e6cddb5dfb8662e9c9cad9be20b34f76260ab263d19a3dd15a97c714"
+    },
+    {
+      "name": "topbar-settings",
+      "qt": "qt-topbar/topbar-settings.png",
+      "web": "web-topbar/topbar-settings.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1291100,
+      "differentPixelPercent": 99.6219,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 70.2146,
+        "16": 29.7411,
+        "32": 6.141
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.2739,
+        12.8263,
+        16.5294
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "9e6c4be7643e6afc1eb2a11c0ac39136d5797507ab0628d70cf09b5784b3b58d",
+      "webSha256": "80aca3f7fa4c282960baca95c37a7b645c9469c5e56d92947b5b782ab4c7732a"
+    },
+    {
+      "name": "topbar-help",
+      "qt": "qt-topbar/topbar-help.png",
+      "web": "web-topbar/topbar-help.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1280795,
+      "differentPixelPercent": 98.8268,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 84.4158,
+        "16": 40.086,
+        "32": 6.2106
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.6395,
+        13.7005,
+        18.0941
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "c6b7ba99a0d4fb26de2b0bc10cc28bf209b0f957cfc033e27ef0352728d9f311",
+      "webSha256": "18d8f0770e50003f0b7d9275d8ef4f1050185fa2c2ed36413f355e4dd990fef2"
+    },
+    {
+      "name": "topbar-shell-1100",
+      "qt": "qt-topbar/topbar-shell-small.png",
+      "web": "web-topbar/topbar-shell-small.png",
+      "status": "measured",
+      "width": 1100,
+      "height": 720,
+      "pixels": 792000,
+      "differentPixels": 754661,
+      "differentPixelPercent": 95.2855,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 61.89,
+        "16": 36.1242,
+        "32": 16.3581
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        15.5308,
+        19.832,
+        22.7613
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1100,
+        720
+      ],
+      "qtSha256": "a476cf97385fff94595380daf8744d2e1d2d020bd34259822fbd2ef0a1d3f0e7",
+      "webSha256": "38f498ee3ce3f6670c73f399a98d0e0a4d1d67f99dc20d887f98d5dc8e2e378b"
+    },
+    {
+      "name": "topbar-settings-1100",
+      "qt": "qt-topbar/topbar-settings-small.png",
+      "web": "web-topbar/topbar-settings-small.png",
+      "status": "measured",
+      "width": 1100,
+      "height": 720,
+      "pixels": 792000,
+      "differentPixels": 787822,
+      "differentPixelPercent": 99.4725,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 60.8625,
+        "16": 27.7655,
+        "32": 5.5961
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        9.606,
+        12.2267,
+        15.6926
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1100,
+        720
+      ],
+      "qtSha256": "705c601ff2f4a65cc70d38c6bf111c8f5f1126e5388733e02835dd3b3e0b5d3a",
+      "webSha256": "b642fac6293031b6b239dcaf14439b3f126405990bd31081e471eaf380f65123"
+    },
+    {
+      "name": "learning",
+      "qt": "qt-workspace/qt-learning.png",
+      "web": "web-pages/web-learning.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 959263,
+      "differentPixelPercent": 74.0172,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.2981,
+        "16": 21.6789,
+        "32": 11.2069
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.6205,
+        15.0148,
+        16.6924
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "bc5af4811fa105a8a0e3608c2cb0214965c21156c47087f5ab215b9810390c57",

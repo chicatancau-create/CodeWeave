@@ -1,0 +1,85 @@
+   * - 部分成功：日志已写入但后续失败时保留事务与备份，提示「日志已保存，进度待合并」。
+   */
+  async function commit({ userId, operationId, expectedHashes }) {
+    await requireOwner(userId)
+    const root = requireRoot()
+    if (typeof operationId !== 'string' || !OPERATION_ID.test(operationId)) {
+      throw new WritebackError('invalid_operation', 'operationId 格式非法')
+    }
+    const transaction = await readTransaction(operationId)
+    if (!transaction) throw new WritebackError('operation_not_found', '找不到对应的预览事务；请重新预览')
+    if (transaction.userId !== userId) throw new WritebackError('forbidden', '该写回事务属于其他账户')
+    if (transaction.state === WRITEBACK_STATE.SYNCED) {
+      return { synced: true, idempotent: true, operationId, targets: transaction.targets.map((step) => ({ path: step.path, kind: step.kind, applied: true })) }
+    }
+    if (transaction.state === WRITEBACK_STATE.ROLLED_BACK) {
+      throw new WritebackError('operation_rolled_back', '该写回已回滚；请重新预览后再提交')
+    }
+
+    // 客户端回传的 expectedHash 必须与预览一致：不一致说明页面基于旧预览，直接拒绝。
+    if (expectedHashes && typeof expectedHashes === 'object') {
+      for (const step of transaction.targets) {
+        if (Object.hasOwn(expectedHashes, step.path) && (expectedHashes[step.path] ?? null) !== step.expectedHash) {
+          throw new WritebackError('stale_preview', '页面上的预览已过期，请重新预览后再提交', { path: step.path })
+        }
+      }
+    }
+
+    transaction.state = WRITEBACK_STATE.WRITING
+    await writeTransaction(transaction)
+
+    // 写入顺序与账本展示共用同一份事实（stepsInWriteOrder），界面不会看到另一套顺序。
+    const steps = stepsInWriteOrder(transaction.targets)
+
+    // -----------------------------------------------------------------------
+    // 阶段 A：先读全部目标、算好要写的内容。冲突与结构问题都在**任何写入之前**暴露，
+    // 这样「冲突不丢第三方内容」是结构上成立的，而不是靠写一半再回退。
+    // -----------------------------------------------------------------------
+    const planned = []
+    for (const step of steps) {
+      const current = await readTarget(root, step.path)
+      if (!step.applied && step.intendedHash && step.intendedHash === current.hash) {
+        step.applied = true
+        step.postHash = step.intendedHash
+        step.appliedAt = new Date().toISOString()
+        await writeTransaction(transaction)
+      }
+      // 已应用的步骤（断线重试/恢复）直接跳过，不重复追加。
+      if (step.applied && step.postHash === current.hash) {
+        planned.push({ step, mode: 'applied', current, desired: null })
+        continue
+      }
+      if (step.applied && step.postHash !== current.hash) {
+        transaction.state = WRITEBACK_STATE.PARTIAL
+        transaction.result = { logSaved: false, message: '已写入的文件被第三方再次修改，已停止；请人工合并' }
+        await writeTransaction(transaction)
+        throw new WritebackError('sync_conflict', '已写入的文件被第三方再次修改，已停止自动写入', await conflictDetails(root, transaction))
+      }
+      const baseline = step.preHash ?? step.expectedHash ?? null
+      if (current.hash !== baseline) {
+        transaction.state = WRITEBACK_STATE.PARTIAL
+        transaction.result = { logSaved: false, message: '目标文件已被其他编辑者修改，检测到冲突' }
+        await writeTransaction(transaction)
+        throw new WritebackError('sync_conflict', '目标文件已被其他编辑者修改，未写入任何内容', await conflictDetails(root, transaction))
+      }
+      let desired
+      try {
+        desired = await desiredText(root, step, transaction)
+      } catch (error) {
+        transaction.state = WRITEBACK_STATE.FAILED
+        transaction.result = { logSaved: false, message: scrubLocalPaths(error?.message ?? '写回失败') }
+        await writeTransaction(transaction)
+        throw error
+      }
+      planned.push({ step, mode: desired.changed ? 'write' : 'skip', current, desired })
+    }
+
+    // -----------------------------------------------------------------------
+    // 阶段 B：按「日志 → 进度 → 索引」顺序写入。写前再核对一次指纹，缩小竞态窗口。
+    // 若在写入过程中被打断（含第三方并发修改），保留事务与备份，供恢复/回滚。
+    // -----------------------------------------------------------------------
+    let logSaved = false
+    for (const item of planned) {
+      const { step } = item
+      if (item.mode === 'applied') {
+        if (step.kind === 'log') logSaved = true

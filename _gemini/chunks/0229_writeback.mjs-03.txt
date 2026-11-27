@@ -1,0 +1,112 @@
+    if (plainText(cells[1]) === skill) return plainText(cells[2])
+  }
+  return null
+}
+
+/** 顶部说明行里的「最近学习证据」日期。 */
+function latestEvidenceDate(text) {
+  const line = text.split('\n').find((value) => value.includes('最近学习证据'))
+  const match = line ? /最近学习证据\s*[：:]\s*(\d{4}-\d{2}-\d{2})/.exec(plainText(line)) : null
+  return match?.[1] ?? null
+}
+
+/**
+ * 总计划 §0 索引的定位：找到 `### YYYY-MM` 标题，新行插在标题下一行（日期倒序 → 最新在前）。
+ * 月份不存在时，在 §0 的说明行之后新建一个月份块。
+ */
+function locateIndexInsertion(text, month) {
+  const lines = text.split('\n')
+  const headingIndex = lines.findIndex((line) => new RegExp(`^###\\s+${escapeRegExp(month)}\\s*$`).test(line.trim()))
+  if (headingIndex !== -1) return { index: headingIndex + 1, lines }
+  const noteIndex = lines.findIndex((line) => line.startsWith('> 每日记录统一存放'))
+  const sectionIndex = lines.findIndex((line) => line.trim() === '## 0. 学习日志索引')
+  const anchor = noteIndex !== -1 ? noteIndex + 1 : sectionIndex !== -1 ? sectionIndex + 1 : -1
+  if (anchor === -1) return null
+  // 在说明行后插入空行 + 月份标题，再插入索引行
+  lines.splice(anchor, 0, '', `### ${month}`)
+  return { index: anchor + 2, lines }
+}
+
+// ---------------------------------------------------------------------------
+// 服务
+// ---------------------------------------------------------------------------
+/**
+ * 一条证据能否支撑掌握等级晋级（DATA-08）。
+ * 总计划 §7.1：只有经过练习、输出或测试才能提升等级 —— 所以
+ * AI 代跑、仅阅读、没有留下实际输出、或用到 L3/L4 提示的，都不算。
+ * 服务端独立判定，不信任界面传来的 independent。
+ */
+export function promotableEvidence(record) {
+  if (!record) return false
+  if (record.ranBy !== 'learner') return false
+  if (record.independent !== true) return false
+  if (['L3', 'L4'].includes(record.hintLevel ?? '')) return false
+  return String(record.actual ?? '').trim() !== ''
+}
+
+export function createWritebackService({ dataRoot, vaultRoot, evidenceStore, ownerStore }) {
+  const txDir = join(dataRoot, 'learning', 'writeback')
+  const backupDir = join(txDir, 'backups')
+  let writeQueue = Promise.resolve()
+
+  function serialize(operation) {
+    const result = writeQueue.then(operation)
+    writeQueue = result.catch(() => {})
+    return result
+  }
+
+  function resolveRoot() {
+    return resolveVaultRoot(vaultRoot ?? process.env.CODEWEAVE_VAULT_ROOT)
+  }
+
+  function requireRoot() {
+    const resolved = resolveRoot()
+    if (!resolved.ok) throw new WritebackError('vault_unavailable', `资料库根不可用：${resolved.reason}`)
+    return resolved.root
+  }
+
+  async function requireOwner(userId) {
+    const record = await ownerStore.read()
+    if (!record.ownerUserId) throw new WritebackError('owner_unbound', '正式进度与写回未开放：资料库拥有者尚未绑定')
+    if (record.ownerUserId !== userId) throw new WritebackError('forbidden', '只有资料库拥有者才能写回正式记录')
+    const root = requireRoot()
+    const active = JSON.parse(await readVaultText(root, 'CodeWeave/content-manifest.json'))
+    if (active.vaultId !== record.vaultId) throw new WritebackError('owner_vault_mismatch', '拥有者绑定属于其他资料库')
+    return record
+  }
+
+  function txPathOf(operationId) {
+    return join(txDir, `${safeSegment(operationId)}.json`)
+  }
+
+  async function readTransaction(operationId) {
+    const path = txPathOf(operationId)
+    if (!existsSync(path)) return null
+    try {
+      return JSON.parse(await readFile(path, 'utf8'))
+    } catch {
+      throw new WritebackError('transaction_corrupt', '写回事务记录损坏，已停止自动写入；请人工核对后处理')
+    }
+  }
+
+  async function writeTransaction(transaction) {
+    await mkdir(txDir, { recursive: true })
+    const path = txPathOf(transaction.operationId)
+    const temp = `${path}.${process.pid}.tmp`
+    await writeFile(temp, `${JSON.stringify(transaction, null, 2)}\n`, 'utf8')
+    await rename(temp, path)
+    return transaction
+  }
+
+  /** 先读当前文本与指纹；文件不存在时返回 null 指纹（用于「新建日志」）。 */
+  async function readTarget(root, relPath) {
+    let text = null
+    try {
+      text = await readVaultText(root, relPath)
+    } catch (error) {
+      if (!(error instanceof ContentError) || error.code !== 'source_not_found') throw error
+    }
+    return { text, hash: text === null ? null : sha256(text) }
+  }
+
+  /**

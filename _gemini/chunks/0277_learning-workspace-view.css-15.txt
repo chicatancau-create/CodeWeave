@@ -1,0 +1,121 @@
+   `.main-content` 的整幅宽度，只留 `--pad-page` 一圈安全边距作视觉矩形。
+
+   两条一起出现才算数：`.cw-workspace.is-code-mode`（确实是代码模式，而不是
+   沉浸式的别的页）且 `.app-shell.is-immersive`（外壳确实是沉浸式）。只靠后者
+   会把首页/内容来源页一起放大，那不是这个动作要的效果。
+
+   用 `:has()` 而不是后代选择器：`.content-wrap` 是 `.cw-workspace` 的**父节点**
+   （实测链条 `.content-wrap > .cw-workspace`），写成 `.cw-workspace … .content-wrap`
+   永远匹配不到。`:has(> …)` 读作「这个内容列里装着一个处于代码模式的工作台」，
+   子组合器与真实层级一致，别的工作台之外的页不受影响。 */
+.app-shell.is-immersive .content-wrap:has(> .cw-workspace.is-code-mode) {
+  max-width: none;
+}
+
+/* ── §5.3 第 3 条：真正停止持续动效（不是放慢） ────────────────────────
+   本文件已经不含 @keyframes 与无限动画，因此这里要停掉的是：
+   1) 自身保留的悬停/焦点颜色过渡；
+   2) 继承自 styles.css 的循环动画（run-indicator 的 blink、变量行的 value-pop）
+      —— 用 `animation: none` 掐掉，而不是把 duration 乘 0.35。
+   两条触发路径都要覆盖：系统 prefers-reduced-motion 与应用内“减少动效”设置
+   （app.tsx 在根节点挂 .reduce-motion）。 */
+@media (prefers-reduced-motion: reduce) {
+  .cw-workspace,
+  .cw-workspace *,
+  .cw-workspace *::before,
+  .cw-workspace *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion .cw-workspace,
+.reduce-motion .cw-workspace *,
+.reduce-motion .cw-workspace *::before,
+.reduce-motion .cw-workspace *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── 宽屏“钉进一屏”的预算校准（2026-10-01 实测） ──────────────────────────────
+   上面 `--cw-chrome-h: 252px` 是当初**估**的，注释自己写明「取一个保守常量而不是
+   量出来的精确值」。单屏化实测后，它保守得太多了——在 1600×900、侧边栏展开的
+   实际布局里，外壳真正占掉的只有：
+
+     外壳上下内边距 8 + 8        =  16   （沉浸式下由 styles.css 收窄）
+     .learning-header 69 + 14    =  83
+     .cw-pane-nav                =  62
+     .lesson-insight 41 + 10     =  51
+     ─────────────────────────────────
+                                   212
+
+   也就是说 252 里多出来的那截并没有被任何东西占用，而是被 `max-height` 从工作区
+   身上扣走了：`.cw-workspace` 只能长到 648px，视口里却还剩约 690px，底下空出一条
+   没人用的横带——用户看到的「全挤在上半屏」就是它。
+
+   精确重测（`.cw-workspace` 的 top 到文档底）得 234，逐项对得上：
+     内容外壳上内边距 8 + 外壳到工作区 153（topbar 64 + 页头 83 + 导航 62，减去重合）
+     + 洞察条 51 + 下内边距 8 … 实测合计 234。
+   所以取 234：这一档下 `100vh - 234 = 666`，工作区 666 + 234 = 900，正好一屏。
+   再小就溢出一根文档滚动条（用户明确不要），再大就重新留出那条横带。 */
+.cw-workspace {
+  --cw-chrome-h: 234px;
+}
+
+/* ── 窄屏（≤1080px）一屏化：宽屏那套「两列各自滚」在这里没有列可滚 ─────────────
+   1081 以下 `.learning-view` 退回单列，五个分区纵排。宽屏档是让**两列各滚**，
+   这里只剩一列，所以滚动的职责落到 `.learning-view` 自己身上——它就是那个「小框」：
+   外面（页头 / 导航 / 洞察条）静止不动，要滑就在这个框里滑。
+
+   为什么不做成「阅读 / 代码 / 画布」三个 Tab 而不是内部滚动：用户原话是「多点几个
+   页面多好」「需要滑就给它一个小框」。本档先落**小框**这一半（改动最小、风险最低）；
+   Tab 化要动 `.learning-view` 的结构，而 `nav.cw-pane-nav` 的四个锚点 href 被
+   m3 测试逐条钉住（#cw-pane-reading / -code / -variables / -console），
+   结构一动就是假锚点，得连测试一起重设计——那是下一步，不是这一步。 */
+@media (max-width: 1080px) {
+  /* 窄屏外壳更高：页头 4 个动作按钮换行 + 导航 pill 换行，实测比宽屏多占约 40px。
+     不给足的话 max-height 会把工作台压得太短，下面又留出一条没人用的横带。 */
+  .cw-workspace {
+    --cw-chrome-h: 268px;
+    /* 地板在窄屏要撤掉：480px 的地板 > 手机横屏的可用高度，会反过来逼出一根
+       文档滚动条——那正是要消灭的东西。 */
+    min-height: 0;
+    /* ★ 小框就是工作台自己（2026-10-01 二次修）。上一版让小框落在 `.learning-view`
+       身上，但页头 55 + 导航 56 + 洞察条 117 = 228px 是**固定的、在小框外面**的，
+       窄屏实测工作台总共只有 311px——小框只剩 63px，比不做还糟。
+       改成整个工作台做唯一滚动容器：页头/导航/洞察/正文一起滚，一根滚动条，
+       外层页面仍然纹丝不动。这才是用户说的「你给它一个小框，我去看小框里面的滑动」。 */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cw-workspace .learning-view {
+    /* 单列、自然高度——滚动交给工作台，这里不再自己开一个嵌套滚动区。 */
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  /* 单列里每块按内容高，别让 flex 把它们压扁。 */
+  .cw-workspace .workspace,
+  .cw-workspace .right-panels {
+    min-height: 0;
+    overflow: visible;
+  }
+  .cw-workspace .workspace > *,
+  .cw-workspace .right-panels > * {
+    flex: 0 0 auto;
+  }
+  /* 指南开着的时候是纵排里的又一长条：给它自己的上限，别跟小框抢高度。 */
+  .cw-workspace .lesson-guide {
+    flex: 0 0 auto;
+    max-height: 40vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cw-workspace .lesson-insight {
+    flex: 0 0 auto;
+  }
+}
+
+/* ── 手机档（≤640px）：把工作区自己的外壳再压一档 ───────────────────────────
+   桌面预览窗实测 590×551——正是用户看东西的那个尺寸。这一档上外壳 262px 已经是死数

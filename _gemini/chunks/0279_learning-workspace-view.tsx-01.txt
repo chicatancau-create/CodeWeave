@@ -1,0 +1,106 @@
+import { useCallback, useMemo, useState } from 'react'
+import type { ExecutionResult, Lesson, RunStatus, TraceEvent, VariableValue } from '../types/lesson'
+import { LessonSourceDetail } from './content-source-view'
+import { lessonDurationLabel } from '../utils/lesson-duration'
+import { getLocalDateKey } from '../utils/date-helpers'
+import { emptyEvidence, validateExternalEvidence, type ExternalEvidence } from '../utils/external-evidence'
+import { lessonAcceptancePoints, type LessonCompletionSource, type LessonEvidenceStates } from '../utils/lesson-evidence'
+import { CodeEditorPane } from './learning-workspace/CodeEditorPane'
+import { skeletonStageFrame, stageFrameAt } from '../engine/run-stage-model'
+import { deriveRuntimeFlow } from '../engine/runtime-flow'
+import { EvidenceStateGrid } from './learning-workspace/EvidenceStateGrid'
+import { LessonReader } from './learning-workspace/LessonReader'
+import { RuntimeTrace, RuntimeTraceControls } from './learning-workspace/RuntimeTrace'
+import { WorkspaceHeader } from './learning-workspace/WorkspaceHeader'
+import {
+  assessCompletion,
+  completedLabelOf,
+  completionPayloadOf,
+  pendingLabelOf,
+  visiblePanes,
+  type LessonCompletionPayload,
+} from './learning-workspace/workspace-model'
+/* M3 视觉竖切（01 号方案 §3.2 主工作台）：样式全部限定在 .cw-workspace 之下，
+   不改子组件、不写全局裸选择器，避免影响挑战页与项目页。 */
+import './learning-workspace-view.css'
+
+/**
+ * 对外入口不变：`app/src/app.tsx` 仍以 `import type { LessonCompletionPayload }
+ * from './components/learning-workspace-view'` 引它，正文与审计注释在
+ * `./learning-workspace/workspace-model.ts`（01 号方案 §4 的拆分本轮只搬运行不搬 API）。
+ */
+export type { LessonCompletionPayload }
+
+type LearningWorkspaceViewProps = {
+  lesson: Lesson
+  code: string
+  isDirty: boolean
+  currentEvent: TraceEvent | undefined
+  runStatus: RunStatus
+  eventIndex: number
+  execution: ExecutionResult
+  visibleOutput: string[]
+  variables: VariableValue[]
+  completed: boolean
+  /**
+   * LEARN-01 第 4 条：已完成时这一格要说清是**谁判的**。
+   * 01 号方案 §9 收口：改版前这里收的是 `CompletionVerification`（只有自动/自评两档），
+   * 上层另写了一个 `lastCompletionVerification()` 从 evidence 数组里从后往前扫——那是
+   * 「这一课算不算完成、谁判的」的第二份实现。现在读侧只有一个出口
+   * `completionSourceOf()`（utils/lesson-evidence.ts），三档：自动验证 / 自行声明 / 延迟复测掌握。
+   * 缺省按「不知道」读，不追认成验证过。
+   */
+  completionSource?: LessonCompletionSource | null
+  /**
+   * LEARN-01 第 4 条：这一课当前成立的学习状态。
+   * 缺省按「什么都没记」读（不猜）；上层从掌握度记录派生后传下来，本组件不自存一份真相。
+   */
+  evidenceStates?: LessonEvidenceStates | null
+  /**
+   * #105：资料库课程的「主题原文 + 代码 + 练习契约」是点开之后另一次取数才落地的
+   * （`app.tsx` 的 `loadLessonDetail`）。在这一秒里，`lesson.reading` 还没有、`lesson.code`
+   * 还是目录占位的空串——于是界面会先说「本单元没有配套代码」，一秒后又把原文和编辑器摆出来。
+   * 那句「没有」是**还没读到**，不是**没有**，所以这一秒改说加载中（并且给原文区留出占位高度，
+   * 让内容落地时不要把下面的代码区整体推走——terminal109 量到的是视口 24%—78% 的回流）。
+   */
+  detailPending?: boolean
+  /**
+   * 01 号方案 §4 的 error 行：主题原文与练习契约**读取失败**时的原因（由上层按当前这一课给）。
+   * 与 `detailPending` 是两句话——「还在路上」不说「没有」，「读失败」也不说「这一课没有原文」。
+   * 改版前两者都掉进「本单元没有配套代码」那句只在真的没有时才成立的文案里。
+   */
+  detailError?: string | null
+  /** 失败后的重试动作：重放同一次详情取数，不清用户已写的草稿。 */
+  onRetryDetail?: () => void
+  /** 「标记已阅读」：能诚实拿到「读过」的唯一方式是学习者自己按这一下。 */
+  onMarkRead?: () => void
+  /** 已标记过就不再给按钮（重复标记只会多出同样一条信号，那是假数据）。 */
+  readMarked?: boolean
+  onComplete: (payload: LessonCompletionPayload) => void
+  onBack: () => void
+  onHelp: () => void
+  onCodeChange: (code: string) => void
+  onRun: () => void
+  /**
+   * 画布那枚「播放」要的回调（2026-10-04 拆出来）。
+   *
+   * 它与 `onRun` 不是同一件事：`onRun` 是运行条的「开始运行」——第一次点击**只落到第一拍
+   * 就停**（用户原话「点击『开始运行』时，中间就会出现最开始的内容」）；`onPlay` 是画布上
+   * 写着「播放」的那一枚——第一次点击**直接放到底**。两者共用一支函数，必有一个名不副实。
+   */
+  onPlay: () => void
+  onStep: () => void
+  /** 画布「上一步」：把播放头移到任意一拍（`use-execution.ts` 的 `handleSeek`）。 */
+  onSeek: (index: number) => void
+  onReset: () => void
+  /** SAVE-01 第 4 条：Ctrl/Cmd+S 的真实结果（成功/失败），由 app 层给，落在代码区头部那句话里。 */
+  saveFeedback?: string
+  /** EDIT-01：编辑器的三件设置（Tab 宽度 / 自动换行 / 行号），由设置弹窗真驱动。 */
+  editorTabSize?: number
+  editorWordWrap?: boolean
+  editorLineNumbers?: boolean
+}
+
+/**
+ * 学习工作台（01 号方案 §3.2 主工作台 / §4 组件拆分的本页落地）。
+ *

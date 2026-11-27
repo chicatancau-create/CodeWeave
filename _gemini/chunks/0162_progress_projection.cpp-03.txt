@@ -1,0 +1,32 @@
+            level.label != "待确认" && level.label != "暂估" && level.label != "未填写") {
+          projection.unparsed.push_back({"section-3", "value", "等级写法未被识别"});
+        }
+        projection.mastery.push_back({skill, level, cell_of(rows[index], status_index), cell_of(rows[index], evidence_index)});
+      }
+    }
+  }
+
+  rows.clear();
+  require_table(sections, "7", projection.unparsed, rows);
+  if (!rows.empty()) {
+    for (size_t index = 1; index < rows.size(); ++index) {
+      const auto id = cell_of(rows[index], 0);
+      if (id.empty()) continue;
+      if (id.size() < 2 || id.front() != 'S' || !std::all_of(id.begin() + 1, id.end(), [](unsigned char c) {
+            return std::isdigit(c) != 0;
+          })) {
+        projection.unparsed.push_back({"section-7", "value", "阶段标识未被识别"});
+        continue;
+      }
+      projection.stages.push_back({id, cell_of(rows[index], 1), cell_of(rows[index], 2), cell_of(rows[index], 3)});
+    }
+  }
+
+  const bool has_section_issue = std::any_of(projection.unparsed.begin(), projection.unparsed.end(),
+      [](const ProjectionIssue& issue) { return issue.scope == "section"; });
+  projection.status = has_section_issue ? ProgressStatus::StructureUnsupported
+      : projection.unparsed.empty() ? ProgressStatus::Ok : ProgressStatus::Partial;
+  return projection;
+}
+
+}  // namespace codeweave::learning

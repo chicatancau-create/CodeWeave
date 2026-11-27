@@ -1,0 +1,97 @@
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
+  const checkedDates = useMemo(() => new Set(checkin.checkinDates), [checkin.checkinDates])
+  const monthGrid = useMemo(() => buildMonthGrid(calendarMonth.year, calendarMonth.month), [calendarMonth])
+
+  const shiftMonth = (delta: number) => {
+    setCalendarMonth((current) => {
+      const next = new Date(current.year, current.month + delta, 1)
+      return { year: next.getFullYear(), month: next.getMonth() }
+    })
+  }
+
+  return (
+    <aside className="sidebar" aria-label="主导航">
+      <div className="brand">
+        <div className="brand-mark">
+          <Sparkles size={16} strokeWidth={2.5} />
+        </div>
+        <span>
+          code<span className="brand-accent">canvas</span>
+        </span>
+      </div>
+
+      <div className="workspace-switcher">
+        <div className="workspace-icon">{user.name.slice(0, 1).toUpperCase()}</div>
+        <div className="workspace-copy">
+          <strong>{user.name} 的学习区</strong>
+          <span>全栈冲刺 · {totalStages} 阶段</span>
+        </div>
+      </div>
+
+      <p className="nav-label">工作台</p>
+      <nav className="main-nav" aria-label="模块导航">
+        {NAV_ITEMS.map((item, position) => (
+          <button
+            key={item.id}
+            className={`nav-item ${view === item.id ? 'active' : ''}`}
+            onClick={() => onNavigate(item.id)}
+            aria-current={view === item.id ? 'page' : undefined}
+          >
+            {/* 编号是真实 DOM 文本（见 navIndex 注释）：它在按钮名称里、在 DOM 顺序里 */}
+            <span className="nav-item__index">{navIndex(position)}</span>
+            {/* 图标是装饰：lucide 默认已带 aria-hidden，这里显式写出以免版本变化 */}
+            <item.icon size={16} aria-hidden="true" />
+            <span>{VIEW_META[item.id].label}</span>
+            {item.id === 'challenges' && remainingChallenges > 0 && (
+              <span className="nav-badge">
+                {remainingChallenges}
+                <span className="nav-badge__sr">个挑战待完成</span>
+              </span>
+            )}
+            {item.id === 'reviews' && dueReviewsCount > 0 && (
+              <span className="nav-badge">
+                {dueReviewsCount}
+                <span className="nav-badge__sr">条复习到期</span>
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      <p className="nav-label">
+        课程进度 · {totalStages} 阶段
+      </p>
+
+      <div className="sidebar-bottom">
+        <div className="streak-wrap">
+          <button
+            className={`streak-card ${checkin.checkedIn ? 'checked-in' : ''}`}
+            onClick={checkin.handleCheckin}
+            title={checkin.checkedIn ? '今天已打卡' : '点击打卡'}
+          >
+            <div className="streak-icon">
+              <Flame size={14} />
+            </div>
+            <div>
+              <strong>{checkin.checkedIn ? `已打卡 · 连续 ${checkin.streak} 天` : `连续打卡 ${checkin.streak} 天`}</strong>
+          <span>{checkin.syncError ?? (checkin.pendingCount ? '已记录，待同步' : checkin.checkedIn ? '明天继续保持' : '点击卡片完成今日打卡')}</span>
+            </div>
+          </button>
+          <button className="streak-more" onClick={onToggleCalendar} aria-label="查看打卡日历" aria-expanded={calendarOpen}>
+            <MoreHorizontal size={15} />
+          </button>
+          {calendarOpen && (
+            <div ref={calendarDialogRef} className="checkin-calendar" role="dialog" aria-modal="true" aria-label="打卡日历">
+              <div className="checkin-calendar-head">
+                  <button className="icon-button" data-autofocus onClick={() => shiftMonth(-1)} aria-label="上一月">
+                  <ChevronLeft size={14} />
+                </button>
+                <span>
+                  {calendarMonth.year} 年 {calendarMonth.month + 1} 月
+                </span>
+                <button className="icon-button" onClick={() => shiftMonth(1)} aria-label="下一月">
+                  <ChevronRight size={14} />
+                </button>

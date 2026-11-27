@@ -1,0 +1,63 @@
+| **G2** | `publishedIds()` 是 `ui_shell.hpp:60` 的**普通 C++ getter**，既无 `Q_PROPERTY` 也无 `Q_INVOKABLE` | Main.qml:1614 `uiShell.publishedIds.length`、:1869 `.indexOf(...)` | QML 取到 undefined → 点课程卡、「进入学习」按钮全部失效 |
+| **G4** | `independentAttempt` 在 Main.qml **0 次引用** | `grep -c` = 0 | `independent` 恒为 false（`ui_shell_operations.cpp:319`）→ **正式进度永不落账**，复习页对真实用户恒显示 0 条 |
+| **G5** | 分析页不消费任何 facade 数据，`progress_projection` 在 `ui-qt/` 里 0 引用 | Main.qml:4231-4638 本地自算 | 界面显示的是**写死的假数字**（违反 Phase 4 §4「不许用写死的假数字冒充数据」） |
+
+**为什么 8/8 全绿还这样**：`loadStarterCode` 只在 `ui_main.cpp` 的 `--smoke-screenshot` / `--matrix` / benchmark 分支里被调（:245/:293/:334/:356/:378，全部包在 `if (smoke>=0)`/`if (matrix>=0)` 内）。**取证脚本走的是交互路径不走的那条路**，所以截图有内容、CTest 全绿、而人点不动。
+
+### 1.7 异步链守卫现状（14 条）
+
+| 状态 | 站点 |
+|---|---|
+| 有守卫且正确 | #1 reloadPublishedContent, #2 openPublishedContent, #3 loadStarterCode, #7 saveDraft, #10 loadHints, #11 saveExternalEvidence |
+| **守卫 return 早于复位 busy → 标志永久卡住** | #6 loadAccountDraft(`:166`), #9 refreshReviewSummary(`:146`), #12 runCode(`:382`) |
+| **完全没有守卫** | #4 authenticate, #8 performDataAction(import), #13 createBackup, #14 restoreBackup |
+| 处理了 `result.cancelled` | **只有 #7 saveDraft 一处**，其余 13 处忽略 |
+| 请求未打 account/generation | #4, #5(仅局部变量), #8 |
+
+**竞态测试不存在**：`ui_shell_tests.cpp` 82 条断言里，**删掉全部 9 处守卫仍然全绿**——每次切账户都排在 `wait_for` 之后。唯一的「切换中」断言 `:172` 测的是**提交前的入口闸门**（`ui_shell_draft.cpp:59`），不是提交后的守卫。
+
+### 1.8 关闭与取消（代码与注释互斥）
+
+`cancel_all_pending()`（`backend_task_service.cpp:38-52`）取消 `Read \| Execute \| Backup \| Import`；`Draft \| Account \| Evidence` 不取消。
+紧邻的注释（`:35`）却写「**只取消 Read**：写类任务（草稿/账户/**备份**/**导入**）…关闭时把它丢掉等于静默丢数据」——**Backup 与 Import 正是被点名为不许取消的两类，代码却取消它们**。这条矛盾从 10-06 存活至今，仍未决。
+
+---
+
+## 2. DeepTutor 能力解剖（v1.6.14，浅克隆实测）
+
+### 2.1 规模与治理
+
+| 项 | 值 |
+|---|---|
+| 后端 `deeptutor/` | **300,475 行 Python / 1,055 文件** |
+| 前端 `web/` | 292,440 行 TS/TSX / 1,273 文件 |
+| `tests/` | **191,134 行 / 803 文件 = 后端的 64%** |
+| 星 / 叉 / 未关 issue | 41,112 / 5,189 / 150 |
+| 建库 → 最后 push | 2025-12-28 → 2026-10-08 |
+| 许可 | Apache-2.0（可闭源商用） |
+| 版本 | v1.6.0→v1.6.14，16 个 release |
+| 作者集中度 | 主作者 1,424 次提交 vs 第二名 116 → **bus factor ≈ 1** |
+| 运行时要求 | Python 3.11+ · Node 20+ · **端口 3782/8001/8090** · 外部 LLM key · 联网 |
+| 存储 | `learning/storage.py` 用 SQLite；会话有 sqlite 与 PocketBase 两套；数据在 `data/user/` |
+
+工程化信号（值得学，与能力无关但说明它不是壳）：`.importlinter`（导入边界契约）、`.secrets.baseline`（detect-secrets）、`pre-commit`、`THIRD_PARTY_NOTICES.md`、`CITATION.cff`、`AGENTS.md`+`SKILL.md`、多套 compose。
+
+### 2.2 子系统地图
+
+| 子包 | 行数 | 内容 |
+|---|---|---|
+| services | 130,651 | session(sqlite_store 4,612 / pocketbase_store 1,753 / turns 执行器)、llm provider 适配(openai_compat 1,279 / codebuddy 851 / factory / registry)、**codex_auth 1,347**、mcp manager 1,075、skill service+hub、memory consolidator、partners、workspace 迁移 |
+| api | 31,493 | **46 个 router** = 完整能力清单（auth/sessions/courses/learning_journal/mastery_path/practice/question/quiz_judge/knowledge/memory/partners/personas/plugins/notebook/book/reading/video_learning/voice/mcp/skills/subagents/task_board/unified_ws/…） |
+| learning | 21,769 | **学习域内核**（见 2.3） |
+| agents | 20,036 | base_agent + chat/question/research/math_animator/notebook/vision_solver/visualize + **loop**(agent_loop 1,862 · pipeline 1,953 · context_budget 347 · dsml_tool_calls 292 · prompt_blocks 325) |
+| capabilities | 15,469 | 16 个能力插件 + `protocol.py`(`LoopExtension`: is_active/system_block/augment_kwargs/pre_loop_seed；`KnowledgeCapability.owned_kbs`) + `registry.py` |
+| partners | 14,144 | 智能体间 bus / channels / network / 转写 |
+| runtime | 11,685 | agentic 运行时、后台 leader、隔离 worker、能力目录与路由 |
+| tools | 11,257 | ask_user / brainstorm / exec / file / github_query / knowledge_frontier / learning_journal / mastery_nav / cron 等工具集 |
+| book / reading / knowledge | 10,679 / 7,901 / 5,386 | 教材编译引擎 / epub 双语·字幕·测验·知识捕获 / LightRAG 知识库管理 |
+
+### 2.3 学习域内核 = **唯一值得移植的一层**（LLM 耦合实测）
+
+| 文件 | 行数 | LLM 引用 | 判定 |
+|---|---|---|---|
+| `scheduler.py` | 550 | **0** | `[移植-无LLM]` **间隔重复调度器** |

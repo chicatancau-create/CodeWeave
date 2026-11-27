@@ -1,0 +1,31 @@
+                            Text {
+                                text: "LEARN BY DOING"
+                                color: ds.accent
+                                font.family: ds.mono
+                                font.pixelSize: 9
+                                font.letterSpacing: 1.5
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s10
+                                Layout.bottomMargin: ds.s10
+                                text: "让抽象的代码，\n变成看得见的思考。"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 18
+                                font.weight: Font.Medium
+                                wrapMode: Text.WordWrap
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "阅读、练习和掌握分别记录。"
+                                color: ds.faint
+                                font.family: ds.ui
+                                font.pixelSize: 11
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }

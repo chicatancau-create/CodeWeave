@@ -1,0 +1,128 @@
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--ca-leading);
+  text-transform: none;
+}
+.cw-security .security-card-title:first-child {
+  margin-top: 0;
+}
+.cw-security .security-card-title > svg {
+  color: var(--ca-ink-2);
+}
+.cw-security .field-label {
+  gap: var(--ds-space-6, 6px);
+  margin-top: var(--ds-space-14, 14px);
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.cw-security .field-label input {
+  min-height: var(--ca-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--ca-ink);
+  border: var(--ca-line) solid var(--ca-edge);
+  border-radius: var(--ca-radius);
+  background: var(--ca-canvas);
+  box-shadow: var(--ds-shadow-panel, none);
+  font-family: var(--ca-ui);
+  font-size: var(--ca-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.cw-security .field-label input:focus {
+  border-color: var(--ca-edge-active);
+}
+.cw-security .security-line,
+.cw-security .security-notes {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-security .security-notes li::marker {
+  color: var(--ca-info);
+}
+.cw-security .security-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-20, 20px);
+}
+.cw-security .security-danger {
+  border-color: var(--ca-bad);
+  border-left-width: 3px;
+  background: var(--ca-bad-wash);
+}
+.cw-security .security-locked {
+  color: var(--ca-warn);
+  border-left: 3px solid var(--ca-warn);
+  padding-left: var(--ds-space-12, 12px);
+  font-size: var(--ca-body);
+}
+
+/* ── 数据与隐私：存储位置表 + 导入面板 ─────────────────────────────────── */
+.cw-privacy .data-table td:nth-child(2),
+.cw-privacy .data-table td:nth-child(3) {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+}
+.cw-privacy .profile-overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-14, 14px);
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-privacy .security-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+/* 导入结果与错误：同一套语义状态（虚线=说明、双线=错误、实线=成功） */
+.cw-privacy .auth-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  color: var(--ca-bad);
+  border: 3px double var(--ca-bad);
+  border-radius: var(--ca-radius);
+  background: var(--ca-bad-wash);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+  overflow-wrap: anywhere;
+}
+.cw-privacy .cw-account-status--notice {
+  width: 100%;
+}
+.cw-privacy .cw-privacy-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+.cw-privacy .cw-privacy-scroll > .cw-account-table {
+  min-width: 460px;                      /* 表格在 320px 下改为容器内滚动，不压字 */
+}
+/* #95（普查实测「最后保存」列 97px≈7.5 字/行）：`2026/9/25 16:48:29` 是原子值，
+   不该被折成三行——这一列给地板且不拆词，宽度不够由 .cw-privacy-scroll 横滚吃。
+   这一格走 --ca-meta 13px，10em = 130px，过本库自设的 120px 关键列下限。 */
+.cw-privacy .cw-ca-time {
+  min-width: 10em;
+  white-space: nowrap;
+}

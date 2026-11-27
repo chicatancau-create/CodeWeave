@@ -1,0 +1,81 @@
+  gap: var(--ds-space-10, 10px);
+  border-bottom: var(--hair) solid var(--line);
+}
+.variable-row:last-child { border-bottom: 0; }
+.variable-icon { width: 25px; height: 25px; flex: 0 0 25px; display: grid; place-items: center; border-radius: var(--radius); }
+.variable-icon.blue { color: var(--c-cyan); background: var(--accent-2-wash); }
+.variable-icon.coral { color: var(--c-pink); background: rgba(255, 95, 210, 0.14); }
+.variable-name { flex: 1; display: flex; flex-direction: column; gap: var(--ds-space-2, 2px); min-width: 0; }
+.variable-name strong { color: var(--ink); font-family: var(--font-mono); font-size: var(--ds-size-control, 13px); }
+.variable-name span { color: var(--faint); font-size: var(--ds-size-control, 13px); }
+.variable-value {
+  max-width: 90px;
+  overflow: hidden;
+  color: var(--c-cyan);
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 「值变了」= 一次性状态反馈（非循环）。减少动效下不删除它，只把带缩放的 pop
+   换成纯不透明度的一步短变化，并同时留下静态标记（左侧 2px 场景色实心），
+   使状态在不运行任何动画时也读得出来。 */
+.variable-row.changed { box-shadow: inset 2px 0 0 var(--accent); }
+.variable-row.changed .variable-value { animation: value-pop var(--ds-dur-base) var(--ease) 1; }
+.variable-dots { color: var(--faint); font-size: var(--ds-size-meta); letter-spacing: 1px; }
+
+/* 执行流程图的形状已整体下沉到 src/components/flow-chart.css（2026-09-29 重做为竖向步进器：
+   一拍一行，行内分「节点」与「该拍数据」两栏）。这里只留一条注释而不是留一份旧形状——
+   旧的那套（.flow-node.start 31px 圆 / .flow-node.blue 等语气色挂节点本身 /
+   .flow-node.current 位移泛光 / .flow-connector 横向连线 / .flow-branch-label 分支标注）
+   在 (0,2,0) 档上会**盖住**基座的 div.flow-node (0,1,1)，让新形状被旧观感污染。
+   styles.css 在产物里排在组件样式之后，所以这一块的删除比在基座里加 !important 更可靠。
+   M4：基座只抬 (c) 档，与 styles.css 同一条选择器时「同类型档、更高类档」的核对靠这段缺席成立。 */
+
+.console-panel { grid-column: span 1; }
+.console-body {
+  min-height: 96px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--inset);
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.65;
+}
+.console-line { color: var(--ink); }
+.console-line span { margin-right: var(--ds-space-8, 8px); color: var(--c-green); }
+.console-error { color: var(--c-coral); }
+
+.lesson-insight {
+  display: flex;
+  gap: var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-16, 16px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px);
+  border: var(--hair) solid rgba(255, 196, 87, 0.35);
+  border-radius: var(--radius);
+  background: rgba(255, 196, 87, 0.07);
+}
+.insight-icon { font-size: 15px; }
+.lesson-insight strong { color: var(--c-yellow); font-size: var(--ds-size-control, 13px); }
+.lesson-insight p { margin: var(--ds-space-4, 4px) 0 0; color: var(--ink); font-size: var(--ds-size-control, 13px); line-height: 1.6; }
+
+/* 课程指南（可验收单元） */
+.lesson-guide {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1.4fr 1fr 1.1fr;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-16, 16px);
+  padding: var(--ds-space-16, 16px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.guide-block { min-width: 0; display: flex; flex-direction: column; gap: var(--ds-space-8, 8px); }
+.guide-block > span { color: var(--c-purple); font-size: var(--ds-size-meta); font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; }
+.guide-block strong { color: var(--ink); font-size: var(--ds-size-control, 13px); line-height: 1.55; font-weight: 600; }
+.guide-block ul, .guide-block ol { margin: 0; padding-left: var(--ds-space-16, 16px); color: var(--muted); font-size: var(--ds-size-body, 16px); line-height: 1.65; }
+.guide-block li::marker { color: var(--accent-hover); }
+.guide-block p { margin: var(--ds-space-6, 6px) 0 0; color: var(--muted); font-size: var(--ds-size-body, 16px); line-height: 1.6; }
+.guide-block small { color: var(--faint); font-size: var(--ds-size-control, 13px); }
+.guide-block .guide-prereq small { color: var(--muted); }

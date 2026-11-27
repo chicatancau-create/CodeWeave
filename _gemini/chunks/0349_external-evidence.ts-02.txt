@@ -1,0 +1,107 @@
+function findSensitive(text: string): string | undefined {
+  for (const { re, label } of SENSITIVE_PATTERNS) {
+    if (re.test(text)) return label
+  }
+  return undefined
+}
+
+export function emptyEvidence(todayKey: string): ExternalEvidence {
+  return { environment: '', command: '', resultSummary: '', artifactRef: '', reproducedOn: todayKey }
+}
+
+/**
+ * 校验结构化外部证据。
+ * 注意：`valid === true` 只表示“材料完整”，**不代表证据真实**。
+ */
+export function validateExternalEvidence(
+  evidence: ExternalEvidence,
+  challenge: Pick<Challenge, 'targetOutput' | 'evidence'>,
+): EvidenceValidation {
+  const issues: EvidenceFieldIssue[] = []
+  const fields: { key: keyof ExternalEvidence; label: string; required: boolean }[] = [
+    { key: 'environment', label: '执行环境', required: true },
+    { key: 'command', label: '执行命令', required: true },
+    { key: 'resultSummary', label: '结果摘要', required: true },
+    { key: 'artifactRef', label: '日志 / 截图引用', required: false },
+    { key: 'reproducedOn', label: '复现日期', required: true },
+  ]
+
+  let total = 0
+  for (const { key, label, required } of fields) {
+    const value = (evidence[key] ?? '').trim()
+    const max = key === 'artifactRef' ? EXTERNAL_EVIDENCE_ARTIFACT_MAX : EXTERNAL_EVIDENCE_FIELD_MAX
+    total += value.length
+    if (required && value.length === 0) {
+      issues.push({ field: key, message: `${label}不能为空。` })
+      continue
+    }
+    if (value.length > max) {
+      issues.push({ field: key, message: `${label}超过 ${max} 字符上限。` })
+    }
+    const sensitive = findSensitive(value)
+    if (sensitive) {
+      issues.push({ field: key, message: `${label}疑似包含${sensitive}，请先脱敏。` })
+    }
+  }
+
+  if (total < EXTERNAL_EVIDENCE_MIN) {
+    issues.push({ field: 'resultSummary', message: `全部字段合计至少需要 ${EXTERNAL_EVIDENCE_MIN} 个字符。` })
+  }
+  if (total > EXTERNAL_EVIDENCE_MAX) {
+    issues.push({ field: 'resultSummary', message: `全部字段合计超过 ${EXTERNAL_EVIDENCE_MAX} 字符上限。` })
+  }
+
+  const date = evidence.reproducedOn.trim()
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    issues.push({ field: 'reproducedOn', message: '复现日期需为 YYYY-MM-DD 格式。' })
+  } else if (date) {
+    const parsed = new Date(`${date}T00:00:00Z`)
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+      issues.push({ field: 'reproducedOn', message: '复现日期不是有效日期。' })
+    } else if (date > getLocalDateKey()) {
+      issues.push({ field: 'reproducedOn', message: '复现日期不能晚于今天。' })
+    }
+  }
+
+  // 匹配度：结果摘要需至少覆盖 1 个验收关键词。关键词仅作“是否提到”的诊断，
+  // 不构成真实性验证，因此这里只要求“提到过”，不要求全部命中。
+  const summary = normalized(evidence.resultSummary)
+  const keywords = acceptanceKeywords(challenge)
+  const missingKeywords = summary
+    ? keywords.filter((keyword) => !keywordHit(summary, keyword)).slice(0, 8)
+    : keywords.slice(0, 8)
+  if (summary && keywords.length > 0 && missingKeywords.length === keywords.length) {
+    issues.push({
+      field: 'acceptance',
+      message: '结果摘要没有提到本关的任何验收点，请写明与验收点对应的实际结果。',
+    })
+  }
+
+  return { valid: issues.length === 0, issues, missingKeywords: summary ? missingKeywords : [] }
+}
+
+/** 序列化为提交用的可读文本（保留结构，便于进度记录与导出）。 */
+export function summarizeExternalEvidence(evidence: ExternalEvidence): string {
+  const lines = [
+    `执行环境：${evidence.environment.trim()}`,
+    `执行命令：${evidence.command.trim()}`,
+    `结果摘要：${evidence.resultSummary.trim()}`,
+    `复现日期：${evidence.reproducedOn.trim()}`,
+  ]
+  const artifact = (evidence.artifactRef ?? '').trim()
+  if (artifact) lines.push(`日志/截图：${artifact}`)
+  return lines.join('\n')
+}
+
+/* --------------------------------------------------------------------------
+   账户作用域持久化（与挑战草稿同构，走版本化信封）
+   -------------------------------------------------------------------------- */
+
+export type ExternalEvidenceMap = Record<string, ExternalEvidence>
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/** 逐条校验：非法条目丢弃，避免损坏对象扩散到组件。 */
+function validateEvidenceMap(value: unknown): ExternalEvidenceMap | undefined {

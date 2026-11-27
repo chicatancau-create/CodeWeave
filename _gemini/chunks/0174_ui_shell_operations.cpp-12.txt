@@ -1,0 +1,90 @@
+          lesson_run_succeeded_ = result.result.ok && !result.cancelled;
+          lesson_run_revision_ = revision;
+          emit executionOutputChanged();
+          if (result.cancelled) {
+            setOperationStatus(QStringLiteral("执行已取消"));
+          } else if (!challenge_status->isEmpty()) {
+            setOperationStatus(*challenge_status);
+          } else {
+            setOperationStatus(result.result.ok ? QStringLiteral("执行完成")
+                                                : QStringLiteral("执行失败"));
+          }
+          if (result.result.ok && !result.cancelled && !selected_content_id_.startsWith("free-")) refreshReviewSummary();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    live_timer->stop();
+    live_timer->deleteLater();
+    execution_task_id_.clear();
+    execution_busy_ = false;
+    execution_trace_.clear();
+    emit executionTraceChanged();
+    emit executionBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::cancelExecution() {
+  execution_cancelled_.store(true, std::memory_order_release);
+  setOperationStatus(QStringLiteral("已请求取消执行"));
+}
+
+void UiShell::pauseExecution() {
+  if (!execution_busy_) { setOperationStatus(QStringLiteral("当前没有运行中的代码")); return; }
+  const auto result = execution_control_.request(codeweave::execution::ControlCommand::Pause);
+  setOperationStatus(QString::fromUtf8(result.message));
+  if (result.ok) emit executionStateChanged();
+}
+
+void UiShell::resumeExecution() {
+  if (!execution_busy_) { setOperationStatus(QStringLiteral("当前没有运行中的代码")); return; }
+  const auto result = execution_control_.request(codeweave::execution::ControlCommand::Resume);
+  setOperationStatus(QString::fromUtf8(result.message));
+  if (result.ok) emit executionStateChanged();
+}
+
+void UiShell::stepExecution() {
+  if (!execution_busy_) { setOperationStatus(QStringLiteral("当前没有运行中的代码")); return; }
+  const auto result = execution_control_.request(codeweave::execution::ControlCommand::Step);
+  setOperationStatus(QString::fromUtf8(result.message));
+  if (result.ok) emit executionStateChanged();
+}
+
+bool UiShell::createBackup(const std::filesystem::path& source,
+    const std::filesystem::path& target) {
+  if (closing_ || operation_busy_ || backend_tasks_.busy() || !hasActiveAccount()) return false;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-backup-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Backup;
+  request.work = [source, target](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("备份已取消");
+    codeweave::backup::Report report;
+    return codeweave::backup::create_native_backup(source, target, report);
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, task_name,
+            result = std::move(result)]() mutable {
+          if (task_name != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          setOperationStatus(result.cancelled ? QStringLiteral("备份已取消")
+                                              : QString::fromUtf8(result.result.message));
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }

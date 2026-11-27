@@ -1,0 +1,73 @@
+    if (!vaultId) return sendJson(response, 503, '资料库不可用', 'vault_unavailable')
+    const key = request.headers['idempotency-key']
+    if (typeof key !== 'string' || !/^[a-zA-Z0-9_-]{12,128}$/.test(key)) {
+      return sendJson(response, 400, '缺少有效的 Idempotency-Key', 'invalid_idempotency_key')
+    }
+    const body = await requestBody(request)
+    if (typeof body?.dryRun !== 'boolean' || (!body.dryRun && (typeof body.approvalJobId !== 'string' || !safeContentId(body.approvalJobId)))) {
+      return sendJson(response, 400, '发送 dryRun 或提供已完成的候选校验编号', 'approval_required')
+    }
+    const approvalJobId = body.dryRun ? null : body.approvalJobId
+    const requestHash = sha256(stableStringify({ dryRun: body.dryRun, approvalJobId }))
+    const scope = { vaultId, accountId: user.id, isOwner }
+    const approval = approvalJobId ? publicationJobs.get(approvalJobId, scope) : null
+    if (!body.dryRun && (approval?.status !== 'ready' || !approval.dryRun || !approval.approvalFingerprint)) {
+      return sendJson(response, 409, '候选校验尚未完成或不可用', 'approval_required')
+    }
+    const limitKey = `content:sync:${user.id}`
+    const change = publicationJobs.reserve({ ...scope, key, requestHash, dryRun: body.dryRun, rateLimited: rateLimitCount(limitKey, CONTENT_SYNC_MAX), active: Boolean(contentService.snapshotStore.currentJob()) })
+    if (change.code === 'sync_rate_limited') return sendJson(response, 429, '同步过于频繁，请稍后再试', change.code)
+    if (change.code) return sendJson(response, 409, '发布请求冲突或已有任务正在运行', change.code)
+    if (!change.reused) {
+      recordFailure(limitKey)
+      void executePublication(change, approval?.approvalFingerprint).catch((error) => {
+        console.error(JSON.stringify({ event: 'publish_job_storage_failed', code: error.code ?? 'storage_error' }))
+      })
+    }
+    return sendJson(response, 202, { ...change.job, reused: change.reused })
+  }
+  const jobMatch = /^\/api\/content\/sync\/([^/]+)$/.exec(url.pathname)
+  if (jobMatch && request.method === 'GET') {
+    const vaultId = await learningService.readVaultId()
+    const job = publicationJobs.get(safeContentId(jobMatch[1]) ?? '', { vaultId, accountId: user.id, isOwner: access.reason === 'owner' })
+    if (!job) return sendJson(response, 404, '同步任务不存在', 'job_not_found')
+    return sendJson(response, 200, job)
+  }
+
+  return sendJson(response, 404, '接口不存在', 'not_found')
+}
+
+async function executePublication({ job, attempt }, approvedFingerprint) {
+  function terminal(active, committed = false) {
+    const status = committed ? 'ready' : active.status
+    return {
+      ...job, status, finishedAt: new Date().toISOString(), published: committed,
+      approvalFingerprint: job.dryRun && status === 'ready' ? active.approvalFingerprint : null,
+      error: active.error ? { code: active.error.code, message: active.error.code === 'approval_stale' ? '请重新校验候选内容' : '发布任务未通过，请查看本机诊断' } : null,
+      summary: active.report ? { bundleId: active.report.bundleId, counts: active.report.counts, blockingCount: active.report.blocking.length } : null,
+    }
+  }
+  let receipt
+  try {
+    const started = await contentService.sync({
+      dryRun: job.dryRun, approvedFingerprint,
+      receiptFor: (active) => {
+        receipt = terminal(active, true)
+        return { jobId: job.jobId, attempt, result: receipt }
+      },
+    })
+    if (started.reused) throw new Error('发布作业重复执行')
+    await started.job.promise
+    if (!receipt) publicationJobs.complete(job.jobId, attempt, terminal(started.job))
+  } catch {
+    if (!receipt) {
+      publicationJobs.complete(job.jobId, attempt, terminal({ status: 'unavailable', error: { code: 'publish_failed' } }))
+    }
+  }
+}
+
+async function handleLearningSync(request, response, url, users) {
+  const user = sessionUser(request, users)
+  if (!user) return sendJson(response, 401, '学习同步需要登录', 'unauthorized')
+  const access = await learningService.contentAccess(user.id)
+  if (access.reason !== 'owner') {

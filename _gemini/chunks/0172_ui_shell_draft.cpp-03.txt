@@ -1,0 +1,89 @@
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, loaded, document, account, generation, task_name](codeweave::backend::TaskResult result) {
+     QMetaObject::invokeMethod(this, [this, loaded, document, account, generation, task_name, result] {
+       if (task_name != draft_task_id_) return;
+       draft_task_id_.clear();
+        content_busy_ = false;
+       emit contentBusyChanged();
+       if (account != active_account_id_ || generation != account_generation_ || document != selected_content_id_) return;
+        if (result.result.ok) {
+          draft_code_ = loaded->code;
+          draft_saved_code_ = loaded->code;
+          saved_revision_ = ++draft_revision_;
+          draft_persistence_blocked_ = false;
+          emit draftChanged();
+          emit draftDirtyChanged();
+        }
+        emit draftPersistenceBlockedChanged();
+        setStatus(result.cancelled ? QStringLiteral("草稿读取已取消")
+                                   : QString::fromUtf8(result.result.message));
+      }, Qt::QueuedConnection);
+    });
+  if (!submitted.ok) {
+    draft_task_id_.clear();
+    content_busy_ = false;
+    emit contentBusyChanged();
+    setStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::saveDraft() {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_) return;
+  if (!hasActiveAccount()) { setStatus(QStringLiteral("保存草稿前必须先登录账户")); return; }
+  if (selected_content_id_.isEmpty() || starter_language_.isEmpty()) {
+    setStatus(QStringLiteral("没有选中的课程文档，无法保存草稿")); return;
+  }
+  if (content_busy_ || draft_saving_) return;
+  if (draft_persistence_blocked_ || !personal_core_) {
+    setStatus(QStringLiteral("草稿读取失败，已阻止覆盖")); return;
+  }
+  if (!draftDirty()) return;
+  const auto core = personal_core_;
+  const auto document = selected_content_id_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto revision = draft_revision_;
+  const auto code = draft_code_;
+  draft_saving_ = true;
+  emit draftSavingChanged();
+  codeweave::backend::TaskRequest request;
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Draft;
+  request.work = [core, document, code](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("草稿保存已取消");
+    return core->save_draft(storage_id(document), code.toUtf8().toStdString());
+  };
+  const auto task_name = QStringLiteral("qt-draft-save-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  draft_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, document, account, generation, revision, code, task_name](codeweave::backend::TaskResult result) {
+     QMetaObject::invokeMethod(this, [this, document, account, generation, revision, code, task_name, result] {
+       if (task_name != draft_task_id_) return;
+       draft_task_id_.clear();
+        draft_saving_ = false;
+        emit draftSavingChanged();
+       if (account != active_account_id_ || generation != account_generation_ || document != selected_content_id_) return;
+        if (result.result.ok) {
+        // 执行器已保证：ok 意味着写盘确实发生。这里必须以它为准更新已保存基线，
+        // 否则会出现「磁盘是新的、UI 说还有未保存修改」的分裂（§14.5）。
+        draft_saved_code_ = code;
+        saved_revision_ = revision;
+        emit draftDirtyChanged();
+        setStatus(draftDirty() ? QStringLiteral("已保存提交时的草稿，当前编辑仍未保存") : QStringLiteral("草稿已保存"));
+        } else if (result.cancelled) {
+        // 走到这里说明 work 在动手前就拒绝了执行，磁盘未被动过 —— 保持 dirty 才是对的。
+        setStatus(QStringLiteral("草稿保存已取消，磁盘内容未改变"));
+        } else {
+          setStatus(QString::fromUtf8(result.result.message));
+        }
+      }, Qt::QueuedConnection);
+    });
+  if (!submitted.ok) {
+    draft_task_id_.clear();
+    draft_saving_ = false;
+    emit draftSavingChanged();
+    setStatus(QString::fromUtf8(submitted.message));
+  }
+}

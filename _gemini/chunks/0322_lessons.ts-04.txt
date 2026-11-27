@@ -1,0 +1,58 @@
+    languageLesson(
+      language, '02', '认识变量和类型', '声明变量、修改变量并输出结果',
+      language.id === 'java' ? 'public class Main {\n  public static void main(String[] args) {\n    int age = 18;\n    System.out.println(age + 1);\n  }\n}' : language.id === 'c' ? '#include <stdio.h>\nint main() { int age = 18; printf("%d\\n", age + 1); return 0; }' : language.id === 'csharp' ? 'int age = 18;\nConsole.WriteLine(age + 1);' : 'let age = 18;\nconsole.log(age + 1);',
+      language.id === 'java' ? 'Main.java' : language.id === 'c' ? 'types.c' : language.id === 'csharp' ? 'Types.cs' : 'types.js',
+      ['19'], '把 age 改成你的年龄并运行，预测输出。', '再声明一个 height 变量，同时输出两个变量。',
+    ),
+    languageLesson(
+      language, '03', '条件分支', '用 if 和 else 让程序做决定',
+      language.id === 'java' ? 'int score = 82;\nif (score >= 60) {\n  System.out.println("通过");\n} else {\n  System.out.println("再试一次");\n}' : language.id === 'c' ? '#include <stdio.h>\nint main() { int score = 82; if (score >= 60) printf("通过\\n"); else printf("再试一次\\n"); return 0; }' : language.id === 'csharp' ? 'int score = 82;\nif (score >= 60) Console.WriteLine("通过");\nelse Console.WriteLine("再试一次");' : 'let score = 82;\nif (score >= 60) console.log("通过");\nelse console.log("再试一次");',
+      language.id === 'java' ? 'Branch.java' : language.id === 'c' ? 'branch.c' : language.id === 'csharp' ? 'Branch.cs' : 'branch.js',
+      ['通过'], '把 score 改为 59，观察另一条路径。', '增加第二个条件：score 大于 90 输出「优秀」。',
+    ),
+    languageLesson(
+      language, '04', '函数与方法', '把可复用的动作封装起来',
+      language.id === 'java' ? 'public class Main {\n  static int add(int a, int b) { return a + b; }\n  public static void main(String[] args) { System.out.println(add(2, 3)); }\n}' : language.id === 'c' ? '#include <stdio.h>\nint add(int a, int b) { return a + b; }\nint main() { printf("%d\\n", add(2, 3)); return 0; }' : language.id === 'csharp' ? 'int Add(int a, int b) => a + b;\nConsole.WriteLine(Add(2, 3));' : 'function add(a, b) { return a + b; }\nconsole.log(add(2, 3));',
+      language.id === 'java' ? 'Methods.java' : language.id === 'c' ? 'function.c' : language.id === 'csharp' ? 'Methods.cs' : 'function.js',
+      ['5'], '增加一个乘法函数并调用它。', '写 max_of_two(a, b) 返回较大值，并用相等值测试。',
+    ),
+  ]
+}
+
+/** 阶段 A：开发环境与基本操作（外部环境实验，不做浏览器模拟） */
+const stageAUnits: Lesson[] = [
+  {
+    id: 'java-env-a1', language: 'java', languageLabel: 'Java', label: 'A1',
+    title: '开发环境清点', description: '把工具链逐个清点并留下版本记录', duration: '45 min', level: '入门', progress: 0,
+    code: '# 环境检查清单\n# java -version\n# node -v\n# mvn -v\n# git --version',
+    flow: sumFlow('开始', '找到终端', '工具已安装？', '记录版本号', '输出清单'),
+    insight: '环境问题的第一手证据是版本输出；先清点，再谈开发。', fileName: 'env-checklist.txt', runtime: '外部环境 · 终端',
+    content: unit(
+      '独立完成 JDK / Node.js / Maven / Git 的安装验证，并留下可复现的版本记录。',
+      {
+        prerequisites: ['一台可用电脑', '管理员权限'],
+        explanation: [
+          '版本输出是环境的第一手证据：java -version、node -v、mvn -v、git --version 各有一条。',
+          'JAVA_HOME 与 PATH 是 Java 工具链最常见的两类配置问题。',
+          '把安装过程写进 README，重装系统时照着做即可复原。',
+        ],
+        examples: [
+          { good: '把每条 --version 输出原文贴进 README', bad: '只写“已安装 JDK”没有版本号', why: '无法排查“换台机器就跑不起来”的问题' },
+        ],
+        guidedSteps: ['依次运行四条版本命令并截图或复制输出。', '发现任一工具缺失时按官方文档安装后重跑。', '在项目 README 里记录版本与安装来源。'],
+        exercise: '独立完成四件工具的清点，输出一段带版本号的记录。',
+        variant: '故意把 JAVA_HOME 指向错误路径，观察 mvn 报什么错并恢复。',
+        projectTask: '这份清单是 A 阶段项目（后续所有 Java 工程）的环境前置说明。',
+        mistakes: ['只检查了 java 没检查 JAVA_HOME', 'Git 没配置 user.name / user.email 就开始提交'],
+        runCommand: '在真实终端执行版本命令（浏览器无法替代）',
+        completion: 'README 中有四条版本输出与安装来源记录。',
+        runEnvironment: 'external',
+        estimatedMinutes: 45,
+        acceptanceCriteria: ['四条版本命令全部成功执行', 'README 含版本号与安装来源'],
+        evidenceChecklist: ['终端版本输出原文', 'README 环境章节'],
+      },
+      'A',
+    ),
+  },
+  {
+    id: 'java-env-a2', language: 'java', languageLabel: 'Java', label: 'A2',

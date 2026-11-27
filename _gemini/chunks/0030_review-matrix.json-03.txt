@@ -1,0 +1,122 @@
+            "passed": true
+        },
+        {
+            "name": "learning-details-stage-number-rail-precedes-content",
+            "passed": true
+        },
+        {
+            "name": "learning-details-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "learning-details-subject-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-lesson-keyboard-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-keyboard-focus-scrolls-to-lesson",
+            "passed": true
+        },
+        {
+            "name": "learning-details-ledger-title-column-aligns-with-header",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-selected-unit-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-target",
+            "passed": true
+        },
+        {
+            "name": "review-three-group-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "review-three-groups-match-real-schedules",
+            "passed": true
+        },
+        {
+            "name": "review-nonempty-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-pass-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-pass-refreshes-level-step-and-due-date",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-refreshes-date-without-changing-mastery",
+            "passed": true
+        },
+        {
+            "name": "review-updated-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-open-course-row-action",
+            "passed": true
+        },
+        {
+            "detail": "page=复习与进度 document=java-loop-sum selected=1 body=1",
+            "name": "review-open-course-resolves-published-id",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "20",
+            "name": "twenty-page-screenshots",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-learning.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-course.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-editor.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-review.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-challenge.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-profile.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-security.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-privacy.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-login-intro.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-drafts.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-drafts-save-error.png",
+        "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-P2-2-1-review-20261107/u3-drafts-small.png",

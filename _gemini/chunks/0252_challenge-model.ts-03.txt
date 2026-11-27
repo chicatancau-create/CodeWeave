@@ -1,0 +1,56 @@
+export const RUNNER_LABELS: Record<Challenge['runner'], string> = {
+  'javascript-sandbox': '浏览器沙箱真实执行',
+  teaching: '教学运行器（子集语法）',
+  external: '外部环境实验',
+}
+
+export const LANGUAGE_EXTENSIONS: Record<Challenge['language'], string> = {
+  python: 'py',
+  javascript: 'js',
+  c: 'c',
+  csharp: 'cs',
+  java: 'java',
+}
+
+/** CHAL-01：搜索匹配标题 / 轨道 / 说明 / 技术栈 / 阶段，大小写不敏感。 */
+export function matchesQuery(challenge: Challenge, q: string): boolean {
+  const needle = q.trim().toLowerCase()
+  if (!needle) return true
+  return [challenge.title, challenge.track, challenge.description, challenge.stageId, ...challenge.stack].some(
+    (field) => field.toLowerCase().includes(needle),
+  )
+}
+
+/** DUMMY_LESSON 共享工厂（R4 G.3 第 6 条）：避免手写结构随 Lesson 类型漂移。 */
+export function makeRunnerLesson(language: LanguageId, runtime: string, fileName: string): Lesson {
+  return {
+    id: 'challenge-runner',
+    language,
+    languageLabel: '挑战运行器',
+    label: '00',
+    title: '挑战',
+    description: '挑战运行器',
+    duration: '-',
+    level: '-',
+    progress: 0,
+    code: '',
+    flow: [],
+    insight: '',
+    fileName,
+    runtime,
+    content: {
+      objective: '',
+      prerequisites: [],
+      explanation: [],
+      examples: [],
+      guidedSteps: [],
+      exercise: '',
+      variant: '',
+      projectTask: '',
+      mistakes: [],
+      runCommand: '',
+      completion: '',
+      reviewOffsetsDays: [],
+    },
+  }
+}

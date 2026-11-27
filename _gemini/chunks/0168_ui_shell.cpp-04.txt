@@ -1,0 +1,83 @@
+    // Challenges drive the 实战挑战 page. Same one-time read as the lessons.
+    const auto challenges = doc.object().value(QStringLiteral("challenges")).toArray();
+    QVariantList challenge_meta;
+    for (const auto& entry : challenges) {
+      const auto obj = entry.toObject();
+      QVariantMap c;
+      c[QStringLiteral("id")] = obj.value(QStringLiteral("id")).toString();
+      c[QStringLiteral("stageId")] = obj.value(QStringLiteral("stageId")).toString();
+      c[QStringLiteral("track")] = obj.value(QStringLiteral("track")).toString();
+      c[QStringLiteral("title")] = obj.value(QStringLiteral("title")).toString();
+      c[QStringLiteral("description")] = obj.value(QStringLiteral("description")).toString();
+      c[QStringLiteral("language")] = obj.value(QStringLiteral("language")).toString();
+      c[QStringLiteral("difficulty")] = obj.value(QStringLiteral("difficulty")).toString();
+      c[QStringLiteral("runner")] = obj.value(QStringLiteral("runner")).toString();
+      QStringList stack;
+      for (const auto& s : obj.value(QStringLiteral("stack")).toArray())
+        stack.append(s.toString());
+      c[QStringLiteral("stack")] = stack;
+      c[QStringLiteral("prerequisites")] = obj.value(QStringLiteral("prerequisites")).toArray().toVariantList();
+      c[QStringLiteral("starterCode")] = obj.value(QStringLiteral("starterCode")).toString();
+      c[QStringLiteral("targetOutput")] = obj.value(QStringLiteral("targetOutput")).toArray().toVariantList();
+      c[QStringLiteral("evidence")] = obj.value(QStringLiteral("evidence")).toArray().toVariantList();
+      c[QStringLiteral("hint")] = obj.value(QStringLiteral("hint")).toString();
+      c[QStringLiteral("explanation")] = obj.value(QStringLiteral("explanation")).toString();
+      challenge_meta.append(c);
+    }
+    challenge_meta_ = challenge_meta;
+  }
+  reloadPublishedContent();
+}
+
+void UiShell::openChallenge(const QString& challengeId) {
+  const auto match = std::find_if(challenge_meta_.cbegin(), challenge_meta_.cend(),
+      [&challengeId](const QVariant& value) {
+        return value.toMap().value(QStringLiteral("id")).toString() == challengeId;
+      });
+  if (match == challenge_meta_.cend()) return;
+  const auto selected = match->toMap();
+  selectPage(QStringLiteral("挑战"));
+  if (selected_challenge_ == selected) return;
+  if (challenge_run_busy_) cancelChallenge();
+  ++challenge_revision_;
+  selected_challenge_ = selected;
+  if (!challenge_drafts_.contains(challengeId))
+    challenge_drafts_.insert(challengeId, selected.value(QStringLiteral("starterCode")).toString());
+  challenge_run_result_.clear();
+  emit challengeSelectionChanged();
+  emit challengeCodeChanged();
+  emit challengeRunResultChanged();
+  emit challengeHistoryChanged();
+}
+
+void UiShell::closeChallenge() {
+  if (selected_challenge_.isEmpty()) return;
+  if (challenge_run_busy_) cancelChallenge();
+  ++challenge_revision_;
+  selected_challenge_.clear();
+  challenge_run_result_.clear();
+  emit challengeSelectionChanged();
+  emit challengeRunResultChanged();
+  emit challengeHistoryChanged();
+}
+
+QString UiShell::challengeCode() const {
+  return challenge_drafts_.value(selected_challenge_.value(QStringLiteral("id")).toString(),
+      selected_challenge_.value(QStringLiteral("starterCode")).toString());
+}
+
+void UiShell::updateChallengeCode(const QString& code) {
+  if (selected_challenge_.isEmpty() || code.toUtf8().size() > 65536) return;
+  const auto id = selected_challenge_.value(QStringLiteral("id")).toString();
+  if (challenge_drafts_.value(id) == code) return;
+  challenge_drafts_.insert(id, code);
+  ++challenge_revision_;
+  if (challenge_run_busy_) cancelChallenge();
+  challenge_run_result_.clear();
+  emit challengeCodeChanged();
+  emit challengeRunResultChanged();
+}
+
+void UiShell::runChallenge() {
+  if (closing_ || account_busy_ || selected_challenge_.isEmpty() || challenge_run_busy_ ||
+      execution_busy_ || operation_busy_) return;

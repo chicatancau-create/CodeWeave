@@ -1,0 +1,116 @@
+// @vitest-environment jsdom
+import { act, cleanup, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { useChallengeProgress } from './use-challenge-progress'
+import { useCheckin } from './use-checkin'
+import { useReviewSchedule } from './use-review-schedule'
+import { useLocalStorage } from './use-local-storage'
+import { getLocalDateKey, shiftDateKey } from '../utils/date-helpers'
+import { SCHEMA_VERSION } from '../utils/storage'
+
+beforeEach(() => {
+  localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('useLocalStorage（R2-D 键切换与闭包语义）', () => {
+  it('键切换读取对应作用域数据，不残留上一作用域的值', () => {
+    localStorage.setItem('k:user-1', JSON.stringify({ schemaVersion: SCHEMA_VERSION, data: 'A 的数据' }))
+    localStorage.setItem('k:user-2', JSON.stringify({ schemaVersion: SCHEMA_VERSION, data: 'B 的数据' }))
+
+    const { result, rerender } = renderHook(({ key }) => useLocalStorage<string>(key, '默认'), {
+      initialProps: { key: 'k:user-1' },
+    })
+    expect(result.current[0]).toBe('A 的数据')
+
+    rerender({ key: 'k:user-2' })
+    expect(result.current[0]).toBe('B 的数据')
+
+    // 切到无数据的作用域时回退默认值
+    rerender({ key: 'k:user-3' })
+    expect(result.current[0]).toBe('默认')
+  })
+
+  it('键切换后写入落在新作用域，不污染旧作用域', () => {
+    const { result, rerender } = renderHook(({ key }) => useLocalStorage<string>(key, '默认'), {
+      initialProps: { key: 'k:user-1' },
+    })
+    act(() => {
+      result.current[1]('写入 A')
+    })
+
+    rerender({ key: 'k:user-2' })
+    act(() => {
+      result.current[1]('写入 B')
+    })
+
+    const a = JSON.parse(localStorage.getItem('k:user-1')!)
+    const b = JSON.parse(localStorage.getItem('k:user-2')!)
+    expect(a.data).toBe('写入 A')
+    expect(b.data).toBe('写入 B')
+  })
+
+  it('validate 返回 undefined 时回退初始值并给出警告', () => {
+    localStorage.setItem('k:bad', JSON.stringify({ schemaVersion: SCHEMA_VERSION, data: { nope: 1 } }))
+    const { result } = renderHook(() =>
+      useLocalStorage<string>('k:bad', '默认', {
+        validate: (value) => (typeof value === 'string' ? value : undefined),
+      }),
+    )
+    expect(result.current[0]).toBe('默认')
+  })
+
+  it('初始值更新后键切换使用最新初始值（不捕获首次渲染的闭包）', () => {
+    // 第一次渲染 initialValue='默认1'，随后父组件传入 '默认2'，再切到无数据的新键。
+    const { result, rerender } = renderHook(
+      ({ key, initial }) => useLocalStorage<string>(key, initial),
+      { initialProps: { key: 'k:user-1', initial: '默认1' } },
+    )
+    rerender({ key: 'k:user-1', initial: '默认2' })
+    rerender({ key: 'k:user-2', initial: '默认2' })
+    expect(result.current[0]).toBe('默认2')
+  })
+
+  it('validate 更新后键切换使用最新校验函数', () => {
+    localStorage.setItem('k:num', JSON.stringify({ schemaVersion: SCHEMA_VERSION, data: 42 }))
+    const allowString = (value: unknown) => (typeof value === 'string' ? value : undefined)
+    const allowNumber = (value: unknown) => (typeof value === 'number' ? String(value) : undefined)
+
+    const { result, rerender } = renderHook(
+      ({ validate }) => useLocalStorage<string>('k:num', '默认', { validate }),
+      { initialProps: { validate: allowString } },
+    )
+    expect(result.current[0]).toBe('默认')
+
+    rerender({ validate: allowNumber })
+    rerender({ validate: allowNumber })
+    // 键未变，但校验函数应取最新值——重挂载时读取同一键得到 '42'
+    const remounted = renderHook(() => useLocalStorage<string>('k:num', '默认', { validate: allowNumber }))
+    expect(remounted.result.current[0]).toBe('42')
+  })
+})
+
+describe('useChallengeProgress', () => {
+  it('只有 passed/verified 的提交才会写入完成进度', () => {
+    const { result } = renderHook(() => useChallengeProgress('user-1'))
+
+    act(() => {
+      result.current.applySubmission({
+        challengeId: 'stage-b',
+        status: 'rejected',
+        output: [],
+        evidence: 'x',
+        tier: 'teaching',
+      })
+    })
+    expect(result.current.completedCount).toBe(0)
+
+    act(() => {
+      result.current.applySubmission({
+        challengeId: 'stage-b',
+        status: 'passed',
+        output: ['15'],
+        evidence: '输出 15',

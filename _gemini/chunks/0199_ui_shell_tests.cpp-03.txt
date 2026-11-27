@@ -1,0 +1,91 @@
+    assert(!store.read(dates).ok && !store.checkIn(today, dates).ok);
+    assert(read_bytes() == bytes);
+  }
+  const QByteArray duplicate("{\"schemaVersion\":1,\"dates\":[\"2028-02-29\",\"2028-02-29\"]}");
+  assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  assert(file.write(duplicate) == duplicate.size());
+  file.close();
+  assert(store.read(dates).ok && dates.size() == 1);
+  assert(store.checkIn(today, dates).ok && dates.size() == 2);
+  QTemporaryDir blocked;
+  std::ofstream(std::filesystem::path(blocked.path().toStdWString()) / "learning") << "not a directory";
+  assert(!CheckinStore(blocked.path()).checkIn(today, dates).ok);
+  assert(!CheckinStore("relative-account").read(dates).ok);
+  assert(CheckinStore::streak({}, today) == 0);
+}
+
+void test_ui_preferences() {
+  QTemporaryDir temporary;
+  assert(temporary.isValid());
+  const auto root = std::filesystem::path(temporary.path().toStdWString()) / L"app-config";
+
+  UiShell unconfigured;
+  assert(!unconfigured.preferenceStorageReady());
+  assert(!unconfigured.reducedMotion());
+  assert(unconfigured.editorFontSize() == 13);
+  assert(unconfigured.editorLineNumbers());
+  assert(!unconfigured.setReducedMotion(true));
+  assert(!unconfigured.setEditorFontSize(16));
+  assert(!unconfigured.setEditorLineNumbers(false));
+  assert(!unconfigured.reducedMotion());
+
+  UiShell shell;
+  assert(!shell.reducedMotion());
+  assert(shell.configurePreferenceStorage(root));
+  assert(shell.preferenceStorageReady());
+  assert(!shell.reducedMotion());
+  assert(shell.editorFontSize() == 13);
+  assert(shell.editorLineNumbers());
+  assert(shell.setReducedMotion(true));
+  assert(shell.setEditorFontSize(16));
+  assert(!shell.setEditorFontSize(17));
+  assert(shell.setEditorLineNumbers(false));
+  assert(shell.reducedMotion());
+  assert(shell.editorFontSize() == 16);
+  assert(!shell.editorLineNumbers());
+
+  const auto settings_path = QDir(QString::fromStdWString(root.wstring()))
+      .filePath(QStringLiteral("preferences.ini"));
+  UiShell reopened;
+  assert(reopened.configurePreferenceStorage(root));
+  assert(reopened.reducedMotion());
+  assert(reopened.editorFontSize() == 16);
+  assert(!reopened.editorLineNumbers());
+  {
+    QSettings settings(settings_path, QSettings::IniFormat);
+    assert(settings.value(QStringLiteral("preferences/reducedMotion")).toBool());
+    assert(settings.value(QStringLiteral("preferences/editorFontSize")).toInt() == 16);
+    assert(!settings.value(QStringLiteral("preferences/editorLineNumbers")).toBool());
+    settings.setValue(QStringLiteral("unrelated/keep"), QStringLiteral("preserved"));
+    settings.sync();
+
+    assert(reopened.restoreDefaultPreferences());
+    assert(!reopened.reducedMotion());
+    assert(reopened.editorFontSize() == 13);
+    assert(reopened.editorLineNumbers());
+    settings.sync();
+    assert(!settings.contains(QStringLiteral("preferences/reducedMotion")));
+    assert(!settings.contains(QStringLiteral("preferences/editorFontSize")));
+    assert(!settings.contains(QStringLiteral("preferences/editorLineNumbers")));
+    assert(settings.value(QStringLiteral("unrelated/keep")).toString() == QStringLiteral("preserved"));
+  }
+  assert(reopened.setEditorFontSize(16));
+  assert(reopened.setEditorLineNumbers(false));
+  assert(QFile::remove(settings_path));
+  assert(QDir().mkpath(settings_path));
+  assert(!reopened.setReducedMotion(true));
+  assert(!reopened.setEditorFontSize(18));
+  assert(!reopened.setEditorLineNumbers(true));
+  assert(!reopened.restoreDefaultPreferences());
+  assert(!reopened.reducedMotion());
+  assert(reopened.editorFontSize() == 16);
+  assert(!reopened.editorLineNumbers());
+  assert(QDir(settings_path).removeRecursively());
+
+  UiShell after_reset;
+  assert(after_reset.configurePreferenceStorage(root));
+  assert(!after_reset.reducedMotion());
+  assert(after_reset.editorFontSize() == 13);
+  assert(after_reset.editorLineNumbers());
+  assert(after_reset.setReducedMotion(false));
+

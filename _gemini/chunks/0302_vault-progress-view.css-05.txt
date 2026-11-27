@@ -1,0 +1,134 @@
+  font-family: var(--vp-mono);
+  font-size: var(--vp-meta);
+  line-height: 1.6;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* ── 控件：触控目标 ≥44px（§5.4），直角细线 ──────────────────────────────── */
+.cw-vault .vp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--vp-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--vp-field-line);
+  border-radius: var(--ds-radius-control, 0);
+  color: var(--vp-ink);
+  font-family: inherit;
+  font-size: var(--vp-meta);
+  line-height: 1.3;
+  text-align: center;
+  transition: color var(--vp-quick) var(--vp-ease), border-color var(--vp-quick) var(--vp-ease);
+}
+
+.cw-vault .vp-btn:hover:not(:disabled) {
+  border-color: var(--vp-accent);
+  color: var(--vp-accent);
+  box-shadow: var(--vp-glow-near);              /* 抬起面：冷色近档 */
+}
+
+.cw-vault .vp-btn:active:not(:disabled) {
+  border-color: var(--vp-accent);
+  color: var(--vp-accent);
+  background-color: var(--vp-wash);
+  box-shadow: var(--vp-glow-inset);             /* 按下回落到内高光，不再抬起 */
+}
+
+.cw-vault .vp-btn:disabled,
+.cw-vault .vp-btn[aria-disabled='true'] {
+  color: var(--vp-dim);
+  border-color: var(--vp-hair-raised);
+  border-style: dashed; /* 虚线 = 这一步还在等返回；文字说明在 .vp-disabled-hint */
+  opacity: 1;           /* 覆盖共享层的 opacity:.5 —— 禁用不许只降透明度 */
+  cursor: not-allowed;
+}
+
+/* ── 五块事实明细：默认收起 ─────────────────────────────────────────────────
+   单屏化（2026-09-30）：绑定面板实测 424px，其中绝大部分是这五块「来源是什么」
+   的完整交代。它不是当下要做的判断——要看的是「绑没绑、按哪个键」，所以收进
+   <details>，摘要占一行，展开后仍在原处逐项可核。节点不卸载，测试按 DOM 取数照旧。
+   ------------------------------------------------------------------------ */
+.cw-vault .vp-facts-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--vp-tap);
+  padding: 0 var(--ds-space-8, 8px);
+  color: var(--vp-dim);
+  font-size: var(--vp-meta);
+  cursor: pointer;
+  border: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-radius: var(--ds-radius-control, 6px);
+  list-style-position: inside;
+}
+/* 默认三角记号换成场景色的实心块：与 `.vp-mark` 的字符徽记同一语法。 */
+.cw-vault .vp-facts-summary::marker {
+  color: var(--vp-accent);
+}
+.cw-vault .vp-facts[open] > .vp-facts-summary {
+  margin-bottom: var(--ds-space-8, 8px);
+  color: var(--vp-ink);
+  border-color: var(--vp-hair-raised);
+}
+.cw-vault .vp-facts:not([open]) > .vp-facts-summary:hover {
+  border-color: var(--vp-hair-raised);
+}
+
+/* ── 响应式：窄屏放宽列宽约束，表格语义不降级为 div ────────────────────────── */
+@media (max-width: 679px) {
+  .cw-vault .vp-spec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-2, 2px);
+  }
+  .cw-vault .vp-ledger {
+    table-layout: auto;
+  }
+  .cw-vault .vp-col-num,
+  .cw-vault .vp-cell-num {
+    width: 2.8em;
+  }
+  .cw-vault .vp-col-level,
+  .cw-vault .vp-col-state {
+    width: auto;
+  }
+  .cw-vault .vp-ledger th,
+  .cw-vault .vp-ledger td {
+    padding-right: var(--ds-space-8, 8px);
+  }
+}
+
+/* 320px 最小宽度：字号收一档，长中文与长路径继续换行 */
+@media (max-width: 399px) {
+  .cw-vault {
+    --vp-body: 15px;
+    --vp-meta: 12px;
+  }
+  .cw-vault .vp-subtitle-idx {
+    font-size: 18px;
+  }
+}
+
+/* ── §5.3 第 3 条：动效真正停止（两条路径各自完整生效，不依赖 tokens.css） ───
+   本页没有持续动画，真停的对象是表格行 hover 底色过渡。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .cw-vault *,
+  .cw-vault *::before,
+  .cw-vault *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.reduce-motion .cw-vault,
+.reduce-motion .cw-vault *,
+.reduce-motion .cw-vault *::before,
+.reduce-motion .cw-vault *::after {
+  animation: none;
+  transition: none;
+  scroll-behavior: auto;
+}

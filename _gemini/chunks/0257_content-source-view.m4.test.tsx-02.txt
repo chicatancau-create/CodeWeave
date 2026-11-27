@@ -1,0 +1,116 @@
+      headingPath: ['Java', '环境'],
+      verificationStatus: '外部未复核',
+      headings: [],
+    },
+    content: {
+      objective: '清点工具链',
+      prerequisites: [],
+      explanation: [],
+      examples: [],
+      guidedSteps: [],
+      exercise: '',
+      variant: '',
+      projectTask: '',
+      mistakes: [],
+      runCommand: '教学运行器',
+      completion: '',
+      reviewOffsetsDays: [],
+      stageId: 'S0',
+      estimatedMinutes: 45,
+    },
+    ...overrides,
+  }) as Lesson
+
+const vaultContent = {
+  sourceKind: 'vault',
+  state: 'ready',
+  bundleId: 'bundle-12345678-90ab',
+  buildTime: '2026-09-20T02:00:00.000Z',
+  counts: { lessons: 12 },
+  status: { vaultConfigured: true, vaultReason: null },
+  error: null,
+} as unknown as ContentContextValue
+
+const legacyContent = {
+  sourceKind: 'legacy-fallback',
+  state: 'unavailable',
+  bundleId: null,
+  buildTime: null,
+  counts: null,
+  status: { vaultConfigured: false, vaultReason: 'missing' },
+  error: null,
+  sync: vi.fn(async () => ({ ok: false, message: '资料库未连接' })),
+} as unknown as ContentContextValue
+
+const FIVE_ZONES = ['topic', 'source', 'verification', 'sync', 'facts']
+
+function fields(container: HTMLElement) {
+  return [...container.querySelectorAll<HTMLElement>('[data-cs-field]')].map((node) => ({
+    key: node.getAttribute('data-cs-field') ?? '',
+    label: node.querySelector('dt')?.textContent ?? '',
+    value: node.querySelector('dd')?.textContent ?? '',
+  }))
+}
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('M4 来源详情 · 五块分区（§5.2 第七行）', () => {
+  it('规范主题 / 原文位置 / 核验状态 / 同步时间 / 正式事实 依序各占一块', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    const list = fields(container)
+    expect(list.map((item) => item.key)).toEqual(FIVE_ZONES)
+    expect(list.map((item) => item.label)).toEqual(['规范主题', '原文位置', '核验状态', '同步时间', '正式事实'])
+  })
+
+  it('每块都是发丝线 specs 的 dt/dd 键值，不做卡片', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    const specs = container.querySelector('dl.cs-specs')
+    expect(specs).toBeTruthy()
+    expect(specs?.querySelectorAll('.cs-spec')).toHaveLength(5)
+    expect(container.querySelector('.cs-spec dt')?.textContent).toBe('规范主题')
+    expect(container.querySelector('.cs-spec dd')).toBeTruthy()
+  })
+
+  it('规范主题给稳定 ID 与科目；旧内置课程明确说没有主题 ID', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    expect(fields(container)[0]?.value).toBe('主题 ID topic-java-env · 科目 Java')
+    cleanup()
+    const legacy = render(
+      <LessonSourceDetail
+        lesson={lessonAt({ id: 'legacy-1', contentId: undefined, legacy: true, source: lessonAt().source })}
+      />,
+    )
+    expect(fields(legacy.container)[0]?.value).toContain('没有主题 ID，不并入资料库主题口径')
+  })
+
+  it('原文位置给分册路径与章节链；来源编号单独成行', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    expect(fields(container)[1]?.value).toBe('资料库/Java/环境.md#Java > 环境')
+    expect(container.querySelector('.cs-meta')?.textContent).toBe('来源编号：src-1')
+  })
+})
+
+describe('M4 来源详情 · 核验状态不得改强', () => {
+  it('「外部未复核」原样出现在三处，整页不含「已核实」「已验证」', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    expect(container.textContent).toContain('外部未复核')
+    expect(fields(container)[2]?.value).toContain('外部未复核')
+    expect(fields(container)[2]?.value).toContain('本界面不改强、不折算')
+    expect(container.querySelector('.cs-mark-text')?.textContent).toBe('外部未复核')
+    expect(container.textContent).not.toMatch(/已核实|已验证|核验通过/)
+  })
+
+  it('「库内已存在」也不改口：文字仍是原文口径，只切换标识样式', () => {
+    const { container } = render(
+      <LessonSourceDetail
+        lesson={lessonAt({
+          source: { ...lessonAt().source!, verificationStatus: '库内已存在' },
+        })}
+      />,
+    )
+    const mark = container.querySelector<HTMLElement>('.cs-mark')
+    expect(mark?.getAttribute('data-cs-mark')).toBe('verified')
+    expect(mark?.querySelector('.cs-mark-text')?.textContent).toBe('库内已存在')

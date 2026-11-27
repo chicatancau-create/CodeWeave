@@ -1,0 +1,82 @@
+  async function renderOwnerCard() {
+    const content = makeContent()
+    const result = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(result.container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    return result
+  }
+
+  it('主 specs 依序给出五块，快照 specs 另列三条独立时间事实', async () => {
+    const { container } = await renderOwnerCard()
+    const specs = [...container.querySelectorAll('dl.vp-specs')]
+    expect(specs).toHaveLength(2)
+    expect(fields(container).slice(0, 5).map((item) => item.key)).toEqual(FIVE_ZONES)
+    const dates = [...specs[1]!.querySelectorAll<HTMLElement>('[data-vp-field]')].map(
+      (node) => node.querySelector('dt')?.textContent,
+    )
+    expect(dates).toEqual(['结构维护', '环境核验', '最近学习证据'])
+    expect(container.textContent).toContain(
+      '环境核验与最近学习证据是两件不同的事实：环境齐全不代表阶段通过，本界面不由二者推导任何结论。',
+    )
+  })
+
+  it('核验状态只说结构解析结论，不写成已核实', async () => {
+    const { container } = await renderOwnerCard()
+    const verification = fields(container).find((item) => item.key === 'verification')
+    expect(verification?.value).toContain('部分解析：1 处结构待适配，按原文展示')
+    expect(verification?.value).toContain('结构解析结论不等同于知识正确性核验')
+    expect(verification?.value).not.toContain('已核实')
+    expect(verification?.value).not.toContain('已验证')
+    expect(container.querySelector('.vp-mark')?.getAttribute('data-vp-mark')).toBe('warn')
+    expect(container.textContent).toContain('进度追踪有 1 处结构待适配；这些块按原文展示，不推断数值。')
+  })
+
+  it('快照表：caption + 列表头 + 行表头，缺失项显示「原文未填写」', async () => {
+    const { container } = await renderOwnerCard()
+    const snapshot = container.querySelector('table.vp-ledger') as HTMLTableElement
+    expect(snapshot.querySelector('caption')?.textContent).toBe('正式进度快照（原文口径），共 3 项')
+    expect([...snapshot.querySelectorAll('thead th[scope="col"]')].map((th) => th.textContent)).toEqual([
+      '次',
+      '事实项',
+      '原文值',
+      '证据',
+    ])
+    const rows = [...snapshot.querySelectorAll('tbody tr')]
+    expect(rows).toHaveLength(3)
+    expect([...snapshot.querySelectorAll('tbody th[scope="row"]')].map((th) => th.textContent)).toEqual(['01', '02', '03'])
+    expect(rows[1]?.textContent).toContain('原文未填写')
+  })
+
+  it('掌握矩阵：三张表都有 caption 与行表头，编号 01/02/03 与 02/03 小标题成文', async () => {
+    const { container } = await renderOwnerCard()
+    const tables = [...container.querySelectorAll('table.vp-ledger')]
+    expect(tables).toHaveLength(3)
+    for (const table of tables) {
+      expect(table.querySelector('caption')?.className).toContain('vp-sr-only')
+      expect(table.querySelectorAll('tbody th[scope="row"]').length).toBeGreaterThan(0)
+    }
+    expect(tables[1]?.querySelector('caption')?.textContent).toContain('不折算为整数')
+    expect(tables[2]?.querySelector('caption')?.textContent).toContain('不重新排序')
+    expect([...container.querySelectorAll('.vp-subtitle-idx')].map((el) => el.textContent)).toEqual(['02', '03'])
+  })
+})
+
+describe('M4 正式进度 · 不确定保持不确定（原文口径）', () => {
+  it('无法确认 / 0—1 级 原样显示，不折算成整数', async () => {
+    const content = makeContent()
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    const matrix = [...container.querySelectorAll('table.vp-ledger')][1] as HTMLTableElement
+    const cells = [...matrix.querySelectorAll('tbody .vp-cell-value')].map((cell) => cell.textContent)
+    expect(cells).toEqual(['3 级', '0—1 级', '无法确认'])
+    const marks = [...matrix.querySelectorAll<HTMLElement>('.vp-mark')].map((mark) => mark.getAttribute('data-vp-mark'))
+    expect(marks).toEqual(['ok', 'warn', 'unknown'])
+    for (const mark of matrix.querySelectorAll('.vp-mark')) {
+      expect(mark.querySelector('.vp-mark-glyph')?.getAttribute('aria-hidden')).toBe('true')

@@ -1,0 +1,46 @@
+          "data": {
+            "status": "ok",
+            "uptimeSeconds": 0,
+            "project": "CodeWeave",
+            "instanceId": "f5dfc3df1059939c",
+            "buildId": "424dd349ebfe"
+          }
+        },
+        "browserRendered": true,
+        "htmlBytes": 6543,
+        "securityHeaders": true
+      },
+      "app": {
+        "status": "passed",
+        "visibleWindow": [
+          1454,
+          938
+        ],
+        "exe": "C:\\Users\\Admin\\AppData\\Local\\Programs\\CodeWeave\\CodeWeaveQtShell.exe",
+        "isolatedData": true
+      }
+    },
+    "diffCheck": "baseline Markdown hard-break trailing spaces and one blank EOF retained in existing user docs"
+  },
+  "cleanupPlan": [
+    "备份区（旧 ZIP、旧 Electron 缓存）",
+    "应用端/构建产物/qt 中除 current 外的旧构建、部署、安装包和临时文件",
+    "应用端/构建产物/待清理根入口、待清理日志",
+    "应用端/项目/dist 中旧交付版本",
+    "应用端/项目/native/build* 与 stage* 旧构建",
+    "应用端/开发环境/CodeWeave-prep 中除 qt 和 presentmon 外的已替代环境准备材料",
+    "工作区/build 旧 Electron 产物",
+    "应用端/项目/.runtime-check-profile 与旧构建日志"
+  ],
+  "verifiedBackupCommit": "d6f78956732423560d03db340655228e301baabc",
+  "cleanupSummary": {
+    "filesDeleted": 22583,
+    "bytesDeleted": 5583443376.0,
+    "localHistoryDirectories": 0,
+    "currentQtBuilds": 1,
+    "postCleanupLayout": "passed",
+    "postCleanupNode": "4/4 passed",
+    "postCleanupCtest": "8/8 passed",
+    "postCleanupCanonicalContent": "74 published entries validated"
+  }
+}

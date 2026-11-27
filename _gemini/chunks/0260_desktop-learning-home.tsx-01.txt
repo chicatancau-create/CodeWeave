@@ -1,0 +1,54 @@
+import { useState } from 'react'
+import { ArrowLeft, ArrowRight, BookOpen, Braces, CheckCircle2, ChevronRight, FileCode2, Layers3, ListTree, RotateCcw, Terminal } from 'lucide-react'
+import { LearningPathView, type LearningPathViewProps } from './learning-path-view'
+import { holdsCompletion } from '../utils/lesson-evidence'
+
+type Props = LearningPathViewProps & { dueCount: number; onGoReviews: () => void }
+
+/** Desktop overview consumes the same catalog and evidence as the detailed stage ledger. */
+export function DesktopLearningHome({ dueCount, onGoReviews, ...props }: Props) {
+  const [showDetails, setShowDetails] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'pending' | 'complete'>('all')
+  const subject = props.subjects.find((item) => item.id === props.subjectId)
+  const selected = props.lessons.find((item) => item.id === props.selectedLessonId) ?? props.lessons[0]
+  const complete = props.lessons.filter((item) => holdsCompletion(props.lessonStates?.[item.id]))
+  const visible = props.lessons.filter((item) => filter === 'all' || holdsCompletion(props.lessonStates?.[item.id]) === (filter === 'complete'))
+
+  if (showDetails) return (
+    <section className="desktop-catalog-details">
+      <button className="subtle-button" onClick={() => setShowDetails(false)}><ArrowLeft size={15} />返回工作区概览</button>
+      <LearningPathView {...props} />
+    </section>
+  )
+
+  return (
+    <section className="desktop-learning-home" aria-label="学习路径页">
+      <div className="desktop-subjects" role="group" aria-label="选择学习科目">
+        {props.subjects.map((item) => (
+          <button key={item.id} aria-pressed={item.id === props.subjectId} onClick={() => props.onSubjectChange(item.id)}>
+            <span className="subject-symbol" aria-hidden="true">{item.short}</span>
+            <span>{item.label}</span><small>{item.lessonCount}</small>
+          </button>
+        ))}
+      </div>
+      <div className="desktop-learning-columns">
+        <div className="desktop-learning-primary">
+          <header className="desktop-section-heading">
+            <div><p className="desktop-eyebrow"><span /> LEARNING PATH</p><h1 className="desktop-page-title">你的学习路径</h1></div>
+            <button className="desktop-text-button" onClick={() => setShowDetails(true)}><ListTree size={15} />阶段与来源明细<ChevronRight size={14} /></button>
+          </header>
+          {selected ? (
+            <article className="desktop-course-hero">
+              <div className="desktop-course-copy">
+                <div className="desktop-course-badges"><span><Layers3 size={13} />{subject?.label ?? props.subjectId}</span><span>{selected.reading ? '阅读与理解' : '交互式课程'}</span></div>
+                <h2>{selected.title}</h2>
+                <p>{selected.description || '从理解概念开始，在工作台中阅读、练习与验证。'}</p>
+                <div className="desktop-hero-bottom">
+                  <button className="primary-action" onClick={() => props.onLessonChange(selected)}>进入学习<ArrowRight size={16} /></button>
+                  <span>{complete.length} / {props.lessons.length} 个单元已有完成证据</span>
+                </div>
+              </div>
+              <div className="desktop-course-art" aria-hidden="true"><div className="course-orbit" /><div className="course-orbit second" /><div className="course-art-core"><Braces size={49} strokeWidth={1.3} /></div><span className="art-tag tag-top">&lt;learn /&gt;</span><span className="art-tag tag-bottom">build. understand.</span></div>
+            </article>
+          ) : <div className="empty-state"><BookOpen /><h2>当前科目暂无课程</h2><p>切换科目，或从顶部资料库状态条同步内容。</p></div>}
+          <div className="desktop-course-toolbar"><h2><FileCode2 size={17} />课程单元 <span>{props.lessons.length}</span></h2><div role="group" aria-label="筛选课程状态">{([['all', '全部'], ['pending', '待学习'], ['complete', '已完成']] as const).map(([value, label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div></div>

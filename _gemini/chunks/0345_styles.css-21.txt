@@ -1,0 +1,105 @@
+.challenge-evidence { min-height: 64px !important; }
+
+.target-output {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-16, 16px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--accent-ring);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.target-output span { flex: 0 0 100%; color: var(--accent); font-size: var(--ds-size-control, 13px); font-weight: 700; letter-spacing: var(--ds-track-meta); }
+.target-output code {
+  padding: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  color: var(--accent-2);
+  border: var(--hair) solid rgba(63, 240, 200, 0.26);
+  border-radius: var(--radius);
+  background: var(--inset);
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size);
+}
+
+.challenge-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  margin-top: var(--ds-space-14, 14px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-12, 12px);
+  border: var(--hair) solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.challenge-result strong { display: inline-flex; align-items: center; gap: var(--ds-space-8, 8px); font-size: var(--ds-size-control, 13px); }
+/* 结果状态的第二通道：形状（实心方块 = 通过，空心虚线方块 = 未通过），
+   颜色只作辅助，语义仍由右侧文字承载（§5.1 末段）。 */
+.challenge-result strong::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+}
+.challenge-result span { font-family: var(--font-mono); font-size: var(--ds-size-control, 13px); }
+.challenge-result.passed {
+  color: var(--c-green);
+  border-color: var(--ds-status-success-edge, rgba(63, 211, 164, 0.45));
+  background: var(--ok-wash);          /* 原 16px 绿色泛光已移除 */
+}
+.challenge-result.failed {
+  color: var(--c-coral);
+  border-color: var(--ds-status-danger-edge, rgba(255, 131, 113, 0.45));
+  background: var(--bad-wash);
+}
+.challenge-result.failed strong::before { background: transparent; border: var(--hair) dashed currentColor; }
+
+.hint-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-14, 14px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-12, 12px);
+  border: var(--hair) solid rgba(255, 196, 87, 0.4);
+  border-left: 2px solid var(--c-yellow);
+  border-radius: var(--radius);
+  color: var(--c-yellow);
+  background: var(--warn-wash);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.hint-box svg { flex: 0 0 auto; margin-top: var(--ds-space-2, 2px); }
+
+.challenge-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-20, 20px);
+  padding-top: var(--ds-space-16, 16px);
+  border-top: var(--hair) solid var(--line);
+}
+.challenge-done-note { display: inline-flex; align-items: center; gap: var(--ds-space-6, 6px); color: var(--c-green); font-size: var(--ds-size-control, 13px); }
+.challenge-explanation { margin: var(--ds-space-12, 12px) 0 0; color: var(--faint); font-size: var(--ds-size-control, 13px); line-height: 1.6; }
+
+/* ---------------------------------------------------------------------------
+   项目视图
+   ------------------------------------------------------------------------- */
+.projects-layout { display: grid; grid-template-columns: 280px 1fr; gap: var(--ds-space-14, 14px); align-items: start; }
+.project-list { display: flex; flex-direction: column; gap: var(--ds-space-10, 10px); }
+.project-card {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  padding: var(--ds-space-12, 12px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  text-align: left;
+  transition: border-color var(--ds-dur-quick) var(--ease);
+}
+.project-card:hover, .project-card.selected { border-color: var(--accent); }
+.project-card.selected { background: var(--accent-soft); }

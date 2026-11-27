@@ -1,0 +1,78 @@
+    expect(text).toContain('错误类型：Error')
+    expect(text).toContain('错误消息：Cannot read properties of undefined')
+    expect(text).toContain('调用堆栈：')
+    expect(screen.getByRole('status').textContent).toContain('已复制到剪贴板')
+    expect(screen.getByRole('status').className).toContain('cw-error-copy-state--copied')
+  })
+
+  it('剪贴板被拒 + execCommand 也失败时如实报失败，并给出手动选取路径', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    })
+    Object.defineProperty(document, 'execCommand', { value: vi.fn(() => false), configurable: true, writable: true })
+    renderBoundary()
+    fireEvent.click(screen.getByRole('button', { name: /复制错误详情/ }))
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toContain('复制失败')
+    expect(status.textContent).toContain('手动复制')
+    expect(status.textContent).not.toContain('已复制')
+    expect(status.className).toContain('cw-error-copy-state--failed')
+  })
+
+  it('无 Clipboard API 时退回 execCommand 通道，成功才报成功', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    const execCommand = vi.fn(() => true)
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true, writable: true })
+    renderBoundary()
+    fireEvent.click(screen.getByRole('button', { name: /复制错误详情/ }))
+    await waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'))
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toContain('已复制到剪贴板')
+  })
+
+  it('buildErrorReport 原样给出事实，并在超长堆栈上截断而不是丢信息', () => {
+    const error = new Error('短消息')
+    error.stack = `stack-head\n${'x'.repeat(5000)}`
+    const report = buildErrorReport(error, '    in Boom\n    in App', '2026-09-20T10:00:00.000Z')
+    expect(report).toContain('发生时间：2026-09-20T10:00:00.000Z')
+    expect(report).toContain('错误消息：短消息')
+    expect(report).toContain('组件栈（React）：')
+    expect(report).toContain('（已截断，共')
+  })
+})
+
+describe('M4 错误态 · 与全站同一体系（CSS 源码不变式）', () => {
+  it('每条选择器都带错误态前缀：全局裸选择器 0 条', () => {
+    const offenders = allSelectors(cssText).filter(
+      (selector) =>
+        !selector.startsWith('.error-boundary') && !selector.startsWith('.reduce-motion '),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it('黑场 + 1px 发丝线 + 直角，无渐变、无泛光、无背景模糊', () => {
+    const root = declarationBlock('.error-boundary.cw-error')
+    expect(root).toContain('background: var(--ce-canvas)')
+    expect(root).toContain('color: var(--ce-ink)')
+    const panel = declarationBlock('.error-boundary .cw-error-panel')
+    expect(panel).toContain('border: var(--ce-line) solid var(--ce-edge)')
+    expect(panel).toContain('box-shadow: var(--ds-shadow-panel, none)')
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|text-shadow/)
+    const radii = [...cssCode.matchAll(/border-radius:\s*([^;]+);/g)].map((match) => (match[1] ?? '').trim())
+    expect(radii.length).toBeGreaterThan(0)
+    for (const value of radii) expect(['var(--ce-radius)', 'var(--ds-shape-none, 0)']).toContain(value)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+  })
+
+  it('错误文本必读：16px/1.7、堆栈可选中、触控 ≥44px、焦点可见', () => {
+    const root = declarationBlock('.error-boundary.cw-error')
+    expect(root).toContain('--ce-body: var(--ds-size-body, 16px)')
+    expect(root).toContain('--ce-leading: var(--ds-leading-body, 1.7)')
+    expect(root).toContain('--ce-tap: var(--ds-tap-min, 44px)')
+    const message = declarationBlock('.error-boundary .cw-error-message')
+    expect(message).toContain('user-select: text')
+    expect(message).toContain('white-space: pre-wrap')
+    expect(message).toContain('overflow-wrap: anywhere')
+    expect(declarationBlock('.error-boundary .cw-error-btn')).toContain('min-height: var(--ce-tap)')
+    expect(declarationBlock('.error-boundary .cw-error-details summary')).toContain('min-height: var(--ce-tap)')

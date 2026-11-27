@@ -1,0 +1,77 @@
+    expect(container.querySelector('.run-indicator.error')).toBeTruthy()
+  })
+
+  it('执行等级不可信时显式说明（role=status），通过判定不被冒充', () => {
+    const { container } = renderWorkspace({ execution: executionResult({ unsupported: true }) })
+    // 本页有两个 role=status（这一条执行等级说明 + 代码区头部的保存结果），断言要认元素不是认数量
+    const note = container.querySelector('.workspace-tier-note')
+    expect(note?.textContent).toContain('教学模拟')
+    expect(container.querySelector('.subtle-button')?.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('外部环境实验：不给运行按钮，四项结构化证据填齐之前完成入口是锁着的', () => {
+    const { container, props } = renderWorkspace({
+      lesson: baseLesson({ content: { ...baseLesson().content, runEnvironment: 'external' } }),
+      runStatus: 'idle',
+    })
+    expect(container.querySelector('.run-bar')).toBeNull()
+    expect(container.textContent).toContain('外部环境实验')
+    const button = container.querySelector('.subtle-button') as HTMLButtonElement
+    // LEARN-01 第 5a 条改的就是这里：从前这个按钮空手也能点，点下去就记一条「完成」，
+    // 什么材料都不收。现在四项不齐它就不放开。
+    expect(button.disabled).toBe(true)
+    expect(button.textContent).toContain('补齐外部证据后可标记完成')
+    fireEvent.click(button)
+    expect(props.onComplete).not.toHaveBeenCalled()
+
+    const fill = (key: string, value: string) =>
+      fireEvent.change(container.querySelector(`#lesson-evidence-vault-py-func-${key}`) as HTMLInputElement, { target: { value } })
+    fill('environment', 'Windows 11 + JDK 17.0.9 + Maven 3.9.6')
+    fill('command', 'mvn -q package')
+    expect((container.querySelector('.subtle-button') as HTMLButtonElement).disabled, '还差结果摘要与日期').toBe(true)
+    fill('resultSummary', '构建成功，控制台输出 5，与验收点一致')
+
+    const ready = container.querySelector('.subtle-button') as HTMLButtonElement
+    expect(ready.disabled).toBe(false)
+    expect(ready.textContent).toContain('已完成真实环境练习')
+    fireEvent.click(ready)
+    expect(props.onComplete).toHaveBeenCalledTimes(1)
+    const payload = (
+      props.onComplete as unknown as {
+        mock: { calls: [[{ verification: string; externalEvidence?: Record<string, string> }]] }
+      }
+    ).mock.calls[0][0]
+    expect(payload.verification, '证据填齐也只是声明完整，不是本机验证过').toBe('self-declared')
+    const evidence = payload.externalEvidence as { environment: string; command: string; resultSummary: string; reproducedOn: string }
+    expect(evidence.environment).toContain('JDK 17')
+    expect(evidence.resultSummary).toContain('输出 5')
+    expect(evidence.reproducedOn, '复现日期由 emptyEvidence 预填今天').toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('外部证据表单复用挑战页那一份隐私校验，命中即锁住并逐条说明', () => {
+    const { container, props } = renderWorkspace({
+      lesson: baseLesson({ content: { ...baseLesson().content, runEnvironment: 'external' } }),
+      runStatus: 'idle',
+    })
+    const fill = (key: string, value: string) =>
+      fireEvent.change(container.querySelector(`#lesson-evidence-vault-py-func-${key}`) as HTMLInputElement, { target: { value } })
+    fill('environment', 'password: hunter2')
+    fill('command', 'java -version')
+    fill('resultSummary', '输出一行版本号，本机 JDK 17 可用')
+    const error = container.querySelector('.external-evidence-error')
+    expect(error?.textContent, '隐私字段要指名是哪一项').toContain('脱敏')
+    expect(container.querySelector('[aria-invalid="true"]')).toBeTruthy()
+    expect((container.querySelector('.subtle-button') as HTMLButtonElement).disabled).toBe(true)
+    expect(props.onComplete).not.toHaveBeenCalled()
+  })
+
+  it('纯阅读单元：没有代码就没有编辑器，完成仍按证据清单确认', () => {
+    const { container, props } = renderWorkspace({ lesson: baseLesson({ code: '' }), runStatus: 'idle' })
+    expect(container.querySelector('textarea')).toBeNull()
+    expect(container.textContent).toContain('本单元没有配套代码')
+    fireEvent.click(container.querySelector('.subtle-button') as HTMLButtonElement)
+    expect(props.onComplete).toHaveBeenCalledTimes(1)
+  })
+
+  it('运行成功后才允许标记完成；已完成时显示复测口径', () => {
+    const idle = renderWorkspace({ runStatus: 'idle' })

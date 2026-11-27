@@ -1,0 +1,45 @@
+  it('播放中跳转即接管时钟：跳完不再自动前进（迟到的 tick 不许把播放头拽回去）', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await runToEnd(ref)
+    // 从末态重跑，把状态弄回 running（首帧起步）。
+    await act(async () => {
+      void ref.current!.handleStep()
+    })
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(multiResult(3)))
+    })
+    expect(ref.current!.runStatus).toBe('paused')
+
+    // 造一个「正在播放」的状态：从首帧起排链。
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(multiResult(3)))
+    })
+    expect(ref.current!.runStatus).toBe('running')
+
+    // 播放中点「上一步」：跳转生效，且状态被钉成 paused——
+    // 否则链上迟到的那一个 tick 会在下一拍把播放头再推回去。
+    await act(async () => {
+      ref.current!.handleSeek(0)
+    })
+    expect(ref.current!.runStatus).toBe('paused')
+
+    await new Promise((resolve) => setTimeout(resolve, EXECUTION_SETTINGS.STEP_DELAY_MS + 200))
+    expect(ref.current!.eventIndex).toBe(0)
+  })
+
+  it('enabled=false（工作台不可见）时跳转不生效', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} enabled={false} />)
+
+    // 先在被禁用的情况下尝试跳转：没有事件，下标无处可去，仍是 0。
+    await act(async () => {
+      ref.current!.handleSeek(2)
+    })
+    expect(ref.current!.eventIndex).toBe(0)
+    expect(ref.current!.runStatus).not.toBe('paused')
+  })
+})

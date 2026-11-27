@@ -1,0 +1,112 @@
+  border-color: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  /* 数据栏就长在它所属那一格的列里（跟着节点一起被撑宽），不绝对定位骑到轨道上——
+     绝对定位要找一个 position:relative 的祖先，而最近的祖先正是这一格 176px 宽的
+     节点，摊不开反而更挤。宽出来的地方由 `.is-expanded` 把那一格放宽解决。 */
+}
+
+/* 展开的那一格比别格宽一档：变量能横着铺开读，不用在 176px 里折成五段。
+   宽度只加在展开格上，所以轨道总宽不变（多出的一格吃掉同格的空白），
+   其余格仍保持 176px 的整齐节奏。宽度值仍需走令牌（§2.2 间距棘轮）。 */
+li.flow-step.is-expanded div.flow-node {
+  width: 360px;
+}
+
+ul.flow-data-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-6, 6px) var(--ds-space-16, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+ul.flow-data-list > li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  /* 长值横向滚动而不是折行挤压：值与类型是必读文字（§5.4） */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+span.flow-data-name {
+  flex: 0 0 auto;
+  color: var(--ds-text-primary, #f4f1ee);
+  font-weight: 600;
+}
+span.flow-data-eq {
+  flex: 0 0 auto;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+}
+span.flow-data-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--ds-text-primary, #f4f1ee);
+}
+li.is-coral span.flow-data-value { color: var(--ds-status-danger, #ff8371); } /* L62 */
+li.is-blue span.flow-data-value { color: var(--ds-status-info, #4f7cff); } /* L63 */
+span.flow-data-type {
+  flex: 0 0 auto;
+  color: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* L29 */
+  /* 类型名（int / list[str]）是变量卡的一部分，和值一起读——不按装饰微字档处理。 */
+  font-size: 12px;
+}
+p.flow-data-empty {
+  margin: 0;
+  color: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* L29：占位说明，非关键 */
+  font-size: 12px;
+}
+
+/* ── 三态：当前 / 已走过 / 未到 ───────────────────────────────────────────── */
+/* 当前：冷色近档泛光 + 2px 实心竖条（形状 + 发光双通道，静态可读） */
+li.flow-step.is-now div.flow-node {
+  border-color: var(--ds-scene-active, rgb(34, 211, 238));
+  border-block-start-color: var(--ds-scene-active, rgb(34, 211, 238));
+  box-shadow: var(--ds-glow-near, none);
+}
+/* 已走过：边界收亮一档，但不发光——发光只标「现在在哪」 */
+li.flow-step.is-done div.flow-node {
+  border-color: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  border-block-start-color: var(--ds-scene-active, rgb(34, 211, 238));
+}
+/* 未到：整块压到次级文字档 + 虚线边界（形状通道；不 opacity 压暗，仍可读） */
+li.flow-step.is-todo div.flow-node {
+  border-style: dashed;
+  box-shadow: none;
+}
+li.flow-step.is-todo div.flow-node-head span.flow-node-label,
+li.flow-step.is-todo div.flow-node-line code {
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* 5.86:1，仍然可读 */
+}
+
+/* ── 窄屏：格子窄一档，轨道横滚即可，不再折行 ─────────────────────────────── */
+@media (max-width: 720px) {
+  div.flow-node {
+    width: 148px;
+  }
+  /* 窄屏放不下 360px 的展开格：收到 260px，变量栏自己换行——轨道仍横滚 */
+  li.flow-step.is-expanded div.flow-node {
+    width: 260px;
+  }
+}
+
+/* ── §5.3 第 3 条：两条降级路径真停（本文件唯一允许 !important 的两处）。
+   本文件不含 @keyframes、不含 infinite 动画；这里停的是节点边界与泛光的过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  div.flow-chart,
+  div.flow-chart *,
+  div.flow-chart *::before,
+  div.flow-chart *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.flow-chart,
+.reduce-motion div.flow-chart *,
+.reduce-motion div.flow-chart *::before,
+.reduce-motion div.flow-chart *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

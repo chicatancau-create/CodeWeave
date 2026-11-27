@@ -1,0 +1,133 @@
+    [runBindingAction],
+  )
+  const unbindOwner = useCallback(
+    () => runBindingAction(() => unbindVaultOwner(), '已解除拥有者绑定'),
+    [runBindingAction],
+  )
+  const setVisibility = useCallback(
+    (publicContent: boolean) =>
+      runBindingAction(
+        () => setContentVisibility(publicContent),
+        publicContent ? '已放开教材给其他登录账户（正式进度仍仅拥有者可见）' : '教材已恢复为仅拥有者可见',
+      ),
+    [runBindingAction],
+  )
+
+  const loadVaultProgress = useCallback(async (): Promise<VaultProgressResult> => {
+    if (progressCache.current) return { ok: true, progress: progressCache.current }
+    const result = await fetchVaultProgress()
+    if (!result.ok) {
+      // 原因与 HTTP 状态按次回调用方，不再塞进全局 error：
+      // 「未绑定（409）」「无权限（403）」「读不到（503）」是三句话，只有最后一档该给重试。
+      return { ok: false, message: result.message, status: result.status }
+    }
+    progressCache.current = result.data
+    return { ok: true, progress: result.data }
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // LINK-09：确认式写回。暂存/预览/提交都只通过同源 API，
+  // 界面不持有任何磁盘路径；提交成功后刷新队列以反映真实状态。
+  // ---------------------------------------------------------------------------
+  const [evidenceQueue, setEvidenceQueue] = useState<EvidenceQueue | null>(null)
+
+  const loadEvidenceQueue = useCallback(async (): Promise<EvidenceQueue | null> => {
+    const result = await fetchEvidenceQueue()
+    if (!result.ok) return null
+    setEvidenceQueue(result.data)
+    return result.data
+  }, [])
+
+  const stageEvidence = useCallback(
+    async (input: EvidenceInput) => {
+      const result = await stageEvidenceRequest(input)
+      if (!result.ok) return { ok: false, message: result.message }
+      await loadEvidenceQueue()
+      return { ok: true, message: '已暂存为待写回证据（pending）：尚未修改资料库任何文件' }
+    },
+    [loadEvidenceQueue],
+  )
+
+  const removeEvidence = useCallback(
+    async (evidenceId: string) => {
+      const result = await removeEvidenceRequest(evidenceId)
+      if (!result.ok) return { ok: false, message: result.message }
+      await loadEvidenceQueue()
+      return { ok: true, message: '已删除该暂存证据' }
+    },
+    [loadEvidenceQueue],
+  )
+
+  const previewEvidence = useCallback(
+    (evidenceIds: string[], masteryUpdates?: { skill: string; level: string }[]) =>
+      previewWriteback({ evidenceIds, masteryUpdates }),
+    [],
+  )
+
+  const commitEvidence = useCallback(
+    async (operationId: string, expectedHashes: Record<string, string | null>) => {
+      const result = await commitWriteback({ operationId, expectedHashes })
+      if (result.ok) {
+        // 写入会改变正式进度与队列状态：让后续读取拿到最新内容，而不是旧缓存。
+        progressCache.current = null
+        await loadEvidenceQueue()
+      }
+      return result
+    },
+    [loadEvidenceQueue],
+  )
+
+  const exportEvidence = useCallback((evidenceIds?: string[]) => exportEvidenceMarkdown(evidenceIds), [])
+
+  const value = useMemo<ContentContextValue>(
+    () => ({
+      sourceKind,
+      state,
+      bundleId: snapshot?.bundleId ?? null,
+      pinnedBundleId,
+      serviceInstance: snapshot?.serviceInstance,
+      vaultId: snapshot?.vaultId,
+      manifestHash: snapshot?.manifestHash,
+      capabilities: snapshot?.capabilities,
+      buildTime: snapshot?.buildTime ?? null,
+      counts: snapshot?.counts ?? null,
+      status,
+      lessons: adapted.lessons,
+      subjects,
+      stages: adapted.stages,
+      legacyStages: adapted.legacyStages,
+      error,
+      loading,
+      refresh,
+      loadLessonDetail,
+      sync,
+      learningStatus,
+      bindOwner,
+      unbindOwner,
+      setVisibility,
+      loadVaultProgress,
+      evidenceQueue,
+      loadEvidenceQueue,
+      stageEvidence,
+      removeEvidence,
+      previewEvidence,
+      commitEvidence,
+      exportEvidence,
+    }),
+    [
+      sourceKind,
+      state,
+      snapshot,
+      pinnedBundleId,
+      status,
+      adapted,
+      subjects,
+      error,
+      loading,
+      refresh,
+      loadLessonDetail,
+      sync,
+      learningStatus,
+      bindOwner,
+      unbindOwner,
+      setVisibility,

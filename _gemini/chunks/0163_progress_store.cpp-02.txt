@@ -1,0 +1,92 @@
+  if (!output) return app::Result::failure("打开进度账本追加流失败");
+  output.write(line.data(), static_cast<std::streamsize>(line.size()));
+  output.flush();
+  if (!output) return app::Result::failure("追加进度账本失败");
+  output.close();
+#ifdef _WIN32
+  const auto handle = CreateFileW(destination.wstring().c_str(), GENERIC_READ | GENERIC_WRITE,
+      FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE || !FlushFileBuffers(handle)) {
+    if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+    return app::Result::failure("刷盘进度账本失败");
+  }
+  CloseHandle(handle);
+#endif
+  return app::Result::success("进度账本已追加");
+}
+
+app::Result write_pending_transaction(const std::filesystem::path& destination,
+    std::uintmax_t base_size, std::string_view line) {
+  const auto pending = pending_path(destination);
+  const auto temporary = temporary_path(pending);
+  const auto body = std::to_string(base_size) + "\n" + encode_hex(line);
+  {
+    std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+    if (!output) return app::Result::failure("创建进度追加事务失败");
+    output.write(body.data(), static_cast<std::streamsize>(body.size()));
+    output.flush();
+    if (!output) {
+      std::error_code ignored;
+      std::filesystem::remove(temporary, ignored);
+      return app::Result::failure("写入进度追加事务失败");
+    }
+  }
+  std::error_code error;
+#ifdef _WIN32
+  if (!MoveFileExW(temporary.wstring().c_str(), pending.wstring().c_str(),
+      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+  }
+#else
+  std::filesystem::rename(temporary, pending, error);
+#endif
+  if (error) {
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return app::Result::failure("提交进度追加事务失败");
+  }
+  return app::Result::success("进度追加事务已记录");
+}
+
+app::Result recover_pending(const std::filesystem::path& destination,
+    const std::filesystem::path& data_root) {
+  const auto pending = pending_path(destination);
+  std::error_code error;
+  const auto pending_status = std::filesystem::symlink_status(pending, error);
+  if (error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+      error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND) {
+    return app::Result::success();
+  }
+  if (error) return app::Result::failure("读取进度追加事务状态失败");
+  if (std::filesystem::is_symlink(pending_status) ||
+      !std::filesystem::is_regular_file(pending_status) ||
+      has_symlink_component(destination.parent_path())) {
+    return app::Result::failure("进度追加事务路径无效");
+  }
+  std::ifstream input(pending, std::ios::binary);
+  if (!input) return app::Result::failure("打开进度追加事务失败");
+  const auto pending_size = std::filesystem::file_size(pending, error);
+  if (error || pending_size > kMaxProgressLineBytes * 2) {
+    return app::Result::failure("进度追加事务超过大小上限");
+  }
+  std::string body(static_cast<std::size_t>(pending_size), '\0');
+  input.read(body.data(), static_cast<std::streamsize>(body.size()));
+  if (!input && !input.eof()) return app::Result::failure("读取进度追加事务失败");
+  input.close();
+  if (input.fail()) return app::Result::failure("关闭进度追加事务失败");
+  const auto separator = body.find('\n');
+  if (separator == std::string::npos) return app::Result::failure("进度追加事务格式无效");
+  std::uintmax_t base_size{};
+  const auto parsed = std::from_chars(body.data(), body.data() + separator, base_size);
+  if (parsed.ec != std::errc{} || parsed.ptr != body.data() + separator) {
+    return app::Result::failure("进度追加事务原长度无效");
+  }
+  std::string line;
+  if (!decode_hex(std::string_view(body).substr(separator + 1), line) || line.empty() ||
+      line.size() > kMaxProgressLineBytes) {
+    return app::Result::failure("进度追加事务内容无效");
+  }
+  if (data_root.empty() || !data_root.is_absolute()) {
+    return app::Result::failure("进度数据根必须是绝对路径");
+  }
+  std::uintmax_t current_size = 0;

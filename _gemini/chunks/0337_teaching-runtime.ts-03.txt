@@ -1,0 +1,70 @@
+  const hits = detectTemplates(code, language)
+  return hits.length === 1 ? hits[0] : undefined
+}
+
+export function simulateProgram(code: string, language: LanguageId, lesson: Lesson): ExecutionResult {
+  const bracketError = checkBrackets(splitSource(code, language).code)
+  if (bracketError) {
+    return { events: [event('error', 'error', bracketError.line, '语法错误', bracketError.message, [])], output: [], error: bracketError, tier: 'teaching' }
+  }
+  const lines = code.split('\n')
+  const hits = detectTemplates(code, language)
+  if (hits.length === 0) return unsupportedResult()
+  if (hits.length > 1) return unsupportedResult(ambiguousTemplateMessage(hits), '结构不唯一')
+  const result = renderTemplate(hits[0]!.id, lines, language, lesson)
+  return { ...result, tier: 'teaching' }
+}
+
+function renderTemplate(id: string, lines: string[], language: LanguageId, lesson: Lesson): ExecutionResult {
+  switch (id) {
+    case 'greeting-call':
+      return simulateGreeting(lines, lesson)
+    case 'greeting-cn':
+      return simulateSimpleGreeting(lines)
+    case 'parity':
+      return simulateCondition(lines, lesson)
+    case 'while-loop':
+      return simulateWhile(lines, language, lesson)
+    case 'score-branch':
+      return simulateScore(lines, language, lesson)
+    case 'max-of-two':
+      return simulateMax(lines, language, lesson)
+    case 'for-sum':
+      return simulateSum(lines, language, lesson)
+    case 'age-increment':
+      return simulateAge(lines, language, lesson)
+    default:
+      return unsupportedResult()
+  }
+}
+
+function simulateAge(lines: string[], language: LanguageId, _lesson: Lesson): ExecutionResult {
+  const code = lines.join('\n')
+  const age = getNumber(code, /age\s*=\s*(-?\d+)/i, 18)
+  const value = age + 1
+  const type = language === 'javascript' ? 'number 数字' : 'int 整数'
+  const variables = [makeVariable('age', String(age), type, 'blue'), makeVariable('结果', String(value), type, 'coral')]
+  const assignLine = findLine(lines, /age\s*=/i)
+  const outputLine = findLine(lines, /print\s*\(|printf|println|writeline|console\.log/i, lines.length)
+  const events = [event('start', 'start', 1, '程序开始', '读取 age 的初始值。', variables, 'start'), event('assign', 'assign', assignLine, '声明 age', `age 的值是 ${age}。`, variables, 'init'), event('output', 'output', outputLine, '输出计算结果', `${age} + 1 = ${value}。`, variables, 'output'), event('end', 'end', lines.length, '程序结束', '执行完成，退出码为 0。', variables, 'end')]
+  return { events, output: [String(value)] }
+}
+
+function simulateSimpleGreeting(lines: string[]): ExecutionResult {
+  const code = lines.join('\n')
+  const name = code.match(/name\s*=\s*["']([^"']+)["']/i)?.[1] ?? '小明'
+  const result = `你好，${name}`
+  const variables = [makeVariable('name', name, '文本', 'blue')]
+  const outputLine = findLine(lines, /print\s*\(/i, lines.length)
+  const events = [event('start', 'start', 1, '程序开始', '读取 name 变量。', variables, 'start'), event('assign', 'assign', 1, '保存名字', `name = "${name}"。`, variables, 'init'), event('output', 'output', outputLine, '输出问候', `程序输出「${result}」。`, variables, 'output'), event('end', 'end', lines.length, '程序结束', '执行完成，退出码为 0。', variables, 'end')]
+  return { events, output: [result] }
+}
+
+function simulateScore(lines: string[], language: LanguageId, _lesson: Lesson): ExecutionResult {
+  const code = lines.join('\n')
+  const score = getNumber(code, /score\s*=\s*(-?\d+)/i, 0)
+  const passed = score >= 60
+  const result = passed ? '通过' : '再试一次'
+  const variables = [makeVariable('score', String(score), language === 'javascript' ? 'number 数字' : 'int 整数', 'blue'), makeVariable('result', result, '文本', 'coral')]
+  const conditionLine = findLine(lines, /if\s*\(/i, 1)
+  const outputLine = findLine(lines, /print\s*\(|printf|println|writeline|console\.log/i, lines.length)

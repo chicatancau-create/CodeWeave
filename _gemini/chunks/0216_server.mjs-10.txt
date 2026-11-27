@@ -1,0 +1,128 @@
+/** 内容 ID 只接受受限字符集；绝不接受路径、`..` 或盘符。 */
+function safeContentId(raw) {
+  const value = decodeURIComponentSafe(raw)
+  if (!value || value.length > 96) return null
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) ? value : null
+}
+
+function decodeURIComponentSafe(raw) {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return ''
+  }
+}
+
+/** 独立维度的限流计数是否已达上限（不增加计数）。 */
+function rateLimitCount(key, max) {
+  return (rateLimits.get(key)?.count ?? 0) >= max
+}
+
+/**
+ * R3 写操作前置校验：要求 application/json，并做跨源纵深防御。
+ * 无请求体的写操作（如登出）不要求 Content-Type。
+ * 返回 null 表示通过；否则返回应发送的错误响应参数。
+ */
+function guardWriteRequest(request, url) {
+  // 跨源纵深防御优先：现代浏览器的 Sec-Fetch-Site 可判定跨站发起。
+  const fetchSite = String(request.headers['sec-fetch-site'] ?? '')
+  if (fetchSite === 'cross-site') {
+    return { status: 403, message: '拒绝跨站写请求', code: 'cross_site_rejected' }
+  }
+  const origin = request.headers.origin
+  if (origin) {
+    const host = request.headers.host ?? ''
+    let originHost
+    try {
+      originHost = new URL(origin).host
+    } catch {
+      originHost = undefined
+    }
+    if (!originHost || originHost !== host) {
+      return { status: 403, message: '拒绝非同源写请求', code: 'cross_site_rejected' }
+    }
+  }
+  // 无请求体的端点（登出）无需 Content-Type。
+  if (BODYLESS_WRITE_PATHS.has(url.pathname)) return null
+  const contentType = String(request.headers['content-type'] ?? '')
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return { status: 415, message: '请求需使用 Content-Type: application/json', code: 'unsupported_media_type' }
+  }
+  return null
+}
+
+function parseCookies(request) {
+  return Object.fromEntries(
+    (request.headers.cookie ?? '')
+      .split(';')
+      .filter(Boolean)
+      .map((item) => {
+        const [key, ...value] = item.trim().split('=')
+        return [key, decodeURIComponentSafe(value.join('='))]
+      }),
+  )
+}
+
+function requestBody(request) {
+  return new Promise((resolveBody, reject) => {
+    let raw = ''
+    let size = 0
+    request.on('data', (chunk) => {
+      size += chunk.length
+      if (size > MAX_BODY_BYTES) {
+        reject(Object.assign(new Error('请求体过大'), { code: 'body_too_large' }))
+        request.destroy()
+        return
+      }
+      raw += chunk
+    })
+    request.on('end', () => {
+      try {
+        resolveBody(JSON.parse(raw || '{}'))
+      } catch {
+        reject(Object.assign(new Error('请求格式无效'), { code: 'invalid_json' }))
+      }
+    })
+    request.on('error', reject)
+  })
+}
+
+function sessionCookieHeader(sessionId) {
+  return `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`
+}
+
+function clearedCookieHeader() {
+  return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
+}
+
+// ---------------------------------------------------------------------------
+// API 路由
+// ---------------------------------------------------------------------------
+async function handleApi(request, response, url) {
+  // R3：健康检查最先处理，不读取用户文件、不受数据损坏状态影响，也不暴露任何用户信息。
+  // §6.1：只额外带项目/实例/构建标识供启动器核对；资料库与页面是否就绪不在健康探针里宣称。
+  if (url.pathname === '/api/health' && request.method === 'GET') {
+    return sendJson(response, 200, {
+      status: 'ok',
+      uptimeSeconds: Math.round(process.uptime()),
+      ...instanceIdentity({ dataDir: dataRoot, distDir: distRoot }),
+    })
+  }
+
+  // 首次导入前校验旧账户格式。
+  const users = await readUsers()
+  if (dataState === 'corrupt') {
+    return sendJson(response, 503, '用户数据文件已损坏，服务进入只读保护状态；请按 README 恢复数据后重启', 'storage_corrupt')
+  }
+  try {
+    // R3：所有写操作统一做 Content-Type 与跨源校验。
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      const rejection = guardWriteRequest(request, url)
+      if (rejection) return sendJson(response, rejection.status, rejection.message, rejection.code)
+    }
+
+    if (url.pathname === '/api/auth/me' && request.method === 'GET') {
+      const user = sessionUser(request, users)
+      return sendJson(response, 200, user ? publicUser(user) : null)
+    }
+

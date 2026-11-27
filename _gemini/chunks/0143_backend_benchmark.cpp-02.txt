@@ -1,0 +1,93 @@
+      "\"category\":\"account\",\"label\":\"Benchmark\"}],"
+      "\"data\":{\"code-canvas.challenge-progress.v2:benchmark-user\":"
+      "{\"data\":{}}}}";
+  return write_text(source, json);
+}
+
+std::string hex_encode(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string encoded;
+  encoded.reserve(value.size() * 2);
+  for (const unsigned char byte : value) {
+    encoded.push_back(digits[byte >> 4]);
+    encoded.push_back(digits[byte & 0x0f]);
+  }
+  return encoded;
+}
+
+bool prepare_progress_ledger(const std::filesystem::path& data_root, int record_count) {
+  const auto ledger = data_root / "learning" / "progress.v1.log";
+  std::error_code error;
+  if (!std::filesystem::create_directories(ledger.parent_path(), error) || error) return false;
+  std::ofstream output(ledger, std::ios::binary | std::ios::trunc);
+  if (!output) return false;
+  for (int index = 0; index < record_count; ++index) {
+    char operation_suffix[7]{};
+    std::snprintf(operation_suffix, sizeof(operation_suffix), "%06x", index & 0xFFFFFF);
+    const auto field = [&](std::string_view value) { return hex_encode(value); };
+    output << field("fact-" + std::to_string(index)) << '\t'
+        << field("lesson-01") << '\t' << field("exercise-01") << '\t'
+        << field("2026-10-05") << '\t' << field("completed") << '\t'
+        << field(std::string("op-benchmark-") + operation_suffix) << '\n';
+  }
+  return output.good();
+}
+
+Sample measure_progress_append(const std::filesystem::path& run_root, int record_count) {
+  const auto data_root = run_root / ("progress-" + std::to_string(record_count));
+  if (!prepare_progress_ledger(data_root, record_count)) return {};
+  codeweave::learning::ProgressStore store(data_root);
+  const codeweave::learning::ProgressFact fact{
+      "fact-new", "lesson-01", "exercise-01", "2026-10-05", "completed",
+      "op-benchmarknew-abcdef"};
+  return measure([&] {
+    bool duplicate = false;
+    const auto result = store.append_idempotent(fact, duplicate);
+    if (!result.ok) std::cerr << "progress_append_" << record_count << ": " << result.message << '\n';
+    return result.ok && !duplicate;
+  });
+}
+
+Sample measure_progress_hot_append(const std::filesystem::path& run_root, int record_count,
+    int sample) {
+  const auto data_root = run_root / ("progress-hot-" + std::to_string(record_count));
+  if (!prepare_progress_ledger(data_root, record_count)) return {};
+  codeweave::learning::ProgressStore store(data_root);
+  const auto append_fact = [&](int index) {
+    char operation_suffix[7]{};
+    std::snprintf(operation_suffix, sizeof(operation_suffix), "%03x%03x", sample, index);
+    const auto suffix = std::string(operation_suffix);
+    const codeweave::learning::ProgressFact fact{
+        "fact-hot-" + suffix, "lesson-01", "exercise-01", "2026-10-05", "completed",
+        "op-benchmarkhot-" + suffix};
+    bool duplicate = false;
+    const auto result = store.append_idempotent(fact, duplicate);
+    return result.ok && !duplicate;
+  };
+  if (!append_fact(0)) return {};
+  return measure([&] { return append_fact(1); });
+}
+
+Sample measure_backup(const std::filesystem::path& run_root) {
+  const auto source = run_root / "backup-source";
+  const auto target = run_root / "backup-target";
+  if (!prepare_backup_source(source)) return {};
+  codeweave::backup::Report report;
+  return measure([&] {
+    return codeweave::backup::create_native_backup(source, target, report).ok;
+  });
+}
+
+Sample measure_users_import(const std::filesystem::path& run_root) {
+  const auto source = run_root / "users.json";
+  const auto target = run_root / "users-target";
+  if (!prepare_users_json(source)) return {};
+  codeweave::migration::LegacyImportReport report;
+  return measure([&] {
+    return codeweave::migration::import_legacy_users(source, target, report).ok;
+  });
+}
+
+Sample measure_learning_import(const std::filesystem::path& run_root) {
+  const auto source = run_root / "learning.json";
+  const auto target = run_root / "learning-target";

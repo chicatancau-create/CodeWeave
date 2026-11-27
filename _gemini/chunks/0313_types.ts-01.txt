@@ -1,0 +1,149 @@
+/**
+ * 内容快照的类型（与 server/content/compiler.mjs 产出的 bundle 对齐）。
+ *
+ * 这些类型只描述**派生内容包**；知识正文的权威位置始终是资料库。
+ * 应用侧不得在这里再维护一份教学正文。
+ */
+
+/** 内容来源性质：vault=资料库正式内容；legacy-fallback=未连接时的旧内置课程；none=无可用内容。 */
+export type ContentSourceKind = 'vault' | 'legacy-fallback' | 'none'
+
+/** 与 server/content/snapshot.mjs 的 STATUS 对齐。 */
+export type ContentState =
+  | 'unconfigured'
+  | 'scanning'
+  | 'validating'
+  | 'ready'
+  | 'invalid'
+  | 'unavailable'
+  | 'error'
+
+export type SnapshotHeading = { level: number; title: string; line: number }
+
+export type SnapshotReading = {
+  path: string
+  headingPath: string[]
+  headings: SnapshotHeading[]
+  markdown: string
+  contentHash: string
+  fileHash: string
+  verificationStatus: string
+}
+
+export type SnapshotSectionRef = { path: string; headingPath: string[] }
+
+export type SnapshotLesson = {
+  contentId: string
+  primaryTopicId: string
+  title: string
+  /** 内容科目（如 Java、JavaScript、Vue 3），与「可执行语言」分开 */
+  subject: string
+  /** 可执行语言标识；none 表示本页不自动执行 */
+  language: string
+  objective: string
+  lessonKind: 'reading' | 'example' | 'guided' | 'exercise' | 'project'
+  stageIds: string[]
+  prerequisiteRefs: string[]
+  exerciseIds: string[]
+  projectTaskRef: string | null
+  runEnvironment: 'teaching' | 'external'
+  executionPolicy: 'worker' | 'teaching' | 'external'
+  estimatedMinutes: number | null
+  reviewOffsetsDays: number[] | null
+  verificationStatus: string
+  sourceIds: string[]
+  status: string
+  legacyRefs: string[]
+  reading: SnapshotReading | null
+  /** 仅详情响应带回；目录摘要不含该字段 */
+  sectionRefs?: SnapshotSectionRef[]
+  /** 目录摘要提供的来源定位（详情响应里由 reading 提供） */
+  sourcePath?: string | null
+  sourceHeadingPath?: string[] | null
+  exerciseCount: number
+  sourceHash: string
+}
+
+export type SnapshotExercise = {
+  exerciseId: string
+  primaryLessonId: string
+  supportingTopicIds: string[]
+  title: string
+  prompt: string
+  inputConvention: string
+  testCases: string[]
+  hintLevels: string[]
+  executionPolicy: 'worker' | 'teaching' | 'external'
+  language: string
+  version: number
+  starterCode: string
+  starterLanguage: string
+  expectedOutput: string[]
+  evidenceChecklist: string[]
+  rubric: string[]
+  source: { path: string; sourceHash: string }
+}
+
+export type SnapshotStage = {
+  id: string
+  title: string
+  checkpoint: string
+  deliverables: string[]
+  prerequisites: string[]
+}
+
+export type SnapshotMilestone = { id: string; name: string; stages: string[]; checkpoint: string }
+export type SnapshotMasteryLevel = { level: number; meaning: string }
+export type SnapshotHintLevel = { id: string; name: string; meaning: string }
+
+export type SnapshotRules = {
+  status: 'current' | 'stale' | 'missing'
+  reason?: string
+  sourceRefs?: { path: string; headingPath: string[] }[]
+  stages?: SnapshotStage[]
+  milestones?: SnapshotMilestone[]
+  masteryLevels?: SnapshotMasteryLevel[]
+  masteryRule?: string
+  hintLevels?: SnapshotHintLevel[]
+  reviewOffsetsDays?: number[]
+}
+
+export type ContentSnapshot = {
+  bundleId: string
+  vaultId?: string
+  serviceInstance?: string
+  manifestHash?: string
+  contractVersion?: number
+  capabilities?: string[]
+  legacyAliases?: Record<string, string>
+  schemaVersion: number
+  buildTime: string
+  rules: SnapshotRules
+  stages: SnapshotStage[]
+  milestones: SnapshotMilestone[]
+  masteryLevels: SnapshotMasteryLevel[]
+  hintLevels: SnapshotHintLevel[]
+  reviewOffsetsDays: number[]
+  lessons: SnapshotLesson[]
+  counts: Record<string, number> | null
+}
+
+export type ContentStatusResponse = {
+  state: ContentState
+  vaultConfigured: boolean
+  vaultReason: string | null
+  bundleId: string | null
+  buildTime: string | null
+  publishedAt: string | null
+  counts: Record<string, number> | null
+  rulesStatus: string | null
+  stale: boolean
+  lastError: { code: string; message: string } | null
+  lastReport: {
+    finishedAt: string
+    blockingCount: number
+    gaps: Record<string, number> | null
+    rules: { status: string; reason: string } | null
+  } | null
+}
+

@@ -1,0 +1,141 @@
+          "label": "依赖自动更新",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "视图重渲染",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "组合式 API 的核心是“状态 → 派生 → 视图”的依赖追踪；ref 在 JS 里要 .value，模板里不用。",
+      "fileName": "Counter.vue",
+      "runtime": "外部环境 · Vite + 浏览器",
+      "content": {
+        "objective": "在本地 Vue 3 工程完成一个 ref + computed 的计数组件，并解释响应式更新链路。",
+        "prerequisites": [
+          "d3-dom-events"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "E",
+        "explanation": [
+          "ref(0) 返回带 .value 的响应式引用；模板中自动解包，JS 中必须 count.value。",
+          "computed 派生值有缓存：依赖不变就不会重算。",
+          "<script setup> 是组合式 API 的语法糖，顶层声明直接暴露给模板。"
+        ],
+        "examples": [
+          {
+            "good": "const double = computed(() => count.value * 2)——依赖变了才重算",
+            "bad": "用普通函数 double() 在模板里多次调用，每次渲染都重算",
+            "why": "computed 的缓存是性能与一致性的来源"
+          }
+        ],
+        "guidedSteps": [
+          "用 Vite 创建 Vue 3 工程（npm create vue@latest）。",
+          "实现计数组件：按钮 +1，显示 count 和 double。",
+          "用 Vue Devtools 观察状态变化与组件重渲染。"
+        ],
+        "exercise": "独立实现一个待办输入组件：输入回车后追加到列表，列表长度用 computed 派生。",
+        "variant": "把计数逻辑抽成 useCounter() 组合式函数，在两个组件中复用。",
+        "projectTask": "该组件模式是 E 阶段验收（登录 + CRUD 管理页面）里所有表单组件的雏形。",
+        "mistakes": [
+          "JS 中忘记 .value 直接读 ref",
+          "解构 props 失去响应性（应使用 toRefs）"
+        ],
+        "runCommand": "npm run dev（本地 Vite 工程，浏览器不模拟编译）",
+        "completion": "组件运行正确，能口述 ref/computed 的更新链路。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "Vite 工程可启动",
+          "计数与派生值随点击更新",
+          "能解释 .value 与缓存"
+        ],
+        "evidenceChecklist": [
+          "工程启动截图",
+          "计数组件代码",
+          "一段响应式链路说明"
+        ]
+      }
+    },
+    {
+      "id": "e2-vue-router-guard",
+      "language": "javascript",
+      "languageLabel": "Vue 3",
+      "label": "E2",
+      "title": "Vue Router 路由与守卫",
+      "description": "路由表、动态段与登录守卫",
+      "duration": "40 min",
+      "level": "基础",
+      "code": "// 在本地工程中验证：\n// const routes = [{ path: \"/login\", component: Login }, { path: \"/admin\", component: Admin, meta: { auth: true } }];\n// router.beforeEach((to) => (to.meta.auth && !isLogin) ? \"/login\" : true);",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "发起导航",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "守卫检查",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "通过或重定向",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "渲染目标页",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "路由守卫是前端权限的第一道闸：拦截的是“导航”，不是组件内部逻辑。",
+      "fileName": "router.ts",
+      "runtime": "外部环境 · Vite + 浏览器",
+      "content": {
+        "objective": "独立配置含登录守卫的路由：未登录访问受保护页重定向到 /login。",
+        "prerequisites": [
+          "e1-vue-composition"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "E",
+        "explanation": [
+          "路由表把 URL 映射到组件；meta 字段携带路由级元信息（如 auth: true）。",
+          "beforeEach 全局守卫在每次导航前执行，返回 false 取消、返回路由对象重定向。",

@@ -1,0 +1,58 @@
+## G. 第四轮整项目审查（2026-11-12 10:12 起）
+
+### B4 内容计数与内容源表述不精确 —— 违反硬性规则 8（文档漂移），非功能阻塞
+
+**实测事实**：
+
+| 项 | 值 | 依据 |
+|---|---|---|
+| native 内容包课程数 | **74**（全部 `published`） | `应用端/项目/native/content/catalog.v1.tsv`，hex 编码、**无表头**，74 数据行 |
+| native 语言分布 | python 6 / c 4 / csharp 4 / java 37 / javascript 23 | 同上解码 |
+| native exercises / hints / starter / metadata | **4 / 13 / 74 / 74** | 同目录各 TSV 行数（均无表头） |
+| native 包最后改动 | **11-06 15:24 `52ce611`**，此后未变 | `git log -- …/catalog.v1.tsv` |
+| 网页端课程来源 | **资料库 markdown 经白名单编译**，不是 native 包 | `网页端/项目/server/service/server/content/compiler.mjs`（`contentTypes: knowledge-volume / knowledge-extension`）、`index.mjs` 的 `resolveVaultRoot` |
+| 网页端 11-11 渲染课程数 | **61** | `修缮终验报告-20261111.md:40`、`capture_topbar_reference.mjs:110` 记录的是网页端 `lessonIds` |
+| 源包 vs 部署副本 | **逐字节一致**（无过期部署） | `cmp` 两份 `catalog.v1.tsv` |
+
+**问题**：
+
+1. `catalog.v1.tsv` 有 74 条已发布记录，网页端 runtime 为 61 门。旧报告的「61 个课程 ID 一致」指 Qt UI 与 Web runtime 两组 ID，不是 catalog 行数；Qt UI 从 `curriculum.v1.json` 载入 61 门，另有 13 条 catalog 记录不在当前 UI curriculum 中。
+2. `A0现状与功能基线.md`、`课程工具等价矩阵.md` 的「61 课程 / 13 挑战 / 13 阶段」描述的是 `curriculum.v1.json`，数值正确但缺少来源口径；需与 catalog 74 rows、`exercises.v1.tsv` 4 rows、`hints.v1.tsv` 13 rows 分开列出。hex TSV 无表头，应按实际行数统计。
+3. 这**不一定是功能缺陷**：native 是版本化快照、网页端读活资料库，本就是两个源；视觉验收也已明确排除跨端数据等价。但按规则 8，计数与内容源描述必须与现状一致。
+
+**要求**：在 `UI复刻计划-Phase4.md` 与 A0/等价矩阵补充内容源与对象说明；跨端核对脚本输出 catalog rows、Qt UI lessons、Web runtime lessons 和两端 ID 交集，避免只写一个「一致」的数。不要求两端完整内容源相等。
+
+**执行方复核更新（2026-11-12）**：`curriculum.v1.json` 实测 61 lessons / 13 challenges / 13 stages；`catalog.v1.tsv` 有 74 条且全部 published，与课程 ID 的交集为 61、catalog-only 为 13；exercises 为 4、hints 为 13。Qt UI 与 Web runtime 的 61 个 ID 相等。比较器现直接解码 TSV，校验两组 UI IDs 的 catalog 成员关系并输出各计数；A0、矩阵、Phase4、两端待办和历史比较报告已补充口径。B4 已关闭。
+
+### 公开暴露面审计（仓库已于 11-06 公开）—— 干净
+
+| 扫描项 | 命中 | 分诊结论 |
+|---|---:|---|
+| 手机号模式 | 15 | **全部误报**：`13058931383`(5) 与 `15976250116`(1) 是 **SHA-256 哈希内的数字子串**；`13800138000`(9) 是经典演示号 |
+| 邮箱 | 122 | 域全为夹具：`example.test` 84 / `b.com` 24 / `example.com` 10 / `email.com` 2 / `qq.con` 2；**无真实域** |
+| 私钥 PEM | 2 | 均为**脱敏拒绝断言的坏输入夹具**（`native_tests.cpp:1179` 把 `-----BEGIN PRIVATE KEY-----` 喂给 `assert(!save(bad).ok)`；web 同），只有 BEGIN 行、非真钥 |
+| api_key/secret 赋值 | 2 | 测试口令（`super-secret-passphrase` 等），非真实凭据 |
+| 凭据类文件入库 | 0 | `.jks/.keystore/.pfx/.pem/.key/.env/key.properties` 均无 |
+| `工作区/` 入库 | 2 | 仅白名单的示例配置与审查待办，真实账户/学习记录未入库 |
+
+### 推送风险 —— 无分叉，可 fast-forward
+
+`origin` 与 `gitcode` 均 **ahead 65 / behind 0**，且 `origin/main` 是 HEAD 的祖先。即本地历史与远端**没有分叉**，推送不需要 force（与「11-06 历史 email 清洗使旧 SHA 失效」不冲突：远端已是清洗后的历史）。是否推送仍由用户单独授权，执行方按硬性规则 7 不得 push。
+
+### 本轮已闭确认
+
+- **B2 已闭**：`desktop-theme.css` 的 `#111923` 现为 0 处。
+- **B1 已闭，且用的是等值令牌安全手法**：抽查 5 个原字面量（`220/255,233/255,251/255,0.014`、`141/255,155/255,172/255,0.4`、`32/255,36/255,43/255,0.5`、`#0b1b27`、`#141b23`）均原样进入 `DesignSystem.qml`；令牌总数 113；全 QML（除 DesignSystem）写死颜色 **0**。等值替换 ⇒ 零视觉差，符合处置建议。
+- **A2 已于 2026-11-12 按允许的替代方案关闭，范围限于 A1 实例**：保留 QML 创建/加载期 `QQmlEngine::warnings` 采集及其边界说明；1100×720 真实窗口报告断言侧栏可见、`contentY=84`、预期间距 84 且通过。未安装全局消息处理器，不声称覆盖所有动态警告；修复前失败报告和 8 张截图已归档，详见 `验收证据/Phase4-qml-responsive-audit-20261112/README.md`。
+- **历史复核快照（2026-11-12 10:25）**：当时 A2 尚未处理，`qInstallMessageHandler` 为 0 处；之后按上述替代方案关闭。该历史批次记录的 Qt 构建 + CTest **11/11**（126.14s，含 `qt-qml-load` 7.74s）、Web `pnpm verify` **87 文件 / 1,296 项**与布局、移动端 boundary 结果不变；这些是该批历史验证，不替代本次本地复验。
+
+---
+
+## 历史关闭顺序建议（2026-11-12 10:20 快照；后续处置见本节更新）
+
+1. ~~A1~~ **已关闭**（`ds.topbarH + ds.s16`，F1 全量 0 未声明）。
+2. ~~B2~~ **已关闭**（执行方 11-12 上午改，`#111923` 现 0 处）。
+3. ~~B3~~ **已修正**（审查方按用户指示写入 `Phase4:95`）。
+4. ~~B1~~ **已关闭**（执行方用等值令牌手法，全 QML 写死颜色 0；抽查 5 值原样入 DesignSystem）。
+5. **A2（历史待办，后续已按允许的替代方案关闭）**：原建议是装消息处理器并以负对照验证 Warning/Critical 采集；2026-11-12 实际选择保留加载期采集边界说明，并用 1100×720 真实窗口几何断言验证 A1 实例。当前没有安装全局消息处理器，也没有声称覆盖所有动态警告。
+6. **B4（历史待办，2026-11-12 已关闭）**：当时建议补内容源说明与跨端计数；执行方现已区分 native catalog 74、Qt curriculum/UI 61、Web runtime 61，并在比较器中输出两端数量、交集和 catalog 成员关系。

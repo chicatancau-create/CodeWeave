@@ -1,0 +1,59 @@
+          auto* retry = u3_find_item(view.rootObject(), QStringLiteral("checkinRetryButton"));
+          const auto path = QDir(nativeData).filePath("accounts/" + shell.activeAccountId() + "/learning/checkin.v1.json");
+          QFile file(path);
+          const bool retained = file.open(QIODevice::ReadOnly) && file.readAll() == "broken-checkin";
+          file.close();
+          u3_record(*context, QStringLiteral("checkin-corruption-visible-preserved-retry"), error && error->isVisible() &&
+              error->property("text").toString().contains(QStringLiteral("禁止覆盖")) && retry && retry->isVisible() && retained &&
+              !shell.checkinSummary().value("ready").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-checkin-error"));
+          const bool repaired = file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
+              file.write(context->checkin_bytes) == context->checkin_bytes.size();
+          file.close();
+          u3_record(*context, QStringLiteral("checkin-isolated-fixture-repair"), repaired);
+          if (retry) QMetaObject::invokeMethod(retry, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 428: {
+          if (shell.checkinSummary().value("busy").toBool()) return;
+          u3_record(*context, QStringLiteral("checkin-retry-reloads-record"), shell.checkinSummary().value("ready").toBool() &&
+              shell.checkinSummary().value("checkedIn").toBool() && shell.checkinSummary().value("totalDays").toInt() == 1);
+          view.resize(1100, 720);
+          auto* button = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+          if (button) QMetaObject::invokeMethod(button, "clicked", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 429: {
+          if (!view.rootObject()->property("checkinCalendarOpen").toBool()) return;
+          auto* cell = u3_find_item(view.contentItem(), QStringLiteral("checkinDay-") + QDate::currentDate().toString(Qt::ISODate));
+          const auto point = cell ? cell->mapToScene(QPointF()) : QPointF(-1, -1);
+          auto* total = u3_find_item(view.contentItem(), QStringLiteral("checkinCalendarTotal"));
+          const auto total_point = total ? total->mapToScene(QPointF()) : QPointF(-1, -1);
+          u3_record(*context, QStringLiteral("checkin-narrow-calendar-framed"), cell && point.x() >= 0 && point.y() >= 0 &&
+              point.x() + cell->width() <= view.width() && point.y() + cell->height() <= view.height() &&
+              total && total_point.x() >= 0 && total_point.y() >= 0 &&
+              total_point.x() + total->width() <= view.width() && total_point.y() + total->height() <= view.height() &&
+              u3_screenshot(*context, view, QStringLiteral("u3-checkin-narrow"), QSize(1100, 720)));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          view.resize(1440, 900);
+          context->step = 24;
+          return;
+        }
+        case 24:
+          shell.selectPage(QStringLiteral("账户"));
+          shell.refreshVaultWriteback();
+          context->step = 700;
+          return;
+        case 700: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto vault = QDir(context->data.path()).filePath(QStringLiteral("isolated-vault"));
+          const auto write = [&](const QString& relative, const QByteArray& bytes) {
+            const auto path = QDir(vault).filePath(relative);
+            if (!QDir().mkpath(QFileInfo(path).absolutePath())) return false;
+            QFile file(path); return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+          };
+          const bool created = write(QStringLiteral("全栈工程师学习计划/进度追踪.md"),
+              QStringLiteral("# 进度追踪\n\n最近学习证据：2026-10-01\n\n| 字段 | 内容 |\n|---|---|\n| 最近正式日志 | 暂无 |\n| 当前主题 | 待开始 |\n").toUtf8()) &&
+              write(QStringLiteral("全栈工程师学习计划/全栈竞赛长期冲刺总计划.md"),

@@ -1,0 +1,61 @@
+                                        anchors.fill: parent
+                                        spacing: 0
+                                        Repeater {
+                                            model: [
+                                                { t: "次", w: analyticsPage.colNum },
+                                                { t: "指标", w: analyticsPage.colName },
+                                                { t: "数值", w: analyticsPage.colValue },
+                                                { t: "派生口径", w: analyticsPage.colRest },
+                                                { t: "分母", w: analyticsPage.colRest }
+                                            ]
+                                            delegate: Text {
+                                                required property var modelData
+                                                Layout.preferredWidth: modelData.w
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.t
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                font.letterSpacing: 2.5
+                                                font.capitalization: Font.AllUppercase
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // tbody
+                                Repeater {
+                                    model: modelData.rows
+                                    delegate: Item {
+                                        required property var modelData
+                                        required property int index
+                                        Layout.fillWidth: true
+                                        implicitHeight: rowCol.implicitHeight + ds.s32
+                                        Rectangle {
+                                            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                            height: 1
+                                            color: ds.line
+                                        }
+                                        RowLayout {
+                                            id: rowCol
+                                            anchors {
+                                                left: parent.left
+                                                right: parent.right
+                                                top: parent.top
+                                                topMargin: ds.s14
+                                                rightMargin: 0
+                                            }
+                                            spacing: 0
+                                            Text {   // .an-row-idx
+                                                Layout.preferredWidth: analyticsPage.colNum
+                                                Layout.alignment: Qt.AlignTop
+                                                text: (index + 1) < 10 ? "0" + (index + 1) : "" + (index + 1)
+                                                color: ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                            }
+                                            Text {   // .an-cell-name
+                                                Layout.preferredWidth: analyticsPage.colName
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.n

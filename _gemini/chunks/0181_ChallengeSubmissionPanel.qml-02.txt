@@ -1,0 +1,79 @@
+                 && (panel.external ? environment.text.trim() !== "" && command.text.trim() !== ""
+                        && summary.text.trim() !== "" && date.text.trim() !== ""
+                     : uiShell.challengeRunResult.passed === true && evidence.text.trim() !== "")
+        onClicked: uiShell.submitChallenge(evidence.text, {
+            environment: environment.text, command: command.text, resultSummary: summary.text,
+            artifactRef: artifact.text, reproducedOn: date.text
+        })
+    }
+    Text {
+        visible: !uiShell.hasActiveAccount
+        text: "登录后可提交挑战。"
+        color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 13
+    }
+    Rectangle { Layout.fillWidth: true; height: 1; color: panel.ds.line }
+    RowLayout {
+        Layout.fillWidth: true
+        Text { text: "02  已提交记录"; color: panel.ds.accent; font.family: panel.ds.ui; font.pixelSize: 13 }
+        Item { Layout.fillWidth: true }
+        QuietButton { objectName: "challengeHistoryRefresh"; ds: panel.ds; label: "刷新"; enabled: uiShell.hasActiveAccount && !panel.busy; onClicked: uiShell.refreshChallengeHistory() }
+        MotionAwareBusyIndicator {
+            ds: panel.ds
+            Layout.preferredWidth: 24; Layout.preferredHeight: 24
+            busy: panel.busy
+            accessibleName: "正在加载提交记录"
+        }
+    }
+    Text {
+        objectName: "challengeHistoryStatus"
+        Layout.fillWidth: true
+        text: uiShell.challengeHistoryStatus
+        visible: text !== ""
+        color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 13
+        wrapMode: Text.WrapAnywhere
+    }
+    Text {
+        visible: !panel.busy && uiShell.challengeHistory.length === 0
+        text: "暂无提交记录"
+        color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 13
+    }
+    Repeater {
+        model: uiShell.challengeHistory
+        delegate: ColumnLayout {
+            id: submission
+            required property var modelData
+            required property int index
+            Layout.fillWidth: true
+            spacing: panel.ds.s8
+            Text {
+                objectName: "challengeSubmissionStatus-" + submission.index
+                Layout.fillWidth: true
+                text: panel.statusLabel(submission.modelData.status) + " · " + submission.modelData.submittedAt
+                color: submission.modelData.status === "passed" || submission.modelData.status === "verified"
+                       ? panel.ds.success : submission.modelData.status === "rejected" ? panel.ds.danger : panel.ds.warning
+                font.family: panel.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                objectName: "challengeSubmissionEvidence-" + submission.index
+                Layout.fillWidth: true
+                text: submission.modelData.evidence
+                textFormat: Text.PlainText
+                color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "执行等级：" + submission.modelData.tier + " · 判定口径："
+                      + (submission.modelData.judgeMode || "外部证据人工确认")
+                color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+            }
+            Text {
+                visible: submission.modelData.reviewedAt !== ""
+                Layout.fillWidth: true
+                text: "复核时间：" + submission.modelData.reviewedAt
+                      + (submission.modelData.observation ? " · " + ({completed: "已完成", "partially-completed": "部分完成", attempted: "已尝试"})[submission.modelData.observation] : "")
+                color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+            }
+            ColumnLayout {
+                visible: submission.modelData.status === "submitted"
+                Layout.fillWidth: true
+                ComboBox {

@@ -1,0 +1,63 @@
+        (workspace / 'config').mkdir(parents=True)
+        (workspace / 'config/codeweave.config.example.json').write_text('{}', encoding='utf-8')
+        env = {k: v for k, v in os.environ.items() if not k.startswith('CODEWEAVE_')}
+        env.update(CODEWEAVE_NATIVE_WORKSPACE=str(workspace), CODEWEAVE_NATIVE_DATA_ROOT=str(data),
+                   CODEWEAVE_NATIVE_CONTENT_ROOT=str(content))
+        for language, program in [('PYTHON', 'python'), ('JAVASCRIPT', 'node')]:
+            tool = shutil.which(program)
+            assert tool, f'{program} is required for this test'
+            env[f'CODEWEAVE_NATIVE_{language}_TOOL'] = tool
+        try:
+            app = Application(exe, env, workspace)
+            menu = user32.GetSubMenu(user32.GetMenu(app.window), 0)
+            assert menu, 'data menu missing'
+            for command in range(1040, 1045):
+                assert user32.GetMenuState(menu, command, 0) != 0xFFFFFFFF, f'data command missing: {command}'
+            report['checks'].append('data menu exposes backup/restore/account import/learning import/data folder')
+            assert message(app.control(1010), 0x018B) == 74
+            for index in range(74):
+                app.select(index)
+                assert app.text(1011).strip(), f'Empty body at {index}'
+            report['checks'].append('74 published lessons/challenges opened in real UI')
+            app.register('native-smoke-a@example.test', '自动验收账户 A')
+            app.click(1033)
+            first = app.run_code('javascript', 'console.log("native-js-first");', 'native-js-first')
+            second = app.run_code('javascript', 'console.log("native-js-second");', 'native-js-second')
+            assert first != second
+            third = app.run_code('python', 'print("原生 Python 验收")', '原生 Python 验收')
+            traces = list(data.glob('accounts/*/execution/trace.v1.log'))
+            assert len(traces) == 1
+            sessions = {bytes.fromhex(line.split('\t')[2]).decode() for line in traces[0].read_text().splitlines()}
+            assert {first, second, third}.issubset(sessions)
+            report['checks'].append('real JavaScript/Python output and unique trace sessions')
+            app.select(app.find_content('stage-d'))
+            message(app.control(1023), 0x00F1, 1)
+            app.run_code('javascript', app.text(1001), '待办数量: 2\n写周报\n跑一次构建')
+            until(lambda: '：1 条' in app.text(1022), 'independent challenge did not create progress')
+            report['checks'].append('independent stage-d challenge saved personal progress')
+            app.click(1033)
+            saved = '// 中文草稿，重启后必须保留\nconsole.log("draft-persisted");'
+            app.set(1001, saved)
+            app.click(1002)
+            app.select(app.find_content('python-loop-sum'))
+            app.click(1017)
+            assert '登录后' in app.text(1022)
+            app.register('native-smoke-b@example.test', '自动验收账户 B')
+            assert '：0 条' in app.text(1022), app.text(1022)
+            assert '待办数量' not in app.text(1031), 'previous account output leaked'
+            assert '尚无本账户' in app.text(1027), 'previous account trace summary leaked'
+            assert '待办数量' not in app.text(1031)
+            assert '个事件' not in app.text(1027)
+            app.click(1033)
+            assert saved != app.text(1001)
+            report['checks'].append('second account cannot see first account drafts/progress')
+            app.click(1017)
+            app.set(1012, 'native-smoke-a@example.test')
+            app.set(1014, 'Native-Smoke-Password-123!')
+            app.click(1016)
+            assert '登录成功' in app.text(1018)
+            assert app.text(1001).replace('\r\n', '\n') == saved
+            # Corrupted hint metadata must never upgrade an assisted attempt.
+            account_root = traces[0].parent.parent
+            hint_id = 'lesson-' + hashlib.sha256(b'stage-j').hexdigest() + '-hint.txt'
+            (account_root / 'drafts' / hint_id).write_bytes(b'corrupt marker')

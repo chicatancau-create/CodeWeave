@@ -1,0 +1,45 @@
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      }
+    ],
+    "button": {
+      "text": "知道了",
+      "geometry": {
+        "x": 519,
+        "y": 633.59375,
+        "width": 392,
+        "height": 38.796875
+      },
+      "computed": {
+        "fontSize": "13px",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontWeight": "650",
+        "lineHeight": "20.8px",
+        "color": "rgb(5, 37, 54)",
+        "backgroundColor": "rgb(142, 213, 255)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(161, 221, 255)",
+        "borderRadius": "5px",
+        "outlineWidth": "3px",
+        "outlineColor": "rgb(5, 37, 54)",
+        "outlineOffset": "0px"
+      }
+    }
+  },
+  "passed": true,
+  "completedAt": "2026-11-09T07:34:43.356Z"
+}

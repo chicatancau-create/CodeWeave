@@ -1,0 +1,88 @@
+    expect(evidenceState?.textContent).toContain('证据说明草稿 5 字，尚未提交')
+  })
+
+  it('提交成功后证据清空、代码留下：两区各自回到自己的口径', () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    const editor = screen.getByRole('textbox', { name: /代码编辑器/ })
+    // 走「用户改过草稿」这条路径：React 对同值 change 不触发 onChange，故先改成别的再写回。
+    fireEvent.change(editor, { target: { value: '// 编辑中' } })
+    fireEvent.change(editor, { target: { value: challenges[1]!.starterCode } })
+    fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), { target: { value: '输出 15 与验收点一致' } })
+    fireEvent.click(screen.getByRole('button', { name: /提交答案/ }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect((screen.getByRole('textbox', { name: '完成证据说明' }) as HTMLTextAreaElement).value).toBe('')
+    expect(document.querySelector('.challenge-draft-state--evidence')?.textContent).toContain('证据说明草稿为空')
+    expect(document.querySelector('.challenge-draft-state--code')?.textContent).toContain('本机代码草稿已保存')
+    expect((screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement).value).toBe(
+      challenges[1]!.starterCode,
+    )
+  })
+})
+
+describe('M4 挑战页 · 行为回归护栏', () => {
+  it('筛选三档（轨道 / 难度 / 运行方式）仍生效，且筛选后回到第 1 页', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    fireEvent.click(screen.getByRole('button', { name: /更多筛选/ }))
+    fireEvent.change(screen.getByLabelText('难度', { selector: 'select' }) as HTMLSelectElement, {
+      target: { value: '进阶' },
+    })
+    expect(screen.getByText('第 1 / 1 页')).toBeTruthy()
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(6)
+    fireEvent.change(screen.getByLabelText('运行方式', { selector: 'select' }) as HTMLSelectElement, {
+      target: { value: 'browser' },
+    })
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(1)
+  })
+
+  it('分页：上一页/下一页禁用态与页码文字仍由逻辑驱动', () => {
+    renderView()
+    expect((screen.getByRole('button', { name: '上一页' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(1)
+    expect(screen.getByText('第 2 / 2 页')).toBeTruthy()
+    expect((screen.getByRole('button', { name: '下一页' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('键盘标签页：方向键切换并移动焦点，Home/End 落到首尾', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    const first = screen.getByRole('tab', { name: '题目' })
+    first.focus()
+    fireEvent.keyDown(first, { key: 'ArrowRight' })
+    expect(screen.getByRole('tab', { name: '编写与运行' }).getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: '编写与运行' }))
+    fireEvent.keyDown(screen.getByRole('tab', { name: '编写与运行' }), { key: 'End' })
+    const evidence = screen.getByRole('tab', { name: '提交记录' })
+    expect(evidence.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(evidence)
+    fireEvent.keyDown(evidence, { key: 'Home' })
+    expect(screen.getByRole('tab', { name: '题目' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('恢复：往返详情后筛选、页码、视图与草稿都在（检查点/恢复口径的挑战侧）', () => {
+    const first = render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={vi.fn()}
+        scope="user-m4"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))

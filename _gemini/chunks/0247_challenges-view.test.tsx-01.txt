@@ -1,0 +1,115 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ChallengesView } from './challenges-view'
+import { challenges } from '../data/challenges'
+import type { Challenge, ChallengeRecord } from '../types/lesson'
+
+const record = (evidence = '完成了全部证据项'): Record<string, ChallengeRecord> => ({
+  'stage-b': { completedAt: '2026-09-13T00:00:00.000Z', evidence },
+})
+
+const renderView = (progress: Record<string, ChallengeRecord> = {}) =>
+  render(
+    <ChallengesView
+      challenges={challenges}
+      progress={progress}
+      unitsByStage={{
+        A: [{ id: 'java-env-a1', title: 'A1 · 开发环境清点' }],
+        C: [
+          { id: 'java-algo-c1', title: 'C1 · 找出较大值' },
+          { id: 'java-algo-c2', title: 'C2 · 循环累加与复杂度' },
+          { id: 'java-algo-c3', title: 'C3 · while 倒数与终止条件' },
+        ],
+      }}
+      onOpenUnit={vi.fn()}
+      onSubmit={vi.fn()}
+    />,
+  )
+
+const selectOption = (label: string, value: string) => {
+  const select = screen.getByLabelText(label) as HTMLSelectElement
+  fireEvent.change(select, { target: { value } })
+}
+
+beforeEach(() => {
+  // 草稿写在 localStorage（guest 作用域），不清就会跨条泄漏：
+  // 上一条测试把 B 关代码写成起始代码，下一条「从没编辑过代码」的断言就被这份遗留草稿喂假了。
+  localStorage.clear()
+  sessionStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('ChallengesView（CHAL-01：列表网格 + 独立详情页）', () => {
+  it('无筛选时第 1 页渲染 12 张卡片，概览仍统计全部 13 关', () => {
+    renderView()
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(12)
+    expect(screen.getByText(/已完成 0 \/ 13/)).toBeTruthy()
+  })
+
+  it('按轨道、难度、运行方式筛选后数量正确（后三类在更多筛选中）', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /更多筛选/ }))
+    selectOption('轨道', '算法竞赛')
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(1)
+
+    selectOption('轨道', 'all')
+    selectOption('难度', '进阶')
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(6)
+
+    selectOption('难度', 'all')
+    selectOption('运行方式', 'browser')
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(2)
+
+    selectOption('运行方式', 'external')
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(9)
+  })
+
+  it('状态筛选：已通过只显示已通过关卡（旧 boolean 进度也算通过）', () => {
+    // 旧版布尔进度经 validateProgress 迁移后为 { completedAt, evidence, status: 'passed' }
+    renderView({ 'stage-b': { completedAt: '迁移自旧版本', evidence: '', status: 'passed' } })
+    selectOption('状态', 'passed')
+    expect(document.querySelectorAll('.stage-card')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /B 关：Java 核心编程，已通过/ })).toBeTruthy()
+  })
+
+  it('点击 M 关后详情严格绑定 M（标题、技术栈、单元跳转），不显示 A 关内容', () => {
+    const onOpenUnit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{ M: [{ id: 'm-unit-1', title: 'M1 · 实战单元' }] }}
+        onOpenUnit={onOpenUnit}
+        onSubmit={vi.fn()}
+      />,
+    )
+    // M 关在第 2 页：先用阶段主筛选定位
+    selectOption('阶段', 'M')
+    fireEvent.click(screen.getByRole('button', { name: /M 关：竞赛综合实战/ }))
+    expect(screen.getByRole('heading', { level: 2, name: 'M 关卡验收：竞赛综合实战' })).toBeTruthy()
+    expect(screen.getByText('全栈组合')).toBeTruthy()
+    // 单元跳转位于「题目」标签页（默认激活）
+    fireEvent.click(screen.getByRole('button', { name: 'M1 · 实战单元' }))
+    expect(onOpenUnit).toHaveBeenCalledWith('m-unit-1')
+  })
+
+  it('教学运行器：未识别结构不增加完成数；证据为空不能提交', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    // 选中 B 关（教学运行器）
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    // 制造一次未识别结构（R4：不猜测成功，也不增加完成数）
+    const editor = screen.getByRole('textbox', { name: /B 关卡验收：Java 核心编程 代码编辑器/ })

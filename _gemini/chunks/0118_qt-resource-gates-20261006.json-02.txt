@@ -1,0 +1,160 @@
+      "index": 2,
+      "window_ms": 124.147,
+      "working_set_mib": 14.371,
+      "startup_cpu_ms": 46.875,
+      "close_ms": 26.95,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 2,
+      "window_ms": 290.919,
+      "working_set_mib": 88.129,
+      "startup_cpu_ms": 468.75,
+      "close_ms": 64.799,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 3,
+      "window_ms": 290.17,
+      "working_set_mib": 88.129,
+      "startup_cpu_ms": 468.75,
+      "close_ms": 85.864,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 3,
+      "window_ms": 148.68,
+      "working_set_mib": 14.352,
+      "startup_cpu_ms": 78.125,
+      "close_ms": 32.355,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 4,
+      "window_ms": 255.104,
+      "working_set_mib": 14.387,
+      "startup_cpu_ms": 109.375,
+      "close_ms": 26.812,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 4,
+      "window_ms": 312.347,
+      "working_set_mib": 88.211,
+      "startup_cpu_ms": 546.875,
+      "close_ms": 87.117,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 5,
+      "window_ms": 325.593,
+      "working_set_mib": 88.125,
+      "startup_cpu_ms": 765.625,
+      "close_ms": 91.198,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 5,
+      "window_ms": 196.944,
+      "working_set_mib": 14.367,
+      "startup_cpu_ms": 93.75,
+      "close_ms": 15.35,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 6,
+      "window_ms": 150.487,
+      "working_set_mib": 14.367,
+      "startup_cpu_ms": 78.125,
+      "close_ms": 44.132,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 6,
+      "window_ms": 328.763,
+      "working_set_mib": 87.895,
+      "startup_cpu_ms": 500.0,
+      "close_ms": 85.345,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 7,
+      "window_ms": 289.108,
+      "working_set_mib": 87.977,
+      "startup_cpu_ms": 531.25,
+      "close_ms": 77.519,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 7,
+      "window_ms": 84.365,
+      "working_set_mib": 14.363,
+      "startup_cpu_ms": 78.125,
+      "close_ms": 13.65,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 8,
+      "window_ms": 111.885,
+      "working_set_mib": 14.371,
+      "startup_cpu_ms": 62.5,
+      "close_ms": 39.253,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 8,
+      "window_ms": 362.796,
+      "working_set_mib": 88.23,
+      "startup_cpu_ms": 468.75,
+      "close_ms": 85.413,
+      "process_count": 1
+    },
+    {
+      "kind": "qt",
+      "phase": "warm-profile",
+      "index": 9,
+      "window_ms": 297.218,
+      "working_set_mib": 87.707,
+      "startup_cpu_ms": 453.125,
+      "close_ms": 81.548,
+      "process_count": 1
+    },
+    {
+      "kind": "native",
+      "phase": "warm-profile",
+      "index": 9,
+      "window_ms": 141.451,
+      "working_set_mib": 14.375,
+      "startup_cpu_ms": 78.125,
+      "close_ms": 17.584,
+      "process_count": 1
+    }
+  ],
+  "status": "passed"
+}

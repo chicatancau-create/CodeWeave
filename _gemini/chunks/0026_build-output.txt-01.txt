@@ -1,0 +1,53 @@
+-- The CXX compiler identification is MSVC 19.44.35229.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR)
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR)
+-- Configuring done (4.1s)
+-- Generating done (0.3s)
+-- Build files have been written to: G:/CodeWeave/.local/qt/current
+[1/2] Cleaning additional files...
+[2/2] Cleaning all built files...
+Cleaning... 128 files.
+[1/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\content_contract.cpp.obj
+[2/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\account_service.cpp.obj
+[3/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\backend_task_service.cpp.obj
+[4/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\account.cpp.obj
+[5/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\password_crypto.cpp.obj
+[6/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\app_core.cpp.obj
+[7/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\account_store.cpp.obj
+[8/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\content_repository.cpp.obj
+[9/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\mastery_contract.cpp.obj
+[10/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\learning_contract.cpp.obj
+[11/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\mastery_service.cpp.obj
+[12/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\review_scheduler.cpp.obj
+[13/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\mastery_store.cpp.obj
+[14/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\external_evidence_service.cpp.obj
+[15/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\operation_index.cpp.obj
+[16/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\evidence_store.cpp.obj
+[17/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\review_service.cpp.obj
+[18/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\progress_projection.cpp.obj
+[19/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\progress_store.cpp.obj
+[20/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\legacy_import.cpp.obj
+[21/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\challenge_service.cpp.obj
+[22/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\execution_contract.cpp.obj
+[23/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\content_access.cpp.obj
+[24/147] Copying codeweave-qt qml sources into build dir
+[25/147] Copying codeweave-qt qml resources into build dir
+[26/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\backup_service.cpp.obj
+[27/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\process_contract.cpp.obj
+[28/147] Running qmlimportscanner for codeweave-qt
+[29/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\execution_plan.cpp.obj

@@ -1,0 +1,91 @@
+                        text: "共 " + uiShell.challengeMeta.length + " 关 · 筛选后 "
+                              + challengePage.filteredChallenges.length + " 关"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        horizontalAlignment: Text.AlignRight
+                    }
+                }
+            }
+
+            // .challenge-filters
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s20
+                implicitHeight: filterRow.implicitHeight + (challengePage.moreFiltersOpen ? 72 : 0) + ds.s32
+                radius: ds.radius
+                color: ds.challengeFiltersBg
+                border.color: ds.line
+                border.width: 1
+
+                RowLayout {
+                    id: filterRow
+                    anchors { left: parent.left; right: parent.right; top: parent.top;
+                              leftMargin: ds.s16; rightMargin: ds.s16; topMargin: ds.s16 }
+                    spacing: ds.s14
+
+                    // .challenge-filters-label
+                    RowLayout {
+                        spacing: ds.s8
+                        Text {
+                            text: "◫"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Text {
+                            text: "筛选"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 2.6
+                            font.capitalization: Font.AllUppercase
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+
+                    // .challenge-filter-search
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 220
+                        spacing: ds.s4
+                        Text {
+                            text: "搜索"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            font.letterSpacing: 0.8
+                        }
+                        TextField {
+                            id: challengeSearch
+                            objectName: "challengeSearch"
+                            Layout.fillWidth: true
+                            implicitHeight: 44
+                            placeholderText: "标题 / 技术栈 / 说明"
+                            placeholderTextColor: ds.faint
+                            color: ds.ink
+                            font.family: ds.mono
+                            font.pixelSize: 14
+                            leftPadding: ds.s10
+                            rightPadding: ds.s10
+                            background: Rectangle {
+                                radius: ds.radiusSm
+                                color: ds.inset
+                                border.color: parent.activeFocus ? ds.accent : ds.lineStrong
+                                border.width: 1
+                            }
+                            Accessible.name: "搜索关卡"
+                            onTextChanged: {
+                                challengePage.searchText = text;
+                                challengePage.currentPage = 1;
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "阶段"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            objectName: "challengeStageFilter"
+                            Layout.preferredWidth: 108

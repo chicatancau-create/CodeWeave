@@ -1,0 +1,95 @@
+.mastery-map { display: flex; flex-direction: column; gap: var(--ds-space-8, 8px); margin: 0; padding: 0; list-style: none; }
+.mastery-map li {
+  display: grid;
+  grid-template-columns: 26px minmax(120px, 200px) 1fr 84px 64px;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+}
+.mastery-map-stage {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  border: var(--hair) solid var(--accent-ring);
+  border-radius: var(--radius);
+  background: transparent;             /* 编号格：细线框即可，不铺底色 */
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 700;
+}
+.mastery-map-title {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--ds-size-body);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mastery-map-level, .mastery-map-count { color: var(--muted); font-size: var(--ds-size-control, 13px); text-align: right; }
+
+.account-actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-10, 10px); }
+
+/* 账户安全页 */
+.security-view { display: flex; flex-direction: column; gap: var(--ds-space-24, 24px); }
+.security-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--ds-space-14, 14px);
+  align-items: start;
+}
+.security-card {
+  padding: var(--ds-space-20, 20px) var(--ds-space-24, 24px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.security-card .field-label { margin-top: var(--ds-space-12, 12px); }
+.security-line { margin: 0 0 var(--ds-space-12, 12px); color: var(--ink); font-size: var(--ds-size-control, 13px); }
+.security-notes { display: flex; flex-direction: column; gap: var(--ds-space-6, 6px); margin: 0; padding-left: var(--ds-space-16, 16px); color: var(--muted); font-size: var(--ds-size-control, 13px); line-height: 1.65; }
+.security-notes li::marker { color: var(--accent-hover); }
+.security-form-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-12, 12px); margin-top: var(--ds-space-16, 16px); }
+.security-form-footer span { font-size: var(--ds-size-control, 13px); }
+.security-form-footer .security-error { color: var(--c-coral); }
+.security-form-footer .security-ok { color: var(--c-green); }
+.security-danger { border-color: rgba(255, 131, 113, 0.3); }
+.security-locked { color: var(--c-yellow); }
+
+@media (max-width: 1080px) {
+  .security-layout { grid-template-columns: 1fr; }
+  .overview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mastery-map li { grid-template-columns: 26px 1fr 64px; }
+  .mastery-map .mastery-bar { grid-column: 1 / -1; }
+  .mastery-map-level { text-align: left; }
+}
+
+.review-empty { margin: var(--ds-space-8, 8px) 0 0; color: var(--muted); font-size: var(--ds-size-control, 13px); }
+/* 进度条：模板形态是 1px 底线 + 场景色实心（site.css L447-L453），不用渐变 */
+.mastery-bar { height: 4px; overflow: hidden; border-radius: var(--radius); background: var(--line-raised); }
+.mastery-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--ds-dur-slow) var(--ease); }
+
+/* ---------------------------------------------------------------------------
+   弹窗（§5.2「账户、设置、隐私和弹窗」：与全站同一套字体/按钮/表单/焦点/遮罩）
+   ------------------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--ds-space-20, 20px);
+  background: rgba(0, 0, 0, 0.72);    /* 遮光层：黑场压暗，不用背景模糊（玻璃特征） */
+}
+.settings-modal, .help-modal {
+  width: min(540px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: var(--ds-space-24, 24px);
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--overlay);
+  box-shadow: var(--ds-shadow-panel);
+}
+.help-modal { width: min(430px, 100%); }
+.modal-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.modal-header h2 {
+  margin: 0;

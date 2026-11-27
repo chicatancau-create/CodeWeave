@@ -1,0 +1,71 @@
+            QQmlProperty::read(close, QStringLiteral("border.width")).toReal() == 1 &&
+            QQmlProperty::read(close, QStringLiteral("border.color")).value<QColor>() ==
+                tokens->property("line").value<QColor>();
+        if (resting_style) {
+          move_pointer(close->mapToScene(QPointF(close->width() / 2, close->height() / 2)));
+          const bool hovered_style = QQmlProperty::read(close, QStringLiteral("border.color")).value<QColor>() ==
+              tokens->property("lineStrong").value<QColor>();
+          move_pointer(QPointF(1, 1));
+          if (hovered_style && QQmlProperty::read(close, QStringLiteral("border.color")).value<QColor>() ==
+              tokens->property("line").value<QColor>()) return true;
+        }
+        diagnostic = QStringLiteral("Reference dialog close button square outline or hover state is incorrect");
+        write_smoke_report();
+        application.exit(1);
+        return false;
+      };
+      if (!quick || !account || !trigger || !first || !review || !help || !profile || !security || !privacy ||
+          !export_action || !logout_action) {
+        diagnostic = QStringLiteral("Menu smoke objects are missing: quick=%1 account=%2 trigger=%3 first=%4 review=%5 help=%6 profile=%7 security=%8 privacy=%9 logout=%10")
+            .arg(quick != nullptr).arg(account != nullptr).arg(trigger != nullptr).arg(first != nullptr)
+            .arg(review != nullptr).arg(help != nullptr).arg(profile != nullptr).arg(security != nullptr)
+            .arg(privacy != nullptr);
+        write_smoke_report();
+        qWarning("QML smoke: menu objects missing");
+        application.exit(1);
+        return;
+      }
+      // Packaged content can enable Continue; the minimal CTest host has no selected lesson.
+      first = first->property("enabled").toBool() ? first : review;
+      // opened is false during both transitions; wait for the visual/focus handoff
+      // before the next input. The smoke timer still enforces its bounded timeout.
+      for (auto* popup : {quick, account, notifications, search}) {
+        if (popup->property("visible").toBool() && !popup->property("opened").toBool()) return;
+      }
+      const auto require_focus = [&](QQuickItem* item) {
+        if (item->hasActiveFocus()) return true;
+        const auto* active = view.activeFocusItem();
+        diagnostic = QStringLiteral("Menu focus assertion failed at step %1: quickOpened=%2 accountOpened=%3 windowActive=%4 target=%5 active=%6 notificationVisible=%7 notificationOpened=%8 notificationRestore=%9")
+            .arg(qml_smoke_page).arg(quick->property("opened").toBool())
+            .arg(account->property("opened").toBool()).arg(view.isActive())
+            .arg(QString::fromUtf8(item->objectName().toUtf8()))
+            .arg(active ? QString::fromUtf8(active->objectName().toUtf8()) : QStringLiteral("<none>"))
+            .arg(notifications->property("visible").toBool())
+            .arg(notifications->property("opened").toBool())
+            .arg(notifications->property("restoreFocusOnClose").toBool());
+        write_smoke_report();
+        qWarning("QML smoke: incorrect menu focus");
+        application.exit(1);
+        return false;
+      };
+      switch (qml_smoke_page++ - pages.size()) {
+        case 0:
+          shell.selectPage(QStringLiteral("学习"));
+          view.requestActivate();
+          QMetaObject::invokeMethod(quick, "open");
+          break;
+        case 1:
+          if (!require_focus(first)) return;
+          send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+          break;
+        case 2:
+          if (!require_focus(help)) return;
+          send_editor_shortcut(view, Qt::Key_Down, Qt::NoModifier);
+          break;
+        case 3:
+          if (!require_focus(first)) return;
+          send_editor_shortcut(view, Qt::Key_Up, Qt::NoModifier);
+          break;
+        case 4:
+          if (!require_focus(help)) return;
+          send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);

@@ -1,0 +1,144 @@
+// @vitest-environment jsdom
+/**
+ * LINK-09 证据写回页 —— M3 视觉竖切（01 号方案 §4 写回拆分目标 / §2.2 末段语义色）补充用例。
+ *
+ * 口径：本文件**不重复** evidence-writeback-view.test.tsx 的业务断言，
+ * 只把 §5.2 与 §5.1 中「可被结构验证」的部分钉成回归断言：
+ * 1) 「待处理 / 部分成功 / 已同步」是三个各自独立的区块，各自带说明标题与状态文字；
+ * 2) 语义状态一律「图形 + 文字」双通道，不允许只靠颜色；
+ * 3) 细线差异预览：目标表 / 日志追加行 / 逐字段差异都带列标题与文字前缀；
+ * 4) 加载 / 空 / 失败三态各有自己的标识文字；
+ * 5) 写路径关键上下文（operationId、指纹、事务保留提示）改版后仍在位。
+ *
+ * 焦点轮廓、16px 与 1.6–1.75 行高、prefers-reduced-motion 与 .reduce-motion 下动画真实停止
+ * 都属于 CSS 计算结果，jsdom 不做样式计算（本仓库 vitest 未开 css），因此不在此伪造断言，
+ * 已列入交付报告的浏览器复核清单。
+ * 44px 命中区与 320px 换版例外：末段按**样式表源码**钉住规则（不伪造计算值），
+ * 数字仍来自浏览器实测。
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ContentProvider } from '../content/provider'
+import { EvidenceWritebackPanel } from './evidence-writeback-view'
+
+type Reply = { ok: boolean; status?: number; json: () => Promise<unknown> }
+/** 允许返回在途 Promise：加载态要用「还没读回来」驱动，而不是拿失败响应冒充。 */
+type Handler = (input: string, init?: RequestInit) => Reply | Promise<Reply>
+
+const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body })
+
+const LEARNING_STATUS_OWNER = {
+  bound: true,
+  isOwner: true,
+  vaultId: 'ob-test',
+  vaultMatches: true,
+  publicContent: false,
+  contentAccess: { allowed: true, reason: 'owner' },
+  progressAccess: true,
+  boundAt: '2026-09-19T00:00:00.000Z',
+  recordCorrupt: false,
+  notice: '资料库已绑定拥有者。',
+}
+
+const EMPTY_SNAPSHOT = {
+  bundleId: 'b-test',
+  schemaVersion: 1,
+  buildTime: '2026-09-19T00:00:00.000Z',
+  rules: { status: 'missing' },
+  stages: [],
+  milestones: [],
+  masteryLevels: [],
+  hintLevels: [],
+  reviewOffsetsDays: [],
+  lessons: [],
+  counts: null,
+}
+
+const CONTENT_STATUS = {
+  state: 'ready',
+  vaultConfigured: true,
+  vaultReason: null,
+  bundleId: 'b-test',
+  buildTime: '2026-09-19T00:00:00.000Z',
+  publishedAt: '2026-09-19T00:00:00.000Z',
+  counts: null,
+  rulesStatus: 'missing',
+  stale: false,
+  lastError: null,
+  lastReport: null,
+}
+
+const stagedRecord = (overrides: Record<string, unknown> = {}) => ({
+  schemaVersion: 1,
+  evidenceId: 'ev-1',
+  userId: 'u-1',
+  state: 'pending',
+  createdAt: '2026-09-19T00:00:00.000Z',
+  operationId: null,
+  syncedAt: null,
+  logPath: null,
+  at: '2026-09-19',
+  topic: 'Java Hello World',
+  stage: 'S0',
+  contentId: null,
+  exerciseId: null,
+  bundleId: null,
+  expected: 'Hello',
+  actual: 'Hello',
+  ranBy: 'learner',
+  independent: true,
+  hintLevel: 'L1',
+  artifacts: [],
+  unfinished: [],
+  notes: '',
+  ...overrides,
+})
+
+const syncedRecord = stagedRecord({
+  evidenceId: 'ev-9',
+  state: 'synced',
+  syncedAt: '2026-09-18T02:00:00.000Z',
+  logPath: '全栈工程师学习计划/学习日志/2026-09/2026-09-18-旧条目.md',
+  operationId: 'op-done-1',
+})
+
+const PREVIEW = {
+  operationId: 'op-test-abc123',
+  evidenceIds: ['ev-1'],
+  at: '2026-09-19',
+  topic: 'Java Hello World',
+  targets: [
+    {
+      path: '全栈工程师学习计划/学习日志/2026-09/2026-09-19-Java Hello World.md',
+      kind: 'log',
+      exists: false,
+      expectedHash: null,
+      preview: '## 学习证据 · Java Hello World\n- 预期：Hello\n',
+    },
+    {
+      path: '全栈工程师学习计划/进度追踪.md',
+      kind: 'progress',
+      exists: true,
+      expectedHash: 'abc12345',
+      preview: {
+        edits: [{ field: '最近学习证据', kind: 'evidence-date', before: '2026-09-14', after: '2026-09-19' }],
+        masteryBlocked: [{ skill: 'Java 编程', level: '4 级', reason: '本次证据不是学习者独立完成' }],
+      },
+    },
+    {
+      path: '全栈工程师学习计划/全栈竞赛长期冲刺总计划.md',
+      kind: 'index',
+      exists: true,
+      expectedHash: 'def67890',
+      preview: { changed: true, line: '- [[全栈工程师学习计划/学习日志/2026-09/2026-09-19-Java Hello World]]' },
+    },
+  ],
+  masteryBlocked: [{ skill: 'Java 编程', level: '4 级', reason: '本次证据不是学习者独立完成' }],
+  conflicts: [],
+  notices: ['预览不会修改任何资料库文件。', '写回顺序：学习日志 → 进度追踪 → 总计划日志索引。'],
+}
+
+function stubFetch(handler: Handler) {
+  return vi.stubGlobal('fetch', vi.fn(handler as unknown as typeof fetch))
+}
+

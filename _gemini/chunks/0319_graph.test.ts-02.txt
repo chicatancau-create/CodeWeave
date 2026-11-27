@@ -1,0 +1,55 @@
+    expect(run((i) => { i.stages[0]!.topics = [] })).toContain('stage-no-topics')
+    expect(run((i) => { i.stages = i.stages.filter((s) => s.id !== 'M') })).toContain('stage-missing')
+    expect(run((i) => { i.challenges = i.challenges.filter((c) => c.stageId !== 'D') })).toContain('challenge-per-stage')
+    expect(run((i) => { i.challenges.push({ ...i.challenges[0]!, id: 'stage-d-2' }) })).toContain('challenge-per-stage')
+  })
+
+  it('runner 与语言不相配 / 教学关起始代码认不出 / 沙箱关起始代码自拦', () => {
+    expect(run((i) => {
+      const target = i.challenges.find((c) => c.runner === 'javascript-sandbox')!
+      target.language = 'java'
+    })).toContain('challenge-runner-language')
+    expect(run((i) => {
+      const target = i.challenges.find((c) => c.runner === 'teaching')!
+      target.starterCode = '// 只有注释，没有任何可识别结构'
+    })).toContain('challenge-starter-unrecognized')
+    expect(run((i) => {
+      const target = i.challenges.find((c) => c.runner === 'javascript-sandbox')!
+      target.starterCode = 'fetch("https://example.com")'
+    })).toContain('challenge-starter-blocked')
+  })
+
+  it('课程先修悬空 / 声称可执行却跑不出来 / 外部课却标可自动执行', () => {
+    expect(run((i) => { i.lessons[0]!.content.prerequisites = ['no-such-lesson-xyz'] })).toContain('lesson-dangling-prerequisite')
+    expect(run((i) => {
+      // 只有显式 executable:true 才是谎报；缺省 teaching 认不出只进棘轮，
+      // 因为按运行键时界面会老实说「未识别代码结构，未产生通过判定」。
+      const target = i.lessons.find((l) => (l.content.runEnvironment ?? 'teaching') === 'teaching')!
+      target.code = 'print("这不是运行器支持的子集")'
+      target.language = 'python'
+      target.executable = true
+    })).toContain('lesson-claims-teaching-but-unrecognized')
+    expect(run((i) => {
+      const target = i.lessons.find((l) => l.content.runEnvironment === 'external')!
+      target.executable = true
+    })).toContain('lesson-external-executable')
+  })
+
+  it('重复 id 会被抓出来（列表去重是静默的，不查就永远看不见）', () => {
+    const kinds = run((i) => { i.lessons.push({ ...i.lessons[0]! }) })
+    expect(kinds).toContain('lesson-duplicate')
+  })
+})
+
+describe('两个小工具函数', () => {
+  it('先修项取前导 id：`java-algo-c2（C2 循环累加）` → java-algo-c2', () => {
+    expect(prerequisiteId('java-algo-c2（C2 循环累加）')).toBe('java-algo-c2')
+    expect(prerequisiteId('  b1-array-basics ')).toBe('b1-array-basics')
+  })
+
+  it('从 id 推阶段字母：b1-* → B，java-algo-c2 → C，推不出的算没有', () => {
+    expect(deriveStageLetter('b1-array-basics')).toBe('B')
+    expect(deriveStageLetter('java-algo-c2')).toBe('C')
+    expect(deriveStageLetter('cw-java-control-flow-001')).toBeUndefined()
+  })
+})

@@ -1,0 +1,104 @@
+    expect(await screen.findByText(/不能标记为「学习者独立完成」/)).toBeTruthy()
+  })
+
+  it('预览：展示目标、进度差异与被阻止的提升；未勾选时不能写入', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+
+    expect(await screen.findByText('预览（尚未写入任何文件）')).toBeTruthy()
+    expect(screen.getByText('全栈工程师学习计划/学习日志/2026-09/2026-09-19-Java Hello World.md')).toBeTruthy()
+    expect(screen.getByText('最近学习证据')).toBeTruthy()
+    expect(screen.getByText('2026-09-14')).toBeTruthy()
+    expect(screen.getByText('2026-09-19')).toBeTruthy()
+    expect(screen.getByText(/已阻止提升「Java 编程」到 4 级/)).toBeTruthy()
+
+    const confirm = screen.getByRole('button', { name: '确认写入' }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    expect(confirm.disabled).toBe(false)
+  })
+
+  it('确认写入成功：显示复核完成文案', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    expect(await screen.findByText(/已写入并复核：学习日志 → 进度追踪 → 总计划日志索引，全部成功/)).toBeTruthy()
+  })
+
+  it('冲突：展示逐字段差异，不显示成功', async () => {
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      commit: () =>
+        json(
+          {
+            error: '目标文件已被其他编辑者修改，未写入任何内容',
+            code: 'sync_conflict',
+            details: {
+              code: 'sync_conflict',
+              files: [
+                {
+                  path: '全栈工程师学习计划/进度追踪.md',
+                  kind: 'progress',
+                  reason: 'third_party_change',
+                  fieldDiffs: [{ field: '最近学习证据', previewed: '2026-09-14', current: '2026-09-15' }],
+                },
+              ],
+              logSaved: false,
+            },
+          },
+          409,
+        ),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    expect(await screen.findByText('检测到第三方改动，未覆盖任何内容')).toBeTruthy()
+    expect(screen.getByText(/不按修改时间决胜/)).toBeTruthy()
+    expect(screen.getByText('2026-09-15')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /重新预览/ })).toBeTruthy()
+    expect(screen.queryByText(/已写入并复核/)).toBeNull()
+  })
+
+  it('部分成功：提示日志已保存、进度待合并，并提供重试', async () => {
+    const calls: string[] = []
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      onPost: (path) => calls.push(path),
+      commit: () =>
+        json(
+          { error: '日志已保存，进度待合并：写入失败（EPERM）', code: 'progress_pending', details: { logSaved: true, progressPending: true } },
+          409,
+        ),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    expect(await screen.findByText(/日志已保存，进度待合并/)).toBeTruthy()
+    const retry = screen.getByRole('button', { name: /重试补齐/ })
+    fireEvent.click(retry)
+    await waitFor(() => {
+      expect(calls.filter((path) => path === '/api/learning/evidence-commit').length).toBe(2)
+    })
+    // 重试不再要求重新勾选（继续同一事务）
+    expect(screen.queryByText(/已写入并复核/)).toBeNull()
+  })
+
+  it('导出待保存 Markdown：请求导出接口并提示导出不等于已同步', async () => {
+    const createObjectURL = vi.fn(() => 'blob:mock')
+    const revokeObjectURL = vi.fn()

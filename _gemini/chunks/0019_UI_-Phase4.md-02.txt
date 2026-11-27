@@ -1,0 +1,60 @@
+   - `G:/CodeWeave/.local/qt/mycheck-build/ui-qt/` 下当前没有 `CodeWeaveQtShell.exe`，需要重新跑 `verify3.cmd`，确认构建和 CTest 都是绿的。
+5. **`Main.qml.bak`**：4803 行，08:39 保存，含另一版 Phase 3 改动（多了焦点环等）。处理前需由用户确认：删除，或从中挑回焦点环实现。
+
+---
+
+## 1. 范围与约束（沿用）
+- 只改 `G:/CodeWeave/应用端/`，包括 QML 和 `native/ui-qt/facade` 下的 C++。不改网页端。
+- 直接在 main 上修改，不开分支、不出预览版。
+- 90% 按网页端复刻，10% 可做平台级微调。
+- 每个任务完成的判定是**截图对比**：网页端和应用端在同一窗口尺寸（1440×900）下逐区块比对。不能只以「构建通过」为准。
+
+---
+
+## 2. 任务清单
+
+### P0：纠偏与基线（先做，体量小）
+
+| # | 任务 | 依据 | 验收 |
+|---|---|---|---|
+| 0.1 | 按 `styles.css:457-504` 重做 NavItem 三态（见第 0 节问题 2） | styles.css:457-504 | 和网页端侧栏截图对比一致 |
+| 0.2 | `Glow`/`DropShadow` 改用 `MultiEffect`，移除 Qt5Compat | Qt 6.8 QtQuick.Effects | 构建和部署产物中不再含 Qt5Compat |
+| 0.3 | 修正项目卡左条语义：悬停 2px、选中 3px，颜色 accent，与 dirty 解耦 | projects-view.css | 悬停和选中两态都正确 |
+| 0.4 | 处理 `Main.qml.bak`，跑通 `verify3.cmd`，记录 CTest 结果 | — | 出现 ALL-GREEN，exe 存在 |
+| 0.5 | 建立对比基线：网页端 dev server 与 QML 各截 8 个页面，存到 `工程文件/对比截图/` | — | 有 16 张基线图 |
+
+### P1：纯 QML 即可补齐的结构缺口（现有数据够用，或只需小幅扩字段）
+
+| # | 任务 | 网页端依据 | QML 位置 | 备注 |
+|---|---|---|---|---|
+| 1.1 | **学习概览数据绑定**：主卡取所选课而不是第 0 课；「全部/待学习/已完成」筛选可用；单元编号按筛选后的序号 | desktop-learning-home.tsx:13-15、54-65 | StudyPage L1277-2193 | 完成证据数据没有就显示 0，但口径要对 |
+| 1.2 | **阶段与来源明细页**：入口可点；页首和五项统计、编号科目列表、S0—S9 阶段清单、已选单元卡片 | learning-path-view.tsx:315-551 + learning-path-view.css | StudyPage 内新增一个状态（对应网页端 `showDetails`） | 需要 facade 的 `lessonMeta` 补 stage/reading/code 字段（ui_shell.cpp:96-118） |
+| 1.3 | **面包屑**：根 › 页名 › 课名，带编号 | topbar.tsx:117-140 | 顶栏 L556-665 | |
+| 1.4 | **顶栏浮层**：搜索结果下拉、快捷动作面板、通知面板、账户菜单（5 项） | GlobalSearch.tsx:147-164、QuickActions.tsx:88、Notifications.tsx:92、AccountMenu.tsx:68 | L670-742 | 统一用一个 Popup 外壳组件 |
+| 1.5 | **设置/帮助弹窗**：⚙ 按钮接上 | modals.tsx:43、222 + modals.css | 新增 | |
+| 1.6 | **工作台页首与分区**：标题、等级、时长、代码模式、课程指南、帮助；分区导航 01/02/03 可切换 | WorkspaceHeader.tsx:55-114 | EditorPage L2205-2258 | |
+| 1.7 | **主题原文区**：含加载中和读取失败两态 | LessonReader.tsx:40-85 | EditorPage 新增 | 用已有的 `selectedContentBody` |
+| 1.8 | **变量追踪面板 + 执行流程轨**（先画结构，事件为空时显示空态） | variable-panel.tsx:9、flow-chart.tsx:71-141 | EditorPage 右栏 | |
+| 1.9 | **控制台工具栏**：复制、清空、错误行样式 | console-panel.tsx:54 + console-panel.css | EditorPage L2598-2634 | Phase 3 的任务 7（折叠）只在网页端确实有时才做 |
+| 1.10 | **挑战页筛选/分页可用**：本地过滤 `challengeMeta`；更多筛选（轨道/难度/运行方式/排序）；筛选标签、重置；空结果态；分页 | ChallengeFilters.tsx:64-179、ChallengeGrid.tsx:48、164 | ChallengePage L3347-3732 | |
+| 1.11 | **账户域拆页**：个人中心、账户安全、数据与隐私拆成 3 个独立视图，侧栏/账户菜单可达 | profile-view.tsx:101-238、account-security-view.tsx:88-176、data-privacy-view.tsx:121-281、account-domain.css | AccountPage L3018 | 结构先行，接口没有的按钮保持禁用 |
+| 1.12 | **登录页介绍区** | auth-view.tsx:208-253 | AccountPage L3125 | |
+| 1.13 | **草稿页结构**：名称和说明字段、文件列表、行数统计、检查点快照区、保存失败提示 | projects-view.tsx:65、177-280 | DraftsPage L4083-4191 | 只有一份草稿就显示一行，结构先对齐 |
+
+### P2：需要先补 C++ facade 数据的缺口（都在应用端内）
+
+| # | 任务 | 先补的 facade | 再做 QML |
+|---|---|---|---|
+| 2.1 | **复习中心三组表格**（取代 Phase 3 任务 4） | `ReviewItem` 补到期日、复测节点、掌握等级、分组（review_service.hpp:13-22）；新增 `reviewGroups` QVariantList 和 `review()`/`snooze()` | 对照 review-center-view.tsx:321-386，含行操作：通过、稍后提醒、查看原课程 |
+| 2.2 | **挑战详情页** | `challengeMeta` 补目标输出、证据清单、说明、前置、起始代码（ui_shell.cpp:124-143）；新增 `openChallenge(id)` | ChallengeDetail.tsx:202-379：详情头 + 三个分区 |
+| 2.3 | **判定明细**（取代 Phase 3 任务 12） | 逐条判定（命中/未命中/多印），取代 output_comparison.hpp:15 的整段相等比较；按关卡的运行/提交接口 | challenges-view.css 判定区 |
+| 2.4 | **提交记录 + 人工复核** | 按关卡查询的提交历史 | SubmissionHistory.tsx:36-126 |
+| 2.5 | **工作台证据链**：标记完成、验收点、六种证据状态、外部证据表单接入 | 课程证据状态属性 | EvidenceStateGrid.tsx:76-219 |
+| 2.6 | **程序状态图完整版**：连线、此刻指针、变量格、输出列表，绑定当前课程 | 执行事件流 | run-stage.tsx:262-372 |
+| 2.7 | **学习分析数据绑定**（并入 Phase 3 任务 6 的表格细节） | 周统计属性 | AnalyticsPage 去掉字面量 |
+| 2.8 | **侧栏打卡日历 + 复习角标** | 打卡数据 | app.tsx:1328-1364（打卡日历 dialog；复习角标另见 :1297-1299，挑战角标 :1291-1293；焦点圈定/Escape hook :1241-1242） |
+| 2.9 | **证据写回面板 + 资料库进度**（体量最大，放最后） | 写回事务接口 | evidence-writeback-view.tsx:534-995、vault-progress-view.tsx:412 |
+
+### P3：优化（结构复刻 ≥90% 后再做）
+沿用 Phase 3 剩余项，开工前先在网页端核实真实规格：
+- 任务 6：分析表格悬停与编号（数据部分已并入 2.7）

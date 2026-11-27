@@ -1,0 +1,93 @@
+  std::error_code temporary_size_error;
+  if (std::filesystem::file_size(temporary, temporary_size_error) > kMaxTraceFileBytes ||
+      temporary_size_error) {
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return app::Result::failure("轨迹账本超过大小上限");
+  }
+#ifdef _WIN32
+  const auto temporary_handle = CreateFileW(
+      temporary.wstring().c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
+      nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (temporary_handle == INVALID_HANDLE_VALUE || !FlushFileBuffers(temporary_handle)) {
+    if (temporary_handle != INVALID_HANDLE_VALUE) CloseHandle(temporary_handle);
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return app::Result::failure("刷盘轨迹账本失败");
+  }
+  CloseHandle(temporary_handle);
+#endif
+#ifdef _WIN32
+  if (!MoveFileExW(temporary.wstring().c_str(), path().wstring().c_str(),
+      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    std::filesystem::remove(temporary, error);
+    return app::Result::failure("提交轨迹账本失败");
+  }
+#else
+  std::filesystem::rename(temporary, path(), error);
+  if (error) return app::Result::failure("提交轨迹账本失败");
+#endif
+  return app::Result::success("轨迹已保存");
+}
+
+app::Result TraceStore::read_page(std::string_view session_id, std::size_t offset,
+    std::size_t limit, TracePage& page) const {
+  std::lock_guard lock(mutex_);
+  page = {};
+  if (session_id.empty() || limit == 0 || limit > 1024) {
+    return app::Result::failure("轨迹分页参数无效");
+  }
+  if (data_root_.empty() || !data_root_.is_absolute()) {
+    return app::Result::failure("轨迹数据根必须是绝对路径");
+  }
+  std::error_code status_error;
+  const auto file_status = std::filesystem::symlink_status(path(), status_error);
+  if (status_error && status_error != std::make_error_code(std::errc::no_such_file_or_directory) &&
+      status_error.value() != ERROR_FILE_NOT_FOUND && status_error.value() != ERROR_PATH_NOT_FOUND) {
+    return app::Result::failure("读取轨迹账本状态失败");
+  }
+  status_error.clear();
+  if (file_status.type() == std::filesystem::file_type::not_found) {
+    return app::Result::success("轨迹分页已读取");
+  }
+  if (std::filesystem::is_symlink(file_status) ||
+      !std::filesystem::is_regular_file(file_status)) {
+    return app::Result::failure("轨迹账本文件类型无效");
+  }
+  std::ifstream input(path(), std::ios::binary);
+  if (!input) return app::Result::failure("打开轨迹账本失败");
+  std::error_code size_error;
+  const auto trace_size = std::filesystem::file_size(path(), size_error);
+  if (input && (size_error || trace_size > kMaxTraceFileBytes)) {
+    return app::Result::failure("轨迹账本超过大小上限");
+  }
+  std::string line;
+  TracePage pending;
+  std::size_t matching = 0;
+  while (std::getline(input, line)) {
+    if (line.empty()) continue;
+    if (line.size() > kMaxTraceLineBytes) return app::Result::failure("轨迹记录超过大小上限");
+    TraceEvent event{};
+    if (!parse_line(line, event)) return app::Result::failure("轨迹账本存在损坏记录");
+    if (event.session_id != session_id) continue;
+    if (matching >= offset && pending.events.size() < limit) {
+      pending.events.push_back(std::move(event));
+    }
+    ++matching;
+  }
+  if (input.bad()) return app::Result::failure("读取轨迹账本失败");
+  pending.next_offset = offset >= matching ? matching : offset + pending.events.size();
+  pending.end = pending.next_offset == matching;
+  page = std::move(pending);
+  return app::Result::success("轨迹分页已读取");
+}
+
+TraceSummary summarize_trace(const std::vector<TraceEvent>& events) {
+  TraceSummary summary{};
+  summary.event_count = events.size();
+  if (!events.empty()) summary.session_id = events.front().session_id;
+  for (const auto& event : events) {
+    if (event.kind == EventKind::Output) summary.output_bytes += event.payload.size();
+    if (event.kind == EventKind::Completed) summary.completed = true;
+    if (event.kind == EventKind::Failed) summary.failed = true;
+    if (event.kind == EventKind::Cancelled) summary.cancelled = true;

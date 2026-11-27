@@ -1,0 +1,67 @@
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp"
+index cf2c478..6899a11 100644
+--- "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp"
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/platform/ui_main.cpp"
+@@ -5,6 +5,9 @@
+ #include <QGuiApplication>
+ #include <QDir>
+ #include <QQmlContext>
++#include <QQmlEngine>
++#include <QQmlError>
++#include <QCryptographicHash>
+ #include <QQuickView>
+ #include <QCloseEvent>
+ #include <QClipboard>
+@@ -134,19 +137,26 @@ void send_editor_shortcut(QQuickView& view, int key, Qt::KeyboardModifiers modif
+ }
+ 
+ int main(int argc, char* argv[]) {
++  for (int index = 1; index < argc; ++index) {
++    if (std::string_view(argv[index]) == "--split-comparison-json")
++      QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Floor);
++  }
+   const double entered = probe_clock();
+   MeasuredApplication application(argc, argv);
+   const auto arguments = application.arguments();
+   const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
+   if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
++  const auto comparison = arguments.indexOf(QStringLiteral("--split-comparison-json"));
++  if (comparison >= 0 && (comparison + 1 >= arguments.size() || benchmark >= 0)) return 2;
++  const bool isolated_window = comparison >= 0 || arguments.contains(QStringLiteral("--u3-matrix-json"));
+   const auto matrix = arguments.indexOf(QStringLiteral("--u3-matrix-json"));
+   if (matrix >= 0 && matrix + 1 >= arguments.size()) return 2;
+   std::unique_ptr<QTemporaryDir> benchmark_data;
+   if (benchmark >= 0) benchmark_data = std::make_unique<QTemporaryDir>();
+   std::unique_ptr<U3MatrixContext> matrix_context;
+-  if (matrix >= 0) {
++  if (isolated_window) {
+     matrix_context = std::make_unique<U3MatrixContext>();
+-    matrix_context->output = arguments.at(matrix + 1);
++    matrix_context->output = arguments.at((comparison >= 0 ? comparison : matrix) + 1);
+     matrix_context->screenshot_dir = QFileInfo(matrix_context->output).absolutePath();
+     if (!matrix_context->data.isValid() || matrix_context->screenshot_dir.isEmpty()) return 2;
+     QDir().mkpath(matrix_context->screenshot_dir);
+@@ -164,9 +174,9 @@ int main(int argc, char* argv[]) {
+       QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+   if (benchmark >= 0 && !benchmark_data->isValid()) return 2;
+   const auto nativeData = benchmark >= 0 ? benchmark_data->path() :
+-      (matrix >= 0 ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
++      (isolated_window ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
+       QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
+-  const auto effectiveWorkspace = matrix >= 0 ? matrix_context->data.path() : workspace;
++  const auto effectiveWorkspace = isolated_window ? matrix_context->data.path() : workspace;
+   shell.configureAccountStorage(effectiveWorkspace.toStdWString(), nativeData.toStdWString());
+   const auto nativeDataPath = std::filesystem::path(nativeData.toStdWString());
+   for (const auto language : {std::string_view("cpp"), std::string_view("java"),
+@@ -211,12 +221,112 @@ int main(int argc, char* argv[]) {
+     view.resize(qMin(1440, static_cast<int>(available.width() * 0.92)),
+         qMin(900, static_cast<int>(available.height() * 0.92)));
+   }
++  if (comparison >= 0) {
++    view.setFlags(Qt::Window | Qt::FramelessWindowHint);
++    view.setMinimumSize(QSize(1440, 900));
++    view.setMaximumSize(QSize(1440, 900));
++    view.resize(1440, 900);
++  }
+   view.setTitle(shell.appTitle());
+   view.rootContext()->setContextProperty(QStringLiteral("uiShell"), &shell);

@@ -1,0 +1,30 @@
+    operations[0].samples.push_back(measure_backup(sample_root));
+    operations[1].samples.push_back(measure_users_import(sample_root));
+    operations[2].samples.push_back(measure_learning_import(sample_root));
+    operations[3].samples.push_back(measure_register(sample_root));
+    operations[4].samples.push_back(measure_login(sample_root));
+    operations[5].samples.push_back(measure_change_password(sample_root));
+    operations[6].samples.push_back(measure_progress_append(sample_root, 100));
+    operations[7].samples.push_back(measure_progress_append(sample_root, 1000));
+    operations[8].samples.push_back(measure_progress_append(sample_root, 10000));
+    operations[9].samples.push_back(measure_progress_hot_append(sample_root, 100, sample));
+    operations[10].samples.push_back(measure_progress_hot_append(sample_root, 1000, sample));
+    operations[11].samples.push_back(measure_progress_hot_append(sample_root, 10000, sample));
+  }
+
+  try {
+    write_json(output, run_root, operations);
+  } catch (const std::exception& error) {
+    std::cerr << error.what() << '\n';
+    std::error_code ignored;
+    std::filesystem::remove_all(run_root, ignored);
+    return 1;
+  }
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(run_root, cleanup_error);
+  if (cleanup_error) {
+    std::cerr << "benchmark completed but isolated root cleanup failed\n";
+    return 1;
+  }
+  return 0;
+}

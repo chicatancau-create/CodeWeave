@@ -1,0 +1,110 @@
+      const located = locateIndexInsertion(indexCurrent.text, at.slice(0, 7))
+      if (!located) return { changed: false, reason: '总计划缺少 §0 学习日志索引小节，需人工补充后再同步' }
+      const line = `- ${link} — ${first.stage ? `${first.stage} ` : ''}${first.topic}`
+      return { changed: true, line, after: located.lines[located.index] ?? null }
+    })()
+    targets.push({
+      path: PLAN_PATH,
+      kind: 'index',
+      exists: indexCurrent.hash !== null,
+      expectedHash: indexCurrent.hash,
+      before: { line: indexPreview?.line ?? null },
+      preview: indexPreview,
+    })
+
+    return { targets, masteryBlocked, at, topic: first.topic }
+  }
+
+  /**
+   * 预览：生成 operationId 与事务清单，返回将写入的日志小节、进度差异与冲突。
+   * **不修改任何 Markdown，也不改证据状态。**
+   */
+  async function preview({ userId, evidenceIds, masteryUpdates }) {
+    await requireOwner(userId)
+    const root = requireRoot()
+    if (!Array.isArray(evidenceIds) || evidenceIds.length === 0) {
+      throw new WritebackError('no_evidence', '请先选择要写回的暂存证据')
+    }
+    const records = await loadEvidence(userId, evidenceIds)
+    if (records.length === 0) throw new WritebackError('already_synced', '这些证据都已同步，没有可写回的内容')
+
+    const plan = await buildPlan(root, records, masteryUpdates)
+    const operationId = newOperationId()
+    // 冲突预检：目标文件在预览时读到的指纹就是提交时要比对的基线。
+    const conflicts = []
+    for (const target of plan.targets) {
+      if (target.kind === 'progress' && target.before.edits.length === 0 && target.before.masteryEdits.length === 0) {
+        continue
+      }
+      if (!target.exists && target.kind !== 'log') {
+        conflicts.push({ path: target.path, kind: target.kind, reason: 'source_not_found' })
+      }
+    }
+
+    await writeTransaction({
+      schemaVersion: WRITEBACK_SCHEMA_VERSION,
+      operationId,
+      userId,
+      createdAt: new Date().toISOString(),
+      state: WRITEBACK_STATE.PREVIEW,
+      evidenceIds: records.map((record) => record.evidenceId),
+      masteryUpdates: masteryUpdates ?? [],
+      at: plan.at,
+      topic: plan.topic,
+      // 事务只保留步骤执行需要的信息；preview 只用于给用户看，不入事务。
+      targets: plan.targets.map((target) => ({
+        path: target.path,
+        kind: target.kind,
+        exists: target.exists,
+        expectedHash: target.expectedHash,
+        before: target.before,
+        groupEvidenceIds: target.groupEvidenceIds ?? null,
+        applied: false,
+      })),
+    })
+
+    return {
+      operationId,
+      evidenceIds: records.map((record) => record.evidenceId),
+      at: plan.at,
+      topic: plan.topic,
+      targets: plan.targets.map((target) => ({
+        path: target.path,
+        kind: target.kind,
+        exists: target.exists,
+        expectedHash: target.expectedHash,
+        preview: target.preview,
+      })),
+      masteryBlocked: plan.masteryBlocked,
+      conflicts,
+      // 界面据此与原文一致地提示：预览不等于已同步，也不自动声称掌握。
+      notices: [
+        '预览不会修改任何资料库文件。',
+        '写回顺序：学习日志 → 进度追踪 → 总计划日志索引。',
+        '只有实际写入并复核后才显示「已同步」；掌握等级不会自动提升。',
+      ],
+    }
+  }
+
+  /**
+   * 冲突详情：把预览时的字段值与当前文件的字段值逐项对照，不按 mtime 决胜。
+   * 只列出**确实变了**的文件——指纹没变的文件不算冲突，避免把无关文件写进差异表里。
+   */
+  async function conflictDetails(root, transaction) {
+    const files = []
+    for (const step of transaction.targets) {
+      const current = await readTarget(root, step.path)
+      const baseline = step.preHash ?? step.expectedHash ?? null
+      const hashChanged = baseline !== current.hash
+      const fieldDiffs = []
+      if (step.kind === 'log') {
+        if (step.before.exists !== (current.hash !== null) || (current.hash !== null && current.text.length !== step.before.length)) {
+          fieldDiffs.push({
+            field: '日志文件',
+            previewed: step.before.exists ? `已存在（${step.before.length} 字符）` : '不存在（将新建）',
+            current: current.hash === null ? '不存在' : `已存在（${current.text.length} 字符）`,
+          })
+        }
+      } else if (step.kind === 'progress') {
+        const text = current.text ?? ''
+        for (const edit of step.before.edits ?? []) {

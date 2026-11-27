@@ -1,0 +1,130 @@
+// @vitest-environment jsdom
+/**
+ * M3 视觉竖切 · 学习路径页契约测试（01 号方案 §3.3 学习路径 + §2.2 令牌 + §2.2 动效降级 + §8 验收清单）
+ *
+ * 覆盖三件事：
+ * 1. 改版后业务行为仍然成立：前置关系、继续学习、阅读单元、来源与缺口标识；
+ * 2. 无障碍结构：清单是真表格（caption / th scope）、标识不只靠颜色、控件有名字；
+ * 3. 视觉不变式以 CSS 源码文本锁定（jsdom 不做层叠与布局，故按规则文本核对，
+ *    与 tests/styles.focus.test.mjs 同一手法）。
+ *
+ * 断言风格与项目现有 jsdom 测试一致：直接读 DOM 结构与文本，不依赖 jest-dom 匹配器。
+ */
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { LearningPathView } from './learning-path-view'
+import type { Lesson } from '../types/lesson'
+import type { CurriculumStage } from '../data/curriculum'
+import type { LessonEvidenceStates } from '../utils/lesson-evidence'
+
+/**
+ * 组件样式表原文。
+ *
+ * vitest 默认不处理 CSS（`test.css` 为 false），`?raw` / `?inline` 都会被替换成空模块，
+ * 所以视觉不变式只能从磁盘读原文核对 —— 与 tests/styles.focus.test.mjs 读 src/styles.css
+ * 同一手法。本仓库未安装 @types/node：用变量说明符做动态 import（局部类型收窄），
+ * 并只用 `import.meta.dirname` 拼路径，不引入 `process` 等未声明全局、也不静态 import node:path。
+ * 下方 length 断言是防空模块的守卫：一旦读不到原文，全部 CSS 断言会立刻失败而不是假绿。
+ */
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
+const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+const cssPath = `${moduleDir}/learning-path-view.css`
+const cssText = readFileSync(cssPath, 'utf8')
+
+/** 去掉注释后的纯声明文本：否定断言（不得出现泛光/渐变/取消 outline）只看真实声明。 */
+const cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '')
+
+/** 取某个选择器（规范化空白后精确匹配）的声明体；找不到返回空串。 */
+function declarationBlock(selector: string): string {
+  const wanted = selector.replace(/\s+/g, ' ').trim()
+  const pattern = /([^{}]+)\{([^{}]*)\}/g
+  let match: RegExpExecArray | null = pattern.exec(cssText)
+  while (match) {
+    const rawSelector = match[1] ?? ''
+    const body = match[2] ?? ''
+    const selectorText = rawSelector.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\s+/g, ' ').trim()
+    if (selectorText === wanted) return body
+    match = pattern.exec(cssText)
+  }
+  return ''
+}
+
+/** 取 @media 查询的内部文本（支持嵌套花括号）。 */
+function mediaBlock(query: string): string {
+  const at = cssText.indexOf(`@media (${query})`)
+  if (at === -1) return ''
+  const open = cssText.indexOf('{', at)
+  let depth = 0
+  for (let index = open; index < cssText.length; index += 1) {
+    const char = cssText[index]
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) return cssText.slice(open + 1, index)
+    }
+  }
+  return ''
+}
+
+const baseLesson = (overrides: Partial<Lesson> = {}): Lesson =>
+  ({
+    id: 'vault-s0-1',
+    language: 'java',
+    languageLabel: 'Java',
+    label: 'S0',
+    title: '开发环境清点',
+    description: '把工具链逐个清点并留下版本记录',
+    duration: '45 min',
+    level: '入门',
+    progress: 0,
+    code: '',
+    flow: [],
+    insight: '',
+    fileName: 'env-checklist.txt',
+    runtime: '外部环境 · 终端',
+    contentId: 'topic-java-env',
+    subject: 'Java',
+    subjectId: 'java',
+    legacy: false,
+    executable: true,
+    source: {
+      path: '资料库/Java/环境.md',
+      headingPath: ['Java', '环境'],
+      verificationStatus: '已核验',
+      sourceIds: ['src-1'],
+    },
+    exercise: {
+      exerciseId: 'ex-1',
+      title: '清点练习',
+      prompt: '记录版本',
+      starterCode: '',
+      starterLanguage: 'java',
+      expectedOutput: [],
+      executionPolicy: 'teaching',
+    },
+    content: {
+      objective: '清点工具链',
+      prerequisites: ['JDK 安装', 'PATH 配置'],
+      explanation: [],
+      examples: [],
+      guidedSteps: [],
+      exercise: '',
+      variant: '',
+      projectTask: '',
+      mistakes: [],
+      runCommand: '教学运行器',
+      completion: '',
+      reviewOffsetsDays: [],
+      stageId: 'S0',
+      estimatedMinutes: 45,
+    },
+    ...overrides,
+  }) as Lesson
+
+/** 换阶段的浅拷贝：只动 stageId / label，其余字段照抄。 */
+function lessonAtStage(overrides: Partial<Lesson> & { stage: string }): Lesson {
+  const { stage, ...rest } = overrides

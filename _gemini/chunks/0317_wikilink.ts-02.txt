@@ -1,0 +1,111 @@
+  if (segments.some((segment) => segment === '..')) return '不接受越界路径（..）'
+  if (segments.some((segment) => ILLEGAL_SEGMENT_CHAR.test(segment))) return '目标含非法路径字符'
+  return null
+}
+
+/**
+ * 整条目标（含 `#章节锚点`）的拒绝理由：路径段与每个锚点段都过同一套规则。
+ * 锚点用 `>` 分级（与快照里 sectionRef 的口径一致），因此 `>` 本身不是危险字符。
+ */
+function targetRejectReason(target: string, pathPart: string, anchorChain: string[]): string | null {
+  if (target.length > MAX_TARGET_LENGTH) return `引用目标过长（超过 ${MAX_TARGET_LENGTH} 字符）`
+  const pathReason = rejectReasonFor(pathPart)
+  if (pathReason) return pathReason
+  for (const segment of anchorChain) {
+    const reason = rejectReasonFor(segment)
+    if (reason) return `章节锚点不合法：${reason}`
+  }
+  return null
+}
+
+/** 从内容快照的 lessons 里提取已发布候选集（旧内置课程 legacy 无 contentId，不作为目标）。 */
+export function publishedWikiLinkCandidates(lessons: readonly Lesson[]): WikiLinkCandidate[] {
+  const out: WikiLinkCandidate[] = []
+  const seen = new Set<string>()
+  for (const lesson of lessons) {
+    const contentId = lesson.contentId
+    if (!contentId || lesson.legacy) continue
+    const candidate: WikiLinkCandidate = {
+      contentId,
+      title: String(lesson.title ?? ''),
+      sourcePath: String(lesson.source?.path ?? ''),
+      headingPath: (lesson.source?.headingPath ?? []).map((item) => String(item)),
+    }
+    const key = `${candidate.contentId}#${candidate.sourcePath}#${candidate.title}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(candidate)
+  }
+  return out
+}
+
+export type WikiLinkIndex = {
+  total: number
+  byContentId: Map<string, WikiLinkCandidate[]>
+  byPath: Map<string, WikiLinkCandidate[]>
+  byBaseName: Map<string, WikiLinkCandidate[]>
+  byTitle: Map<string, WikiLinkCandidate[]>
+}
+
+function push(map: Map<string, WikiLinkCandidate[]>, key: string, candidate: WikiLinkCandidate): void {
+  if (!key) return
+  const list = map.get(key)
+  if (list) {
+    if (!list.some((item) => item.contentId === candidate.contentId)) list.push(candidate)
+    return
+  }
+  map.set(key, [candidate])
+}
+
+/** 建一次索引，供多条双链复用（同一快照内稳定）。 */
+export function buildWikiLinkIndex(candidates: readonly WikiLinkCandidate[]): WikiLinkIndex {
+  const index: WikiLinkIndex = {
+    total: candidates.length,
+    byContentId: new Map(),
+    byPath: new Map(),
+    byBaseName: new Map(),
+    byTitle: new Map(),
+  }
+  for (const candidate of candidates) {
+    push(index.byContentId, normalizeTitle(candidate.contentId), candidate)
+    push(index.byTitle, normalizeTitle(candidate.title), candidate)
+    const path = normalizePath(candidate.sourcePath)
+    if (path) {
+      push(index.byPath, path, candidate)
+      push(index.byBaseName, (path.split('/').at(-1) ?? ''), candidate)
+    }
+  }
+  return index
+}
+
+/** 标题链锚点（`#标题1 > 标题2`）能否在已发布主题的元数据里对上。 */
+function anchorMatches(candidate: WikiLinkCandidate, chain: string[]): boolean {
+  if (chain.length === 0) return true
+  const known = new Set([...candidate.headingPath, candidate.title].map(normalizeTitle).filter(Boolean))
+  if (known.size === 0) return true // 摘要未提供标题链时不做否决，按整篇定位
+  const last = normalizeTitle(chain[chain.length - 1] ?? '')
+  return last === '' || known.has(last)
+}
+
+function pick(list: WikiLinkCandidate[] | undefined): WikiLinkCandidate[] {
+  return list ?? []
+}
+
+/**
+ * 解析一条双链。命中已发布主题时返回 `resolved`；
+ * 目标形态危险返回 `rejected`；其余（未发布、同名不唯一、未连接快照）返回 `unresolved`。
+ */
+export function resolveWikiLink(raw: string, candidatesOrIndex: readonly WikiLinkCandidate[] | WikiLinkIndex): WikiLinkDecision {
+  const index = 'byPath' in candidatesOrIndex ? candidatesOrIndex : buildWikiLinkIndex(candidatesOrIndex)
+  const { target, display } = splitWikiLink(raw)
+  const tooltipBase = `资料库引用：${target || raw}`
+
+  const hashAt = target.indexOf('#')
+  const pathPart = (hashAt === -1 ? target : target.slice(0, hashAt)).trim()
+  const anchorPart = hashAt === -1 ? '' : target.slice(hashAt + 1)
+  const chain = anchorPart
+    .split(/>/)
+    .flatMap((piece) => piece.split('#'))
+    .map((piece) => piece.trim())
+    .filter(Boolean)
+

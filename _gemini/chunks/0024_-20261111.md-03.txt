@@ -1,0 +1,39 @@
+| **任务 6.2 工作区白名单** | `.gitignore:50-54` 为 `/工作区/*` + `!/工作区/工程审查待办.md` + `!/工作区/config/` + `/工作区/config/*` + `!/工作区/config/codeweave.config.example.json`，正是「默认全忽略 + `!` 白名单」的要求形式。`*.jks`/`*.keystore`/`key.properties`/`.kotlin`/`captures` 各 1 条；`*.exe` 为任意层级（:43） |
+| **任务 2.1 桌面覆写作用域** | `desktop-theme.css:59` 起 `@media (min-width: 1201px)`，`--sidebar-w: 240px`（:62）在其内；另有 `@media (min-width: 1650px)`（:213）与 `max-width: 1200px`（:222）、`max-width: 760px`（:227）分档 |
+| **任务 2.2** | `auth-view.tsx` 已用真实命令，失效指引 `pnpm run start` **0 处**；`error-boundary.tsx` 有区分整壳/局部的 props；`app.tsx:1008` 为 `<main className="content-wrap" id="main-content" tabIndex={-1} …>`，skip-link 目标正确 |
+| **阶段 5 各项** | `requestAnimationFrame` 16 处、`AbortSignal` 11 处、`Promise.all` 5 处、`useCallback` 126 处、`src/components/Clock.tsx` 存在、`prefers-reduced-motion` 8 处 |
+| **阶段 5.6 图片 aspect-ratio** | 已实现且**有测试**：`src/content/markdown.tsx:55` `aspectRatio: '16 / 9'`，应用于 :254 的 `<img style={IMAGE_STYLE}>`；`markdown.attachments.test.tsx:54` 断言 `img?.style.aspectRatio === '16 / 9'`。（注意：按 `aspect-ratio` 连字符形式检索会 0 命中，实际用的是 CSS-in-JS 的 camelCase，别据此误判未实现） |
+| **网页端既有写死颜色** | `src/` 内除 `tokens.css` 外共 616 处（`styles.css` 74 处）。规则 4 对「既有」的要求是「按任务要求逐步收口」，本轮提示词没有网页端颜色收口任务，**故不计为违规**；只有 B2 那 1 处新增计入 |
+
+### 审查方自身判断的更正（三轮累计）
+
+1. **B1 定性过重**：初版按「新增不合格」处理，实测 23 个值全部来自基线、真新增为 0，已改为「既有未收口」并降级。
+2. **任务 4.1 曾被列为缺口**：执行方已于 23:17 完成相邻提交对照并做重复运行噪声估计，已收回。
+3. **「四个新模块 facade 引用 0 = 半接线」是误判**：它们经服务层接线（`operation_index`→两个台账、`review_scheduler`/`mastery_service`→`review_service`），分层正确，已收回。
+4. 三次 grep 写法造成的误报，均查实为合规、未写入发现：工作区白名单（漏前导 `/`）、图片 `aspect-ratio`（实际 camelCase 且有测试）、`ShellDialog`/`ShellPopup` 自身 id 被当成死组件。
+5. **截至 2026-11-11 23:58 的审查快照**：A1 在审查期间被执行方修好，审查方复核 `ds.topbarH + ds.s16` 正确；A2 当时仍未关闭，后续处置见本文 2026-11-12 关闭记录。
+
+---
+
+## B-3. 第三轮审查（23:58–00:10）新增复核结果
+
+同样**没有发现新的硬缺陷**（B3 是文档问题，不是代码问题）。以下是本轮新查的面。
+
+| 审查面 | 结果 |
+|---|---|
+| **原生端网络边界** | `native/src/`、`ui-qt/facade/`、`ui-qt/platform/` 全量检索 `winhttp/wininet/InternetOpen/WSAStartup/QTcpSocket/QNetworkAccessManager` → **0 命中**。「无服务器·无端口」的事实基线仍然成立 |
+| **凭据与真实数据是否入库** | `git ls-files` 中 `.jks/.keystore/.pfx/.pem/.key/.env/key.properties/credentials/secret` → **0 命中**。`工作区/` 只跟踪 **2 个文件**：`config/codeweave.config.example.json` 与 `工程审查待办.md`，与 `.gitignore` 白名单完全一致，真实账户/学习记录未入库 |
+| **四个新模块是否半接线** | **不是半接线，是正确分层**。`operation_index` 被 `evidence_store.hpp` 与 `progress_store.hpp` 引用（台账幂等索引已在产品路径）；`review_scheduler` 与 `mastery_service` 被 `review_service.hpp` 引用；`mastery_store` 被 `mastery_service.hpp` 引用。facade 不直接引用它们是分层正确，**不是缺口**（审查方一度用「facade 引用数=0」误判，已纠正） |
+| **任务 3.1 声称「数据已就绪」是否属实** | 属实。`ui_shell.hpp:71` `Q_PROPERTY(QVariantList reviewItems …)`、`:213` `reviewItem(itemId, passed, note)`、`:214` `snoozeReview(itemId)` 均存在。DTO（`ui_shell_operations.cpp:388-402`）含 `itemId/contentId/exerciseId/latestAt/latestResult/passed/independent/hintLevel/evidenceCount/`**`dueKey/nextNodeIndex/masteryLevel/planSource/group/forgettingRisk`**，覆盖任务 3.1 要求的全部列 |
+| **`planSource` 是否保住了 #33 三级来源裁定** | 保住了。DTO 里有 `planSource`（经 `plan_source_text()` 转中文），即「本单元覆盖 / 资料库发布规则 / 本机排期」的来源标注没有丢 |
+| **文档引用行号机器校验** | 4 份文档共 41 条 `文件:行号` 引用：**40 有效、0 歧义、1 失效**（见 B3） |
+| **任务 2.3 点名要求的测试** | **存在且写法准确**：`网页端/项目/src/components/topbar.m4.test.tsx:220`
+`it.each(['Escape', 'outside click'])('面板打开期间通知更新后，%s 按最新列表标记已读', …)`，用 `rerender` 更新 items 后分别验两条关闭路径。正是提示词要求的那条用例，且参数化覆盖了两种关闭方式 |
+| **阶段 5.1 键盘与焦点归还测试** | 含 `ArrowDown/ArrowUp/Home/End` 断言的测试文件 **3 个**；含焦点归还断言（`toHaveFocus` 等）的测试文件 **3 个** |
+
+## C. 我已复核确认关闭/合规的项（不要重复劳动，也不要误判成缺口）
+
+| 项 | 复核结果 |
+|---|---|
+| **任务 4.1 拆分前后对照** | **方法正确，已做，不作为缺口。** `验收证据/Phase41-split-comparison-20261111/` 用的正是相邻提交口径（拆分前 `32cbc26` vs 隔离结构拆分快照），两侧加同一 `id: codeEditor` 修补后均退出 0、七页通过；并**重复运行同一二进制估噪声**，发现噪声与拆分差异同量级（每通道最大差 1/255，差异像素 0.09%–0.28%），且明确拒绝推及 HEAD 与网页端等价。残留只是「差异成因未证实」，报告已如实标注。注意 A2 会影响该批「QML 警告为零」的判据强度。 |
+| 任务 1.3 写死统计 | 提示词点名的 6 处（`0/13`、`行 1，列 1`、`01/07`、`第 1/2 页`、`连续打卡 0`）全部 0 命中；`暂无进度数据` 空态存在 |

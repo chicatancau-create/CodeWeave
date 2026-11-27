@@ -1,0 +1,66 @@
+              send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+            }
+          }
+          shell.stepExecution();
+          u3_record(*context, QStringLiteral("execution-step"), shell.executionPaused());
+          shell.resumeExecution();
+          context->step++;
+          return;
+        case 62:
+          if (shell.executionPaused()) return;
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            if (std::none_of(events.begin(), events.end(), [](const auto& value) {
+                  return value.toMap().value(QStringLiteral("kind")).toString() == "resumed";
+                })) return;
+            auto* list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            u3_record(*context, QStringLiteral("execution-live-preserves-browsed-event"),
+                list && list->property("currentIndex").toInt() == 0);
+            if (list) list->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+            u3_record(*context, QStringLiteral("execution-live-end-follows-latest"),
+                list && list->property("currentIndex").toInt() == events.size() - 1);
+          }
+          u3_record(*context, QStringLiteral("execution-resume"), shell.executionBusy());
+          shell.cancelExecution();
+          context->step++;
+          return;
+        case 63:
+          if (shell.executionBusy()) return;
+          // The trace ListView restores its selection with Qt.callLater after
+          // a model reset. Check the terminal frame on the next event turn.
+          context->step = 631;
+          return;
+        case 631:
+          u3_record(*context, QStringLiteral("execution-cancel"),
+              shell.executionOutput().contains(QStringLiteral("取消")), shell.executionOutput());
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            u3_record(*context, QStringLiteral("execution-trace-cancelled-event"), !events.isEmpty() &&
+                events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("cancelled"));
+            bool paused = false;
+            bool resumed = false;
+            for (const auto& event : events) {
+              paused = paused || event.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("paused");
+              resumed = resumed || event.toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("resumed");
+            }
+            u3_record(*context, QStringLiteral("execution-trace-pause-resume-events"), paused && resumed);
+            auto* panel = u3_find_item(view.rootObject(), QStringLiteral("executionTracePanel"));
+            auto* event_list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            u3_record(*context, QStringLiteral("execution-stage-cancelled-terminal-visible-without-success"),
+                !events.isEmpty() && u3_stage_terminal_visible(view.rootObject(), events.last().toMap(), false),
+                QStringLiteral("events=%1 index=%2 count=%3 follow=%4 sequence=%5 active=%6")
+                    .arg(events.size()).arg(event_list ? event_list->property("currentIndex").toInt() : -1)
+                    .arg(event_list ? event_list->property("count").toInt() : -1)
+                    .arg(panel && panel->property("followLatest").toBool())
+                    .arg(panel ? panel->property("viewedSequence").toInt() : -1).arg(view.isActive()));
+            u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-cancelled"));
+          }
+          shell.setExecutionTimeout(100);
+          shell.updateDraftCode(QStringLiteral("import time\ntime.sleep(2)\n"));
+          shell.runCode();
+          context->step = 64;
+          return;
+        case 64:
+          if (shell.executionBusy()) return;
+          u3_record(*context, QStringLiteral("execution-timeout"),

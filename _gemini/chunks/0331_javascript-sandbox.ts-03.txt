@@ -1,0 +1,69 @@
+  if (type === 'end') return lesson.flow.find((node) => node.kind === 'end')?.id ?? 'end'
+  return lesson.flow.find((node) => node.line === line)?.id ?? `line-${line}`
+}
+
+export function executeJavaScript(code: string, lesson: Lesson): Promise<ExecutionResult> {
+  const rejected = validateJavaScriptSandbox(code)
+  if (rejected) {
+    return Promise.resolve({ events: [makeEvent('error', 'error', rejected.line, '安全拦截', rejected.message, [])], output: [], error: rejected, tier: 'worker' })
+  }
+  if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') {
+    return Promise.resolve(fallbackResult())
+  }
+
+  return new Promise((resolve) => {
+    const lines = code.split('\n')
+    const variables: VariableValue[] = []
+    const events: TraceEvent[] = [makeEvent('start', 'start', 1, '程序开始', '在隔离的 JavaScript Worker 中运行。', variables, 'start')]
+    const output: string[] = []
+    const { source, codeLineOffset } = buildWorkerScript(code)
+    const objectUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }))
+    const worker = new Worker(objectUrl)
+    let settled = false
+    const finish = (result: ExecutionResult) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      worker.terminate()
+      URL.revokeObjectURL(objectUrl)
+      resolve(result)
+    }
+    const timeout = setTimeout(() => {
+      const error = { line: 1, message: `运行超过 ${maxExecutionMs}ms，已自动停止，可能存在无限循环。` }
+      events.push(makeEvent('timeout', 'error', error.line, '执行超时', error.message, variables))
+      finish({ events, output, error, tier: 'worker' })
+    }, maxExecutionMs)
+    worker.onmessage = (message: MessageEvent<WorkerMessage>) => {
+      const data = message.data
+      if (data.type === 'trace') {
+        variables.splice(0, variables.length, ...data.variables.map((variable) => ({ ...variable })))
+        events.push(makeEvent(`trace-${events.length}`, 'line', data.line, data.label, `执行第 ${data.line} 行。`, data.variables, flowNodeForLine(lesson, data.line)))
+      }
+      if (data.type === 'output') {
+        output.push(data.value)
+        events.push(makeEvent(`output-${output.length}`, 'output', lines.length, '输出结果', `控制台输出：${data.value}`, variables, flowNodeForLine(lesson, lines.length, 'output')))
+      }
+      if (data.type === 'error') {
+        // 行号由 Worker 脚本自己按前缀偏移折算，主线程不再从消息文本里猜。
+        const line = data.line ?? 1
+        const error = { line, message: data.message }
+        events.push(makeEvent('error', 'error', line, '运行错误', data.message, variables))
+        finish({ events, output, error, tier: 'worker' })
+      }
+      if (data.type === 'done') {
+        events.push(makeEvent('end', 'end', lines.length, '程序结束', 'JavaScript Worker 执行完成。', variables, flowNodeForLine(lesson, lines.length, 'end')))
+        finish({ events, output, tier: 'worker' })
+      }
+    }
+    worker.onerror = (error: ErrorEvent) => {
+      // 走到这里的是**脚本没能开始执行**那一类：语法错误、脚本被 CSP 拒绝、blob 取不到。
+      // 浏览器报的是 Worker 脚本自己的行号，减掉前缀才是编辑器里的行号。
+      // 代码没闭合时浏览器会把错算到紧跟其后的闭合行上（实测：1 行代码报第 2 行、
+      // 3 行代码报第 4 行），折回来越过用户最后一行就收到最后一行，别指到用户看不见的行去。
+      const mapped = typeof error.lineno === 'number' && error.lineno > codeLineOffset ? error.lineno - codeLineOffset : 1
+      const result = { line: Math.min(Math.max(1, mapped), Math.max(1, lines.length)), message: error.message || 'JavaScript 沙箱发生未知错误。' }
+      events.push(makeEvent('error', 'error', result.line, '运行错误', result.message, variables))
+      finish({ events, output, error: result, tier: 'worker' })
+    }
+  })
+}

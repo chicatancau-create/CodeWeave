@@ -1,0 +1,107 @@
+#include "backup_service.hpp"
+#include "account_store.hpp"
+
+#include <algorithm>
+#include <cwctype>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include <system_error>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::backup {
+namespace {
+
+constexpr std::string_view kMarker = "codeweave.migration-fixture";
+constexpr std::string_view kBackupMarker = "codeweave.native-backup.v1";
+
+bool valid_roots(const std::filesystem::path& source,
+    const std::filesystem::path& target) {
+  if (source.empty() || target.empty() || !source.is_absolute() ||
+      !target.is_absolute()) return false;
+  std::error_code error;
+  const auto source_status = std::filesystem::symlink_status(source, error);
+  if (error || !std::filesystem::is_directory(source_status) ||
+      std::filesystem::is_symlink(source_status)) return false;
+  const auto canonical = [](const std::filesystem::path& value) {
+    std::error_code canonical_error;
+    const auto result = std::filesystem::weakly_canonical(value, canonical_error);
+    return canonical_error ? value.lexically_normal() : result.lexically_normal();
+  };
+  const auto same_path = [](const std::filesystem::path& left,
+      const std::filesystem::path& right) {
+    auto left_value = left.generic_wstring();
+    auto right_value = right.generic_wstring();
+#ifdef _WIN32
+    std::transform(left_value.begin(), left_value.end(), left_value.begin(),
+        [](wchar_t character) { return std::towlower(character); });
+    std::transform(right_value.begin(), right_value.end(), right_value.begin(),
+        [](wchar_t character) { return std::towlower(character); });
+#endif
+    return left_value == right_value;
+  };
+  const auto source_value = canonical(source);
+  const auto target_value = canonical(target);
+  if (same_path(source_value, target_value)) return false;
+  // lexically_relative has no result across Windows volumes. Different drive
+  // roots cannot be descendants, so they are valid backup destinations.
+  if (!same_path(source_value.root_name(), target_value.root_name())) return true;
+  const auto relative = target_value.lexically_relative(source_value);
+  if (relative.empty()) return false;
+  bool leaves_source = false;
+  for (const auto& component : relative) {
+    if (same_path(component, "..")) {
+      leaves_source = true;
+      break;
+    }
+  }
+  return leaves_source;
+}
+
+bool marked_fixture(const std::filesystem::path& root) {
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(root / kMarker, error);
+  return !error && !std::filesystem::is_symlink(status) &&
+      std::filesystem::is_regular_file(status);
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+        error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND) {
+      error.clear();
+      continue;
+    }
+    if (error) return true;
+  }
+  return false;
+}
+
+bool fingerprint(const std::filesystem::path& path, std::uintmax_t& size,
+    std::uint64_t& value) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return false;
+  value = 14695981039346656037ull;
+  size = 0;
+  char buffer[8192];
+  while (input.read(buffer, sizeof(buffer)) || input.gcount() > 0) {
+    const auto count = input.gcount();
+    for (std::streamsize index = 0; index < count; ++index) {
+      value ^= static_cast<unsigned char>(buffer[index]);
+      value *= 1099511628211ull;
+    }
+    size += static_cast<std::uintmax_t>(count);
+  }
+  return input.eof();
+}
+
+bool collect(const std::filesystem::path& root,

@@ -1,0 +1,85 @@
+    const complete = () => idle.container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+    expect(complete().disabled).toBe(true)
+    fireEvent.click(complete())
+    expect(idle.props.onComplete).not.toHaveBeenCalled()
+
+    const ok = renderWorkspace({ completed: true })
+    expect(ok.container.textContent).toContain('本单元已完成，按复测计划回顾')
+    expect(ok.container.querySelector('.lesson-complete-row .subtle-button')).toBeNull()
+  })
+
+  /**
+   * LEARN-01 第 5 条：本地练习的「完成」要按**这一题**的验收点判，不是「跑起来没报错」。
+   * 改版前资料库 12 道练习都带 `expectedOutput` 却没有任何消费者；判题复用 CHAL-02 的
+   * `exact-lines`，所以这里同时钉住「子串形状不算过」与「屏幕上没有的行不算过」。
+   */
+  describe('LEARN-01 第 5 条 · 该题验收点判定完成', () => {
+    const contract = (expectedOutput: string[]) => ({
+      exerciseId: 'vault-py-func-ex1',
+      title: '实现 sub(a, b) 并打印差',
+      prompt: '打印两数之差',
+      starterCode: 'print(sub(2, 3))',
+      starterLanguage: 'python',
+      expectedOutput,
+      executionPolicy: 'teaching',
+    }) as const
+
+    it('验收点整行命中才可点，交上去的证据写「自动验证通过」与命中数', () => {
+      const { container, props } = renderWorkspace({ lesson: baseLesson({ exercise: contract(['5']) }), runStatus: 'completed' })
+      const button = container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+      expect(button.disabled).toBe(false)
+      expect(button.textContent).toContain('标记完成（自动验证）')
+      fireEvent.click(button)
+      expect(props.onComplete).toHaveBeenCalledWith({ verification: 'auto-verified', cases: { matched: 1, total: 1 } })
+      expect(container.querySelectorAll('.cw-verify-cases li.is-hit')).toHaveLength(1)
+    })
+
+    it('输出 115 不能满足期望 15（与 CHAL-02 同一口径），按钮锁住且点名差在哪', () => {
+      const { container, props } = renderWorkspace({
+        lesson: baseLesson({ exercise: contract(['15']) }),
+        visibleOutput: ['115'],
+        runStatus: 'completed',
+      })
+      const button = container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      fireEvent.click(button)
+      expect(props.onComplete).not.toHaveBeenCalled()
+      const miss = container.querySelector('.cw-verify-cases li.is-miss')
+      expect(miss?.textContent).toContain('15')
+      expect(miss?.textContent).toContain('只有包含它的输出行「115」')
+      expect(container.querySelector('.cw-verify-cases li.is-extra')?.textContent).toContain('115')
+    })
+
+    it('只命中一条时报 1/2 并锁住，多印与缺行都不藏', () => {
+      const { container, props } = renderWorkspace({
+        lesson: baseLesson({ exercise: contract(['5', '6']) }),
+        visibleOutput: ['5', '7'],
+        runStatus: 'completed',
+      })
+      const button = container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+      expect(button.textContent).toContain('1/2 未全中')
+      expect(button.disabled).toBe(true)
+      fireEvent.click(button)
+      expect(props.onComplete).not.toHaveBeenCalled()
+      expect(container.querySelectorAll('.cw-verify-cases li.is-hit')).toHaveLength(1)
+      expect(container.querySelectorAll('.cw-verify-cases li.is-miss')).toHaveLength(1)
+      expect(container.querySelector('.cw-verify-cases li.is-extra')?.textContent).toContain('7')
+    })
+
+    it('跑完又把步进拉回去时屏幕上没有输出——这一条也不算验证过', () => {
+      const { container, props } = renderWorkspace({
+        lesson: baseLesson({ exercise: contract(['5']) }),
+        visibleOutput: [],
+        runStatus: 'completed',
+      })
+      const button = container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      fireEvent.click(button)
+      expect(props.onComplete).not.toHaveBeenCalled()
+    })
+
+    it('没有结构化验收点的课仍可标完成，但写的是自行声明且明说系统没比对', () => {
+      const { container, props } = renderWorkspace({ runStatus: 'completed' })
+      expect(container.querySelector('.cw-verify-cases')).toBeNull()
+      expect(container.textContent).toContain('本课没有结构化验收点')
+      expect(container.textContent).toContain('系统不比对输出')

@@ -1,0 +1,85 @@
+                          className={`cw-evidence-textarea ${issue ? 'invalid' : ''}`}
+                          value={externalEvidence[field.key] ?? ''}
+                          onChange={(event) => onPatchEvidence({ [field.key]: event.target.value })}
+                          placeholder={field.placeholder}
+                          maxLength={EXTERNAL_EVIDENCE_FIELD_MAX}
+                          aria-invalid={Boolean(issue)}
+                        />
+                      ) : (
+                        <input
+                          id={inputId}
+                          type="text"
+                          className={`external-evidence-input ${issue ? 'invalid' : ''}`}
+                          value={externalEvidence[field.key] ?? ''}
+                          onChange={(event) => onPatchEvidence({ [field.key]: event.target.value })}
+                          placeholder={field.placeholder}
+                          maxLength={
+                            field.key === 'artifactRef' ? EXTERNAL_EVIDENCE_ARTIFACT_MAX : EXTERNAL_EVIDENCE_FIELD_MAX
+                          }
+                          aria-invalid={Boolean(issue)}
+                        />
+                      )}
+                      {issue && (
+                        <span className="external-evidence-error" role="alert">
+                          {issue.message}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+                {externalCheck && externalCheck.missingKeywords.length > 0 && (
+                  <p className="external-evidence-keywords">
+                    建议在结果摘要中覆盖以下验收关键词：
+                    {externalCheck.missingKeywords.map((keyword) => (
+                      <code key={keyword}>{keyword}</code>
+                    ))}
+                  </p>
+                )}
+              </div>
+            ) : null}
+            <button className="subtle-button" onClick={onComplete} disabled={completeDisabled}>
+              <Flag size={13} />
+              {buttonLabel}
+            </button>
+            {contractJudge ? (
+              <ul className="cw-verify-cases" aria-label="该题验收点逐条状态">
+                {contractJudge.cases.map((item, index) => (
+                  <li key={`${item.expected}-${index}`} className={item.matched ? 'is-hit' : 'is-miss'}>
+                    <span className="cw-verify-glyph" aria-hidden="true">
+                      {item.matched ? '✓' : '×'}
+                    </span>
+                    <code>{item.expected}</code>
+                    {item.reason ? <span className="cw-verify-reason">{item.reason}</span> : null}
+                  </li>
+                ))}
+                {contractJudge.extraLines.length > 0 ? (
+                  <li className="is-extra">
+                    多印且未被任何验收点用掉的行：{contractJudge.extraLines.join(' / ')}
+                  </li>
+                ) : null}
+              </ul>
+            ) : (
+              <p className="cw-verify-none">
+                {detailPending
+                  ? '本课的练习契约还在读取：读回来之前不说「没有结构化验收点」，标记完成也先锁住。'
+                  : canAutoRun
+                    ? '本课没有结构化验收点（题干未给"期望输出"），标记完成记为学习者自行声明，系统不比对输出。'
+                    : '外部真实环境练习无法在浏览器里比对输出：四项证据填齐只是放开按钮，标记完成仍记为学习者自行声明。'}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── LEARN-01 第 4 条：六种状态逐条分开列 ────────────────────────────
+          六格全部由上层从掌握度证据记录折出来（utils/lesson-evidence.ts），本组件既不自存
+          状态也不自己看 note 猜，所以不存在「界面打了勾而记录里没有」的平行真相。
+          选中与完成仍是两处独立标识：这里只陈述证据，不碰状态列的图标。
+
+          2026-09-30 单屏化：这一块实测 332px（六格全展开的说明句），是可折叠的**参考**而非
+          操作入口——默认收起来只留一行摘要，点一下展开全表。折叠用 `<details>` 而不是受控
+          状态：它自带键盘与无障碍语义，收起时内容仍在 DOM 里（事实不因折叠而消失）。 */}
+      <details className="cw-evidence-states">
+        <summary className="cw-evidence-states-title">
+          <span>本单元证据状态</span>
+          <span className="cw-evidence-states-count" aria-hidden="true">

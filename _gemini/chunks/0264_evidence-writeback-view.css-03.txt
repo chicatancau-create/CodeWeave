@@ -1,0 +1,130 @@
+.evidence-writeback .evidence-form-block details[open] > summary::after {
+  content: '－';
+}
+
+.evidence-writeback .evidence-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  margin: var(--ds-space-4, 4px) 0 var(--ds-space-14, 14px);
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+}
+
+.evidence-writeback .field-label {
+  min-width: 0;
+  gap: var(--ds-space-6, 6px);
+  margin: 0;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: none;
+}
+
+.evidence-writeback .field-label input,
+.evidence-writeback .field-label textarea,
+.evidence-writeback .field-label select {
+  min-width: 0;
+  min-height: var(--ewb-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ewb-canvas);
+  box-shadow: var(--ewb-glow-inset);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-body);
+  line-height: 1.5;
+  caret-color: var(--ewb-ink);
+  transition: border-color var(--ewb-quick, 150ms) var(--ewb-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.evidence-writeback .field-label textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.evidence-writeback .field-label input:hover:not(:disabled),
+.evidence-writeback .field-label textarea:hover:not(:disabled),
+.evidence-writeback .field-label select:hover:not(:disabled) {
+  border-color: var(--ewb-edge-active);
+}
+
+.evidence-writeback .field-label input:disabled,
+.evidence-writeback .field-label textarea:disabled,
+.evidence-writeback .field-label select:disabled {
+  color: var(--ewb-ink-3);
+  border-color: var(--ewb-hair);
+  opacity: 1; /* 用色值而非透明度控制禁用态，保证仍可辨读 */
+}
+
+/* ── 3.5 按钮禁用档与条件说明（01 号方案 §4 disabled 行）────────────────────
+   共享层对 :disabled 只写 `opacity:.5`，那是「只降低透明度」的根源：名字读不出、
+   条件也没人说。本页按已验证过的形态（挑战页 / 工作台 / 账户域）改成不透明度保持 1、
+   禁用交给**虚线描边**这个非颜色通道，条件另由 .ewb-disabled-hint 那句真实文字说明。 */
+.evidence-writeback .primary-action:disabled,
+.evidence-writeback .subtle-button:disabled,
+.evidence-writeback .danger-button:disabled {
+  opacity: 1;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.evidence-writeback .ewb-disabled-hint {
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-disabled-hint-lead {
+  color: var(--ewb-ink);
+}
+
+/* ── 4. 三类状态区块：待处理 / 部分成功 / 已同步（§5.2 明确分开） ─────────── */
+.evidence-writeback .evidence-queue,
+.evidence-writeback .ewb-states {
+  margin-top: var(--ds-space-20, 20px);
+}
+
+.evidence-writeback .ewb-ledger-total {
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  color: var(--ewb-ink);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-zone {
+  margin: 0 0 var(--ds-space-16, 16px);
+  padding: var(--ds-space-12, 12px) 0 var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: 0;
+  border-inline-start: var(--ds-line-width, 1px) solid var(--ewb-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  box-shadow: var(--ewb-glow-panel);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-zone--pending {
+  border-inline-start-color: var(--ewb-info);
+}
+.evidence-writeback .ewb-zone--partial {
+  border-inline-start-color: var(--ewb-warn);
+}
+.evidence-writeback .ewb-zone--synced {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .ewb-zone-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);

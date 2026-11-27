@@ -1,0 +1,75 @@
+  const auto body_path = content_root_ / (found->content_id + ".txt");
+  std::error_code error;
+  const auto body_status = std::filesystem::symlink_status(body_path, error);
+  if (error || std::filesystem::is_symlink(body_status) ||
+      !std::filesystem::is_regular_file(body_status)) {
+    return app::Result::failure("内容正文文件类型无效");
+  }
+  const auto canonical_root = std::filesystem::weakly_canonical(content_root_, error); if (error) return app::Result::failure("内容根目录不可访问");
+  const auto canonical_body = std::filesystem::weakly_canonical(body_path, error); if (error || canonical_body.parent_path() != canonical_root) return app::Result::failure("内容路径越界");
+  std::ifstream body(canonical_body, std::ios::binary); if (!body) return app::Result::failure("内容正文不存在");
+  std::string text((std::istreambuf_iterator<char>(body)), std::istreambuf_iterator<char>()); if (!body.eof() && body.fail()) return app::Result::failure("读取内容正文失败");
+  if (text.size() > kMaxBodyBytes) return app::Result::failure("内容正文超过大小上限");
+  if (!valid_utf8_without_nul(text)) return app::Result::failure("内容正文不是有效 UTF-8 文本");
+  if (sha256_bytes(text) != found->content_hash) return app::Result::failure("内容正文 hash 校验失败");
+  unit = {*found, std::move(text)};
+  return app::Result::success("内容正文已读取");
+}
+
+app::Result ContentRepository::list_exercises(std::string_view content_id,
+    std::vector<Exercise>& exercises) const {
+  exercises.clear();
+  std::vector<Unit> units;
+  const auto listed = list_published(units);
+  if (!listed.ok) return listed;
+  if (std::none_of(units.begin(), units.end(), [content_id](const auto& unit) {
+        return unit.content_id == content_id;
+      })) return app::Result::failure("未找到已发布内容");
+  const auto exercises_path = content_root_ / "exercises.v1.tsv";
+  std::error_code exercise_status_error;
+  const auto exercise_status = std::filesystem::symlink_status(exercises_path,
+      exercise_status_error);
+  if (exercise_status_error && exercise_status_error !=
+      std::make_error_code(std::errc::no_such_file_or_directory)) {
+    return app::Result::failure("练习清单状态不可读取");
+  }
+  if (!exercise_status_error && std::filesystem::is_symlink(exercise_status)) {
+    return app::Result::failure("练习清单文件类型无效");
+  }
+  std::ifstream input(exercises_path, std::ios::binary);
+  if (!input) {
+    if (exercise_status_error && exercise_status_error != std::make_error_code(std::errc::no_such_file_or_directory)) {
+      return app::Result::failure("练习清单状态不可读取");
+    }
+    return app::Result::success("该内容没有练习元数据");
+  }
+  if (exercise_status_error || std::filesystem::is_symlink(exercise_status) ||
+      !std::filesystem::is_regular_file(exercise_status)) {
+    return app::Result::failure("练习清单文件类型无效");
+  }
+  std::error_code size_error;
+  const auto exercise_size = std::filesystem::file_size(content_root_ / "exercises.v1.tsv", size_error);
+  if (size_error || exercise_size > kMaxCatalogBytes) return app::Result::failure("练习清单超过大小上限");
+  std::unordered_set<std::string> ids;
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty()) continue;
+    if (line.size() > kMaxCatalogLineBytes) return app::Result::failure("练习记录超过大小上限");
+    Exercise exercise;
+    if (!parse_exercise(line, exercise)) return app::Result::failure("练习清单存在无效记录");
+    if (exercise.content_id != content_id) continue;
+    if (!ids.insert(exercise.exercise_id).second) return app::Result::failure("练习 ID 重复");
+    exercises.push_back(std::move(exercise));
+  }
+  return input.eof() ? app::Result::success("练习元数据已读取") : app::Result::failure("读取练习清单失败");
+}
+
+app::Result ContentRepository::read_hints(std::string_view content_id, std::string& hints) const {
+  hints.clear();
+  std::vector<Unit> units;
+  const auto listed = list_published(units);
+  if (!listed.ok) return listed;
+  if (!safe_content_id(content_id) || std::none_of(units.begin(), units.end(),
+      [content_id](const auto& unit) { return unit.content_id == content_id; })) {
+    return app::Result::failure("未找到已发布内容");
+  }

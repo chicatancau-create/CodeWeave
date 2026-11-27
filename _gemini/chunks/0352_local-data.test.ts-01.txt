@@ -1,0 +1,102 @@
+// @vitest-environment jsdom
+/**
+ * R2-C 本地数据作用域（E.3 第 4 条）与导出 schema（E.3 第 5 条）。
+ * - clearLocalData(scope) 三态：account / device / all
+ * - buildExportPayload：显式 schema、导出版本、账户范围、数据类别；默认排除认证与设备通知
+ */
+import { beforeEach, describe, expect, it } from 'vitest'
+import { buildExportPayload, clearLocalData, classifyKey, EXPORT_SCHEMA, EXPORT_VERSION, previewImport } from './local-data'
+import { scopedKey, STORAGE_KEYS } from './constants'
+
+beforeEach(() => {
+  localStorage.clear()
+})
+
+describe('R2-C classifyKey 数据类别归类', () => {
+  it('账户级键：工作区/项目/挑战记录/打卡/掌握度/挑战草稿', () => {
+    for (const base of [
+      STORAGE_KEYS.WORKSPACE,
+      STORAGE_KEYS.PROJECTS,
+      STORAGE_KEYS.CHALLENGES,
+      STORAGE_KEYS.CHECKIN,
+      STORAGE_KEYS.MASTERY,
+      STORAGE_KEYS.CODE_DRAFTS,
+    ]) {
+      expect(classifyKey(scopedKey(base, 'user-1'))).toBe('account')
+    }
+  })
+
+  it('设备级键：工作台偏好设置', () => {
+    expect(classifyKey(STORAGE_KEYS.SETTINGS)).toBe('device')
+  })
+
+  it('会话级键：通知已读与通知事件', () => {
+    expect(classifyKey(scopedKey(STORAGE_KEYS.NOTIFICATIONS, 'user-1'))).toBe('session')
+    expect(classifyKey(scopedKey(STORAGE_KEYS.NOTIF_EVENTS, 'user-1'))).toBe('session')
+  })
+
+  it('未知 / 非 CodeWeave 键归类为 unknown', () => {
+    expect(classifyKey('code-canvas.unknown.v1')).toBe('unknown')
+    expect(classifyKey('other-app.key')).toBe('unknown')
+  })
+})
+
+describe('R2-C clearLocalData 三态作用域', () => {
+  const seed = () => {
+    localStorage.setItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'), 'w1')
+    localStorage.setItem(scopedKey(STORAGE_KEYS.PROJECTS, 'user-2'), 'p2')
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, 's')
+    localStorage.setItem(scopedKey(STORAGE_KEYS.NOTIFICATIONS, 'user-1'), 'n1')
+    localStorage.setItem('other-app.key', 'keep')
+  }
+
+  it("scope='account' 只删除指定账户数据，保留其他账户与设备设置", () => {
+    seed()
+    const removed = clearLocalData('account', 'user-1')
+    expect(removed.removed).toBe(true)
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'))).toBeNull()
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.NOTIFICATIONS, 'user-1'))).toBeNull()
+    // 其他账户与设备设置保留
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.PROJECTS, 'user-2'))).not.toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.SETTINGS)).not.toBeNull()
+    expect(localStorage.getItem('other-app.key')).not.toBeNull()
+  })
+
+  it("scope='device' 只删除设备级设置，保留账户学习数据", () => {
+    seed()
+    clearLocalData('device')
+    expect(localStorage.getItem(STORAGE_KEYS.SETTINGS)).toBeNull()
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'))).not.toBeNull()
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.PROJECTS, 'user-2'))).not.toBeNull()
+  })
+
+  it("scope='all' 删除全部 CodeWeave 本地数据，且不触碰其他应用键", () => {
+    seed()
+    clearLocalData('all')
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'))).toBeNull()
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.PROJECTS, 'user-2'))).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.SETTINGS)).toBeNull()
+    expect(localStorage.getItem(scopedKey(STORAGE_KEYS.NOTIFICATIONS, 'user-1'))).toBeNull()
+    expect(localStorage.getItem('other-app.key')).not.toBeNull()
+  })
+
+  it('返回被删除的键清单，供界面提示范围', () => {
+    seed()
+    const result = clearLocalData('account', 'user-1')
+    expect(result.keys.length).toBe(2)
+    expect(result.keys.every((k) => k.includes('user-1'))).toBe(true)
+  })
+})
+
+describe('R2-C 导出 schema', () => {
+  it('导出带显式 schema、导出版本、账户范围与数据类别', () => {
+    localStorage.setItem(
+      scopedKey(STORAGE_KEYS.WORKSPACE, 'user-1'),
+      JSON.stringify({ schemaVersion: 2, data: { languageId: 'java' } }),
+    )
+    const payload = buildExportPayload('user-1')
+    expect(payload.schema).toBe(EXPORT_SCHEMA)
+    expect(payload.version).toBe(EXPORT_VERSION)
+    expect(payload.scope).toBe('user-1')
+    expect(typeof payload.exportedAt).toBe('string')
+    expect(Array.isArray(payload.categories)).toBe(true)

@@ -1,0 +1,88 @@
+  it('导出入口仍只调用注入的实现（不在弹窗里另写一份导出）', () => {
+    const { onExport } = renderSettings()
+    fireEvent.click(screen.getByRole('button', { name: /导出/ }))
+    expect(onExport).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('M4 弹层 · §5.2/§5.1 体系与形态（CSS 源码不变式）', () => {
+  it('每条选择器都带弹层前缀：全局裸选择器 0 条', () => {
+    const offenders = allSelectors(cssText).filter(
+      (selector) =>
+        !selector.startsWith('.cw-modal') &&
+        !selector.startsWith('.modal-backdrop') &&
+        !selector.startsWith('.reduce-motion '),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it('圆角只有 0 / 50% / 100px 三档（geometry.md §2 裁定 1）', () => {
+    const allowed = [
+      'var(--ds-shape-none, 0)',
+      'var(--cm-radius)',
+      'var(--ds-shape-pill, 100px)',
+      'var(--ds-shape-circle, 50%)',
+      '0',
+    ]
+    const used = radiusValues()
+    expect(used.length).toBeGreaterThan(0)
+    for (const value of used) expect(allowed).toContain(value)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+  })
+
+  it('黑场遮罩：由 --ds-canvas-solid 算出的 α 档，无背景模糊（玻璃特征）', () => {
+    const scrim = declarationBlock('.modal-backdrop.cw-modal-backdrop')
+    // 模态档 50，或壳层收口后的等价令牌 --z-modal（两者同值，见 geometry.md §5 裁定 3）
+    expect(scrim).toMatch(/z-index:\s*(50|var\(--z-modal[^)]*\))/)
+    expect(scrim).toContain('color-mix(in srgb, var(--ds-canvas-solid, #000)')
+    expect(cssCode).not.toMatch(/backdrop-filter/)
+    expect(cssCode).not.toMatch(/linear-gradient|radial-gradient/)
+  })
+
+  it('弹层体是黑场实底 + 1px 发丝线边界，零投影零泛光', () => {
+    const modal = declarationBlock('.modal-backdrop .cw-modal')
+    expect(modal).toContain('border: var(--cm-line) solid var(--cm-edge)')
+    expect(modal).toContain('background: var(--cm-canvas-solid)')
+    expect(modal).toContain('box-shadow: var(--ds-shadow-panel, none)')
+    // 全文件只允许「投影 = 令牌档（none）」这一种写法，且该档实测就是无投影
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+);/g)].map((match) => (match[1] ?? '').trim())
+    expect(shadows.length).toBeGreaterThan(0)
+    for (const value of shadows) expect(value).toBe('var(--ds-shadow-panel, none)')
+    expect(cssCode).not.toMatch(/text-shadow/)
+  })
+
+  it('遮罩层级不自造新档：只用 geometry.md §5 的模态档 50（或其等价令牌）', () => {
+    const zValues = [...cssCode.matchAll(/z-index:\s*([^;]+);/g)].map((match) => (match[1] ?? '').trim())
+    expect(zValues.length).toBeGreaterThan(0)
+    // 允许字面 50 与 --z-modal 令牌两种写法；出现任何其它档位即为本条失败
+    for (const value of zValues) expect(value).toMatch(/^(50|var\(--z-modal[^)]*\))$/)
+  })
+
+  it('正文 16px / 行高 1.7、触控 44px、焦点轮廓可见、320px 有降级规则', () => {
+    const root = declarationBlock('.modal-backdrop.cw-modal-backdrop')
+    expect(root).toContain('--cm-body: var(--ds-size-body, 16px)')
+    expect(root).toContain('--cm-leading: var(--ds-leading-body, 1.7)')
+    expect(root).toContain('--cm-tap: var(--ds-tap-min, 44px)')
+    expect(declarationBlock('.cw-modal .cw-modal-close')).toContain('height: var(--cm-tap)')
+    expect(declarationBlock('.cw-modal .cw-modal-row')).toContain('min-height: calc(var(--cm-tap) + 12px)')
+    expect(declarationBlock('.cw-modal .cw-modal-select')).toContain('min-height: var(--cm-tap)')
+    expect(declarationBlock('.cw-modal-backdrop :is(button, input, select, textarea, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring-width, 2px)',
+    )
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+    expect(mediaBlock('max-width: 420px')).toContain('place-items: start center')
+  })
+
+  it('语义状态色恒定：危险按钮取 --ds-status-danger，不引用场景点缀', () => {
+    const danger = declarationBlock('.cw-modal .danger-button')
+    expect(danger).toContain('var(--cm-bad)')
+    expect(cssCode).not.toMatch(/--ds-scene-|--accent/)
+  })
+
+  it('每个 --ds-* 消费都带兜底值', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('无持续动画；两条减动效路径各自取消过渡，!important 只出现在这两处', () => {
+    expect(cssCode).not.toMatch(/infinite/)
+    expect(cssCode).not.toMatch(/@keyframes/)

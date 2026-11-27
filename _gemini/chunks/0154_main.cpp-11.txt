@@ -1,0 +1,81 @@
+  const auto exercise_id = control_text(g_exercise_id);
+  std::string expected_output;
+  std::string hint_level = "L1";
+  std::string content_id;
+  if (!content_root.empty() && !exercise_id.empty()) {
+    codeweave::content::ContentRepository repository(content_root);
+    std::vector<codeweave::content::Unit> units;
+    std::vector<codeweave::content::Exercise> exercises;
+    if (repository.list_published(units).ok) {
+      for (const auto& unit : units) {
+        if (unit.content_id != g_selected_content || request.language != g_content_language) continue;
+        if (!repository.list_exercises(unit.content_id, exercises).ok) continue;
+        const auto found = std::find_if(exercises.begin(), exercises.end(),
+            [&exercise_id](const auto& exercise) { return exercise.exercise_id == exercise_id; });
+        if (found != exercises.end()) {
+          content_id = found->content_id;
+          expected_output = found->expected_output;
+          hint_level = g_hint_viewed ? "L3" : found->hint_level;
+          break;
+        }
+      }
+    }
+  }
+  const auto tool = configured_tool(request.language);
+  if (tool.empty()) {
+    g_execution_running.store(false);
+    set_status(wide_from_utf8("未检测到该语言工具，请点击“选择语言工具”指定已安装的编译器或解释器"));
+    return;
+  }
+  std::error_code tool_error;
+  if (!tool.is_absolute() || !std::filesystem::is_regular_file(tool, tool_error)) {
+    g_execution_running.store(false);
+    set_status(L"配置的语言工具不存在或不是绝对路径，已拒绝启动");
+    return;
+  }
+  if (is_test_runner_path(tool)) {
+    g_execution_running.store(false);
+    set_status(L"测试执行器不能用于正式应用运行，已拒绝启动");
+    return;
+  }
+  if (g_execution_thread.joinable()) g_execution_thread.join();
+  std::filesystem::path account_root;
+  if (!g_account_service->learning_data_root(g_core.data_root(), account_root).ok) { g_execution_running.store(false); return; }
+  const auto working_directory = account_root / L"execution";
+  std::error_code directory_error;
+  std::filesystem::create_directories(working_directory, directory_error);
+  if (directory_error) {
+    g_execution_running.store(false);
+    set_status(L"无法创建受控执行工作目录，已拒绝启动");
+    return;
+  }
+  const auto window = g_status ? GetParent(g_status) : nullptr;
+  const bool independent = !g_hint_viewed && g_independent_check &&
+      SendMessageW(g_independent_check, BM_GETCHECK, 0, 0) == BST_CHECKED;
+  g_execution_thread = std::thread([request, tool, working_directory, window, generation,
+      expected_output, hint_level, content_id, exercise_id, independent,
+      trace_store, challenge_service, evidence_store, progress_store] {
+    auto result = std::make_unique<codeweave::execution::ServiceResult>(
+        g_execution.run(request, tool, working_directory, &g_execution_cancelled, &g_execution_control));
+    std::string challenge_message;
+    if (result->trace.has_value() && trace_store) {
+      const auto trace_saved = trace_store->append(*result->trace);
+      if (!trace_saved.ok) challenge_message = trace_saved.message;
+    }
+    if (result->process.has_value() && result->process->started &&
+        result->process->execution_output_valid && challenge_service &&
+        !content_id.empty() && !exercise_id.empty()) {
+      const auto stamp = current_date();
+      const auto operation = operation_id_for(request.session_id, generation);
+      codeweave::learning::ChallengeRequest challenge{
+          evidence_id_for(request.session_id, generation), content_id, exercise_id, stamp,
+          expected_output, operation, independent, hint_level};
+      const auto challenge_result = challenge_service->record_course_execution(challenge, *result->process);
+      challenge_message = challenge_result.validation.message;
+    } else if (result->process.has_value() && result->process->started &&
+        !result->process->execution_output_valid) {
+      challenge_message = "编译或执行未产生有效结果，未记录学习事实";
+    } else if (!exercise_id.empty()) {
+      challenge_message = "未找到对应的已发布练习元数据，未写入学习事实";
+    }
+    if (window && !g_window_closing.load()) {

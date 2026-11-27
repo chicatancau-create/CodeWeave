@@ -1,0 +1,107 @@
+#include "unified_content_source.hpp"
+
+#include <QCryptographicHash>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QNetworkCookie>
+#include <QNetworkReply>
+#include <QSaveFile>
+#include <QRegularExpression>
+#include <QSysInfo>
+#include <QTimeZone>
+#include <QUuid>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dpapi.h>
+#endif
+
+namespace {
+QByteArray digest(const QByteArray& bytes) {
+  return QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex();
+}
+
+QVariantMap responseData(const QByteArray& bytes) {
+  return QJsonDocument::fromJson(bytes).object().value(QStringLiteral("data")).toObject().toVariantMap();
+}
+
+QString parameter(const QString& value) { return QString::fromLatin1(QUrl::toPercentEncoding(value)); }
+
+bool saveFile(const QString& path, const QByteArray& bytes) {
+  QSaveFile file(path);
+  return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size() && file.commit();
+}
+
+bool validDigest(const QString& value) {
+  static const QRegularExpression pattern(QStringLiteral("^[a-f0-9]{64}$"));
+  return pattern.match(value).hasMatch();
+}
+
+bool validBundle(const QString& value) {
+  static const QRegularExpression pattern(QStringLiteral("^[a-f0-9]{32}$"));
+  return pattern.match(value).hasMatch();
+}
+
+QByteArray loadFile(const QString& path) {
+  QFile file(path);
+  return file.open(QIODevice::ReadOnly) && file.size() <= 8 * 1024 * 1024 ? file.readAll() : QByteArray{};
+}
+
+QUrl localOrigin(const QString& value) {
+  const QUrl address(value.trimmed(), QUrl::StrictMode);
+  if (!address.isValid() || address.scheme() != QStringLiteral("http") || address.host() != QStringLiteral("127.0.0.1") ||
+      address.port() < 1 || (!address.path().isEmpty() && address.path() != QStringLiteral("/")) ||
+      address.hasQuery() || address.hasFragment() || !address.userInfo().isEmpty()) return {};
+  return address.adjusted(QUrl::RemovePath);
+}
+
+#ifdef Q_OS_WIN
+QByteArray protectSession(QByteArray input, bool encrypt) {
+  if (input.isEmpty() || input.size() > 16384) return {};
+  DATA_BLOB source{static_cast<DWORD>(input.size()), reinterpret_cast<BYTE*>(input.data())};
+  DATA_BLOB output{};
+  const BOOL ok = encrypt
+    ? CryptProtectData(&source, L"CodeWeave session", nullptr, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &output)
+    : CryptUnprotectData(&source, nullptr, nullptr, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &output);
+  SecureZeroMemory(input.data(), static_cast<size_t>(input.size()));
+  if (!ok) return {};
+  const QByteArray result(reinterpret_cast<const char*>(output.pbData), output.cbData);
+  SecureZeroMemory(output.pbData, output.cbData);
+  LocalFree(output.pbData);
+  return result;
+}
+#endif
+}
+
+UnifiedContentSource::UnifiedContentSource(QObject* parent) : QObject(parent) {}
+
+QString UnifiedContentSource::defaultOrigin() const {
+  const auto origin = qEnvironmentVariable("CODEWEAVE_UNIFIED_ORIGIN");
+  return origin.isEmpty() ? QStringLiteral("http://127.0.0.1:4173") : origin;
+}
+
+void UnifiedContentSource::configureCache(const QString& path) { cacheDir_ = path; }
+
+QString UnifiedContentSource::sessionFile() const {
+  return cacheDir_.isEmpty() ? QString{} : QDir(cacheDir_).filePath(QStringLiteral("session.dpapi"));
+}
+
+void UnifiedContentSource::saveSession() const {
+#ifdef Q_OS_WIN
+  if (sessionFile().isEmpty() || !connected() || !QDir().mkpath(cacheDir_)) return;
+  const auto payload = QJsonDocument(QJsonObject{
+    {"origin", origin_.toString()}, {"id", account_}, {"cookie", QString::fromLatin1(cookie_)},
+    {"validatedAt", QDateTime::currentSecsSinceEpoch()},
+  }).toJson(QJsonDocument::Compact);
+  const auto protectedSession = protectSession(payload, true);
+  if (!protectedSession.isEmpty()) saveFile(sessionFile(), protectedSession);
+#endif
+}
+
+void UnifiedContentSource::restoreAccount() {
+#ifdef Q_OS_WIN
+  if (connected() || busy_ || sessionFile().isEmpty()) return;

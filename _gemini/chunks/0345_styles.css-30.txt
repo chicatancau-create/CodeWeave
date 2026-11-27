@@ -1,0 +1,92 @@
+  .global-search__input { min-height: 44px; padding-left: var(--ds-space-32, 32px); }
+  .global-search__input:not(:focus) { width: 44px; padding-left: var(--ds-space-32, 32px); color: transparent; caret-color: transparent; }
+  .global-search__input:focus { position: absolute; left: 0; right: 44px; z-index: var(--z-popover); width: auto; }   /* M4 裁定 3：随搜索面板归一次性浮层档，不与模态同值 */
+  /* 聚焦时让 .global-search 退出「定位包含块」这一角色。它自己写的是 position:relative，
+     上面那条 :focus 的 left:0 / right:44px 和结果面板的 left:0 / right:0 于是都按**它 44px 的盒**算：
+     实测 390 档输入框只有 48px 宽、结果面板 44px 宽（五条结果竖成一列，读不了），768 档面板 91px。
+     改成 static 后这两个绝对子元素按 .topbar（sticky 也构成包含块）算，
+     放大镜落在 left:11px —— 正压在输入框那 34px 左内边距里，这才是原规则本来的意图。 */
+  .global-search:focus-within { position: static; }
+  /* 通知面板：原先 right:0 贴在那个 44px 宽的 wrap 上、300px 的板子往左长，
+     实测 390 档左边界 -34px、320 档 -104px —— 标题和前几条结果被屏幕直接切掉。
+     同样把包含块升到 .topbar，左右各留 12px，宽度跟着屏幕走。
+     （.notification-badge 锚在 .notification-trigger 上，那条仍是 relative，不受影响。） */
+  .notification-wrap { position: static; }
+  .notification-panel { top: 58px; left: 12px; right: 12px; width: auto; max-width: 340px; }
+  .account-menu-wrap, .topbar-quick-actions { position: static; }
+  .topbar .account-menu, .topbar .topbar-quick-actions__panel { top: calc(100% + 6px); left: 12px; right: 12px; width: auto; max-width: none; }
+  .challenge-filters { align-items: stretch; flex-direction: column; }
+  .challenge-filter { justify-content: space-between; }
+  .challenge-filter select { flex: 1; min-width: 0; }
+  /* CHAL-01：移动端触控目标 ≥44px（搜索、返回、分页） */
+  .challenge-filter-search input { min-height: 44px; }
+  .challenge-back { min-height: 44px; }
+  .challenge-pagination .subtle-button { min-height: 44px; }
+  .challenge-detail { padding: var(--ds-space-16, 16px); }
+  .challenge-overview-stats { align-items: flex-start; align-self: stretch; }
+  .challenge-actions { width: 100%; }
+  .challenge-actions button { flex: 1; justify-content: center; }
+  .lesson-guide { grid-template-columns: 1fr 1fr; }
+  .run-bar { align-items: flex-start; flex-direction: column; }
+  .run-actions { width: 100%; }
+  .run-actions button { flex: 1; justify-content: center; }
+  .profile-form-footer { align-items: flex-start; flex-direction: column; }
+}
+
+/* ---------------------------------------------------------------------------
+   LINK-05 内容联动：来源状态、主题原文阅读区、来源详情
+   取值全部走 --ds-* 令牌（黑场 + 发丝线 + 暖白三档），语义状态用恒定色 +
+   形状标识，不跟随场景点缀色（§5.1 末段）。
+--------------------------------------------------------------------------- */
+.content-source-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin: 0 0 var(--ds-space-14, 14px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-radius: var(--radius);
+  border: var(--hair) solid var(--line);
+  background: var(--scrim);            /* 遮光层分区，不是玻璃 */
+  font-size: var(--ds-size-control, 13px);
+  color: var(--muted);
+}
+/* 形状通道：普通=无标识、ok=实心方、warn=空心菱；文字始终在右侧 */
+.content-source-banner.ok {
+  border-color: var(--ds-status-success-edge, rgba(63, 211, 164, 0.45));
+  background: var(--ok-wash);
+  color: var(--c-green);
+}
+.content-source-banner.warn {
+  border-color: var(--ds-status-warning-edge, rgba(255, 196, 87, 0.45));
+  background: var(--warn-wash);
+  color: var(--c-yellow);
+}
+.content-source-banner.ok::before,
+.content-source-banner.warn::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--hair) solid currentColor;
+}
+.content-source-banner.ok::before { background: currentColor; }
+.content-source-banner.warn::before { transform: rotate(45deg); }
+
+.content-source-banner span {
+  flex: 1;
+  line-height: 1.65;
+}
+
+.content-source-banner .subtle-button {
+  flex: 0 0 auto;
+}
+
+.tag-vault,
+.tag-legacy,
+.tag-verification {
+  font-style: normal;
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1;
+  padding: var(--ds-space-4, 4px) var(--ds-space-6, 6px);
+  border-radius: var(--radius-pill);   /* 细线药丸（模板唯一小圆角形态） */
+  border: var(--hair) solid var(--line-strong);

@@ -1,0 +1,27 @@
+  if (!isRecord(value)) return undefined
+  const result: ExternalEvidenceMap = {}
+  for (const [id, entry] of Object.entries(value)) {
+    if (!isRecord(entry)) continue
+    const text = (key: string) => (typeof entry[key] === 'string' ? (entry[key] as string) : '')
+    result[id] = {
+      environment: text('environment'),
+      command: text('command'),
+      resultSummary: text('resultSummary'),
+      artifactRef: text('artifactRef'),
+      reproducedOn: text('reproducedOn'),
+    }
+  }
+  return result
+}
+
+export function externalEvidenceKey(scope: string | undefined): string {
+  return scopedKey(STORAGE_KEYS.EXTERNAL_EVIDENCE, scope)
+}
+
+export function readExternalEvidence(scope?: string): ExternalEvidenceMap {
+  return readLocalData<ExternalEvidenceMap>(externalEvidenceKey(scope), validateEvidenceMap) ?? {}
+}
+
+export function saveExternalEvidence(map: ExternalEvidenceMap, scope?: string): boolean {
+  return writeLocalData(externalEvidenceKey(scope), map)
+}

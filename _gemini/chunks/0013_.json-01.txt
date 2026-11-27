@@ -1,0 +1,161 @@
+{
+  "date": "2026-11-06",
+  "sourceFilesBefore": 592,
+  "moves": [
+    {
+      "from": "G:\\CodeWeave\\网页端\\.claude",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.claude",
+      "files": 1,
+      "bytes": 181
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\.env.local",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.env.local",
+      "files": 1,
+      "bytes": 47
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\.gitignore",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.gitignore",
+      "files": 1,
+      "bytes": 116
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\.nvmrc",
+      "to": "G:\\CodeWeave\\网页端\\项目\\.nvmrc",
+      "files": 1,
+      "bytes": 3
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\deploy",
+      "to": "G:\\CodeWeave\\网页端\\项目\\deploy",
+      "files": 2,
+      "bytes": 1162
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\dist",
+      "to": "G:\\CodeWeave\\网页端\\项目\\dist",
+      "files": 22,
+      "bytes": 1153292
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\eslint.config.js",
+      "to": "G:\\CodeWeave\\网页端\\项目\\eslint.config.js",
+      "files": 1,
+      "bytes": 1487
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\index.html",
+      "to": "G:\\CodeWeave\\网页端\\项目\\index.html",
+      "files": 1,
+      "bytes": 1242
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\node_modules",
+      "to": "G:\\CodeWeave\\网页端\\项目\\node_modules",
+      "files": 13077,
+      "bytes": 178196712
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\package.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\package.json",
+      "files": 1,
+      "bytes": 1675
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\pnpm-lock.yaml",
+      "to": "G:\\CodeWeave\\网页端\\项目\\pnpm-lock.yaml",
+      "files": 1,
+      "bytes": 89345
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\README.md",
+      "to": "G:\\CodeWeave\\网页端\\项目\\README.md",
+      "files": 1,
+      "bytes": 3106
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\scripts",
+      "to": "G:\\CodeWeave\\网页端\\项目\\scripts",
+      "files": 2,
+      "bytes": 2879
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\server",
+      "to": "G:\\CodeWeave\\网页端\\项目\\server",
+      "files": 34,
+      "bytes": 376683
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\src",
+      "to": "G:\\CodeWeave\\网页端\\项目\\src",
+      "files": 203,
+      "bytes": 2788660
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tests",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tests",
+      "files": 11,
+      "bytes": 56599
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tsconfig.app.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tsconfig.app.json",
+      "files": 1,
+      "bytes": 648
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tsconfig.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tsconfig.json",
+      "files": 1,
+      "bytes": 119
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\tsconfig.node.json",
+      "to": "G:\\CodeWeave\\网页端\\项目\\tsconfig.node.json",
+      "files": 1,
+      "bytes": 413
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\vite.config.ts",
+      "to": "G:\\CodeWeave\\网页端\\项目\\vite.config.ts",
+      "files": 1,
+      "bytes": 3593
+    },
+    {
+      "from": "G:\\CodeWeave\\网页端\\vitest.config.ts",
+      "to": "G:\\CodeWeave\\网页端\\项目\\vitest.config.ts",
+      "files": 1,
+      "bytes": 2404
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\.gradle",
+      "to": "G:\\CodeWeave\\移动端\\项目\\.gradle",
+      "files": 7,
+      "bytes": 103
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\build.gradle.kts",
+      "to": "G:\\CodeWeave\\移动端\\项目\\build.gradle.kts",
+      "files": 1,
+      "bytes": 205
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\gradle.properties",
+      "to": "G:\\CodeWeave\\移动端\\项目\\gradle.properties",
+      "files": 1,
+      "bytes": 103
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\mobile-app",
+      "to": "G:\\CodeWeave\\移动端\\项目\\mobile-app",
+      "files": 4,
+      "bytes": 1666
+    },
+    {
+      "from": "G:\\CodeWeave\\移动端\\mobile-core",
+      "to": "G:\\CodeWeave\\移动端\\项目\\mobile-core",
+      "files": 28,
+      "bytes": 600719
+    },
+    {

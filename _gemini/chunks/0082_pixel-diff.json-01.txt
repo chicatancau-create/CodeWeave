@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-11-11T11:31:45.716669+00:00",
+  "method": "Pillow RGB exact pixel comparison; no scaling or crop",
+  "pairs": [
+    {
+      "name": "topbar-shell",
+      "qt": "qt-topbar/topbar-shell.png",
+      "web": "web-topbar/topbar-shell.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 959463,
+      "differentPixelPercent": 74.0326,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.256,
+        "16": 21.765,
+        "32": 10.9484
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.4483,
+        14.8587,
+        16.551
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "df622a465eec5fa2cd6a64837766034bb0f191511ea2bde8a624e777074b3d45",
+      "webSha256": "0bd4f60a0ba8efff622a46abf49ae51b3c5ca170d9bdbda343b492e6fe613da1"
+    },
+    {
+      "name": "topbar-account",
+      "qt": "qt-topbar/topbar-account.png",
+      "web": "web-topbar/topbar-account.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 921461,
+      "differentPixelPercent": 71.1004,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 42.524,
+        "16": 20.8407,
+        "32": 10.97
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.1508,
+        14.536,
+        16.2036
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "250ee01b3dcbe58d6b61075f85a71a61b319c4c075201e63b29e9252ec650512",
+      "webSha256": "9207fa57e4ed3ea4f46f80b1b456456ba4afd152c8d95ca07b354840db278421"
+    },
+    {
+      "name": "topbar-quick",
+      "qt": "qt-topbar/topbar-quick.png",
+      "web": "web-topbar/topbar-quick.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 954302,
+      "differentPixelPercent": 73.6344,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 45.7885,
+        "16": 22.1699,
+        "32": 11.358
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.8989,
+        15.3392,
+        17.0563
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "47ecd54f879c3fbdc303a3395ab5c798090165bf08abde86e843b4b7abad61da",
+      "webSha256": "c37686e24c67b0da11a6c7f0ae56d65d7494fcb6633b6a1361e836cc60543b0b"
+    },
+    {
+      "name": "topbar-notifications",
+      "qt": "qt-topbar/topbar-notifications.png",
+      "web": "web-topbar/topbar-notifications.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 948399,
+      "differentPixelPercent": 73.1789,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 44.2761,
+        "16": 21.8849,
+        "32": 11.2771
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.7227,
+        15.1321,
+        16.8153
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "7611cad5e3a7df38004c358ce269eb173f2fcab5de5c5b1b29ab9da03cca0a5f",
+      "webSha256": "c805c05da8901fa0bcd2ed5f45722c899e44f0709823af709ea49ebf15d220de"
+    },
+    {
+      "name": "topbar-search",
+      "qt": "qt-topbar/topbar-search.png",
+      "web": "web-topbar/topbar-search.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 936914,
+      "differentPixelPercent": 72.2927,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 43.4431,
+        "16": 21.3734,
+        "32": 11.1331
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        12.6675,
+        15.1823,
+        16.9423
+      ],
+      "differentPixelBounds": [
+        0,
+        4,
+        1440,
+        900
+      ],
+      "qtSha256": "0b05c3c7a02c7bf71c583af2f1858e9fa6fb17e2c9522de804a5713937e99fd4",

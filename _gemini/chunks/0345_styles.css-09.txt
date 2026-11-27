@@ -1,0 +1,105 @@
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  overflow: hidden;
+}
+.breadcrumbs__crumb {
+  overflow: hidden;
+  color: var(--muted);                 /* 0.56 档：5.86:1 */
+  text-overflow: ellipsis;
+}
+.breadcrumbs__entry {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  color: var(--ink-strong);            /* 当前入口 = 暖白实色 18.66:1 */
+  font-weight: 700;
+}
+/* 顶栏里的编号：等宽 + 字距 + 场景点缀色（模板 .eyebrow 的编号眉标档，
+   site.css L242-L243），与侧栏主导航的编号同一口径。 */
+.breadcrumbs__index {
+  color: var(--accent);                /* 橙对黑 8.08:1；编号同时是文字，不靠颜色单独承载 */
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta);
+}
+.breadcrumbs strong { color: var(--ink); font-weight: 700; }
+.topbar-actions { display: flex; align-items: center; gap: var(--ds-space-12, 12px); }
+.icon-button {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  border-radius: var(--radius);
+  transition: background var(--ds-dur-quick) var(--ease), color var(--ds-dur-quick) var(--ease);
+}
+.icon-button:hover, .icon-button.active { color: var(--accent-hover); background: var(--accent-soft); }
+.icon-button:active { background: var(--scrim-raised); }
+/* 账户按钮：桌面态此前是 30×30（M3 走查判为不达标），与窄屏的 44 档统一。
+   细线圆环靠 inset 描边绘制，尺寸抬到 44 后环仍是一档发丝线，不新增形态。 */
+.topbar-avatar { min-width: var(--tap-min); min-height: var(--tap-min); font-size: var(--ds-size-control, 13px); border-radius: var(--radius-circle); }
+
+.account-menu-wrap { position: relative; }
+.account-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: var(--z-popover);
+  width: 196px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--overlay);
+  box-shadow: var(--ds-shadow-panel);
+}
+.account-menu strong { color: var(--ink-strong); font-size: var(--ds-size-control, 13px); }
+.account-menu > span {
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--hair) solid var(--line);
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--tap-min);
+  padding: 0 var(--ds-space-6, 6px);
+  color: var(--muted);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  text-align: left;
+  transition: color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease);
+}
+.account-menu button:hover { color: var(--accent-hover); background: var(--accent-soft); }
+.account-menu button:active { background: var(--scrim-raised); }
+.account-menu .logout-button:hover { color: var(--c-coral); background: rgba(255, 131, 113, 0.12); }
+
+/* ---------------------------------------------------------------------------
+   通用标题 / 按钮 / 标签（共享原语：黑场 + 发丝线 + 暖白）
+   ------------------------------------------------------------------------- */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-meta);        /* 10.5px（site.css L109/L242/L374/L387） */
+  font-weight: var(--ds-weight-body);    /* 模板眉标靠字距分层，不靠字重（L110） */
+  letter-spacing: var(--ds-track-eyebrow); /* 0.24em（L243） */
+  text-transform: uppercase;
+}
+.eyebrow-dot { width: 6px; height: 6px; border-radius: var(--radius-circle); background: var(--accent); }
+
+/* 展示标题（§5.1：字重 200 + 负字距 + 较窄行高；site.css L258-L275）。
+   --ds-leading-display 的 1 只适用于单行拉丁；中文多行标题一律走
+   --ds-leading-title 1.15（模板 L269 注释自陈 0.98 就会上下相碰）。
+   不沿用模板的 white-space:nowrap —— 长中文标题在窄视口会被裁掉（README §4）。 */
+.welcome-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--ds-space-16, 16px); margin-bottom: var(--ds-space-24, 24px); }

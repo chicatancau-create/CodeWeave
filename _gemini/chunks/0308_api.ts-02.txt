@@ -1,0 +1,106 @@
+        code: typeof record?.code === 'string' ? record.code : 'http_error',
+        message: redactAbsolutePaths(
+          typeof record?.error === 'string' ? record.error : `请求失败（${response.status}）`,
+        ),
+        details: record?.details,
+      }
+    }
+    return { ok: true, data: (payload as { data: T }).data }
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      code: 'network_error',
+      message: redactAbsolutePaths(
+        `无法连接本地内容服务：${error instanceof Error ? error.message : String(error)}`,
+      ),
+    }
+  }
+}
+
+export function fetchStatus(signal?: AbortSignal): Promise<ApiResult<ContentStatusResponse>> {
+  return request<ContentStatusResponse>('/api/content/status', { signal })
+}
+
+/**
+ * 拉取目录并组装为快照。目录接口本身不返回正文；
+ * 正文按需通过 fetchLesson 拉取，避免一次把整库带进浏览器。
+ */
+export async function fetchCatalog(signal?: AbortSignal): Promise<ApiResult<ContentSnapshot>> {
+  const result = await request<ContentSnapshot>('/api/content/catalog', { signal })
+  return result
+}
+
+export function fetchLesson(
+  contentId: string, bundleId?: string, signal?: AbortSignal,
+): Promise<ApiResult<{ lesson: SnapshotLesson; exercises: SnapshotExercise[]; stages: unknown[] }>> {
+  const query = bundleId ? `?bundleId=${encodeURIComponent(bundleId)}` : ''
+  return request(`/api/content/lessons/${encodeURIComponent(contentId)}${query}`, { signal })
+}
+
+export function fetchExercise(exerciseId: string, bundleId?: string): Promise<ApiResult<SnapshotExercise>> {
+  const query = bundleId ? `?bundleId=${encodeURIComponent(bundleId)}` : ''
+  return request<SnapshotExercise>(`/api/content/exercises/${encodeURIComponent(exerciseId)}${query}`)
+}
+
+export type PublicationJob = {
+  jobId: string
+  status: 'scanning' | 'validating' | 'ready' | 'invalid' | 'unavailable'
+  dryRun: boolean
+  published: boolean
+  error?: { code: string; message: string } | null
+}
+
+export function triggerSync(options: { dryRun: boolean; approvalJobId?: string }, signal?: AbortSignal): Promise<ApiResult<PublicationJob>> {
+  return request('/api/content/sync', {
+    method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+    body: JSON.stringify(options),
+  })
+}
+
+export function fetchSyncJob(jobId: string, signal?: AbortSignal): Promise<ApiResult<PublicationJob>> {
+  return request(`/api/content/sync/${encodeURIComponent(jobId)}`, { signal, cache: 'no-store' })
+}
+
+// ---------------------------------------------------------------------------
+// LINK-08：学习事实（只读）
+// ---------------------------------------------------------------------------
+
+export function fetchLearningStatus(signal?: AbortSignal): Promise<ApiResult<LearningStatus>> {
+  return request<LearningStatus>('/api/learning/status', { signal })
+}
+
+/** 显式绑定：必须由用户主动确认，服务端不接受自动猜测。 */
+export function bindVaultOwner(): Promise<ApiResult<{ bound: boolean; isOwner: boolean; vaultId: string | null; publicContent: boolean }>> {
+  return request('/api/learning/owner', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  })
+}
+
+export function unbindVaultOwner(): Promise<ApiResult<{ bound: boolean }>> {
+  return request('/api/learning/owner', { method: 'DELETE' })
+}
+
+export function setContentVisibility(publicContent: boolean): Promise<ApiResult<{ publicContent: boolean }>> {
+  return request('/api/learning/owner/visibility', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publicContent }),
+  })
+}
+
+/** 正式进度投影：仅资料库拥有者；其他账户会得到 403/409，界面据此显示空态。 */
+export function fetchVaultProgress(): Promise<ApiResult<VaultProgress>> {
+  return request<VaultProgress>('/api/learning/vault-progress')
+}
+
+// ---------------------------------------------------------------------------
+// LINK-09：确认式写回（暂存 → 预览 → 确认提交 → 可回滚/导出）
+// ---------------------------------------------------------------------------
+
+/**
+ * 步骤 1：暂存证据（标 pending）。
+ * 这一步只写应用数据，**不改资料库、不改正式进度**。

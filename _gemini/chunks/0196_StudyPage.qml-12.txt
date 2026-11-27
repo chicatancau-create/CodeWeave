@@ -1,0 +1,83 @@
+                                        onTapped: studyPage.selectCourse(modelData.originalIndex)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // aside.desktop-learning-rail
+                ColumnLayout {
+                    // Pin the rail: children's implicit width (the 0/61 evidence
+                    // row) otherwise overrode the preferred 286 and squeezed the
+                    // primary column, eliding the hero title.
+                    Layout.fillWidth: false
+                    Layout.minimumWidth: ds.railW
+                    Layout.maximumWidth: ds.railW
+                    Layout.preferredWidth: ds.railW
+                    Layout.fillHeight: true
+                    spacing: ds.s16
+
+                    // 代码速览
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: ds.radius
+                        color: ds.railPanel
+                        border.color: ds.line
+                        border.width: 1
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: ds.s16
+                            spacing: 0
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.bottomMargin: ds.s16
+                                spacing: ds.s8
+                                Text {
+                                    text: "代码速览"
+                                    color: ds.ink
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: uiShell.starterLanguage !== ""
+                                          ? uiShell.starterLanguage.toUpperCase() : "CODE"
+                                    color: ds.faint
+                                    font.family: ds.mono
+                                    font.pixelSize: 9
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+
+                            // .desktop-snippet
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                radius: 6
+                                color: ds.snippetBg
+                                border.color: ds.line
+                                border.width: 1
+                                clip: true
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    spacing: 0
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        implicitHeight: 28
+                                        color: "transparent"
+                                        RowLayout {
+                                            anchors {
+                                                fill: parent
+                                                leftMargin: ds.s10
+                                                rightMargin: ds.s10
+                                            }
+                                            spacing: ds.s4
+                                            Repeater {
+                                                model: 3
+                                                delegate: Rectangle {

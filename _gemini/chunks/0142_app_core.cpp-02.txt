@@ -1,0 +1,100 @@
+  if (!error && std::filesystem::is_symlink(data_status)) {
+    return Result::failure("应用数据根不能是符号链接");
+  }
+  if (has_symlink_component(data_absolute)) {
+    return Result::failure("应用数据根路径不能经过符号链接");
+  }
+  error.clear();
+  std::filesystem::create_directories(data_absolute / kDraftDirectory, error);
+  if (error) return Result::failure(error_message("创建应用数据目录失败", error));
+
+#ifdef _WIN32
+  const auto lock_path = (data_absolute / ".native.lock").wstring();
+  const auto handle = CreateFileW(lock_path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+      nullptr, CREATE_NEW, FILE_ATTRIBUTE_HIDDEN | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    if (GetLastError() == ERROR_FILE_EXISTS) return Result::failure("工作区正被另一个应用实例使用");
+    return Result::failure("创建工作区锁失败");
+  }
+  lock_handle_ = reinterpret_cast<std::intptr_t>(handle);
+#else
+  const auto lock_path = data_absolute / ".native.lock";
+  if (!std::filesystem::create_directory(lock_path, error)) {
+    return Result::failure(error ? error_message("创建工作区锁失败", error) : "工作区正被另一个应用实例使用");
+  }
+#endif
+
+  workspace_ = absolute;
+  data_root_ = data_absolute;
+  open_ = true;
+  return Result::success("工作区已打开");
+}
+
+Result ApplicationCore::close_workspace() {
+  if (!open_) return Result::success();
+#ifdef _WIN32
+  if (lock_handle_ != -1) {
+    CloseHandle(reinterpret_cast<HANDLE>(lock_handle_));
+    lock_handle_ = -1;
+  }
+#else
+  std::error_code error;
+  std::filesystem::remove(data_root_ / ".native.lock", error);
+  if (error) return Result::failure(error_message("释放工作区锁失败", error));
+#endif
+  open_ = false;
+  workspace_.clear();
+  data_root_.clear();
+  return Result::success("工作区已关闭");
+}
+
+Result ApplicationCore::validate_id(std::string_view draft_id) {
+  if (draft_id.empty() || draft_id.size() > 96) return Result::failure("草稿 ID 长度无效");
+  for (const char character : draft_id) {
+    const bool valid = (character >= 'a' && character <= 'z') ||
+                       (character >= 'A' && character <= 'Z') ||
+                       (character >= '0' && character <= '9') || character == '-' || character == '_';
+    if (!valid) return Result::failure("草稿 ID 含有非法字符");
+  }
+  return Result::success();
+}
+
+std::filesystem::path ApplicationCore::draft_path(const std::filesystem::path& data_root,
+                                                   std::string_view draft_id) {
+  return data_root / kDraftDirectory / (std::string(draft_id) + ".txt");
+}
+
+Result ApplicationCore::write_atomically(const std::filesystem::path& destination,
+                                         std::string_view contents) {
+  auto temporary = destination;
+  temporary += temporary_suffix();
+  {
+    std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+    if (!output) return Result::failure("无法创建草稿临时文件: " + temporary.string());
+    output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    output.flush();
+    if (!output) {
+      std::error_code ignored;
+      std::filesystem::remove(temporary, ignored);
+      return Result::failure("写入草稿失败: " + temporary.string());
+    }
+  }
+
+#ifdef _WIN32
+  // `ofstream::flush` only hands bytes to the OS cache. Flush the temporary
+  // file before the atomic replace so a successful save survives an immediate
+  // power loss more reliably on Windows.
+  const auto temporary_handle = CreateFileW(
+      temporary.wstring().c_str(), GENERIC_READ | GENERIC_WRITE,
+      FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (temporary_handle == INVALID_HANDLE_VALUE || !FlushFileBuffers(temporary_handle)) {
+    if (temporary_handle != INVALID_HANDLE_VALUE) CloseHandle(temporary_handle);
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return Result::failure("刷盘草稿失败: " + temporary.string());
+  }
+  CloseHandle(temporary_handle);
+#endif
+
+  std::error_code error;
+#ifdef _WIN32

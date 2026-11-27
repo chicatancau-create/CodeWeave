@@ -1,0 +1,6 @@
+    // 反例是真实量出来的：「导出待保存 Markdown」在 320px 下按钮 227.7px > 容器可用 211px，
+    // nowrap 让它缩不下去，整页 scrollWidth 321。
+    for (const rule of buttonRules) expect(rule.block).not.toMatch(/white-space:\s*nowrap/)
+    expect(buttonRules.some((r) => /white-space:\s*normal/.test(r.block))).toBe(true)
+  })
+})

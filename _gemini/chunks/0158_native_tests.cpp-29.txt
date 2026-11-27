@@ -1,0 +1,56 @@
+  assert(std::any_of(threaded.trace->events().begin(), threaded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":5") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto syntax = run("public class Main {\ninvalid syntax\n}\n");
+  assert(syntax.process->exit_code != 0 && !syntax.process->execution_output_valid);
+  assert(syntax.trace->events().back().kind == codeweave::execution::EventKind::Failed);
+  assert(std::none_of(syntax.trace->events().begin(), syntax.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }));
+  std::atomic_bool cancelled_before_compile{true};
+  const auto compile_cancelled = service.run({"java-compile-cancel", "java",
+      "public class Main { public static void main(String[] args) { System.out.println(7); } }\n", 10'000, 4096},
+      runtime, execution_root, &cancelled_before_compile);
+  assert(compile_cancelled.process && compile_cancelled.process->cancelled && compile_cancelled.trace);
+  assert(compile_cancelled.trace->events().back().kind == codeweave::execution::EventKind::Cancelled);
+  assert(std::filesystem::is_empty(execution_root));
+  const auto bounded = run("public class Main {\npublic static void main(String[] args) {\n"
+      "Object object = new Object() { public String toString() { throw new AssertionError(\"toString called\"); } };\n"
+      "String text = \"x\".repeat(500000);\nint total = 0;\nfor (int i = 0; i < 2000; ++i) {\ntotal += i;\n}\n"
+      "System.out.println(total);\n}\n}\n");
+  assert(bounded.process->exit_code == 0 && bounded.process->output == "1999000\r\n");
+  assert(std::count_if(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }) == 512);
+  assert(std::any_of(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("<long string>") != std::string::npos &&
+        event.payload.find("<object>") != std::string::npos;
+  }));
+  const auto timeout = service.run({"java-trace-timeout", "java",
+      "public class Main { public static void main(String[] args) throws Exception {\n"
+      "java.nio.file.Files.writeString(java.nio.file.Path.of(\"..\", \"timeout-ready\"), \"ready\");\n"
+      "while (true) { Thread.sleep(20); }\n} }\n", 3'000, 4096}, runtime, execution_root);
+  assert(timeout.process && timeout.process->timed_out && std::filesystem::exists(execution_root / "timeout-ready"));
+  assert(std::filesystem::remove(execution_root / "timeout-ready") && std::filesystem::is_empty(execution_root));
+  std::atomic_bool cancellation{false};
+  std::optional<codeweave::execution::ServiceResult> cancelled;
+  std::thread worker([&] {
+    cancelled = service.run({"java-trace-cancel", "java",
+        "public class Main { public static void main(String[] args) throws Exception {\n"
+        "long ticks = 0;\nwhile (true) {\n"
+        "java.nio.file.Files.writeString(java.nio.file.Path.of(\"..\", \"cancel-ticks\"), Long.toString(++ticks));\n"
+        "Thread.sleep(20);\n}\n} }\n", 20'000, 4096}, runtime, execution_root, &cancellation);
+  });
+  const auto ticks_path = execution_root / "cancel-ticks";
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+  while (!std::filesystem::exists(ticks_path) && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const bool child_started = std::filesystem::exists(ticks_path);
+  cancellation.store(true);
+  worker.join();
+  assert(child_started && cancelled && cancelled->process && cancelled->process->cancelled);
+  const auto read_ticks = [&] {
+    std::ifstream file(ticks_path);

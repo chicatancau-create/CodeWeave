@@ -1,0 +1,162 @@
+          "name": "cpp-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-live-paused-screenshot",
+          "passed": false
+        },
+        {
+          "name": "challenge-detail-window-matrix",
+          "passed": false
+        },
+        {
+          "name": "account-login-intro-visible-for-guest",
+          "passed": false
+        },
+        {
+          "name": "learning-empty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-completed-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-preserves-header-and-vertical-statistics",
+          "passed": false
+        },
+        {
+          "name": "learning-details-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-small-screenshot",
+          "passed": false
+        },
+        {
+          "name": "learning-details-selected-unit-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-nonempty-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-row-hover-screenshot",
+          "passed": false
+        },
+        {
+          "name": "review-updated-screenshot",
+          "passed": false
+        },
+        {
+          "name": "lesson-workspace-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "workspace-save-error-screenshot",
+          "passed": false
+        },
+        {
+          "name": "analytics-values-screenshot",
+          "passed": false
+        },
+        {
+          "name": "checkin-narrow-calendar-framed",
+          "passed": false
+        },
+        {
+          "name": "vault-narrow-ledger-screenshot",
+          "passed": false
+        },
+        {
+          "detail": "0",
+          "name": "page-challenge-lesson-evidence-execution-trace-and-vault-screenshots",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-offscreen",
+      "result": "no-report"
+    },
+    {
+      "directory": "qt-matrix-software",
+      "result": "no-report"
+    },
+    {
+      "directory": "qt-matrix-software-sdk",
+      "passed": false,
+      "checks": 50,
+      "screenshots": 13,
+      "failures": [
+        {
+          "detail": "验收步骤超过 50 秒",
+          "name": "matrix-timeout",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-verified",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": [
+        {
+          "name": "learning-details-resolves-windows-ui-font",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-windows-final",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 0,
+      "failures": [
+        {
+          "name": "selected-course-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-stage-current-node-and-pointer-fit-viewport",
+          "passed": false
+        },
+        {
+          "name": "execution-trace-narrow-framed",
+          "passed": false
+        },
+        {
+          "name": "java-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-module-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "cpp-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-live-paused-screenshot",
+          "passed": false
+        },
+        {
+          "name": "challenge-detail-window-matrix",
+          "passed": false
+        },
+        {
+          "name": "account-login-intro-visible-for-guest",
+          "passed": false
+        },
+        {
+          "name": "learning-empty-screenshot",
+          "passed": false
+        },
+        {

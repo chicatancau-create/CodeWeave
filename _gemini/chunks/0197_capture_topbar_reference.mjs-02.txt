@@ -1,0 +1,65 @@
+    const target = page.locator(selector);
+    await target.waitFor();
+    const geometry = await target.boundingBox();
+    const viewport = page.viewportSize();
+    assert(geometry && geometry.width > 0 && geometry.height > 0);
+    assert(geometry.x >= 0 && geometry.y >= 0);
+    assert(geometry.x + geometry.width <= viewport.width + 1);
+    assert(geometry.y + geometry.height <= viewport.height + 1);
+    await page.screenshot({ path: resolve(output, name + '.png'), animations: 'disabled' });
+    report.screenshots.push({ name, viewport, selector, geometry });
+  };
+  const escapeAndFocus = async (selector, trigger) => {
+    await page.keyboard.press('Escape');
+    await page.locator(selector).waitFor({ state: 'hidden' });
+    assert(await trigger.evaluate(element => element === document.activeElement));
+    report.checks.push({ name: selector + ':escape-and-return-focus', passed: true });
+  };
+  await page.goto(origin);
+  await page.getByRole('heading', { name: '你的学习路径', exact: true }).waitFor();
+  await page.getByRole('group', { name: '选择学习科目' }).getByRole('button', { name: /Python/ }).click();
+  const title = await page.locator('.desktop-course-hero h2').textContent();
+  assert.equal(title, '循环是怎么工作的？');
+  // Read the module used by the running fallback and verify the rendered editor separately.
+  const lessons = await page.evaluate(async () => (await import('/src/data/lessons.ts')).lessons);
+  const lesson = lessons.find(item => item.id === 'python-loop-sum');
+  assert.equal(lesson.title, title);
+  const pythonLessons = lessons.filter(item => item.languageLabel === 'Python');
+  assert.equal(await page.locator('.desktop-unit-card').count(), pythonLessons.length);
+  assert.deepEqual(await page.locator('.desktop-unit-card').evaluateAll(cards =>
+    cards.map(card => card.querySelector('strong')?.textContent?.trim() ?? '')),
+  pythonLessons.map(item => item.title));
+  await page.getByRole('button', { name: '进入学习', exact: true }).click();
+  const editor = page.locator('.code-editor textarea');
+  await editor.waitFor();
+  const code = await editor.inputValue();
+  assert.equal(code, lesson.code);
+  await page.goto(origin);
+  await page.getByRole('heading', { name: '你的学习路径', exact: true }).waitFor();
+  await page.locator('.desktop-course-hero h2').waitFor();
+  report.reference = { accountName: 'Reference', email: 'topbar@example.test', documentId: lesson.id,
+    lessonCount: lessons.length, lessonIds: lessons.map(item => item.id).sort(),
+    subject: 'Python', filteredLessonIds: pythonLessons.map(item => item.id).sort(),
+    sourceCodeSha256: createHash('sha256').update(code).digest('hex'),
+    sourceVerification: 'running Vite module, rendered course cards and editor textarea',
+    learningState: 'not-run, no evidence, no notifications' };
+  await capture('topbar-shell', '.topbar');
+  report.topbar = [await measureTopbar()];
+  const quick = page.getByRole('button', { name: '快捷动作', exact: true });
+  await quick.click();
+  await capture('topbar-quick', '.topbar-quick-actions__panel');
+  await escapeAndFocus('.topbar-quick-actions__panel', quick);
+  const notifications = page.getByRole('button', { name: /通知/ }).first();
+  await notifications.click();
+  await capture('topbar-notifications', '.notification-panel');
+  await escapeAndFocus('.notification-panel', notifications);
+  const account = page.getByRole('button', { name: '账户菜单', exact: true });
+  await account.click();
+  await capture('topbar-account', '.account-menu');
+  const accountButtons = page.locator('.account-menu > button');
+  assert.equal(await accountButtons.count(), 5, 'Expected five account menu actions');
+  report.account = { viewport: page.viewportSize(),
+    name: await measureElement(page.locator('.account-menu > strong')),
+    contact: await measureElement(page.locator('.account-menu > span')),
+    buttons: await measureElements(accountButtons) };
+  await escapeAndFocus('.account-menu', account);

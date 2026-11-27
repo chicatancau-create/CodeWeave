@@ -1,0 +1,175 @@
+/* ── 科目：编号细线列表，不是玻璃卡 ──────────────────────────────────────── */
+.lp-subjects {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 0 clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-28, 28px));
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-subjects li {
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-subject {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  width: 100%;
+  min-height: var(--lp-tap);
+  padding: var(--ds-space-12, 12px) var(--ds-space-6, 6px) var(--ds-space-12, 12px) 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-control, 0);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  transition: color var(--lp-quick) var(--lp-ease), background-color var(--lp-quick) var(--lp-ease);
+}
+
+.lp-subject:hover,
+.lp-subject[aria-pressed='true'] {
+  background-color: var(--lp-wash);
+  box-shadow: var(--lp-glow-inset);              /* 悬停/选中分支：只给内高光，不动网格列宽 */
+}
+
+.lp-subject:active {
+  background-color: var(--lp-wash);
+  color: var(--lp-ink);
+}
+
+.lp-subject[aria-pressed='true'] .lp-subject-label {
+  color: var(--lp-accent);
+}
+
+.lp-subject-idx,
+.lp-subject-code {
+  display: grid;
+  place-items: center;
+  border: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+  border-radius: var(--ds-shape-none, 0);
+  color: var(--lp-dim);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.lp-subject-idx {
+  width: 26px;
+  height: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-subject-code {
+  width: 34px;
+  height: 34px;
+  letter-spacing: 0.04em;
+}
+
+.lp-subject-body {
+  display: grid;
+  gap: var(--ds-space-2, 2px);
+}
+
+.lp-subject-label {
+  font-size: var(--lp-body);
+  line-height: 1.4;
+}
+
+.lp-subject-meta,
+.lp-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+}
+
+.lp-meta-item {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── S0—S9 编号阶段骨架（rail：编号 + 发丝竖线） ─────────────────────────── */
+.lp-stages {
+  gap: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-32, 32px));
+}
+
+.lp-stage {
+  display: grid;
+  grid-template-columns: var(--lp-gutter) minmax(0, 1fr);
+  gap: 0 clamp(var(--ds-space-10, 10px), 1.6vw, var(--ds-space-24, 24px));
+  min-width: 0;
+}
+
+.lp-stage-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding-top: var(--ds-space-10, 10px);
+}
+
+.lp-stage-num {
+  font-size: clamp(22px, 3.4vw, 40px);
+  line-height: 1;
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-display, -0.03em);
+  color: var(--lp-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-stage.is-unnumbered .lp-stage-num {
+  color: var(--lp-faint); /* 装饰性破折号：编号语义由标题文字给出 */
+}
+
+/* .rail-line L173-L182：1px 竖线，.16 一档 */
+.lp-stage-hair {
+  flex: 1;
+  width: 1px;
+  min-height: 24px;
+  background: var(--lp-hair-raised);
+}
+
+.lp-stage-body {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+
+/* #77 的边距账：这四类标题从前各自吃的是 UA 给 h2 / h3 / h4 的上下边距，
+   换标签层级之后 UA 值跟着变（h1 .67em、h2 .83em、h3 1em、h4 1.33em），
+   terminal108 量到路径页文档高度因此涨了 51px——字号没动但版心被推开了，
+   这不算「视觉一档不动」。所以把边距按**换级前**的实际值用 em 显式钉住：
+   em 相对元素自身字号，从此与标签是什么彻底脱钩。 */
+.lp-title {
+  margin-top: .83em; /* 换级前是 h2 */
+}
+
+.lp-block-heading {
+  margin: 1em 0; /* 换级前是 h3 */
+}
+
+.lp-stage-heading {
+  margin: 1.33em 0; /* 换级前是 h4 */
+}
+
+.lp-continue-title {
+  margin: 1em 0; /* 换级前是 h3 */
+}
+
+.lp-stage-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  font-size: clamp(14px, 1.3vw, 17px);
+  font-weight: var(--ds-weight-body, 400);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.lp-stage-heading-count {
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+

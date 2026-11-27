@@ -1,0 +1,114 @@
+    if (journal.receipt) await recordCommitted(journal.receipt)
+    await store.clearJournal()
+    return { ...outcome, action: journal.stage === 'manifest' ? 'report-replayed' : 'completed-forward' }
+  }
+
+  let lastReconcile = null
+  let reconcilePromise = null
+  /** 每次进程启动只收尾一次，避免重复处理同一个事务。 */
+  function reconcileOnce() {
+    if (!reconcilePromise) {
+      reconcilePromise = reconcilePublishJournal().then((outcome) => {
+        lastReconcile = outcome
+        return outcome
+      })
+    }
+    return reconcilePromise
+  }
+
+  function statusOf(current) {
+    const resolved = configuredRoot()
+    const state = !resolved.ok
+      ? (current.bundle ? STATUS.UNAVAILABLE : STATUS.UNCONFIGURED)
+      : current.status
+    return {
+      state,
+      vaultConfigured: resolved.ok,
+      vaultReason: resolved.ok ? null : resolved.reason,
+      compilerVersion: COMPILER_VERSION,
+      bundleId: current.bundle?.bundleId ?? null,
+      buildTime: current.bundle?.buildTime ?? null,
+      publishedAt: current.pointer?.publishedAt ?? null,
+      schemaVersion: current.bundle?.schemaVersion ?? null,
+      counts: current.bundle?.counts ?? null,
+      rulesStatus: current.bundle?.rules?.status ?? null,
+      stale: state === STATUS.UNAVAILABLE && Boolean(current.bundle),
+      lastError,
+      lastReconcile,
+      lastReport: lastReport
+        ? {
+            finishedAt: lastReport.finishedAt,
+            blockingCount: lastReport.blocking?.length ?? 0,
+            gaps: lastReport.gaps ?? null,
+            rules: lastReport.rules ?? null,
+          }
+        : null,
+    }
+  }
+
+  async function status() {
+    await reconcileOnce()
+    return statusOf(await store.readCurrent())
+  }
+
+  /**
+   * 执行一次同步。dryRun 只做扫描与校验，不发布、不写清单、不留记录。
+   * 重复调用在任务进行中会拿到同一个 job。
+   */
+  async function sync({ dryRun = false, approvedFingerprint, receiptFor } = {}) {
+    const { reused, job } = store.runExclusive(async (active) => {
+      let loaded
+      try {
+        loaded = await loadManifest()
+      } catch (error) {
+        lastError = { code: error.code ?? 'invalid_manifest', message: error.message }
+        active.status = error.code === 'vault_unavailable' ? STATUS.UNAVAILABLE : STATUS.INVALID
+        active.error = lastError
+        return
+      }
+      const previous = await store.readCurrent()
+      let attempt = 0
+      let result = null
+      let changed = []
+      // 期间发生修改则重新扫描（最多两次），避免拼出两个不同版本的快照。
+      while (attempt < 2) {
+        attempt += 1
+        active.status = STATUS.SCANNING
+        result = await compileContent({
+          manifest: loaded.manifest,
+          rootOverride: loaded.root,
+          previousBundle: previous.bundle,
+        })
+        if (!result.ok) {
+          lastError = { code: result.code, message: result.message }
+          active.status = STATUS.UNAVAILABLE
+          active.error = lastError
+          return
+        }
+        active.status = STATUS.VALIDATING
+        changed = await detectSourceChanges(loaded.root, result.report.sourceHashes)
+        if (changed.length === 0) break
+      }
+      if (changed.length > 0) {
+        lastError = {
+          code: 'source_changed',
+          message: `扫描期间源文件被修改，已放弃本次发布：${changed.slice(0, 5).join('、')}${changed.length > 5 ? ' 等' : ''}`,
+        }
+        active.status = STATUS.INVALID
+        active.error = lastError
+        active.report = { ...result.report, changedSources: changed }
+        return
+      }
+
+      const fingerprint = sha256(stableStringify({
+        sourceHashes: result.report.sourceHashes,
+        manifestSourceHash: loaded.manifestSourceHash,
+        bundleId: result.bundle.bundleId,
+        rules: result.report.rules?.fingerprint ?? null,
+        compilerVersion: COMPILER_VERSION,
+        config: configFingerprint ?? null,
+      }))
+      active.approvalFingerprint = fingerprint
+      if (!dryRun && approvedFingerprint !== fingerprint) {
+        active.status = STATUS.INVALID
+        active.error = { code: 'approval_stale', message: '候选内容或配置已变化，请重新校验' }

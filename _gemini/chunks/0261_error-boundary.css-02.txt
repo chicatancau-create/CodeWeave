@@ -1,0 +1,141 @@
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+.error-boundary .cw-error-lede {
+  margin: 0;
+  color: var(--ce-ink-2);
+  font-size: var(--ce-body);
+  line-height: var(--ce-leading);
+}
+
+/* ── 2. 三个分区：01 出了什么错 / 02 数据现状 / 03 下一步 ─────────────────── */
+.error-boundary .cw-error-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-12, 12px);
+  padding-top: var(--ds-space-16, 16px);
+  border-top: var(--ce-line) solid var(--ce-hair);
+}
+.error-boundary .cw-error-block-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: 0;
+  color: var(--ce-ink);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--ce-leading);
+}
+/* 编号取模板「编号眉标」形态（geometry.md §2）：真实 DOM 文本，不用 CSS counter
+   注入（counter 生成的文字会进辅助技术朗读顺序，违反 §5.3 第 6 条）。 */
+.error-boundary .cw-error-step {
+  flex: 0 0 auto;
+  min-width: var(--ce-tap);
+  padding: var(--ds-space-2, 2px) 0;
+  color: var(--ce-ink-2);
+  border-bottom: var(--ce-line) solid var(--ce-hair-raised);
+  font-size: var(--ce-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-align: center;
+}
+.error-boundary .cw-error-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px) var(--ds-space-24, 24px);
+  margin: 0;
+}
+.error-boundary .cw-error-kv {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+}
+.error-boundary .cw-error-key {
+  color: var(--ce-ink-2);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+.error-boundary .cw-error-value {
+  color: var(--ce-ink);
+  font-size: var(--ce-body);
+}
+
+/* 错误消息与堆栈：等宽、可整段选中、长行不截断 */
+.error-boundary .cw-error-message,
+.error-boundary .cw-error-stack {
+  margin: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  color: var(--ce-ink);
+  border: var(--ce-line) solid var(--ce-hair);
+  border-radius: var(--ce-radius);
+  background: var(--ce-canvas);
+  font-family: var(--ce-mono);
+  font-size: 14px;                       /* 堆栈不是正文段落，但仍要 ≥13px 可读 */
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;                     /* 关键：错误文本必须能选中复制 */
+  -webkit-user-select: text;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.error-boundary .cw-error-stack {
+  color: var(--ce-ink-2);
+  font-size: var(--ds-size-control, 13px);
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* 折叠区：summary 自己是键盘可聚焦的 44px 命中区 */
+.error-boundary .cw-error-details {
+  border: var(--ce-line) solid var(--ce-hair);
+  border-radius: var(--ce-radius);
+  background: var(--ce-canvas);
+}
+.error-boundary .cw-error-details summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--ce-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--ce-ink-2);
+  font-family: var(--ce-mono);
+  font-size: var(--ce-meta);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.error-boundary .cw-error-details summary {
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, ease);
+}
+.error-boundary .cw-error-details summary:hover {
+  color: var(--ce-ink);
+}
+.error-boundary .cw-error-details summary:active {
+  color: var(--ce-ink);
+  text-decoration: underline;
+}
+.error-boundary .cw-error-details > .cw-error-stack {
+  margin: 0 var(--ds-space-14, 14px) var(--ds-space-14, 14px);
+  border: 0;
+  background: transparent;
+}
+
+/* ── 3. 复制状态：三种状态各有固定标识 + 文字 + 边框样式 ─────────────────── */
+.error-boundary .cw-error-copy,
+.error-boundary .cw-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+}
+.error-boundary .cw-error-copy-state {
+  min-height: var(--ce-tap);
+  display: inline-flex;
+  align-items: center;
+  padding: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  border: var(--ce-line) solid var(--ce-hair);

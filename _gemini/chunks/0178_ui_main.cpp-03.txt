@@ -1,0 +1,59 @@
+    QCoreApplication application(argc, argv);
+    return challenge_worker_main();
+  }
+  for (int index = 1; index < argc; ++index) {
+    if (std::string_view(argv[index]) == "--visual-comparison-json" ||
+        std::string_view(argv[index]) == "--u3-matrix-json" ||
+        std::string_view(argv[index]) == "--qml-load-smoke")
+      QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Floor);
+  }
+  const double entered = probe_clock();
+  MeasuredApplication application(argc, argv);
+  const auto arguments = application.arguments();
+  const bool qml_smoke = arguments.contains(QStringLiteral("--qml-load-smoke"));
+  const auto qml_smoke_arg = arguments.indexOf(QStringLiteral("--qml-load-smoke"));
+  const auto unified_smoke_arg = arguments.indexOf(QStringLiteral("--unified-content-smoke"));
+  const bool unified_smoke = unified_smoke_arg >= 0;
+  if (unified_smoke && (unified_smoke_arg + 1 >= arguments.size() || qml_smoke)) return 2;
+  const bool smoke_preference_storage_unavailable =
+      arguments.contains(QStringLiteral("--qml-load-smoke-preferences-unavailable"));
+  const auto topbar_reference = arguments.indexOf(QStringLiteral("--topbar-reference-content"));
+  if (topbar_reference >= 0 && (!qml_smoke || topbar_reference + 1 >= arguments.size())) return 2;
+  const auto benchmark = arguments.indexOf(QStringLiteral("--benchmark-json"));
+  if (benchmark >= 0 && benchmark + 1 >= arguments.size()) return 2;
+  const auto matrix = arguments.indexOf(QStringLiteral("--u3-matrix-json"));
+  if (matrix >= 0 && matrix + 1 >= arguments.size()) return 2;
+  const auto comparison = arguments.indexOf(QStringLiteral("--visual-comparison-json"));
+  if (comparison >= 0 && (comparison + 1 >= arguments.size() || matrix >= 0 || benchmark >= 0)) return 2;
+  if (qml_smoke && (matrix >= 0 || comparison >= 0 || benchmark >= 0)) return 2;
+  if (qml_smoke && (qml_smoke_arg + 1 >= arguments.size())) return 2;
+  if (smoke_preference_storage_unavailable && !qml_smoke) return 2;
+  const bool isolated_window = matrix >= 0 || comparison >= 0;
+  std::unique_ptr<QTemporaryDir> benchmark_data;
+  if (benchmark >= 0 || qml_smoke || unified_smoke) benchmark_data = std::make_unique<QTemporaryDir>();
+  std::unique_ptr<U3MatrixContext> matrix_context;
+  if (isolated_window) {
+    matrix_context = std::make_unique<U3MatrixContext>();
+    matrix_context->output = arguments.at((comparison >= 0 ? comparison : matrix) + 1);
+    matrix_context->screenshot_dir = QFileInfo(matrix_context->output).absolutePath();
+    if (!matrix_context->data.isValid() || matrix_context->screenshot_dir.isEmpty()) return 2;
+    QDir().mkpath(matrix_context->screenshot_dir);
+    const auto config_dir = QDir(matrix_context->data.path()).filePath(QStringLiteral("config"));
+    if (!QDir().mkpath(config_dir)) return 2;
+    QFile workspace_marker(QDir(config_dir).filePath(QStringLiteral("codeweave.config.example.json")));
+    if (!workspace_marker.open(QIODevice::WriteOnly | QIODevice::Truncate)) return 2;
+    workspace_marker.write("{}\n");
+    workspace_marker.close();
+  }
+  UiShell shell;
+  UnifiedContentSource unifiedContent;
+  const auto workspace = QProcessEnvironment::systemEnvironment().value(
+      QStringLiteral("CODEWEAVE_NATIVE_WORKSPACE"), QCoreApplication::applicationDirPath());
+  const auto localAppData = QProcessEnvironment::systemEnvironment().value(
+      QStringLiteral("LOCALAPPDATA"), QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+  if ((benchmark >= 0 || qml_smoke || unified_smoke) && !benchmark_data->isValid()) return 2;
+  const auto nativeData = benchmark >= 0 || qml_smoke || unified_smoke ? benchmark_data->path() :
+      (isolated_window ? QDir(matrix_context->data.path()).filePath(QStringLiteral("data")) :
+      QDir(localAppData).filePath(QStringLiteral("CodeWeave")));
+  unifiedContent.configureCache(QDir(nativeData).filePath(QStringLiteral("unified-cache")));
+  if (unified_smoke) {

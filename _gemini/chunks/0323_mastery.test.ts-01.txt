@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest'
+import {
+  addDaysKey,
+  applyEvidence,
+  describeReviewPlan,
+  dueReviewRecords,
+  effectiveReviewOffsets,
+  effectiveReviewPlan,
+  groupReviews,
+  lessonCompletionNote,
+  rescheduleReview,
+  reviewPlanCadence,
+  REVIEW_OFFSET_DAYS,
+  scheduleFirstReview,
+  scheduleNextReview,
+  snoozeReview,
+  type MasteryRecord,
+} from './mastery'
+
+const baseRecord = (overrides: Partial<MasteryRecord> = {}): MasteryRecord => ({
+  refId: 'lesson-1',
+  kind: 'lesson',
+  level: 0,
+  evidence: [],
+  updatedAt: '2026-09-01T00:00:00.000Z',
+  reviewStep: 0,
+  ...overrides,
+})
+
+describe('mastery', () => {
+  it('addDaysKey 跨月与跨年正确', () => {
+    expect(addDaysKey('2026-09-01', 1)).toBe('2026-09-02')
+    expect(addDaysKey('2026-09-30', 1)).toBe('2026-10-01')
+    expect(addDaysKey('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDaysKey('2026-03-01', -1)).toBe('2026-02-28')
+  })
+
+  it('证据只能向上推进掌握等级（上限 6）', () => {
+    let record = baseRecord()
+    for (let i = 0; i < 10; i += 1) {
+      record = applyEvidence(record, {
+        id: `e-${i}`, kind: 'challenge', refId: 'lesson-1', note: '', at: '2026-09-01T00:00:00.000Z', passed: true,
+      })
+    }
+    expect(record.level).toBe(6)
+  })
+
+  it('复测失败会降级且不低于 0', () => {
+    let record = baseRecord({ level: 2 })
+    record = applyEvidence(record, {
+      id: 'e-fail', kind: 'review', refId: 'lesson-1', note: '', at: '2026-09-02T00:00:00.000Z', passed: false,
+    })
+    expect(record.level).toBe(1)
+
+    record = applyEvidence(baseRecord({ level: 0 }), {
+      id: 'e-fail2', kind: 'review', refId: 'lesson-1', note: '', at: '2026-09-02T00:00:00.000Z', passed: false,
+    })
+    expect(record.level).toBe(0)
+  })
+
+  it('非复测类型的失败证据不改变等级', () => {
+    const record = applyEvidence(baseRecord({ level: 3 }), {
+      id: 'e-bug', kind: 'bugfix', refId: 'lesson-1', note: '', at: '2026-09-02T00:00:00.000Z', passed: false,
+    })
+    expect(record.level).toBe(3)
+  })
+
+  it('首次复测安排在 1 天后；通过后按 3 天节点推进', () => {
+    const first = scheduleFirstReview(baseRecord(), '2026-09-10')
+    expect(first.reviewDueKey).toBe('2026-09-11')
+    expect(first.reviewStep).toBe(0)
+
+    const advanced = { ...first, reviewStep: 1 }
+    const next = scheduleNextReview(advanced, '2026-09-11')
+    expect(next.reviewDueKey).toBe('2026-09-14')
+  })
+
+  it('复测失败重新安排同一节点', () => {
+    const record = baseRecord({ reviewStep: 2, reviewDueKey: '2026-09-20' })
+    const rescheduled = rescheduleReview(record, '2026-09-20')
+    expect(rescheduled.reviewStep).toBe(1)
+    expect(rescheduled.reviewDueKey).toBe('2026-09-23') // 上一个已通过节点是 3 天档
+  })
+
+  it('dueReviewRecords 找出今天及过期项目并按日期排序', () => {
+    const records: Record<string, MasteryRecord> = {
+      a: baseRecord({ refId: 'a', reviewDueKey: '2026-09-12' }),
+      b: baseRecord({ refId: 'b', reviewDueKey: '2026-09-10' }),
+      c: baseRecord({ refId: 'c', reviewDueKey: '2026-09-20' }),
+      d: baseRecord({ refId: 'd' }),
+    }
+    const due = dueReviewRecords(records, '2026-09-12')
+    expect(due.map((record) => record.refId)).toEqual(['b', 'a'])
+  })
+})
+
+describe('snoozeReview（F1 稍后提醒）', () => {
+  it('逾期复测：从今天顺延到明天，其余字段不变', () => {
+    const record: MasteryRecord = {
+      refId: 'lesson-x', kind: 'lesson', level: 3, evidence: [],
+      updatedAt: '2026-09-13T00:00:00.000Z', reviewStep: 2,
+      reviewDueKey: '2026-09-12', lastFailReason: '上次忘了',
+    }
+    const snoozed = snoozeReview(record, '2026-09-13')
+    expect(snoozed.reviewDueKey).toBe('2026-09-14')
+    expect(snoozed.level).toBe(3)
+    expect(snoozed.lastFailReason).toBe('上次忘了')
+  })
+
+  it('对已排到未来的复测，从其计划日期顺延一天（有可见效果）', () => {
+    const record: MasteryRecord = {
+      refId: 'lesson-y', kind: 'lesson', level: 2, evidence: [],
+      updatedAt: '', reviewStep: 0, reviewDueKey: '2026-09-20',
+    }
+    // 今天 09-13，计划 09-20 → 顺延到 09-21 而不是拉回 09-14
+    expect(snoozeReview(record, '2026-09-13').reviewDueKey).toBe('2026-09-21')
+  })
+
+  it('groupReviews 分组：逾期/今日/未来 7 天互斥且排序正确', () => {

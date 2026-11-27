@@ -1,0 +1,76 @@
+  std::error_code error;
+  const auto manifest = content_root_ / "hints.v1.tsv";
+  auto status = std::filesystem::symlink_status(manifest, error);
+  if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+    return app::Result::failure("提示清单类型无效");
+  }
+  const auto size = std::filesystem::file_size(manifest, error);
+  if (error || size > kMaxCatalogBytes) return app::Result::failure("提示清单过大");
+  std::ifstream input(manifest, std::ios::binary);
+  if (!input) return app::Result::failure("提示清单不可读取");
+  std::string line, expected;
+  std::unordered_set<std::string> ids;
+  while (std::getline(input, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty()) continue;
+    const auto tab = line.find('\t');
+    std::string id, digest;
+    if (line.size() > kMaxCatalogLineBytes || tab == std::string::npos ||
+        line.find('\t', tab + 1) != std::string::npos ||
+        !decode_hex(std::string_view(line).substr(0, tab), id) ||
+        !decode_hex(std::string_view(line).substr(tab + 1), digest) ||
+        !is_stable_id(id) || !is_content_hash(digest) || !ids.insert(id).second) {
+      return app::Result::failure("提示清单记录无效");
+    }
+    if (id == content_id) expected = std::move(digest);
+  }
+  if (!input.eof() || expected.empty()) return app::Result::failure("该课程没有提示");
+  const auto directory = content_root_ / "hints";
+  status = std::filesystem::symlink_status(directory, error);
+  if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_directory(status)) {
+    return app::Result::failure("提示目录类型无效");
+  }
+  const auto path = directory / (std::string(content_id) + ".txt");
+  status = std::filesystem::symlink_status(path, error);
+  if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+    return app::Result::failure("提示文件类型无效");
+  }
+  const auto body_size = std::filesystem::file_size(path, error);
+  if (error || body_size > kMaxBodyBytes) return app::Result::failure("提示文件过大");
+  std::ifstream body(path, std::ios::binary);
+  if (!body) return app::Result::failure("提示不可读取");
+  std::string text((std::istreambuf_iterator<char>(body)), std::istreambuf_iterator<char>());
+  if (body.fail() || text.size() > kMaxBodyBytes || !valid_utf8_without_nul(text) ||
+      sha256_bytes(text) != expected) return app::Result::failure("提示编码或 hash 校验失败");
+  hints = std::move(text);
+  return app::Result::success("已读取提示；本次尝试不计为独立完成");
+}
+
+app::Result ContentRepository::read_starter(std::string_view content_id,
+    std::string& language, std::string& code, std::string& execution_policy) const {
+  language.clear(); code.clear(); execution_policy.clear();
+  std::vector<Unit> units;
+  const auto listed = list_published(units);
+  if (!listed.ok) return listed;
+  const auto unit = std::find_if(units.begin(), units.end(), [content_id](const auto& item) {
+    return item.content_id == content_id;
+  });
+  if (unit == units.end()) return app::Result::failure("未找到已发布内容");
+  const auto read_row = [&](const char* name, std::size_t width,
+      std::vector<std::string>& selected) -> app::Result {
+    std::error_code error;
+    const auto path = content_root_ / name;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+      return app::Result::failure("课程配置文件类型无效");
+    }
+    const auto bytes = std::filesystem::file_size(path, error);
+    if (error || bytes > kMaxCatalogBytes) return app::Result::failure("课程配置超过大小上限");
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return app::Result::failure("课程配置不可读取");
+    std::unordered_set<std::string> ids;
+    std::string line;
+    while (std::getline(input, line)) {
+      if (!line.empty() && line.back() == '\r') line.pop_back();
+      if (line.empty()) continue;
+      if (line.size() > kMaxCatalogLineBytes) return app::Result::failure("课程配置记录过大");

@@ -1,0 +1,27 @@
++            view.size() == QSize(1440, 900) && view.devicePixelRatio() == 1 &&
++            !shell.hasActiveAccount() && !shell.executionBusy());
++        QJsonObject state;
++        state.insert(QStringLiteral("page"), shell.currentPage());
++        state.insert(QStringLiteral("filename"), filename);
++        state.insert(QStringLiteral("documentId"), shell.documentId());
++        state.insert(QStringLiteral("publishedIds"), QJsonArray::fromStringList(shell.publishedIds()));
++        state.insert(QStringLiteral("language"), shell.starterLanguage());
++        state.insert(QStringLiteral("codeSha256"), QString::fromLatin1(QCryptographicHash::hash(
++            shell.draftCode().toUtf8(), QCryptographicHash::Sha256).toHex()));
++        state.insert(QStringLiteral("bodySha256"), QString::fromLatin1(QCryptographicHash::hash(
++            shell.selectedContentBody().toUtf8(), QCryptographicHash::Sha256).toHex()));
++        state.insert(QStringLiteral("hasActiveAccount"), shell.hasActiveAccount());
++        state.insert(QStringLiteral("executionOutput"), shell.executionOutput());
++        state.insert(QStringLiteral("progressSummary"), shell.progressSummary());
++        state.insert(QStringLiteral("reviewSummary"), shell.reviewSummary());
++        state.insert(QStringLiteral("reviewItems"), QJsonArray::fromVariantList(shell.reviewItems()));
++        state.insert(QStringLiteral("analysisSnapshot"), QJsonObject::fromVariantMap(shell.analysisSnapshot()));
++        comparison_states.append(state);
++      }
++      ++context->step;
++    });
++    comparison_timer.start(250);
++  }
+   // Read-only, real-window smoke. Never creates an account or a data root.
+   const auto smoke = arguments.indexOf(QStringLiteral("--smoke-screenshot"));
+   std::unique_ptr<WindowProbe> probe;

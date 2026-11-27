@@ -1,0 +1,64 @@
+              diagnostic = QStringLiteral("Reduced-motion initial state failed: toggle=%1 design=%2 busy=%3 spinner=%4 ring=%5 dot=%6 restore=%7 storage=%8 enabled=%9 checked=%10 reduced=%11 duration=%12")
+                  .arg(toggle != nullptr).arg(design_system != nullptr).arg(busy_indicator != nullptr)
+                  .arg(spinner != nullptr).arg(static_ring != nullptr).arg(static_dot != nullptr)
+                  .arg(restore != nullptr).arg(shell.preferenceStorageReady())
+                  .arg(toggle && toggle->property("enabled").toBool())
+                  .arg(toggle && toggle->property("checked").toBool())
+                  .arg(shell.reducedMotion())
+                  .arg(design_system ? design_system->property("durQuick").toInt() : -1);
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!require_toggle_thumb(toggle) || !require_toggle_thumb(line_toggle)) return;
+            busy_indicator->setProperty("busy", true);
+            QCoreApplication::processEvents();
+            if (!spinner->isVisible() || !spinner->property("running").toBool() ||
+                static_ring->isVisible() || static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Default busy indicator did not use its animated state");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            toggle->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+            QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
+            if (!shell.reducedMotion() || !toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 0 ||
+                popup_enter->property("duration").toInt() != 0 || popup_exit->property("duration").toInt() != 0 || spinner->isVisible() ||
+                spinner->property("running").toBool() || !static_ring->isVisible() || !static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Reduced-motion toggle did not disable transitions and spinner motion");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!QMetaObject::invokeMethod(restore, "clicked", Qt::DirectConnection)) {
+              diagnostic = QStringLiteral("Reduced-motion defaults action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;
+            if (shell.reducedMotion() || toggle->property("checked").toBool() ||
+                design_system->property("durQuick").toInt() != 150 || !spinner->isVisible() ||
+                !spinner->property("running").toBool() || static_ring->isVisible() || static_dot->isVisible()) {
+              diagnostic = QStringLiteral("Restoring defaults did not restore animated behavior");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            auto* accessible_toggle = QAccessible::queryAccessibleInterface(toggle);
+            auto* accessible_actions = accessible_toggle ? accessible_toggle->actionInterface() : nullptr;
+            if (!accessible_toggle || accessible_toggle->role() != QAccessible::CheckBox ||
+                !accessible_actions ||
+                !accessible_actions->actionNames().contains(QAccessibleActionInterface::toggleAction())) {
+              diagnostic = QStringLiteral("Reduced-motion checkbox did not expose an accessible toggle action");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            accessible_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+            if (!require_toggle_thumb(toggle)) return;

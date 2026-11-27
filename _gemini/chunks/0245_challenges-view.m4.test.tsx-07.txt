@@ -1,0 +1,68 @@
+    expect(ruleBody('.challenges-view .challenge-grid-empty')).toContain('font-size: var(--cv-body)')
+    expect(cssCode).not.toMatch(/text-overflow:\s*ellipsis/)
+    expect(cssCode).not.toMatch(/white-space:\s*nowrap/)
+  })
+
+  it('320px 最小宽度有专门降级：留白收紧、编号行折行、分页改纵向', () => {
+    const block = mediaBlock('max-width: 360px')
+    expect(block).toContain('--cv-pad: 12px')
+    expect(block).toContain('.challenges-view .stage-card')
+    expect(block).toContain('flex-wrap: wrap')
+  })
+
+  it('系统 prefers-reduced-motion 与根类 .reduce-motion 都真停（名称归零 + 取消过渡）', () => {
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('animation: none !important')
+    expect(system).toContain('transition: none !important')
+    const scoped = ruleBody(
+      '.reduce-motion .challenges-view *, .reduce-motion .challenges-view *::before, .reduce-motion .challenges-view *::after, .challenges-view.reduce-motion *, .challenges-view.reduce-motion *::before, .challenges-view.reduce-motion *::after',
+    )
+    expect(scoped).toContain('animation: none !important')
+    expect(scoped).toContain('transition: none !important')
+    // 没有任何 infinite 循环，故不存在「只是变慢」的残留
+    expect(cssCode).not.toMatch(/infinite/)
+    expect(cssCode.match(/@keyframes/g) ?? []).toEqual([])
+  })
+
+  it('!important 只出现在降级块内，其余位置为 0', () => {
+    const cut = cssCode.indexOf('@media (prefers-reduced-motion')
+    expect(cut).toBeGreaterThan(0)
+    expect(cssCode.slice(0, cut)).not.toContain('!important')
+    expect((cssCode.match(/!important/g) ?? []).length).toBeLessThanOrEqual(16)
+  })
+})
+
+describe('M4 挑战页 · 无障碍（axe-core）', () => {
+  const axeRules = {
+    // jsdom 无真实布局：色彩对比与触控尺寸由上面的 CSS 源码不变式 + 浏览器复核承担
+    'color-contrast': { enabled: false },
+    'target-size': { enabled: false },
+    // 挑战详情是列表的下钻视图，整页只有列表态有 h1；属既有结构，M4 未改判定语义
+    'page-has-heading-one': { enabled: false },
+    'landmark-one-main': { enabled: false },
+    region: { enabled: false },
+  }
+
+  it('列表态（含展开的更多筛选）无 axe 违规', async () => {
+    const { container } = renderView()
+    fireEvent.click(screen.getByRole('button', { name: /更多筛选/ }))
+    const results = await axe.run(container, { rules: axeRules })
+    expect(results.violations.map((violation) => `${violation.id}: ${violation.description}`)).toEqual([])
+  })
+
+  it('详情态（草稿区 + 提交区 + 标签页）无 axe 违规', async () => {
+    const { container } = renderView({ progress: submittedRecord })
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    const results = await axe.run(container, { rules: axeRules })
+    expect(results.violations.map((violation) => `${violation.id}: ${violation.description}`)).toEqual([])
+  })
+
+  it('aria-controls 收起时不指向不存在的元素（既有悬空 IDREF 已收口）', () => {
+    renderView()
+    const toggle = screen.getByRole('button', { name: /更多筛选/ })
+    expect(toggle.getAttribute('aria-controls')).toBeNull()
+    fireEvent.click(toggle)
+    const target = toggle.getAttribute('aria-controls')!
+    expect(document.getElementById(target)).toBeTruthy()
+  })
+})

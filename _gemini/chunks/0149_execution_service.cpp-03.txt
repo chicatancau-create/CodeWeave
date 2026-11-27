@@ -1,0 +1,95 @@
+  if (size < offset) { offset = limit; return; }
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return;
+  input.seekg(static_cast<std::streamoff>(offset));
+  char buffer[8192];
+  while (offset < limit && input) {
+    input.read(buffer, static_cast<std::streamsize>(std::min<std::size_t>(sizeof(buffer), limit - offset)));
+    const auto count = static_cast<std::size_t>(input.gcount());
+    offset += count;
+    if (count) consume(std::string_view(buffer, count));
+  }
+}
+
+class TraceProgress final {
+ public:
+  TraceProgress(Trace& trace, std::filesystem::path snapshots,
+      std::filesystem::path output, std::size_t output_limit)
+      : trace_(trace), snapshots_(std::move(snapshots)), output_(std::move(output)),
+        output_limit_(output_limit) {}
+
+  void poll(std::string_view bytes, std::span<const ControlEvent> controls) {
+    read_increment(snapshots_, snapshot_offset_, 256 * 1024, [&](std::string_view chunk) {
+      for (const auto character : chunk) {
+        if (source_stopped_) break;
+        if (character == '\n') {
+          if (!source_pending_.empty() && !trace_.append_source_step(source_pending_).ok) source_stopped_ = true;
+          source_pending_.clear();
+        } else if (source_pending_.size() < 8192) source_pending_.push_back(character);
+        else source_stopped_ = true;
+      }
+    });
+    if (output_.empty()) output_pending_.append(bytes);
+    else read_increment(output_, output_offset_, output_limit_, [&](std::string_view chunk) { output_pending_.append(chunk); });
+    flush_output(false);
+    for (const auto& event : controls) {
+      trace_.append(event.command == ControlCommand::Pause ? EventKind::Paused : EventKind::Resumed);
+    }
+  }
+
+  void finish() { flush_output(true); }
+
+ private:
+  void flush_output(bool final) {
+    auto size = output_pending_.size();
+    if (!final && size) {
+      // Keep CRLF and a trailing partial UTF-8 code point in the same event.
+      if (output_pending_[size - 1] == '\r') --size;
+      auto start = size;
+      while (start && (static_cast<unsigned char>(output_pending_[start - 1]) & 0xc0) == 0x80) --start;
+      if (start) {
+        const auto lead = static_cast<unsigned char>(output_pending_[start - 1]);
+        const std::size_t expected = lead >= 0xc2 && lead <= 0xdf ? 2 :
+            lead >= 0xe0 && lead <= 0xef ? 3 : lead >= 0xf0 && lead <= 0xf4 ? 4 : 1;
+        if (size - (start - 1) < expected) size = start - 1;
+      }
+    }
+    if (!size) return;
+    trace_.append(EventKind::Output, std::string_view(output_pending_).substr(0, size));
+    output_pending_.erase(0, size);
+  }
+
+  Trace& trace_;
+  std::filesystem::path snapshots_;
+  std::filesystem::path output_;
+  std::size_t output_limit_;
+  std::size_t snapshot_offset_{};
+  std::size_t output_offset_{};
+  bool source_stopped_{};
+  std::string source_pending_;
+  std::string output_pending_;
+};
+
+ProcessResult run_observed(const ProcessRunner& runner, const ProcessPlan& plan,
+    const std::atomic_bool* cancellation, ExecutionControl* control, Trace& trace,
+    const std::filesystem::path& snapshots = {}, const std::filesystem::path& output = {}) {
+  TraceProgress progress(trace, snapshots, output, plan.output_limit);
+  const auto observer = [&](std::string_view bytes, std::span<const ControlEvent> controls) {
+    progress.poll(bytes, controls);
+  };
+  auto process = output.empty() ? runner.run(plan, cancellation, control, observer) :
+      run_cpp_debugger(runner, plan, output, cancellation, control, observer);
+  progress.finish();
+  return process;
+}
+
+}  // namespace
+
+ServiceResult ExecutionService::validate(const Request& request, const std::filesystem::path& executable,
+    const std::filesystem::path& working_directory) const {
+  ProcessPlan plan{};
+  const auto result = build_process_plan(request, executable, working_directory, plan);
+  return {result, std::nullopt, std::nullopt};
+}
+
+ServiceResult ExecutionService::run(const Request& request, const std::filesystem::path& executable,

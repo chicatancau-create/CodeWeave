@@ -1,0 +1,97 @@
+      await vi.advanceTimersByTimeAsync(EXECUTION_SETTINGS.MAX_EXECUTION_MS + 500)
+      const result = await promise
+
+      expect(result.error?.message).toContain('自动停止')
+      expect(SilentWorker.instances[0]?.terminated).toBe(true)
+      vi.useRealTimers()
+    })
+
+    it('should surface runtime errors from the worker', async () => {
+      const result = await executeJavaScript('throw new Error("boom")', mockLesson)
+
+      expect(result.error?.message).toBe('boom')
+    })
+
+    /* -------------------------------------------------------------
+       历史执行记录 docs/M6-整体验收-执行记录.md §19：CSP 不含 'unsafe-eval'，所以代码只能作为 Worker 脚本正文编译。
+       下面三条锁的是「真实浏览器第一次点运行就整条链失效」那个形态本身。
+       ------------------------------------------------------------- */
+    it('用户代码进 Worker 脚本正文，脚本里不出现运行期求值', async () => {
+      await executeJavaScript('console.log("abc")', mockLesson)
+
+      expect(lastWorkerSource).toContain('console.log("abc")')
+      expect(lastWorkerSource).not.toMatch(/new\s+Function/)
+      expect(lastWorkerSource).not.toMatch(/\beval\s*\(/)
+    })
+
+    it('生成脚本自身可以被编译为严格模式脚本（语法成立）', async () => {
+      await executeJavaScript('const a = 1;\nconsole.log(a)', mockLesson)
+
+      expect(() => new Script(lastWorkerSource, { filename: SCRIPT_NAME })).not.toThrow()
+      expect(lastWorkerSource.startsWith('"use strict";')).toBe(true)
+    })
+
+    it('行号折算偏移与代码实际所在行一致', async () => {
+      await executeJavaScript('console.log("x")', mockLesson)
+
+      const declared = Number(lastWorkerSource.match(/__cwCodeOffset = (\d+);/)?.[1])
+      const bodyLines = lastWorkerSource.split('\n')
+      expect(bodyLines[declared]).toBe('console.log("x")')
+    })
+
+    it('运行错误折算回编辑器里的行号', async () => {
+      const result = await executeJavaScript('console.log("before")\nthrow new Error("第 2 行炸了")\nconsole.log("after")', mockLesson)
+
+      expect(result.output).toEqual(['before'])
+      expect(result.error?.message).toContain('第 2 行炸了')
+      expect(result.error?.line).toBe(2)
+    })
+
+    it('语法错误走 onerror，行号不会指到用户看不见的行', async () => {
+      const oneLine = await executeJavaScript('const broken = (', mockLesson)
+      const threeLines = await executeJavaScript('const a = 1\nconst b = 2\nconst broken = (', mockLesson)
+
+      expect(oneLine.error?.message).toBeTruthy()
+      expect(oneLine.error?.line).toBe(1)
+      expect(threeLines.error?.line).toBe(3)
+    })
+
+    /* -------------------------------------------------------------
+       R4 G.3 第 4 条：资源上限、输出洪泛与执行等级标注。
+       ------------------------------------------------------------- */
+    it('R4：每次运行都标注 tier=worker', async () => {
+      const result = await executeJavaScript('console.log("x")', mockLesson)
+      expect(result.tier).toBe('worker')
+    })
+
+    it('R4：被拦截的代码同样标注 tier=worker，且不启动 Worker', async () => {
+      const result = await executeJavaScript('fetch("/x")', mockLesson)
+      expect(result.tier).toBe('worker')
+      expect(FakeWorker.instances).toHaveLength(0)
+    })
+
+    it('R4：超时结果标注 tier=worker 并终止 Worker', async () => {
+      vi.useFakeTimers()
+      vi.stubGlobal('Worker', SilentWorker as unknown as typeof Worker)
+
+      const promise = executeJavaScript('while (true) {}', mockLesson)
+      await vi.advanceTimersByTimeAsync(EXECUTION_SETTINGS.MAX_EXECUTION_MS + 500)
+      const result = await promise
+
+      expect(result.tier).toBe('worker')
+      expect(SilentWorker.instances[0]?.terminated).toBe(true)
+      vi.useRealTimers()
+    })
+
+    it('R4：输出洪泛在超过行数上限时报错，不会无限累积', async () => {
+      const code = Array.from({ length: EXECUTION_SETTINGS.MAX_OUTPUT_LINES + 50 }, (_, i) => `console.log('第 ${i} 行')`).join('\n')
+
+      const result = await executeJavaScript(code, mockLesson)
+
+      expect(result.output).toHaveLength(EXECUTION_SETTINGS.MAX_OUTPUT_LINES)
+      expect(result.error?.message).toContain(`输出超过 ${EXECUTION_SETTINGS.MAX_OUTPUT_LINES} 行上限`)
+    })
+
+    it('R4：Worker 不可用时明确降级，不伪装成真实执行', async () => {
+      vi.unstubAllGlobals()
+      vi.stubGlobal('Worker', undefined)

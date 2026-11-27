@@ -1,0 +1,70 @@
+  const lessonIds = new Set(lessons.map((lesson) => lesson.id))
+  const seenIds = new Set<string>()
+  for (const lesson of lessons) {
+    if (seenIds.has(lesson.id)) add('lesson-duplicate', lesson.id, '课程 id 重复（列表按 Map 去重时会静默吞掉后一条）')
+    seenIds.add(lesson.id)
+    const unit = lesson.content
+    for (const entry of unit.prerequisites) {
+      const ref = prerequisiteId(entry)
+      if (!ref) add('lesson-empty-prerequisite', lesson.id, '先修项是空串')
+      else if (looksLikeLessonId(entry)) {
+        if (!lessonIds.has(ref) && !stageIds.has(normalizeStageRef(ref))) {
+          add('lesson-dangling-prerequisite', lesson.id, `先修项 ${entry} 指向不存在的课程或阶段`)
+        }
+      } else {
+        lessonPrerequisiteProse.push({ kind: 'lesson-prerequisite-prose', entity: lesson.id, detail: `先修项写成了描述文字：${entry}` })
+      }
+    }
+    const environment = unit.runEnvironment ?? 'teaching'
+    if (environment === 'teaching') {
+      const recognized = detectTemplate(lesson.code, lesson.language)
+      if (!recognized) {
+        // 显式 executable:true 是「这页能自动跑」的声称，认不出就是谎报；
+        // 只是没写 runEnvironment 的旧课程不算谎报——按了运行键界面会老实说「未识别代码结构」。
+        if (lesson.executable === true) add('lesson-claims-teaching-but-unrecognized', lesson.id, 'executable:true 但教学运行器认不出这段代码')
+        else teachingClaimsUnrecognized.push({ kind: 'teaching-claim-unrecognized', entity: lesson.id, detail: '缺省 teaching，但运行器认不出这段代码（按运行键会得「未识别代码结构」）' })
+      }
+      else {
+        const result = simulateProgram(lesson.code, lesson.language, lesson)
+        if (result.unsupported) add('lesson-claims-teaching-but-unsupported', lesson.id, '声称教学运行器可执行，真跑却返回「未识别代码结构」')
+        if (result.error) add('lesson-claims-teaching-but-errors', lesson.id, `声称可执行却自带错误：第 ${result.error.line} 行 ${result.error.message}`)
+      }
+    } else if (environment === 'external') {
+      if (lesson.executable === true) add('lesson-external-executable', lesson.id, '外部环境实验却把 executable 设成 true：本页会伪造运行结果')
+    } else {
+      add('lesson-unknown-environment', lesson.id, `未知 runEnvironment：${String(environment)}`)
+    }
+
+    /* 课程→阶段这条边：显式声明缺失是**现状**，语言错配也是现状，两样都走棘轮而不是错误，
+       否则门禁会因为一条 09-13 就写下、需要用户裁定归属的老账而常红。 */
+    const derived = unit.stageId ?? deriveStageLetter(lesson.id)
+    if (!unit.stageId) {
+      stageEdgeImplicit.push({ kind: 'stage-edge-implicit', entity: lesson.id, detail: derived ? `阶段只能由 id 推出（${derived}）；content.stageId 未写` : '推不出阶段，且 content.stageId 未写' })
+    }
+    const stage = unit.stageId ?? derived
+    const challenge = stage ? challenges.find((item) => item.stageId === stage) : undefined
+    if (challenge && challenge.language !== lesson.language) {
+      stageLanguageMismatch.push({
+        kind: 'stage-language-mismatch',
+        entity: lesson.id,
+        detail: `课程语言 ${lesson.language}，而 ${stage} 阶段验收关的语言是 ${challenge.language}`,
+      })
+    }
+  }
+
+  return {
+    errors,
+    stageEdgeImplicit,
+    nonCanonicalStageRefs,
+    lessonPrerequisiteProse,
+    teachingClaimsUnrecognized,
+    stageLanguageMismatch,
+    stats: {
+      stages: stages.length,
+      challenges: challenges.length,
+      lessons: lessons.length,
+      teachingUnits: lessons.filter((lesson) => (lesson.content.runEnvironment ?? 'teaching') === 'teaching').length,
+      externalUnits: lessons.filter((lesson) => lesson.content.runEnvironment === 'external').length,
+    },
+  }
+}

@@ -1,0 +1,78 @@
+  if (lessonMatch && request.method === 'GET') {
+    const id = safeContentId(lessonMatch[1])
+    if (!id) return sendJson(response, 400, '内容 ID 格式非法', 'invalid_content_id')
+    const result = await contentService.lesson(id, url.searchParams.get('bundleId'), await learningService.readVaultId())
+    return sendContentJson(request, response, result)
+  }
+
+  const exerciseMatch = /^\/api\/content\/exercises\/([^/]+)$/.exec(url.pathname)
+  if (exerciseMatch && request.method === 'GET') {
+    const id = safeContentId(exerciseMatch[1])
+    if (!id) return sendJson(response, 400, '练习 ID 格式非法', 'invalid_content_id')
+    const result = await contentService.exercise(id, url.searchParams.get('bundleId'), await learningService.readVaultId())
+    return sendContentJson(request, response, result)
+  }
+
+  const bundleMatch = /^\/api\/content\/bundles\/([^/]+)\/(manifest|payload)$/.exec(url.pathname)
+  if (bundleMatch && request.method === 'GET') {
+    const vaultId = await learningService.readVaultId()
+    const current = await contentService.snapshotStore.readBundle(bundleMatch[1], vaultId)
+    if (!current.bundle) return sendJson(response, contentErrorStatus(current.status), '请求的内容快照不可读', current.status)
+    const { bundle } = current
+    const manifestHash = current.pointer.payloadHash
+    const payload = Buffer.from(stableStringify(bundle))
+    if (bundleMatch[2] === 'manifest') {
+      const data = {
+        schemaVersion: 1,
+        serviceInstance: instanceIdentity({ dataDir: dataRoot, distDir: distRoot }).instanceId,
+        vaultId, bundleId: bundle.bundleId, manifestHash,
+        files: [{ path: 'content.json', sha256: manifestHash, size: payload.length }],
+        assets: (bundle.assets ?? []).map((asset) => ({
+          assetId: publicAssetId(asset), path: 'objects/' + asset.sha256, sha256: asset.sha256,
+          size: asset.size, contentType: asset.contentType,
+        })),
+      }
+      return sendContentJson(request, response, { ok: true, bundleId: bundle.bundleId, manifestHash, data })
+    }
+    const headers = contentHeaders(bundle.bundleId, manifestHash, manifestHash)
+    if (ifNoneMatchHits(request.headers['if-none-match'], headers.ETag)) {
+      response.writeHead(304, { ...headers, ...securityHeaders() })
+      return response.end()
+    }
+    response.writeHead(200, {
+      ...headers, ...securityHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': payload.length,
+    })
+    return response.end(payload)
+  }
+
+  // DATA-10 §4：附件与图片按白名单访问（契约见 src/content/README-attachments.md）。
+  // 这里只新增这一条分支：401 unauthorized → 403 vault_private/owner_record_corrupt →
+  // 既有错误码口径全部沿用上面的链路，全局 /api/content/ 前缀判定与限流不动。
+  const opaqueAsset = /^\/api\/content\/assets\/([^/]+)$/.exec(url.pathname)
+  if ((url.pathname === '/api/content/asset' || opaqueAsset) && request.method === 'GET') {
+    // 附件接口是「试探面」：被拒绝的读取按 R3 同一套滑动窗口计数（独立维度，不影响登录与同步）。
+    const probeKey = `content:asset:${user.id}`
+    if (isRateLimited(probeKey)) {
+      return sendJson(response, 429, '附件访问尝试过于频繁，请稍后再试', 'asset_rate_limited')
+    }
+    const asset = await resolveContentAsset({
+      url,
+      assetId: opaqueAsset?.[1],
+      vaultId: await learningService.readVaultId(),
+      snapshotStore: contentService.snapshotStore,
+      ifNoneMatch: request.headers['if-none-match'],
+    })
+    if (!asset.ok) {
+      if (asset.denied) recordFailure(probeKey)
+      return sendJson(response, asset.status, asset.message, asset.code)
+    }
+    response.writeHead(asset.notModified ? 304 : 200, { ...asset.headers, ...securityHeaders() })
+    return response.end(asset.notModified ? undefined : asset.bytes)
+  }
+
+  if (url.pathname === '/api/content/sync' && request.method === 'POST') {
+    const vaultId = await learningService.readVaultId()
+    const isOwner = access.reason === 'owner'
+    if (!isOwner && (!vaultId || !publicationJobs.canPublish(vaultId, user.id))) {
+      return sendJson(response, 403, '该账户没有发布权限', 'publisher_required')
+    }

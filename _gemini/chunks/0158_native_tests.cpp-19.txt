@@ -1,0 +1,75 @@
+  std::filesystem::create_directories(root);
+  std::filesystem::create_directories(root / "assets" / "images");
+  std::ofstream(root / "assets" / "images" / "notes.md") << "fixture attachment";
+  codeweave::content::VaultBinding binding{
+      "vault-fixture-01", "owner-fixture-01", root,
+      codeweave::content::Visibility::Private, true};
+  codeweave::content::AccessReport report;
+  assert(codeweave::content::inspect_attachment(binding,
+      {"attachment-01", "assets/images/notes.md",
+       "a3a1cdeb929c7e1d6e70aaaa4f5f96d985c7528c200c5a27ad96255182013260", 18}, report).ok);
+  assert(report.owner_verified && report.read_only && report.path_safe &&
+      report.attachments_verified);
+  assert(!codeweave::content::inspect_attachment(binding,
+      {"attachment-02", "../notes.md", std::string(64, 'a'), 18}, report).ok);
+  assert(!codeweave::content::inspect_attachment(binding,
+      {"attachment-03", "assets/images/notes.md", std::string(64, 'a'), 18}, report).ok);
+  assert(!codeweave::content::validate_binding(
+      {"vault-fixture-01", "owner-fixture-01", root, codeweave::content::Visibility::Private, false}).ok);
+}
+
+void test_progress_projection_is_read_only_and_conservative() {
+  const std::string markdown =
+      "结构维护：2026-10-04；最近学习证据：2026-10-03\n"
+      "## 1. 当前状态\n\n| 项目 | 当前值 | 证据 |\n| --- | --- | --- |\n| 当前阶段 | A2 | fixture |\n"
+      "## 3. 掌握程度\n\n| 技能 | 等级 | 状态 | 最新证据 |\n| --- | --- | --- | --- |\n"
+      "| C++ | 0—1 级 | 进行中 | test |\n| Rust | 无法确认 | 待确认 | none |\n"
+      "## 7. 阶段状态\n\n| 阶段 | 名称 | 状态 | 说明 |\n| --- | --- | --- | --- |\n| S2 | 原生重构 | 进行中 | contract |\n";
+  const auto projection = codeweave::learning::parse_progress(markdown);
+  assert(projection.status == codeweave::learning::ProgressStatus::Ok);
+  assert(projection.latest_evidence_on == "2026-10-03");
+  assert(projection.mastery.size() == 2);
+  assert(projection.mastery[0].level.kind == codeweave::learning::MasteryKind::Range);
+  assert(projection.mastery[1].level.kind == codeweave::learning::MasteryKind::Uncertain);
+  assert(projection.stages.size() == 1 && projection.stages[0].id == "S2");
+
+  const auto unsupported = codeweave::learning::parse_progress("## 3. 掌握程度\n\n| 技能 | 状态 |\n| --- | --- |\n| C++ | 待确认 |\n");
+  assert(unsupported.status == codeweave::learning::ProgressStatus::StructureUnsupported);
+
+  const auto partial = codeweave::learning::parse_progress(
+      std::string(markdown).replace(markdown.find("0—1 级"), std::string("0—1 级").size(), "未来级别"));
+  assert(partial.unparsed.size() == 1);
+  assert(partial.status == codeweave::learning::ProgressStatus::Partial);
+}
+
+void test_manifest_dry_run_is_non_mutating_and_blocks_conflicts() {
+  const codeweave::content::ManifestInput valid{
+      1,
+      "vault-demo",
+      {{"topic-0001", "课程/循环.md", "循环", "active", {"source-book"}}},
+      {"lesson-01"},
+      {{"source-book", "已核验"}},
+      {}};
+  const auto ready = codeweave::content::inspect_manifest(valid);
+  assert(ready.status == codeweave::content::DryRunStatus::Ready);
+  assert(ready.topic_count == 1 && ready.source_count == 1);
+  assert(ready.migratable_topic_count == 1);
+  assert(!ready.content_read && !ready.writes_performed && !ready.migration_committed);
+
+  auto conflict = valid;
+  conflict.topics.push_back({"topic-0001", "课程/另一个.md", "重复", "active", {"missing-source"}});
+  conflict.unknown_fields.push_back("privatePath");
+  const auto blocked = codeweave::content::inspect_manifest(conflict);
+  assert(blocked.status == codeweave::content::DryRunStatus::Blocked);
+  assert(blocked.conflict_count == 1);
+  assert(blocked.migratable_topic_count == 1);
+
+  auto unsupported = valid;
+  unsupported.schema_version = 2;
+  const auto invalid = codeweave::content::inspect_manifest(unsupported);
+  assert(invalid.status == codeweave::content::DryRunStatus::Blocked);
+
+  auto unsafe = valid;
+  unsafe.vault_id = "";
+  unsafe.topics[0].path = "C:/private/course.md";
+  unsafe.published_content_ids.push_back("lesson-01");

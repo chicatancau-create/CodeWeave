@@ -1,0 +1,158 @@
+      "code": "public class Main {\n  static int add(int a, int b) { return a + b; }\n  public static void main(String[] args) { System.out.println(add(2, 3)); }\n}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "声明变量",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "条件成立？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "更新变量",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "输出结果",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "在 Java 中，把可复用的动作封装起来。运行并观察每一步的变量变化。",
+      "fileName": "Methods.java",
+      "runtime": "教学运行器 · Java 子集",
+      "content": {
+        "objective": "把可复用的动作封装起来",
+        "prerequisites": [
+          "java-loop-sum 单元"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ],
+        "explanation": [
+          "Java 的语句按顺序执行；声明变量后才能使用。",
+          "把可复用的逻辑封装成函数/方法，输入用参数、结果用返回值。",
+          "教学运行器只支持子集语法；真实的编译运行请在本地环境完成（外部环境实验）。"
+        ],
+        "examples": [
+          {
+            "good": "先声明再使用：int age = 18; 之后才能读 age",
+            "bad": "先使用后声明会编译失败",
+            "why": "静态类型语言要求先声明类型"
+          }
+        ],
+        "guidedSteps": [
+          "运行示例代码，对照目标输出验证。",
+          "按练习要求修改一处数据再运行。",
+          "把运行结果与预测对比，不一致就单步排查。"
+        ],
+        "exercise": "增加一个乘法函数并调用它。",
+        "variant": "写 max_of_two(a, b) 返回较大值，并用相等值测试。",
+        "projectTask": "该语法点将用于对应课程阶段的项目任务（Java → 命令行 CRUD；JavaScript → 异步 CRUD 页面）。",
+        "mistakes": [
+          "注意语句结束符和括号是否完整",
+          "先确认变量的初始值再调试"
+        ],
+        "runCommand": "运行按钮（教学运行器子集）；完整编译运行请用本地工具链",
+        "completion": "独立完成练习并输出 5，能解释每一步。"
+      }
+    },
+    {
+      "id": "java-env-a1",
+      "language": "java",
+      "languageLabel": "Java",
+      "label": "A1",
+      "title": "开发环境清点",
+      "description": "把工具链逐个清点并留下版本记录",
+      "duration": "45 min",
+      "level": "入门",
+      "code": "# 环境检查清单\n# java -version\n# node -v\n# mvn -v\n# git --version",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "找到终端",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "工具已安装？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "记录版本号",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "输出清单",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "环境问题的第一手证据是版本输出；先清点，再谈开发。",
+      "fileName": "env-checklist.txt",
+      "runtime": "外部环境 · 终端",
+      "content": {
+        "objective": "独立完成 JDK / Node.js / Maven / Git 的安装验证，并留下可复现的版本记录。",
+        "prerequisites": [
+          "一台可用电脑",
+          "管理员权限"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ],
+        "stageId": "A",
+        "explanation": [
+          "版本输出是环境的第一手证据：java -version、node -v、mvn -v、git --version 各有一条。",
+          "JAVA_HOME 与 PATH 是 Java 工具链最常见的两类配置问题。",

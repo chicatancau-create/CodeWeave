@@ -1,0 +1,91 @@
+   ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   顶栏「快捷动作」（01 号方案 §3.2 顶栏构成的第三项 + §4 拆分表里的 QuickActions）。
+   组件：src/components/topbar/QuickActions.tsx，选择器前缀一律 .topbar-quick-actions。
+   取值规矩（§2.2 令牌要求）：颜色只用 --ds-* 与本文件 :root 已有变量并带兜底值，
+   本段不出现任何硬编码色值；线宽 --hair、字号 --ds-size-*、时长 --ds-dur-quick、
+   层级 --z-popover 全部走令牌。形态与同栏的通知面板 / 账户菜单同一档：实底黑 +
+   发丝线分离（模板零投影），不新增第三种浮层长相。
+   字号档：条目名与「现在按不了」那句条件说明走 `--ds-size-control`（13px 必读档），
+   不走 `--ds-size-meta`（10.5px）——令牌文件里这一档自述「仅非关键装饰」，而禁用条件
+   按 §4 的口径是**必须读得出来**的文字；账户菜单与通知面板的同栏条目一并升到同一档。
+   持续动画：无。快捷动作是静态面板，只有 hover 的 150ms 底色/描边过渡，
+   减少动效两条路径（prefers-reduced-motion 与 .reduce-motion）会把 --ds-dur-* 归 1ms。
+--------------------------------------------------------------------------- */
+.topbar-quick-actions { position: relative; }
+.topbar-quick-actions__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: var(--z-popover, 40);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  width: 268px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: var(--ds-space-12, 12px);
+  border: var(--hair, 1px) solid var(--line-strong, var(--ds-field-border));
+  border-radius: var(--radius, var(--ds-radius-panel));
+  background: var(--overlay, var(--ds-canvas-solid));
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.topbar-quick-actions__panel > strong {
+  padding-bottom: var(--ds-space-8, 8px);
+  border-bottom: var(--hair, 1px) solid var(--line, var(--ds-line-hair));
+  color: var(--ink-strong, var(--ds-text-primary));
+  font-size: var(--ds-size-body, 16px);
+}
+.topbar-quick-actions__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--tap-min, 44px);
+  padding: var(--ds-space-6, 6px) var(--ds-space-8, 8px);
+  color: var(--muted, var(--ds-text-secondary));
+  border: var(--hair, 1px) solid var(--line, var(--ds-line-hair));
+  border-radius: var(--radius, var(--ds-radius-control));
+  background: var(--panel-2, var(--scrim));
+  font-size: var(--ds-size-control, 13px);
+  text-align: left;
+  transition: color var(--ds-dur-quick, 150ms) var(--ease, ease), border-color var(--ds-dur-quick, 150ms) var(--ease, ease),
+    background var(--ds-dur-quick, 150ms) var(--ease, ease);
+}
+.topbar-quick-actions__item:hover:not(:disabled) { color: var(--accent-hover, var(--ds-scene-firstlight)); border-color: var(--accent, var(--ds-scene-active)); }
+.topbar-quick-actions__item:active:not(:disabled) { background: var(--scrim-raised); }
+.topbar-quick-actions__label { color: var(--ink, var(--ds-text-primary)); font-weight: 600; white-space: nowrap; }
+.topbar-quick-actions__detail {
+  flex: 1;
+  min-width: 0;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* disabled 行（§4 的 disabled 档）：条件由 DOM 里的真实文字说出口（见 __hint），
+   这里只再补一档**描边形态**（虚线）区分「按不了」，不靠把整行压成半透明。 */
+.topbar-quick-actions__item:disabled { border-style: dashed; cursor: not-allowed; }
+.topbar-quick-actions__item:disabled .topbar-quick-actions__label { color: var(--muted, var(--ds-text-secondary)); }
+.topbar-quick-actions__hint {
+  margin: 0;
+  padding: 0 var(--ds-space-8, 8px);
+  color: var(--muted, var(--ds-text-secondary));
+  font-size: var(--ds-size-control, 13px);
+  line-height: var(--ds-leading-body, 1.7);
+}
+
+/* 窄屏档：绝对定位面板如果按 44px 的 wrap 算包含块会向左溢出被切掉 —— 同栏的
+   .notification-wrap / .global-search 都已实测踩过这一坑（见上面 ≤760px 那一段）。
+   同一味药：让包含块升回 .topbar，面板左右各留 12px，宽度跟着屏幕走。
+   真实溢出像素与折行要到真实浏览器按 §5.4 取证，这里只锁源码写法。 */
+@media (max-width: 760px) {
+  .topbar-quick-actions { position: static; }
+  .topbar-quick-actions__panel { top: 58px; left: 12px; right: 12px; width: auto; max-width: 340px; }
+}
+
+
+/* ── 沉浸式工作台：把页面外壳的上下留白让给工作区 ──────────────────────────────
+   单屏化（2026-10-01）：`.content-wrap` 的 32px 上 / 48px 下留白是给普通内容页
+   的呼吸用的；沉浸式（`.app-shell.is-immersive`，即学习工作台）下这 80px 只是
+   把已经量好的一屏高度顶出视口——实测 docH 946 对 viewport 900，多出的 46px

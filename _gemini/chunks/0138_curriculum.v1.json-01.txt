@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "sourceHashes": {
+    "curriculum.ts": "1be74960f69cd7528138c9d088d4a33f6c4610c5f179806bad5e3658297dfcc5",
+    "lessons.ts": "3107e8aac82dddd9b3f0419ba242089591ad2723f9ef73f0ea5d764ad17f2d7a",
+    "challenges.ts": "1713387edcd3813435d07de6706a40f101af2b70ee6b3088a39167d47c12c8ec"
+  },
+  "stages": [
+    {
+      "id": "A",
+      "title": "开发环境与基本操作",
+      "track": "环境与工具",
+      "summary": "建立可复现、能排错的开发环境。",
+      "topics": [
+        "JDK、Node.js、Maven、MySQL、Git",
+        "终端、路径、依赖与构建",
+        "README、分支与错误记录"
+      ],
+      "checkpoint": "独立启动项目并定位一次构建错误",
+      "deliverables": [
+        "环境清单 README",
+        "一次成功构建的日志",
+        "一次报错与修复记录"
+      ],
+      "prerequisites": [],
+      "externalTools": [
+        "JDK",
+        "Node.js",
+        "Maven",
+        "Git"
+      ]
+    },
+    {
+      "id": "B",
+      "title": "Java 核心编程",
+      "track": "Java 后端",
+      "summary": "从语法走到面向对象和可测试代码。",
+      "topics": [
+        "变量、流程、方法、数组与集合",
+        "类、继承、接口、多态",
+        "异常、IO、Lambda、Stream、JUnit"
+      ],
+      "checkpoint": "完成可保存数据的命令行 CRUD",
+      "deliverables": [
+        "命令行通讯录项目",
+        "JUnit 单元测试",
+        "集合与异常笔记"
+      ],
+      "prerequisites": [
+        "A"
+      ],
+      "externalTools": [
+        "JDK",
+        "JUnit"
+      ]
+    },
+    {
+      "id": "C",
+      "title": "数据结构与算法",
+      "track": "算法竞赛",
+      "summary": "用复杂度和边界思维解决竞赛题。",
+      "topics": [
+        "数组、链表、栈、队列、树、图",
+        "排序、查找、双指针、滑动窗口",
+        "递归、回溯、基础动态规划"
+      ],
+      "checkpoint": "独立分析题意并完成带测试的算法题",
+      "deliverables": [
+        "题解仓库（含复杂度分析）",
+        "每题至少 3 组边界测试"
+      ],
+      "prerequisites": [
+        "B"
+      ],
+      "externalTools": [
+        "OJ 平台"
+      ]
+    },
+    {
+      "id": "D",
+      "title": "HTML、CSS 与 JavaScript",
+      "track": "前端工程化",
+      "summary": "构建可访问、可响应、可调试的前端页面。",
+      "topics": [
+        "语义 HTML、表单、Flex、Grid",
+        "DOM、事件、校验与浏览器存储",
+        "Promise、async/await、fetch、DevTools"
+      ],
+      "checkpoint": "不看示例完成一个异步 CRUD 页面",
+      "deliverables": [
+        "待办应用页面",
+        "异步请求与错误状态演示",
+        "DevTools 调试记录"
+      ],
+      "prerequisites": [
+        "A"
+      ],
+      "externalTools": [
+        "浏览器",
+        "公开 API 或本地 Mock"
+      ]
+    },
+    {
+      "id": "E",
+      "title": "Vue 3 与前端工程化",
+      "track": "前端工程化",
+      "summary": "掌握组件化、路由、状态和请求协作。",
+      "topics": [
+        "Composition API、组件通信、生命周期",
+        "Vue Router、Pinia、Axios",
+        "权限、错误状态、懒加载与组件测试"
+      ],
+      "checkpoint": "独立完成登录与 CRUD 管理页面",
+      "deliverables": [
+        "Vue 3 管理后台",
+        "路由守卫与权限说明",
+        "组件测试"
+      ],
+      "prerequisites": [
+        "D"
+      ],
+      "externalTools": [
+        "Vite",
+        "Vitest",
+        "浏览器"
+      ]
+    },
+    {
+      "id": "F",
+      "title": "Webpack 5",
+      "track": "前端工程化",
+      "summary": "理解模块打包，并能处理构建故障。",
+      "topics": [
+        "Entry、Output、Loader、Plugin",
+        "DevServer、Source Map、多环境配置",
+        "代码分割、缓存、Tree Shaking"
+      ],
+      "checkpoint": "手工搭建并解释一个 Webpack 5 工程",
+      "deliverables": [
+        "webpack.config.js 全套配置",
+        "构建产物分析报告",
+        "一次构建故障排查记录"
+      ],
+      "prerequisites": [
+        "D"
+      ],
+      "externalTools": [
+        "Webpack 5",
+        "Node.js"
+      ]
+    },
+    {
+      "id": "G",
+      "title": "HTTP、JavaWeb 与数据库",
+      "track": "Java 后端",
+      "summary": "打通浏览器、接口、Servlet 和 SQL。",
+      "topics": [
+        "HTTP、REST、状态码、Cookie、Session",
+        "Jakarta Servlet、Tomcat、Maven",
+        "MySQL、SQL、JDBC、事务与防注入"
+      ],
+      "checkpoint": "完成 Servlet + JDBC + MySQL CRUD",
+      "deliverables": [
+        "可运行 WAR 包",
+        "数据库初始化脚本",
+        "接口清单文档"
+      ],
+      "prerequisites": [
+        "B"
+      ],
+      "externalTools": [
+        "Tomcat",
+        "MySQL"
+      ]
+    },
+    {
+      "id": "H",
+      "title": "Spring、Spring MVC 与 MyBatis",
+      "track": "Java 后端",
+      "summary": "用分层架构交付可维护的业务接口。",
+      "topics": [
+        "IoC、DI、Bean、AOP",

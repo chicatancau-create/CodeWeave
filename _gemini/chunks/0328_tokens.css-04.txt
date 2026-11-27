@@ -1,0 +1,70 @@
+     模板里没有任何间距阶：site.css 的 8px / 14px / 22px / 30px / 44px / clamp() 全是
+     逐条写死的字面量，所以这一阶是本产品定义的，不去资料库里找出处。
+     取值依据是 2026-09-27 对本仓 21 个 CSS 文件的普查：margin / padding / gap 上的
+     硬编码 px 共 1226 处、35 个互不相同的值，其中 2/4/6/8/10/12/14/16/20/24 占了 79%。
+     普查脚本与「改前/改后」计数记在 app/tests/quality.gates.test.mjs 的间距阶守卫里。
+     阶的读法：名字里的数字就是 px（`--ds-space-8` = 8px），差额一律向**上一档**靠，
+     因为压缩 padding 会直接顶到文字裁切，放大只会多一像素呼吸。
+     故意留在阶外的两种：hair（1px，像素级对位，不是间距）、seam（-1px，压住与 1px
+     发丝线的双重边）。这两类如果也塞进阶，就会被误用成「一种小间距」。 */
+  --ds-space-hair: 1px;
+  --ds-space-seam: -1px;
+  --ds-space-2: 2px;
+  --ds-space-4: 4px;
+  --ds-space-6: 6px;
+  --ds-space-8: 8px;
+  --ds-space-10: 10px;
+  --ds-space-12: 12px;
+  --ds-space-14: 14px;
+  --ds-space-16: 16px;
+  --ds-space-20: 20px;
+  --ds-space-24: 24px;
+  --ds-space-28: 28px;
+  --ds-space-32: 32px;
+  --ds-space-40: 40px;
+  --ds-space-48: 48px;
+  --ds-space-64: 64px;
+
+  /* ── 9. 动效时长 ────────────────────────────────────────────────────────── */
+  --ds-ease-standard: cubic-bezier(0.22, 1, 0.36, 1); /* L28 全站统一，核实一致 */
+  /* GSAP 侧另用 power1/2/3.out、power2.in、expo.out、none（main.js L173/L179/L187/
+     L195/L203/L211/L246）。CSS 的 --ease 与 GSAP 缓动不同族，不要互相换算。 */
+
+  /* 产品交互档：01 号方案 §2.2「动效默认短促」+ 旧总工程方案 §5.1「普通交互 150–300ms」（原文由 Git 保留）。模板里没有这一档
+     （源码最快是 0.4s），以下为产品决策值，标注以免日后被误当模板原值。 */
+  --ds-dur-quick: 150ms;
+  --ds-dur-base: 220ms;
+  --ds-dur-slow: 300ms;
+
+  /* 模板原值档 */
+  --ds-dur-hover: 400ms;                          /* L394 */
+  --ds-dur-state: 500ms;                          /* L158 / L164 / L453 */
+  --ds-dur-color: 700ms;                          /* L121 / L252 点缀色互转 */
+  --ds-dur-exit: 900ms;                           /* L455 */
+  --ds-dur-enter: 1400ms;                         /* L72 画布淡入 */
+  --ds-dur-loop-pulse: 2600ms;                    /* L130 */
+  --ds-dur-loop-sweep: 2400ms;                    /* L331 */
+  --ds-dur-loop-breathe: 2200ms;                  /* L434 */
+  --ds-stagger-row: 60ms;                         /* main.js L251 / L252 stagger 0.06 */
+  --ds-stagger-title: 110ms;                      /* main.js L187 stagger 0.11 */
+  --ds-anim-play-state: running;                  /* 消费方以 var() 驱动 animation-play-state */
+}
+
+/* 减少动效：令牌层只负责让 CSS 过渡与循环动画失效。
+   持续动画的真正停止（取消 RAF、摘 pointermove/resize 监听器、清 ScrollTrigger、
+   释放 GPU 纹理与缓冲）必须由组件实现 —— 模板原实现只把时间流速乘 0.35
+   （main.js L315），循环仍满帧跑，这是它对本产品的一处不适配。要求与缺口
+   逐条清单见 README §5。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ds-anim-play-state: paused;
+    --ds-dur-quick: 1ms;
+    --ds-dur-base: 1ms;
+    --ds-dur-slow: 1ms;
+    --ds-dur-hover: 1ms;
+    --ds-dur-state: 1ms;
+    --ds-dur-color: 1ms;
+    --ds-dur-exit: 1ms;
+    --ds-dur-enter: 1ms;
+  }
+}

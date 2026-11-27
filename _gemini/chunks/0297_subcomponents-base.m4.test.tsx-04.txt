@@ -1,0 +1,82 @@
+    expect(violations).toEqual([])
+    expect(audited).toBeGreaterThan(35) // 确实在核对与 styles.css 的重叠条目，不是空集
+  })
+
+  it('基座覆写的每个元素，工作台都有类档更高的同名规则；没有覆写的只在白名单里', () => {
+    const workspaceIndex = specIndexByRuleKey(rulesOf(WORKSPACE), { stripWorkspacePrefix: true })
+    const pageVisible: string[] = []
+    let mirrored = 0
+    for (const file of BASE_FILES) {
+      for (const rule of rulesOf(file)) {
+        if (rule.insideKeyframes || isMotionGuard(rule)) continue
+        for (const { raw, key } of rule.selectors) {
+          const mirrors = workspaceIndex.get(key)
+          if (mirrors) {
+            mirrored += 1
+            const base = specificity(raw)
+            if (!mirrors.some(([, classes]) => classes > base[1])) {
+              pageVisible.push(`${file}: ${raw} 页面覆写类档不高过基座 ${JSON.stringify(mirrors)}`)
+            }
+            continue
+          }
+          if (NEUTRAL_RESTATEMENT[key] || DELIBERATE_PAGE_CHANGE[key]) continue
+          pageVisible.push(`${file}: ${raw} 既无 .cw-workspace 覆写，也不在白名单里`)
+        }
+      }
+    }
+    expect(pageVisible, JSON.stringify(pageVisible)).toEqual([])
+    expect(mirrored).toBeGreaterThan(35) // 绝大多数基座条目确实被页面覆写压住
+  })
+  it('基座的 !important 只在减动效两块，且只写 none / auto（不夹带任何新形态）', () => {
+    for (const file of BASE_FILES) {
+      const escaped = rulesOf(file)
+        .filter((rule) => !rule.insideKeyframes && !isMotionGuard(rule) && rule.block.includes('!important'))
+        .map((rule) => rule.selector)
+      expect(escaped, file).toEqual([])
+      for (const rule of rulesOf(file).filter((item) => isMotionGuard(item) && item.block.includes('!important'))) {
+        const flagged = rule.block.split(';').map((decl) => decl.trim()).filter((decl) => decl.includes('!important'))
+        expect(flagged.length, file).toBeGreaterThan(0)
+        expect(flagged.every((decl) => /^(animation|transition|scroll-behavior):\s*(none|auto)\s*!important$/.test(decl)), file).toBe(true)
+      }
+    }
+  })
+})
+
+/* ─────────── 3. §5.4：编辑器字号只读、逐行对齐、长行横向滚动 ─────────── */
+
+describe('M4 子组件基座 · 编辑器字号与对齐', () => {
+  it('--editor-font-size / --line-height-editor 在六个基座文件里只被读取，从未被赋值', () => {
+    for (const file of BASE_FILES) {
+      const text = cssText.get(file) ?? ''
+      expect(text, file).not.toMatch(/--editor-font-size\s*:/)
+      expect(text, file).not.toMatch(/--line-height-editor\s*:/)
+    }
+    const editor = cssText.get('code-editor.css') ?? ''
+    // 容器 / 行号层 / 高亮层 / 输入层四处必须读同一个变量，缺一处就逐行错位
+    expect((editor.match(/var\(--editor-font-size, 13px\)/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect((editor.match(/var\(--line-height-editor, 1\.55\)/g) ?? []).length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('行号层 / 输入层 / 高亮层：字号、行高、字栈同源，左右内边距成对', () => {
+    for (const key of ['.code-editor', '.line-numbers', '.code-tokens', '.code-editor textarea']) {
+      const decls = declarationsOf('code-editor.css', key)
+      expect(decls, key).toContain('font-size: var(--editor-font-size, 13px)')
+      expect(decls, key).toContain('line-height: var(--line-height-editor, 1.55)')
+      expect(decls.some((decl) => /^font-family:\s*var\(--ds-font-mono/.test(decl)), key).toBe(true)
+    }
+    const padOf = (decls: string[]) => decls.find((decl) => /^padding:/.test(decl))
+    const textarea = padOf(declarationsOf('code-editor.css', '.code-editor textarea'))
+    expect(textarea).toBe('padding: 0 var(--ds-space-12, 12px) 0 var(--ds-space-10, 10px)')
+    expect(padOf(declarationsOf('code-editor.css', '.code-tokens'))).toBe(textarea) // 逐列对齐
+  })
+
+  it('长代码行与 stdout：pre + 不折行 + 横向滚动，且没有 pre-wrap 与隐藏滚动条', () => {
+    const byFile: Record<string, string[]> = {
+      'code-editor.css': ['.code-editor textarea', '.code-tokens'],
+      'console-panel.css': ['.console-body'],
+      'variable-panel.css': ['.variable-value'],
+    }
+    for (const [file, keys] of Object.entries(byFile)) {
+      for (const key of keys) {
+        const decls = declarationsOf(file, key)
+        expect(decls.length, `${file} ${key}`).toBeGreaterThan(0)

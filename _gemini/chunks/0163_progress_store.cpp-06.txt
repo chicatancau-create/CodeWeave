@@ -1,0 +1,28 @@
+      !std::filesystem::is_regular_file(destination_status))) {
+    return app::Result::failure("进度账本文件类型无效");
+  }
+  error.clear();
+  std::uintmax_t base_size = 0;
+  if (std::filesystem::exists(destination, error)) {
+    base_size = std::filesystem::file_size(destination, error);
+    if (error) return app::Result::failure("读取进度账本大小失败");
+  }
+  const auto line = serialize(fact) + '\n';
+  if (line.size() > kMaxProgressLineBytes || base_size > kMaxProgressFileBytes - line.size()) {
+    return app::Result::failure("进度账本超过大小上限");
+  }
+  const auto transaction = write_pending_transaction(destination, base_size, line);
+  if (!transaction.ok) return transaction;
+  const auto appended = append_durable(destination, line);
+  if (!appended.ok) return appended;
+  index_snapshot_.ledger_size = base_size + line.size();
+  const auto indexed_append = operation_index::append(index_path(), destination, data_root_,
+      {fact.operation_id, base_size, line.size()}, index_snapshot_);
+  if (!indexed_append.ok) index_ready_ = false;
+  else index_ready_ = true;
+  std::filesystem::remove(pending_path(destination), error);
+  if (error) return app::Result::failure("清理进度追加事务失败");
+  return app::Result::success("进度已追加保存");
+}
+
+}  // namespace codeweave::learning

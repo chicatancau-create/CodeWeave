@@ -1,0 +1,127 @@
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "课程",
+          "geometry": {
+            "x": 366.640625,
+            "y": 20.296875,
+            "width": 28,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(163, 175, 190)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(163, 175, 190)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(163, 175, 190)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "/",
+          "geometry": {
+            "x": 402.640625,
+            "y": 20.296875,
+            "width": 5.46875,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(141, 155, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(141, 155, 172)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(141, 155, 172)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01学习路径",
+          "geometry": {
+            "x": 416.109375,
+            "y": 19.796875,
+            "width": 85,
+            "height": 23.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "700",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "01",
+          "geometry": {
+            "x": 416.109375,
+            "y": 20.796875,
+            "width": 21,
+            "height": 22.390625
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Noto Sans SC\", \"Microsoft YaHei\", monospace",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(142, 213, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(142, 213, 255)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(142, 213, 255)",
+            "outlineOffset": "0px"
+          }
+        }
+      ]
+    }
+  ],
+  "account": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "name": {
+      "text": "Reference",
+      "geometry": {
+        "x": 1235,
+        "y": 71.5,
+        "width": 166,
+        "height": 20.796875
+      },
+      "computed": {
+        "fontSize": "13px",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontWeight": "700",
+        "lineHeight": "20.8px",
+        "color": "rgb(226, 231, 239)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderWidth": "0px",
+        "borderStyle": "none",
+        "borderColor": "rgb(226, 231, 239)",

@@ -1,0 +1,42 @@
+    await waitFor(() => expect(commitBodies(posts).count).toBe(2))
+    expect(screen.getByText(/日志已保存，进度待合并/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /重试补齐/ }))
+    await waitFor(() => expect(commitBodies(posts).count).toBe(3))
+    const commits = commitBodies(posts)
+    expect(commits.at(1).expectedHashes).toEqual(PREVIEW_HASHES)
+    expect(commits.at(2).expectedHashes).toEqual(PREVIEW_HASHES)
+  })
+})
+
+describe('隐私边界：错误文本不回显本机绝对路径', () => {
+  it('服务端错误里的 Windows / UNC / POSIX 绝对路径都被隐去，库内相对路径保留', () => {
+    expect(redactAbsolutePaths('写入失败：E:\\CodeWeave\\runtime\\data\\users.json')).toBe('写入失败：（已隐去本机路径）')
+    expect(redactAbsolutePaths('写入失败：\\\\file-server\\share\\note.md')).toBe('写入失败：（已隐去本机路径）')
+    expect(redactAbsolutePaths('open /home/codeweave/.codeweave/users.json failed')).toBe(
+      'open （已隐去本机路径） failed',
+    )
+    // 库内相对路径是有效信息，不能被吃掉。
+    expect(redactAbsolutePaths('目标文件不存在：全栈工程师学习计划/进度追踪.md')).toBe(
+      '目标文件不存在：全栈工程师学习计划/进度追踪.md',
+    )
+  })
+
+  it('界面上只出现隐去后的措辞，不出现盘符路径', async () => {
+    stubFetch((input, init) => {
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence' && (init?.method ?? 'GET') === 'GET') {
+        return json({ error: '暂存写入失败：E:\\CodeWeave\\runtime\\data\\learning 不可写', code: 'storage_error' }, 500)
+      }
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    const { container } = renderPanel()
+    await screen.findByText(/读取暂存证据失败/)
+    expect(container.textContent).toContain('（已隐去本机路径）')
+    expect(container.textContent).toContain('不可写') // 只隐去路径，不吞掉可读原因
+    expect(container.textContent).toContain('storage_error')
+    expect(container.textContent).not.toContain('E:\\CodeWeave')
+  })
+})

@@ -1,0 +1,93 @@
+          </div>
+          <div className="lp-spec">
+            <dt>编号阶段</dt>
+            <dd>{`${Math.max(0, numberedGroups.length - stageGaps.length)} / 10 个已发布`}</dd>
+          </div>
+          <div className="lp-spec">
+            <dt>缺口</dt>
+            <dd>{`${unitGaps} 个单元 · ${stageGaps.length} 处阶段缺口`}</dd>
+          </div>
+          <div className="lp-spec">
+            <dt>下一推荐</dt>
+            <dd>{recommended ? `${recommended.label} · ${recommended.title}` : '暂无（当前科目单元均已有完成证据）'}</dd>
+          </div>
+        </dl>
+      </header>
+
+      <section className="lp-block" aria-labelledby="lp-subjects-heading">
+        <h2 className="lp-block-heading" id="lp-subjects-heading">
+          <span className="lp-block-idx" aria-hidden="true">
+            01
+          </span>
+          科目
+          <span className="lp-block-note">{`${subjects.length} 个可选`}</span>
+        </h2>
+        <ul className="lp-subjects">
+          {subjects.map((subject, index) => (
+            <li key={subject.id}>
+              <button
+                type="button"
+                className="lp-subject"
+                onClick={() => onSubjectChange(subject.id)}
+                aria-pressed={subjectId === subject.id}
+              >
+                <span className="lp-subject-idx" aria-hidden="true">
+                  {ordinalOf(index)}
+                </span>
+                <span className="lp-subject-code" aria-hidden="true">
+                  {subject.short}
+                </span>
+                <span className="lp-subject-body">
+                  <span className="lp-subject-label">{subject.label}</span>
+                  <span className="lp-subject-meta">
+                    <span className="lp-meta-item">{`${subject.lessonCount} 个单元`}</span>
+                    <span className="lp-meta-item">{subject.hasVaultContent ? '含资料库正式内容' : '未含资料库内容'}</span>
+                    {subject.executable ? null : <span className="lp-meta-item">不可自动执行</span>}
+                  </span>
+                </span>
+                {subjectId === subject.id ? (
+                  <span className="lp-mark lp-mark--selected" data-lp-mark="selected">
+                    <span className="lp-mark-glyph" aria-hidden="true">
+                      ✦
+                    </span>
+                    <span className="lp-mark-text">当前</span>
+                  </span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="lp-block lp-stages" aria-labelledby="lp-stages-heading">
+        <h2 className="lp-block-heading" id="lp-stages-heading">
+          <span className="lp-block-idx" aria-hidden="true">
+            02
+          </span>
+          课程清单 · S0—S9 编号阶段
+          <span className="lp-block-note">{`${groups.length} 组`}</span>
+        </h2>
+
+        {lessons.length === 0 ? (
+          <p className="lp-empty">
+            该科目当前没有已发布内容。资料库连通后新增的主题会出现在这里；未发布的主题不会自动补位。
+          </p>
+        ) : (
+          groups.map((group) => {
+            const headingId = `lp-stage-${group.key}`
+            const groupLabel = group.numbered ? `${group.title} 阶段` : '未并入编号阶段'
+            /**
+             * LEARN-01 第 3 条「显示未掌握能力」：能力点原文取自上层那份阶段表，
+             * 「有没有证据」只按**单元级完成证据**折算（holdsCompletion：自评通过 / 自动验证通过 /
+             * 延迟复测掌握三者之一）。阅读与练习痕迹不算掌握，交付物也没有任何一项被本机比对过，
+             * 所以这一折算只报到阶段级，不逐条打勾。
+             */
+            const stage = stages?.find((item) => item.id === group.key)
+            const evidenced = group.lessons.filter((item) => holdsCompletion(lessonStates?.[item.id])).length
+            return (
+              <div className={`lp-stage${group.numbered ? ' is-numbered' : ' is-unnumbered'}`} key={group.key}>
+                <div className="lp-stage-rail" aria-hidden="true">
+                  <span className="lp-stage-num">{group.title}</span>
+                  <span className="lp-stage-hair" />
+                </div>
+                <div className="lp-stage-body">

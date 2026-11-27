@@ -1,0 +1,101 @@
+    renderPanel()
+    expect(await screen.findByText(/0 条暂存 \/ 1 条已同步/)).toBeTruthy()
+    expect(screen.getByText(/没有待写回证据/)).toBeTruthy()
+  })
+
+  it('队列读取：先如实显示加载态，失败后转成带原因的失败态，始终不谎称没有证据', async () => {
+    const read = deferred()
+    stubFetch((input) => {
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence') return read.promise
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    renderPanel()
+    // ① 这一次读还没回来 → 加载态（改前的两条断言逐字保留）。
+    expect(await screen.findByText(/正在读取暂存证据/)).toBeTruthy()
+    expect(screen.queryByText(/没有待写回证据/)).toBeNull()
+
+    // ② 读回来了、但是失败 → 必须是带原因与重试入口的失败态，
+    //    不能永久停在「正在读取暂存证据…」（挂账②）。
+    read.resolve(json({ error: '暂存文件损坏', code: 'evidence_store_corrupt' }, 500))
+    expect(await screen.findByText(/读取暂存证据失败：暂存文件损坏/)).toBeTruthy()
+    expect(screen.getByText(/evidence_store_corrupt/)).toBeTruthy()
+    expect(screen.queryByText(/正在读取暂存证据/)).toBeNull()
+
+    // ③ 失败态仍然不说成空态。
+    expect(screen.queryByText(/没有待写回证据/)).toBeNull()
+
+    // ④ 重试入口：放行后同一次读取成功，界面回到有数据。
+    const retry = screen.getByRole('button', { name: /重新读取队列/ })
+    const second = deferred()
+    stubFetch((input) => {
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence') return second.promise
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    second.resolve(json({ data: { pending: [stagedRecord()], synced: [] } }))
+    fireEvent.click(retry)
+
+    expect(await screen.findByText('Java Hello World')).toBeTruthy()
+    expect(screen.queryByText(/读取暂存证据失败/)).toBeNull()
+  })
+
+  it('队列条目按运行者与提示等级如实标注', async () => {
+    route({
+      queue: {
+        pending: [stagedRecord({ ranBy: 'ai_assistant', independent: false, hintLevel: null, topic: 'AI 演示' })],
+        synced: [],
+      },
+    })
+    renderPanel()
+    expect(await screen.findByText('AI 演示')).toBeTruthy()
+    expect(screen.getByText(/AI 助手 · 非独立/)).toBeTruthy()
+  })
+
+  it('预览被拒时显示服务端理由，且不显示预览块', async () => {
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      preview: () => json({ error: '这些证据已同步过；重复提交不会再次追加', code: 'already_synced' }, 409),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+
+    expect(await screen.findByText(/这些证据已同步过/)).toBeTruthy()
+    expect(screen.queryByText('预览（尚未写入任何文件）')).toBeNull()
+    expect(screen.queryByText('检测到第三方改动，未覆盖任何内容')).toBeNull()
+  })
+
+  it('提交失败但无冲突详情时只显示错误，不显示冲突表', async () => {
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      commit: () => json({ error: 'operationId 格式非法', code: 'invalid_operation' }, 400),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    expect(await screen.findByText(/operationId 格式非法/)).toBeTruthy()
+    expect(screen.queryByText('检测到第三方改动，未覆盖任何内容')).toBeNull()
+    expect(screen.queryByText(/已写入并复核/)).toBeNull()
+  })
+
+  it('暂存失败时不产生队列条目', async () => {
+    route({ stage: () => json({ error: '证据暂存文件损坏', code: 'evidence_store_corrupt' }, 500) })
+    renderPanel()
+    await screen.findByText(/没有待写回证据/)
+    await stageOne()
+    expect(await screen.findByText(/证据暂存文件损坏/)).toBeTruthy()
+    expect(screen.getByText(/没有待写回证据/)).toBeTruthy()
+  })
+})
+
+/**
+ * 01 号方案 §4 的 disabled 行：写回页三颗按钮的禁用条件必须被说出来。

@@ -1,0 +1,121 @@
+/**
+ * 快照仓库（LINK-04，02 号方案 §7 导入/同步 + 00 号方案 §2 职责边界）。
+ *
+ * 状态机：unconfigured → scanning → validating → ready；失败为 invalid / unavailable；
+ * 旧包仍可用时对外显示 stale。
+ *
+ * 一致性要求：
+ * - 候选包先写临时位置，schema/引用校验通过后再原子切换 current 指针；
+ * - 至少保留一个上次有效包；
+ * - 同一时刻只有一个同步任务（重复点击返回同一 job）；
+ * - list/detail/search 都从同一 bundleId 读取；载荷 hash 校验失败即视为失效，不混用新旧快照。
+ */
+import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { createAssetObjects } from './asset-objects.mjs'
+import { stableStringify } from './markdown.mjs'
+
+export const STATUS = {
+  UNCONFIGURED: 'unconfigured',
+  SCANNING: 'scanning',
+  VALIDATING: 'validating',
+  READY: 'ready',
+  INVALID: 'invalid',
+  UNAVAILABLE: 'unavailable',
+}
+
+export const KEEP_SNAPSHOTS = 3
+
+function hashPayload(bundle) {
+  return createHash('sha256').update(stableStringify(bundle), 'utf8').digest('hex')
+}
+
+export function createSnapshotStore({ dataRoot }) {
+  const baseDir = join(dataRoot, 'content')
+  const snapshotsDir = join(baseDir, 'snapshots')
+  const currentPath = join(baseDir, 'current.json')
+  const publishedDir = join(baseDir, 'published')
+  const assets = createAssetObjects(dataRoot)
+  /** 同步任务：同一时刻只允许一个；重复点击返回同一 job。 */
+  let activeJob = null
+
+  async function ensureDirs() {
+    await mkdir(snapshotsDir, { recursive: true })
+  }
+
+  function snapshotPath(bundleId) {
+    return join(snapshotsDir, `${bundleId}.json`)
+  }
+
+  async function readOptionalJson(path) {
+    try {
+      return JSON.parse(await readFile(path, 'utf8'))
+    } catch (error) {
+      if (error?.code === 'ENOENT') return null
+      throw error
+    }
+  }
+
+  /** 不存在和损坏是两种不同状态，损坏时禁止发布对账继续写入。 */
+  async function readPointer() {
+    const pointer = await readOptionalJson(currentPath)
+    if (pointer !== null && (!validBundleId(pointer.bundleId) || !/^[a-f0-9]{64}$/.test(pointer.payloadHash ?? ''))) {
+      throw new Error('current 指针格式无效')
+    }
+    return pointer
+  }
+
+  function validBundleId(id) {
+    return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(id)
+  }
+
+  async function readVerifiedBundle(pointer) {
+    if (!validBundleId(pointer?.bundleId)) throw new Error('无效的快照标识')
+    const raw = await readRecord(pointer.bundleId)
+    if (!raw || raw.bundleId !== pointer.bundleId || raw.bundle?.bundleId !== pointer.bundleId) {
+      throw new Error('快照标识与指针不一致')
+    }
+    const actual = hashPayload(raw.bundle)
+    if (actual !== raw.payloadHash || actual !== pointer.payloadHash) {
+      throw new Error('快照载荷校验失败')
+    }
+    return raw.bundle
+  }
+
+  async function readCurrent() {
+    let pointer = null
+    try {
+      pointer = await readPointer()
+      if (!pointer) return { status: STATUS.UNCONFIGURED, bundle: null, pointer }
+      const bundle = await readVerifiedBundle(pointer)
+      return { status: STATUS.READY, bundle, pointer }
+    } catch {
+      return { status: STATUS.INVALID, bundle: null, pointer, reason: '当前快照校验失败，禁止使用' }
+    }
+  }
+
+  function markerPath(bundleId) {
+    if (!validBundleId(bundleId)) throw new Error('无效的快照标识')
+    return join(publishedDir, `${bundleId}.json`)
+  }
+
+  async function markPublished(pointer) {
+    await mkdir(publishedDir, { recursive: true })
+    const path = markerPath(pointer.bundleId)
+    const temporary = `${path}.${process.pid}.tmp`
+    await writeFile(temporary, JSON.stringify(pointer), { encoding: 'utf8', flush: true })
+    await rename(temporary, path)
+  }
+
+  async function readBundle(bundleId, vaultId) {
+    const authorize = (result) => {
+      if (result.bundle && vaultId !== undefined && result.bundle.vaultId !== vaultId) {
+        return { status: 'content_bundle_retired', bundle: null }
+      }
+      return result
+    }
+    if (bundleId === null || bundleId === undefined) return authorize(await readCurrent())
+    if (!validBundleId(bundleId)) return { status: 'invalid_bundle_id', bundle: null }
+    try {

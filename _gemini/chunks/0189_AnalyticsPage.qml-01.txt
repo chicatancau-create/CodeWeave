@@ -1,0 +1,90 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
+Item {
+    property QtObject ds
+        id: analyticsPage
+        objectName: "analyticsPageRoot"
+        property string requestedDay: ""
+        onVisibleChanged: requestedDay = ""
+        Connections {
+            target: uiShell
+            function onAccountChanged() { analyticsPage.requestedDay = ""; }
+        }
+        Timer {
+            interval: 100
+            repeat: true
+            running: analyticsPage.visible && uiShell.hasActiveAccount
+            onTriggered: {
+                const day = Qt.formatDate(new Date(), "yyyy-MM-dd");
+                if (analyticsPage.requestedDay === day || uiShell.accountBusy || uiShell.contentBusy
+                        || uiShell.operationBusy || uiShell.executionBusy || uiShell.challengeHistoryBusy) return;
+                analyticsPage.requestedDay = day;
+                uiShell.refreshReviewSummary();
+            }
+        }
+
+        readonly property string todayKey: metric("todayKey", "暂无数据")
+        readonly property string weekStartKey: metric("periodStartKey", "暂无数据")
+        readonly property string period: uiShell.analysisSnapshot.todayKey === undefined
+            ? "暂无统计周期" : weekStartKey + " 至 " + todayKey
+
+        // Table geometry. The web uses table-layout:fixed with the header row
+        // setting widths: 3.2em and 7em resolve against the 12.5px header font,
+        // giving 40px and 87.5px; column 2 is 24%; columns 4 and 5 split the rest.
+        readonly property real tblW: Math.max(0, width - ds.s32 * 2)
+        // .an-specs caps at 78ch; ~7px per char at the 14px body size.
+        readonly property real specWidth: Math.min(tblW, 546)
+        readonly property real colNum: 40
+        readonly property real colName: Math.floor(tblW * 0.24)
+        readonly property real colValue: 87.5
+        readonly property real colRest: Math.max(0, (tblW - colNum - colName - colValue) / 2)
+        function metric(key, fallback) {
+            const value = uiShell.analysisSnapshot[key]
+            return value === undefined || value === null ? fallback : String(value)
+        }
+        readonly property string reviewRate: {
+            const passed = uiShell.analysisSnapshot.reviewPassed;
+            const failed = uiShell.analysisSnapshot.reviewFailed;
+            if (passed === undefined || failed === undefined) return "暂无数据";
+            const total = Number(passed) + Number(failed);
+            return total === 0 ? "样本不足" : Math.round(Number(passed) / total * 100) + "%";
+        }
+        readonly property string reviewRateDetail: {
+            const passed = uiShell.analysisSnapshot.reviewPassed;
+            const failed = uiShell.analysisSnapshot.reviewFailed;
+            if (passed === undefined || failed === undefined) return "暂无复测数据";
+            return "近 7 天复测 " + (Number(passed) + Number(failed))
+                + " 次（通过 " + passed + " · 未通过 " + failed + "）";
+        }
+
+        ScrollView {
+            objectName: "analyticsScrollView"
+            anchors.fill: parent
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            clip: true
+
+            Rectangle {
+                width: analyticsPage.width
+                implicitHeight: pageCol.implicitHeight + ds.s32 * 2
+                color: ds.page
+                border.color: ds.line
+                border.width: 1
+                radius: ds.radius
+
+                ColumnLayout {
+                    id: pageCol
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                        margins: ds.s32
+                        rightMargin: 29
+                    }
+                    spacing: 0
+
+                    // .module-heading — flush stack, no bottom margin
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 0

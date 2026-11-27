@@ -1,0 +1,117 @@
+// @vitest-environment jsdom
+/**
+ * M4 全站统一 · 正式进度与拥有者绑定契约测试（§5.2 第七行 + §10.1 + §5.4）
+ *
+ * 核心是**拥有者权限不得放宽**与**不确定必须保持不确定**：
+ * 1. 非拥有者即使数据层返回了完整进度对象，界面也不得渲染任何私人进度与证据——
+ *    只能看到原有那句未授权说明（这条把「渲染层不放宽权限」钉死）；
+ * 2. `无法确认`、`0—1 级` 原样显示，不折算成整数；解析不了的块显示原文 +「结构待适配」；
+ * 3. 环境核验日期与最近学习证据日期分行，不推导「环境齐全 = 阶段通过」；
+ * 4. 五块分区（规范主题/原文位置/核验状态/同步时间/正式事实）与 ledger 表格语义；
+ * 5. CSS 源码不变式。
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { VaultBindingPanel, VaultProgressCard } from './vault-progress-view'
+import { ContentProviderHost, type ContentContextValue } from '../content/provider'
+import type { LearningStatus, VaultProgress } from '../content/types'
+
+/* ────────────────── CSS 原文（vitest 不处理 CSS，只能读盘核对） ────────────────── */
+
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as { readFileSync: (path: string, encoding: 'utf8') => string }
+const pathSpecifier: string = 'node:path'
+const { resolve } = (await import(pathSpecifier)) as { resolve: (...parts: string[]) => string }
+const procSpecifier: string = 'node:process'
+const { cwd } = (await import(procSpecifier)) as { cwd: () => string }
+
+const cssText = readFileSync(resolve(cwd(), 'src/components/vault-progress-view.css'), 'utf8')
+const cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '')
+
+function splitTopLevel(value: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let buffer = ''
+  for (const char of value) {
+    if (char === '(' || char === '[') depth += 1
+    else if (char === ')' || char === ']') depth -= 1
+    if (char === ',' && depth === 0) {
+      out.push(buffer.trim())
+      buffer = ''
+      continue
+    }
+    buffer += char
+  }
+  if (buffer.trim()) out.push(buffer.trim())
+  return out
+}
+
+function selectorParts(css: string): string[] {
+  const parts: string[] = []
+  const pattern = /([^{}]+)\{/g
+  let match: RegExpExecArray | null = pattern.exec(css)
+  while (match) {
+    const head = (match[1] ?? '').replace(/\s+/g, ' ').trim()
+    if (!head.startsWith('@')) parts.push(...splitTopLevel(head))
+    match = pattern.exec(css)
+  }
+  return parts.filter((part) => part !== '')
+}
+
+function declarationBlock(selector: string): string {
+  const wanted = selector.replace(/\s+/g, ' ').trim()
+  const pattern = /([^{}]+)\{([^{}]*)\}/g
+  let match: RegExpExecArray | null = pattern.exec(cssText)
+  while (match) {
+    const head = (match[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\s+/g, ' ').trim()
+    if (head === wanted || splitTopLevel(head).includes(wanted)) return match[2] ?? ''
+    match = pattern.exec(cssText)
+  }
+  return ''
+}
+
+function mediaBlock(query: string): string {
+  const at = cssText.indexOf(`@media (${query})`)
+  if (at === -1) return ''
+  const open = cssText.indexOf('{', at)
+  let depth = 0
+  for (let index = open; index < cssText.length; index += 1) {
+    const char = cssText[index]
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) return cssText.slice(open + 1, index)
+    }
+  }
+  return ''
+}
+
+/* ────────────────────────────── 夹具 ────────────────────────────── */
+
+const OWNER_STATUS: LearningStatus = {
+  bound: true,
+  isOwner: true,
+  vaultId: 'ob-main',
+  vaultMatches: true,
+  publicContent: false,
+  contentAccess: { allowed: true, reason: 'owner' },
+  progressAccess: true,
+  boundAt: '2026-09-18T00:00:00.000Z',
+  recordCorrupt: false,
+  notice: '资料库已绑定拥有者。',
+}
+
+const OTHER_STATUS: LearningStatus = {
+  ...OWNER_STATUS,
+  isOwner: false,
+  contentAccess: { allowed: true, reason: 'public_content' },
+  progressAccess: false,
+  notice: '教材已放开给其他账户（正式进度仍仅拥有者可见）。',
+}
+
+const UNBOUND_STATUS: LearningStatus = { ...OWNER_STATUS, bound: false, isOwner: false, boundAt: null, progressAccess: false }
+
+const PROGRESS: VaultProgress = {
+  schemaVersion: 1,
+  status: 'partial',

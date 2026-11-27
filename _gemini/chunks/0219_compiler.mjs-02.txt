@@ -1,0 +1,106 @@
+  const liveKeys = new Set(scanned.map((topic) => topicKey(topic.path, topic.headingPath)))
+  const livePaths = new Set(scanned.map((topic) => topic.path))
+
+  const homeless = new Map()
+  for (const topic of registry) {
+    if (liveKeys.has(topicKey(topic.path, topic.headingPath))) continue
+    if (topic.status === 'retired') continue
+    const key = topic.headingPath.join(' > ')
+    if (!homeless.has(key)) homeless.set(key, [])
+    homeless.get(key).push(topic)
+  }
+
+  const plan = planIdMap({ entries: idMapEntries, registry, scanned })
+  const seqOf = (topic) => Number(/(\d+)$/.exec(topic.topicId)?.[1] ?? 0)
+  let seq = Math.max(startSeq, ...registry.map(seqOf), 0)
+  const added = []
+  const moved = []
+  const retired = []
+  const autoRetired = []
+
+  // 第 1 步：显式映射优先，且完全决定归属——不靠相似标题猜。
+  for (const { entry, topicId, target } of plan.applied) {
+    const topic = byId.get(topicId)
+    if (!target) {
+      if (topic.status !== 'retired') retired.push(topicId)
+      topic.status = 'retired'
+      topic.movedFrom = undefined
+      topic.retiredReason = `显式退役（${entry.change}）：${entry.reason}`
+      continue
+    }
+    const previousPath = topic.path
+    Object.assign(topic, {
+      path: target.path,
+      headingPath: target.headingPath,
+      title: target.title,
+      level: target.level,
+      line: target.line,
+      topicKind: target.topicKind,
+      sourceIds: target.sourceIds,
+      verificationStatus: target.verificationStatus,
+      contentHash: target.contentHash,
+      fileHash: target.fileHash,
+      isEmpty: target.isEmpty,
+      status: 'active',
+      retiredReason: undefined,
+      idMapChange: entry.change,
+      movedFrom: previousPath === target.path ? undefined : previousPath,
+    })
+    if (previousPath !== target.path) moved.push({ topicId, from: previousPath, to: target.path, via: 'id-map' })
+  }
+  const byKey = new Map(registry.map((topic) => [topicKey(topic.path, topic.headingPath), topic]))
+  const mappedTargets = new Set(plan.applied.filter((item) => item.target).map((item) => topicKey(item.target.path, item.target.headingPath)))
+
+  // 第 2 步：未被映射覆盖的主题。
+  for (const topic of scanned) {
+    const key = topicKey(topic.path, topic.headingPath)
+    const exact = byKey.get(key)
+    if (exact && !mappedTargets.has(key)) {
+      Object.assign(exact, {
+        title: topic.title,
+        level: topic.level,
+        line: topic.line,
+        headingPath: topic.headingPath,
+        topicKind: topic.topicKind,
+        sourceIds: topic.sourceIds,
+        verificationStatus: topic.verificationStatus,
+        contentHash: topic.contentHash,
+        fileHash: topic.fileHash,
+        isEmpty: topic.isEmpty,
+        status: 'active',
+        movedFrom: undefined,
+        retiredReason: undefined,
+        idMapChange: undefined,
+      })
+      continue
+    }
+    if (exact) continue // 已由显式映射落到这个位置
+
+    const candidates = (homeless.get(topic.headingPath.join(' > ')) ?? []).filter((entry) => !entry.consumed)
+    const reusable = candidates.filter((entry) => !livePaths.has(entry.path) && entry.status !== 'retired')
+    if (reusable.length === 1) {
+      const entry = reusable[0]
+      entry.consumed = true
+      const previousPath = entry.path
+      Object.assign(entry, {
+        path: topic.path,
+        title: topic.title,
+        level: topic.level,
+        line: topic.line,
+        topicKind: topic.topicKind,
+        sourceIds: topic.sourceIds,
+        verificationStatus: topic.verificationStatus,
+        contentHash: topic.contentHash,
+        fileHash: topic.fileHash,
+        isEmpty: topic.isEmpty,
+        status: 'active',
+        retiredReason: undefined,
+        movedFrom: previousPath === topic.path ? undefined : previousPath,
+      })
+      if (previousPath !== topic.path) moved.push({ topicId: entry.topicId, from: previousPath, to: topic.path, via: 'unique-heading-path' })
+      continue
+    }
+    if (reusable.length > 1) {
+      plan.problems.push({
+        code: 'id_map_ambiguous',
+        path: topic.path,

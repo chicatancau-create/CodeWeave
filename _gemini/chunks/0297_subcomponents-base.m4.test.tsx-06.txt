@@ -1,0 +1,85 @@
+          if (!lineDecl.test(decl)) continue
+          if (/:\s*0\b/.test(decl)) continue // 显式「不要边框」也是合规形态
+          lines += 1
+          // 结构线：发丝线 / 输入边界 / 焦点档；2px 标记线与状态描边允许用场景或状态档
+          expect(decl, `${file}: ${decl}`).toMatch(
+            /var\(--ds-(line-|field-|focus-|scene-glow-ring|radius-|shape-|shadow-)|2px solid var\(--ds-(scene|status)-|2px solid var\(--ds-text-|inset/,
+          )
+        }
+      }
+    }
+    expect(lines).toBeGreaterThan(12)
+    const canvas = BASE_FILES.filter((file) => (cssText.get(file) ?? '').includes('var(--ds-canvas, #000)'))
+    expect(canvas.length).toBeGreaterThanOrEqual(4) // 编辑器 / 面板 / 控制台 / 流程图各自成区
+  })
+
+  it('box-shadow 只允许发光令牌、关掉、或零模糊零扩散的标记线', () => {
+    // 科技档反转（tokens §4.5）：旧规「全站零投影」在深色画布上无法表达层级，
+    // 改为冷色外发光。约束不放松 —— 面板/抬起面消费 --ds-glow-*（含 --ds-shadow-panel，
+    // 它在 tokens 里已指向 --ds-glow-panel），状态标记线仍是零模糊零扩散的 inset。
+    const allowed =
+      /^box-shadow:\s*(none|var\(--ds-(shadow-panel|glow-(near|far|panel|inset)),\s*[^;]+\)|inset \d+px 0 0 [^;]+)$/
+    const found: string[] = []
+    for (const file of BASE_FILES) {
+      const decls = rulesOf(file)
+        .filter((rule) => !rule.insideKeyframes && !isMotionGuard(rule))
+        .flatMap((rule) => rule.block.split(';').map((item) => item.trim()))
+        .filter((item) => /^(-webkit-)?box-shadow\s*:/.test(item))
+      for (const decl of decls) {
+        found.push(`${file}: ${decl}`)
+        expect(allowed.test(decl), `${file}: ${decl}`).toBe(true)
+      }
+    }
+    expect(found.length).toBeGreaterThan(8)
+  })
+
+  it('圆角只有模板三档：0 / 50% 圆环 / 100px 药丸', () => {
+    const allowed = /^border-radius:\s*(0|var\(--ds-(shape-(none|circle|pill)|radius-(panel|control)),\s*[^;)]+\))$/
+    let count = 0
+    for (const file of BASE_FILES) {
+      const radii = rulesOf(file)
+        .filter((rule) => !rule.insideKeyframes && !isMotionGuard(rule))
+        .flatMap((rule) => rule.block.split(';').map((item) => item.trim()))
+        .filter((item) => /^border-radius\s*:/.test(item))
+      for (const decl of radii) {
+        expect(allowed.test(decl), `${file}: ${decl}`).toBe(true)
+        count += 1
+      }
+    }
+    expect(count).toBeGreaterThan(8)
+  })
+
+  it('颜色只走 --ds-*（且带兜底），字面量只剩冷白一族的遮光档', () => {
+    for (const file of BASE_FILES) {
+      const text = cssText.get(file) ?? ''
+      expect(text.match(/var\(--ds-[a-z0-9-]+\)/g) ?? [], file).toEqual([]) // 无兜底的令牌消费
+      const stripped = text.replace(/var\(--ds-[a-z0-9-]+,[^)]*\)/g, '')
+      expect(stripped.match(/#[0-9a-fA-F]{3,8}/g) ?? [], file).toEqual([]) // 十六进制只能在兜底位上
+      for (const literal of stripped.match(/rgba?\([^)]*\)/g) ?? []) {
+        // 科技档把暖白 #f4f1ee 换成冷白 #dce9fb：冷色画布上暖白显脏，且同一 α 下
+        // 冷白更暗、对比度更低，故 tokens §5 对焦点环与字段边单独重算过。这里跟着换基色，
+        // 约束不变 —— 基座文件里的裸色值仍只允许「同一族、只差 α」的一串。
+        expect(literal, `${file}: ${literal}`).toMatch(/^rgba?\(220,\s*233,\s*251,\s*0\.\d+\)$/)
+      }
+    }
+  })
+
+  it('语义状态不跟场景：状态标识全部来自 --ds-status-* / --ds-text-*，且同处必有文字', () => {
+    const statusSelectors: [string, string][] = [
+      ['runtime-controls.css', '.run-indicator.idle span'],
+      ['runtime-controls.css', '.run-indicator.running span'],
+      ['runtime-controls.css', '.run-indicator.paused span'],
+      ['runtime-controls.css', '.run-indicator.completed span'],
+      ['runtime-controls.css', '.run-indicator.done span'],
+      ['runtime-controls.css', '.run-indicator.error span'],
+      ['runtime-controls.css', '.run-indicator.running'],
+      ['console-panel.css', '.console-status.error'],
+      ['console-panel.css', '.console-error'],
+      ['variable-panel.css', '.variable-icon.blue'],
+      ['variable-panel.css', '.variable-icon.coral'],
+      ['variable-panel.css', '.variable-row.changed'],
+      // 2026-09-29 重做竖向步进器：语气标签从节点块自己的类（.flow-node.blue）搬到
+      // 「节点 + 语义档」两件套（span.flow-node-kind.tone-*）——语气说的是「这一拍会不会
+      // 出事」，与节点形状无关，也就不该挂在节点身份上。
+      ['flow-chart.css', '.flow-node-kind.tone-blue'],
+      ['flow-chart.css', '.flow-node-kind.tone-yellow'],

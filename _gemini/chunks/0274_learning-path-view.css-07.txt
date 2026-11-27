@@ -1,0 +1,18 @@
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.reduce-motion .lp-view .lp-eyebrow-rule::after {
+  animation: none;
+  display: none;
+}
+
+.reduce-motion .lp-view *,
+.reduce-motion .lp-view *::before,
+.reduce-motion .lp-view *::after {
+  animation: none;
+  transition: none;
+  scroll-behavior: auto;
+}

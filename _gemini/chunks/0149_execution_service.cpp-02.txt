@@ -1,0 +1,103 @@
+  std::atomic_bool output_limit_hit{false};
+  std::jthread monitor([&](std::stop_token token) {
+    while (!token.stop_requested()) {
+      if (cancellation && cancellation->load()) stop.store(true);
+      std::error_code error;
+      const auto size = std::filesystem::file_size(output_path, error);
+      if (!error && size > plan.output_limit) {
+        output_limit_hit.store(true);
+        stop.store(true);
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  });
+  DebuggerControlGuard control_guard(control);
+  auto process = runner.run(plan, &stop, nullptr, observer);
+  monitor.request_stop();
+  monitor.join();
+  process.output.clear();
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(output_path, error);
+  bool output_readable = false;
+  if (!error && std::filesystem::is_regular_file(status) && !std::filesystem::is_symlink(status)) {
+    std::ifstream output(output_path, std::ios::binary);
+    if (output) {
+      process.output.resize(plan.output_limit);
+      output.read(process.output.data(), static_cast<std::streamsize>(process.output.size()));
+      process.output.resize(static_cast<std::size_t>(output.gcount()));
+      if (output.peek() != std::char_traits<char>::eof()) output_limit_hit.store(true);
+      output_readable = !output.bad();
+    }
+  }
+  if (!output_readable) {
+    process.execution_output_valid = false;
+    if (!process.cancelled && !process.timed_out && process.error_code.empty())
+      process.error_code = "cpp_output_read_failed";
+  }
+  if (output_limit_hit.load()) {
+    process.cancelled = false;
+    process.output_truncated = true;
+    process.error_code = "output_limit_exceeded";
+  }
+  return process;
+}
+
+constexpr std::string_view kPythonTraceRunner = R"PY(
+import json
+import itertools
+import pathlib
+import sys
+
+source_path = pathlib.Path(sys.argv[1])
+snapshot_path = pathlib.Path(sys.argv[2])
+sys.argv = ["-"]
+sys.path[0] = str(pathlib.Path.cwd())
+source = source_path.read_text(encoding="utf-8")
+step_count = 0
+step_bytes = 0
+
+def trace(frame, event, arg):
+    global step_count, step_bytes
+    if event not in ("line", "return", "exception") or frame.f_code.co_filename != "<codeweave>":
+        return trace
+    if step_count >= 512 or step_bytes >= 262144:
+        return None
+    values = {}
+    for name, value in itertools.islice(frame.f_locals.items(), 16):
+        if type(name) is not str or name.startswith("__"):
+            continue
+        if type(value) is str:
+            rendered = repr(value[:160]) + ("..." if len(value) > 160 else "")
+        elif type(value) is int:
+            rendered = repr(value) if value.bit_length() <= 512 else "<large int>"
+        elif value is None or type(value) in (bool, float):
+            rendered = repr(value)
+        else:
+            rendered = "<object>"
+        values[name[:128]] = rendered
+    record = json.dumps({"line": frame.f_lineno, "phase": event, "variables": values}, ensure_ascii=True,
+                        separators=(",", ":")) + "\n"
+    encoded_size = len(record.encode("utf-8"))
+    if encoded_size <= 8192 and step_bytes + encoded_size <= 262144:
+        with snapshot_path.open("a", encoding="utf-8", newline="\n") as snapshots:
+            snapshots.write(record)
+        step_count += 1
+        step_bytes += encoded_size
+    return trace
+
+sys.settrace(trace)
+try:
+    exec(compile(source, "<codeweave>", "exec"), {"__name__": "__main__"})
+finally:
+    sys.settrace(None)
+)PY";
+
+template<class Consumer>
+void read_increment(const std::filesystem::path& path, std::size_t& offset,
+    std::size_t limit, Consumer consume) {
+  if (path.empty() || offset >= limit) return;
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(path, error);
+  if (error || !std::filesystem::is_regular_file(status) || std::filesystem::is_symlink(status)) return;
+  const auto size = std::filesystem::file_size(path, error);
+  if (error) return;

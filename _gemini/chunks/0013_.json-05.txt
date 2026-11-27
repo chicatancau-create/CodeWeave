@@ -1,0 +1,110 @@
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\install-diagnostic-r3",
+      "files": 240,
+      "bytes": 69197161.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\merged-main-deploy-r1",
+      "files": 235,
+      "bytes": 70049263.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\merged-main-deploy-r2",
+      "files": 235,
+      "bytes": 70057967.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\merged-main-smoke-r1",
+      "files": 15,
+      "bytes": 4467885.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\merged-main-smoke-r2",
+      "files": 7,
+      "bytes": 2067281.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\mycheck-build",
+      "files": 2765,
+      "bytes": 905183680.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\qt-release-candidate",
+      "files": 1380,
+      "bytes": 123735489.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\shots",
+      "files": 12,
+      "bytes": 2401528.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\slow-events-deploy",
+      "files": 235,
+      "bytes": 69157359.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\slow-events-deploy-r2",
+      "files": 235,
+      "bytes": 69157871.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\slow-events-deploy-r3",
+      "files": 235,
+      "bytes": 69157871.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\slow-events-deploy-r4",
+      "files": 235,
+      "bytes": 69162479.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\slow-events-deploy-r5",
+      "files": 235,
+      "bytes": 69157871.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\u1-build",
+      "files": 1556,
+      "bytes": 193390086.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\u2-build",
+      "files": 168,
+      "bytes": 68712590.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify-build",
+      "files": 154,

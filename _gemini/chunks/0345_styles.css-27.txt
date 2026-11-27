@@ -1,0 +1,89 @@
+/* M4 死规则核对：本清单里的 .language-picker / .path-lessons / .review-panel /
+   .path-continue 实测 0 引用，已从选择器列表移除（其余类名逐个仍在用，一个未动）。 */
+.workspace, .panel, .challenge-detail,
+.project-detail, .profile-card, .profile-form,
+.weekly-progress, .lesson-guide, .workspace-switcher {
+  background: var(--panel);            /* transparent：分区由细线承担 */
+  border: var(--hair) solid var(--line);
+  box-shadow: var(--ds-shadow-panel);
+}
+
+/* ---------------------------------------------------------------------------
+   卡片交互（替换原「上浮 + 描边微光」：hover 不位移、不发光，只抬描边与遮光档）
+   M4 死规则核对：.language-card / .lesson-card / .challenge-card 实测 0 引用，已移除。
+   ------------------------------------------------------------------------- */
+.stage-card, .project-card {
+  transition: border-color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease);
+}
+.stage-card:hover, .project-card:hover {
+  border-color: var(--line-strong);
+  background: var(--scrim);
+  box-shadow: var(--ds-shadow-panel);
+}
+/* 按下档：抬到二档遮光。不位移、不缩放——§5.3-A/§5.3-B 把这两类的
+   transform 显式压成 none，用位移做按下反馈会在降级路径里凭空消失，
+   所以反馈只走背景与描边这一路，两条路径下都成立。 */
+.stage-card:active, .project-card:active {
+  border-color: var(--accent-ring);
+  background: var(--scrim-raised);
+}
+.stage-card.selected, .project-card.selected {
+  border-color: var(--accent-ring);
+  background: var(--accent-soft);
+  box-shadow: var(--ds-shadow-panel);
+}
+
+/* 进度条统一：模板形态 = 1px 底线（--ds-line-raised）+ 场景色实心（site.css L447-L453）
+   M4 死规则核对：.progress-bar 实测 0 引用，已移除。 */
+.challenge-progress, .mastery-bar { background: var(--line-raised); }
+.challenge-progress span, .mastery-bar span {
+  background: var(--accent);
+  box-shadow: var(--ds-shadow-panel);
+}
+
+/* ---------------------------------------------------------------------------
+   紧凑模式
+   ------------------------------------------------------------------------- */
+.compact-mode .content-wrap { padding-top: var(--ds-space-20, 20px); padding-bottom: var(--ds-space-28, 28px); }
+.compact-mode .workspace { padding: var(--ds-space-14, 14px); }
+.compact-mode .learning-view { gap: var(--ds-space-14, 14px); }   /* M4：.path-view 已随死规则清理删除 */
+.compact-mode .welcome-row { margin-bottom: var(--ds-space-16, 16px); }
+
+/* 关键帧：blink = 运行中的持续脉冲（无限循环，两路径下真停）；
+   value-pop = 变量值变化的一次性反馈（1 次，减少动效下换成 cw-flash）。 */
+@keyframes blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+@keyframes value-pop {
+  0% { transform: scale(0.85); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===========================================================================
+   §5.3 动效与可用降级（硬判据）
+   ---------------------------------------------------------------------------
+   模板原实现**不合格**：CSS 侧只对 .dot / .boot-mark / .cue-line::after 三个
+   keyframes 写 animation:none（site.css L501-L504），JS 侧只把时间流速乘 0.35
+   （main.js L315）—— 循环照常满帧跑，只是变慢。本工程要求「真正停止持续动画」，
+   并且必须同时尊重两条路径：
+     路径 A 系统偏好      @media (prefers-reduced-motion: reduce)
+                          → tokens.css L176-L188 已把 --ds-anim-play-state 置 paused、
+                            --ds-dur-* 置 1ms；本节再补齐 animation 与位移。
+     路径 B 应用内设置    .reduce-motion —— **M4 收口：类以 documentElement（根）为准**。
+                          app.tsx 的 useEffect 用
+                          `document.documentElement.classList.toggle('reduce-motion', …)`
+                          驱动；同一个类在 `.app-shell` 上仍保留一份（壳内消费方与
+                          旧用例兼容），所以这里的每个选择器都写成「裸 `.reduce-motion`」
+                          而不是 `.app-shell.reduce-motion` / `.app-shell .reduce-motion`，
+                          类落在 html、body 还是壳节点上都成立。
+   两条路径的**令牌覆写取同一组值**（A 在 `@media` 内的 `:root`，B 在 `.reduce-motion`；
+   类挂在 html 时两者命中同一元素，值相同 ⇒ 谁后到都是同一个结果，不互相抵消）；
+   两条路径的**兜底禁动**与**一次性反馈放行**各自成文（B 的选择器比 A 多一层类，
+   优先级独立成立，不依赖 A 的媒体查询），因此：
+     —— 系统偏好开 + 应用内关 → 只命中 A，全站禁动；
+     —— 系统偏好关 + 应用内开 → 只命中 B，全站禁动；
+     —— 两开 → 两块的声明值逐字相同，重复施加结果不变；
+     —— 两关 → 两块都不命中，动画照常。
+   两条路径都**不**删一次性状态反馈：只把「带位移/缩放」的一次性变化降级为
+   纯不透明度的一步变化，并同时留下静态标识（见 .variable-row.changed）。

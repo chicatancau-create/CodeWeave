@@ -1,0 +1,51 @@
+        const auto edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", index == 4 ? wide_from_utf8(current_date()).c_str() : L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | (index == 2 ? ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL : 0), 20, top[index] + 24, 620, index == 2 ? 120 : 32, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(2000 + index)), nullptr, nullptr);
+        set_edit_limit(edit, index == 3 ? 300 : index == 4 ? 10 : 600);
+      }
+      CreateWindowW(L"BUTTON", L"保存待核验证据", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 20, 476, 190, 32, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(2010)), nullptr, nullptr);
+      CreateWindowW(L"STATIC", L"仅保存本人填写的证据，不自动标为通过或提升进度。", WS_CHILD | WS_VISIBLE, 20, 522, 630, 42, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(2011)), nullptr, nullptr);
+      if (g_ui_font) EnumChildWindows(window, [](HWND child, LPARAM font) -> BOOL { SendMessageW(child, WM_SETFONT, static_cast<WPARAM>(font), TRUE); return TRUE; }, reinterpret_cast<LPARAM>(g_ui_font));
+      return 0;
+    }
+    case WM_COMMAND:
+      if (LOWORD(wparam) == 2010) {
+        codeweave::learning::ExternalEvidenceFields fields{control_text(GetDlgItem(window, 2000)), control_text(GetDlgItem(window, 2001)), control_text(GetDlgItem(window, 2002)), control_text(GetDlgItem(window, 2003)), control_text(GetDlgItem(window, 2004))};
+        const auto generation = g_execution_generation.fetch_add(1) + 1;
+        const auto result = codeweave::learning::save_external_evidence(*g_evidence_store, g_selected_content, fields, operation_id_for("external", generation), evidence_id_for("external", generation));
+        SetWindowTextW(GetDlgItem(window, 2011), wide_from_utf8(result.message).c_str());
+        if (result.ok) { refresh_review_summary(); DestroyWindow(window); }
+      }
+      return 0;
+    case WM_CLOSE: DestroyWindow(window); return 0;
+    default: return DefWindowProcW(window, message, wparam, lparam);
+  }
+}
+
+void show_external_evidence(HWND owner) {
+  if (!g_evidence_store || g_selected_content.empty() || g_execution_policy != "external") {
+    set_status(L"请先登录，并选择需在外部环境完成的课程或挑战"); return;
+  }
+  if (g_execution_running.load()) { set_status(L"请等待当前代码运行完成"); return; }
+  WNDCLASSW klass{}; klass.hInstance = GetModuleHandleW(nullptr); klass.lpfnWndProc = evidence_window_proc;
+  klass.lpszClassName = L"CodeWeaveEvidence"; klass.hCursor = LoadCursorW(nullptr, IDC_ARROW); klass.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+  RegisterClassW(&klass);
+  const auto dialog = CreateWindowExW(WS_EX_DLGMODALFRAME, klass.lpszClassName, L"记录外部实践证据", WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT, 690, 630, owner, nullptr, klass.hInstance, nullptr);
+  if (!dialog) { set_status(L"无法打开证据窗口"); return; }
+  EnableWindow(owner, FALSE); ShowWindow(dialog, SW_SHOW);
+  MSG message{};
+  while (IsWindow(dialog) && GetMessageW(&message, nullptr, 0, 0) > 0) {
+    if (!IsDialogMessageW(dialog, &message)) { TranslateMessage(&message); DispatchMessageW(&message); }
+  }
+  EnableWindow(owner, TRUE); SetForegroundWindow(owner);
+}
+
+void manage_data(HWND window, int action) {
+  if (g_execution_running.load()) { set_status(L"请先等待执行结束或取消任务"); return; }
+  if (action == kOpenDataId) { ShellExecuteW(window, L"open", g_core.data_root().c_str(), nullptr, nullptr, SW_SHOWNORMAL); return; }
+  if (g_personal_core.is_open() && !persist_draft()) return;
+  if (action == kImportLearningId) {
+    if (!g_account_service->authenticated()) { set_status(L"请先登录对应的旧账户"); return; }
+    const auto source = choose_json(window); if (source.empty()) return;
+    const auto target = g_personal_core.data_root() / ("history-" + std::to_string(GetTickCount64()));
+    codeweave::migration::LegacyImportReport report;
+    const auto result = codeweave::migration::import_legacy_learning(source, g_account_service->current()->id, target, report);
+    set_status(wide_from_utf8(result.message));

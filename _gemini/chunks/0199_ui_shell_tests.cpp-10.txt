@@ -1,0 +1,68 @@
+        ascii_path(std::filesystem::path(argv[2])) && ascii_path(std::filesystem::temp_directory_path()))
+      assert(std::any_of(cpp_events.begin(), cpp_events.end(), [](const auto& value) {
+      const auto event = value.toMap();
+      return event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+          event.value(QStringLiteral("sourceLine")).toInt() == 5 &&
+          event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "15";
+      }));
+    shell.discardDraftChanges();
+    const auto challenge_index = shell.publishedIds().indexOf(QStringLiteral("stage-b"));
+    assert(challenge_index >= 0);
+    shell.openPublishedContent(challenge_index);
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.loadStarterCode();
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.setIndependentAttempt(true);
+    assert(shell.independentAttempt());
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy() && !shell.operationBusy(); });
+    assert(shell.executionOutput() == QStringLiteral("15\n"));
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.progressSummary().contains(QStringLiteral("1 条")));
+    assert(shell.analysisSnapshot().value(QStringLiteral("projectionStatus")).toString() == QStringLiteral("ok"));
+    assert(shell.analysisSnapshot().value(QStringLiteral("projectionLatestEvidence")).toString() == QStringLiteral("2026-10-03"));
+    assert(shell.analysisSnapshot().value(QStringLiteral("projectionMasteryCount")).toInt() == 1);
+    shell.loadHints();
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.setIndependentAttempt(true);
+    assert(!shell.independentAttempt());
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy() && !shell.operationBusy(); });
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.progressSummary().contains(QStringLiteral("1 条")));
+    assert(shell.reviewSummary().contains(QStringLiteral("独立通过 1 次")));
+    // An invalid host path is rejected before a task is queued and cannot be
+    // used as a cross-language escape hatch.
+    shell.configureExecutionTool(QStringLiteral("python"),
+        std::filesystem::path("C:/does-not-exist/python.exe"));
+    const auto python_index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+    assert(python_index >= 0);
+    shell.openPublishedContent(python_index);
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.loadStarterCode();
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.runCode();
+    assert(!shell.executionBusy());
+    assert(shell.operationStatus() == QStringLiteral("尚未配置该语言的执行工具"));
+    shell.configureExecutionTool(QStringLiteral("python"), std::filesystem::path(argv[4]));
+    shell.updateDraftCode(QStringLiteral("raise SystemExit(1)\n"));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy(); });
+    assert(shell.executionOutputError());
+    assert(shell.executionOutput() == QStringLiteral("process_exit_nonzero"));
+    assert(shell.executionTrace().value(QStringLiteral("events")).toList().last().toMap()
+        .value(QStringLiteral("kind")).toString() == QStringLiteral("failed"));
+    shell.openFreeProgram(QStringLiteral("python"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.documentId() == QStringLiteral("free-python"));
+    assert(shell.selectedContentBody().isEmpty() && shell.executionTrace().isEmpty());
+    shell.updateDraftCode(QStringLiteral("import time\nvalue = 15\nprint('live-output', flush=True)\n"
+        "time.sleep(0.5)\nvalue += 1\ntime.sleep(10)\n"));
+    shell.setExecutionTimeout(15000);
+    int output_notifications = 0;
+    const auto output_connection = QObject::connect(&shell, &UiShell::executionOutputChanged,
+        [&] { ++output_notifications; });

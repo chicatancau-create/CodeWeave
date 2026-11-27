@@ -1,0 +1,34 @@
+  std::ifstream input(marker, std::ios::binary);
+  std::string header;
+  std::getline(input, header);
+  if (header != "CodeWeave native data backup v1") return app::Result::failure("原生备份版本无效");
+  if (std::filesystem::file_size(marker, error) > 16 * 1024 * 1024 || error) {
+    return app::Result::failure("原生备份清单过大");
+  }
+  std::vector<FileReceipt> expected;
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.size() > 65536 || expected.size() >= 100000) {
+      return app::Result::failure("原生备份清单超过上限");
+    }
+    std::istringstream parser(line);
+    FileReceipt receipt;
+    if (!(parser >> receipt.size >> receipt.fingerprint >> std::quoted(receipt.relative_path)) ||
+        !(parser >> std::ws).eof()) return app::Result::failure("原生备份清单损坏");
+    expected.push_back(std::move(receipt));
+  }
+  if (!input.eof()) return app::Result::failure("读取原生备份清单失败");
+  std::vector<FileReceipt> actual;
+  if (!collect(backup, actual, true) || expected.size() != actual.size() ||
+      !std::equal(expected.begin(), expected.end(), actual.begin(),
+          [](const auto& left, const auto& right) {
+            return left.relative_path == right.relative_path && left.size == right.size &&
+                left.fingerprint == right.fingerprint;
+          })) return app::Result::failure("原生备份内容与清单不一致");
+  input.close();
+  const auto result = create_native_backup(backup, target, report);
+  return result.ok ? app::Result::success("原生备份已恢复到新目录") : result;
+}
+
+}  // namespace codeweave::backup
+

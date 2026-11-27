@@ -1,0 +1,89 @@
+                    objectName: "lessonEvidenceOpen"
+                    ds: editorPage.ds
+                    label: "课程证据"
+                    enabled: uiShell.hasSelectedContent
+                    onClicked: {
+                        hostRoot.dialogReturnFocusItem = lessonEvidenceButton;
+                        hostRoot.openEvidenceDialog();
+                    }
+                }
+                QuietButton {
+                    ds: editorPage.ds
+                    label: "重置"
+                    enabled: uiShell.hasSelectedContent
+                    onClicked: uiShell.resetDraftCode()
+                }
+            }
+
+            // .cw-pane-nav
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: ds.s16
+                Repeater {
+                    model: ["代码", "程序状态", "控制台"]
+                    delegate: ColumnLayout {
+                        required property var modelData
+                        required property int index
+                        spacing: 2
+                        QuietButton {
+                            id: paneButton
+                            ds: editorPage.ds
+                            label: (index + 1 < 10 ? "0" : "") + (index + 1) + "  " + modelData
+                            onClicked: {
+                                editorPage.activeWorkspacePane = index;
+                                if (index === 0) codeEditor.forceActiveFocus();
+                                else if (index === 1) stagePanel.forceActiveFocus();
+                                else outputArea.forceActiveFocus();
+                                editorPage.revealItem(index === 0 ? codeEditor : index === 1 ? stagePanel : outputArea);
+                            }
+                            Accessible.name: "工作台分区：" + modelData
+                        }
+                        Rectangle {
+                            width: paneButton.width
+                            height: 2
+                            color: editorPage.activeWorkspacePane === index ? ds.accent : "transparent"
+                        }
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+            Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+
+            RowLayout {
+                visible: !editorPage.codeMode
+                Layout.fillWidth: true
+                Text {
+                    Layout.fillWidth: true
+                    text: uiShell.lessonAssessment.completed
+                          ? "已完成 · " + uiShell.lessonAssessment.completionSource
+                          : uiShell.lessonAssessment.buttonLabel
+                    textFormat: Text.PlainText; wrapMode: Text.WordWrap
+                    color: uiShell.lessonAssessment.completed ? ds.success : ds.muted
+                    font.family: ds.ui; font.pixelSize: 12
+                }
+                QuietButton {
+                    id: completeLessonButton
+                    objectName: "workspaceCompleteLesson"
+                    ds: editorPage.ds
+                    label: uiShell.lessonAssessment.external ? "填写完成证据" : "标记完成"
+                    enabled: uiShell.lessonAssessment.canComplete === true
+                    onClicked: {
+                        if (uiShell.lessonAssessment.external) {
+                            hostRoot.dialogReturnFocusItem = completeLessonButton;
+                            hostRoot.openEvidenceDialog();
+                        } else uiShell.completeLesson({});
+                    }
+                }
+            }
+
+            Rectangle {
+                objectName: "workspaceLessonReader"
+                visible: !editorPage.codeMode
+                Layout.fillWidth: true
+                Layout.preferredHeight: 176
+                radius: ds.radius
+                color: ds.panel
+                border.color: ds.line
+                border.width: 1
+                ColumnLayout {
+                    anchors.fill: parent

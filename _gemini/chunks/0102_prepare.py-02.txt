@@ -1,0 +1,60 @@
+        u3_record(*context, QStringLiteral("qml-no-warnings"), comparison_warnings.isEmpty());
+        QJsonObject result;
+        result.insert(QStringLiteral("mode"), QStringLiteral("phase41-isolated-historical-comparison"));
+        result.insert(QStringLiteral("isolatedData"), true);
+        result.insert(QStringLiteral("platform"), QGuiApplication::platformName());
+        result.insert(QStringLiteral("width"), view.width());
+        result.insert(QStringLiteral("height"), view.height());
+        result.insert(QStringLiteral("devicePixelRatio"), view.devicePixelRatio());
+        result.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(comparison_warnings));
+        result.insert(QStringLiteral("checks"), context->checks);
+        result.insert(QStringLiteral("states"), comparison_states);
+        result.insert(QStringLiteral("screenshots"), context->screenshots);
+        result.insert(QStringLiteral("passed"), u3_all_passed(*context));
+        QFile output(context->output);
+        if (!output.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
+            output.write(QJsonDocument(result).toJson(QJsonDocument::Indented)) < 0 || !output.flush()) {
+          application.exit(3); return;
+        }
+        application.exit(u3_all_passed(*context) ? 0 : 3);
+        comparison_timer.stop();
+        return;
+      }
+      const auto phase = (context->step - 2) % 4;
+      if (phase == 0) shell.selectPage(pages.at(page_index));
+      if (phase == 3) {
+        const auto image = view.grabWindow();
+        const auto filename = names.at(page_index) + QStringLiteral(".png");
+        const bool saved = image.size() == QSize(1440, 900) &&
+            image.save(QDir(context->screenshot_dir).filePath(filename));
+        if (saved) context->screenshots.append(filename);
+        u3_record(*context, names.at(page_index), saved && shell.currentPage() == pages.at(page_index) &&
+            view.size() == QSize(1440, 900) && view.devicePixelRatio() == 1 &&
+            !shell.hasActiveAccount() && !shell.executionBusy());
+        QJsonObject state;
+        state.insert(QStringLiteral("page"), shell.currentPage());
+        state.insert(QStringLiteral("filename"), filename);
+        state.insert(QStringLiteral("documentId"), shell.documentId());
+        state.insert(QStringLiteral("publishedIds"), QJsonArray::fromStringList(shell.publishedIds()));
+        state.insert(QStringLiteral("language"), shell.starterLanguage());
+        state.insert(QStringLiteral("codeSha256"), QString::fromLatin1(QCryptographicHash::hash(
+            shell.draftCode().toUtf8(), QCryptographicHash::Sha256).toHex()));
+        state.insert(QStringLiteral("bodySha256"), QString::fromLatin1(QCryptographicHash::hash(
+            shell.selectedContentBody().toUtf8(), QCryptographicHash::Sha256).toHex()));
+        state.insert(QStringLiteral("hasActiveAccount"), shell.hasActiveAccount());
+        state.insert(QStringLiteral("executionOutput"), shell.executionOutput());
+        state.insert(QStringLiteral("progressSummary"), shell.progressSummary());
+        state.insert(QStringLiteral("reviewSummary"), shell.reviewSummary());
+        state.insert(QStringLiteral("reviewItems"), QJsonArray::fromVariantList(shell.reviewItems()));
+        state.insert(QStringLiteral("analysisSnapshot"), QJsonObject::fromVariantMap(shell.analysisSnapshot()));
+        comparison_states.append(state);
+      }
+      ++context->step;
+    });
+    comparison_timer.start(250);
+  }
+'''
+    source = source.replace("  // Read-only, real-window smoke.", harness + "  // Read-only, real-window smoke.", 1)
+    path.write_text(source, encoding="utf-8", newline="\n")
+assert originals[0] == originals[1], "historical harness originals differ"
+print("Prepared identical harness patch in both temporary worktrees")

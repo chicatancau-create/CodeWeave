@@ -1,0 +1,6 @@
+    if (event.kind == EventKind::Paused) summary.paused = true;
+  }
+  return summary;
+}
+
+}  // namespace codeweave::execution

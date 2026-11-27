@@ -1,0 +1,84 @@
+    expect(screen.getByLabelText('密码')).toBeTruthy()
+  })
+
+  it('场景内容仍保留在文档里（静态黑场只由 CSS 摘掉动画层，不删结构）', () => {
+    stubMatchMedia(true)
+    const { container } = render(<AuthView {...baseProps} />)
+    const stage = scene(container)
+    expect(stage.querySelectorAll('.cv-auth__scene-glow').length).toBe(1)
+    expect(stage.querySelectorAll('.cv-auth__scene-ring').length).toBe(2)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('still')
+  })
+})
+
+describe('M3-LOGIN 持续动画的三条真停路径（§5.3.3 / §5.3.4）', () => {
+  it('默认允许动画时挂 data-motion="live"，CSS 仅在该值下挂载关键帧', () => {
+    const { container } = render(<AuthView {...baseProps} />)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('live')
+  })
+
+  it('路径 A：系统 prefers-reduced-motion 命中即停，中途改变偏好也即时生效', async () => {
+    const query = stubMatchMedia(true)
+    const { container } = render(<AuthView {...baseProps} />)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('still')
+    act(() => query.set(false))
+    expect(authRoot(container).getAttribute('data-motion')).toBe('live')
+    act(() => query.set(true))
+    expect(authRoot(container).getAttribute('data-motion')).toBe('still')
+  })
+
+  it('路径 B：根元素 .reduce-motion 类（应用内“减少动效”设置）命中即停', async () => {
+    const { container } = render(<AuthView {...baseProps} />)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('live')
+    document.documentElement.classList.add('reduce-motion')
+    await waitFor(() => expect(authRoot(container).getAttribute('data-motion')).toBe('still'))
+    document.documentElement.classList.remove('reduce-motion')
+    await waitFor(() => expect(authRoot(container).getAttribute('data-motion')).toBe('live'))
+    document.body.classList.add('reduce-motion')
+    await waitFor(() => expect(authRoot(container).getAttribute('data-motion')).toBe('still'))
+  })
+
+  it('路径 B′：应用设置里的 reduceMotion 命中即停（登录页在 .app-shell 之外，拿不到那个类）', () => {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({ reduceMotion: true }))
+    const { container } = render(<AuthView {...baseProps} />)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('still')
+    // 不写回存储：登录页只读设置，不得覆盖用户的选择
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS)!).reduceMotion).toBe(true)
+  })
+
+  it('路径 C：用户可主动暂停并恢复，按钮有名称且状态可读出', () => {
+    const { container } = render(<AuthView {...baseProps} />)
+    const pause = screen.getByRole('button', { name: /暂停背景动画/ }) as HTMLButtonElement
+    expect(pause.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(pause)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('still')
+    const play = screen.getByRole('button', { name: /播放背景动画/ }) as HTMLButtonElement
+    expect(play.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(play)
+    expect(authRoot(container).getAttribute('data-motion')).toBe('live')
+  })
+
+  it('后台标签页停止动画，回到前台恢复（§5.3.4 后台暂停渲染）', () => {
+    const { container } = render(<AuthView {...baseProps} />)
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    fireEvent(document, new Event('visibilitychange'))
+    expect(authRoot(container).getAttribute('data-motion')).toBe('still')
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    fireEvent(document, new Event('visibilitychange'))
+    expect(authRoot(container).getAttribute('data-motion')).toBe('live')
+  })
+
+  it('卸载后摘掉 matchMedia / visibilitychange / MutationObserver 订阅', () => {
+    const query = stubMatchMedia(false)
+    const removeSpy = vi.spyOn(console, 'error')
+    const { unmount } = render(<AuthView {...baseProps} />)
+    unmount()
+    // 卸载后再改偏好与根类：不得再触发 setState（React 19 只告警，这里断言无新增错误）
+    query.set(true)
+    document.documentElement.classList.add('reduce-motion')
+    expect(removeSpy).not.toHaveBeenCalled()
+    document.documentElement.classList.remove('reduce-motion')
+  })
+})
+
+describe('M3-LOGIN 样式选择器与真实元素的对应（防“样式挂在空类名上”）', () => {

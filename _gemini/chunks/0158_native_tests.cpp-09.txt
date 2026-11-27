@@ -1,0 +1,69 @@
+  assert(published.source == ReviewPlanSource::Published &&
+      published.offsets == std::vector<int>({0, 1, 3, 7, 14, 30}));
+  const auto unit = effective_review_plan(std::vector<int>{7, 1, 1, -3, 30}, published.offsets);
+  assert(unit.source == ReviewPlanSource::Unit && unit.offsets == std::vector<int>({1, 7, 30}));
+  assert(add_days_key("2026-09-30", 1) == "2026-10-01");
+  assert(add_days_key("2026-12-31", 1) == "2027-01-01");
+  assert(add_days_key("2026-03-01", -1) == "2026-02-28");
+  assert(add_days_key("0000-01-01", -1).empty());
+
+  MasteryRecord record{"lesson-01", MasteryEvidenceKind::Lesson, 1, {}, "2026-09-10T00:00:00.000Z", {}, 0, {}};
+  const auto first = schedule_first_review(record, "2026-09-10", published);
+  assert(first.review_due_key == "2026-09-10" && first.review_step == 0);
+  auto advanced = first;
+  advanced.review_step = 1;
+  assert(schedule_next_review(advanced, "2026-09-10", published).review_due_key == "2026-09-11");
+  advanced.review_step = 2;
+  const auto failed = reschedule_review(advanced, "2026-09-13", published);
+  assert(failed.review_step == 1 && failed.review_due_key == "2026-09-14");
+  assert(snooze_review(failed, "2026-09-13").review_due_key == "2026-09-15");
+
+  std::vector<MasteryRecord> records{
+      {"a", MasteryEvidenceKind::Lesson, 1, {}, {}, "2026-09-10", 0, {}},
+      {"b", MasteryEvidenceKind::Lesson, 1, {}, {}, "2026-09-13", 0, {}},
+      {"c", MasteryEvidenceKind::Lesson, 1, {}, {}, "2026-09-18", 0, {}},
+      {"d", MasteryEvidenceKind::Lesson, 1, {}, {}, "2026-09-25", 0, {}},
+  };
+  const auto groups = group_reviews(records, "2026-09-13");
+  assert(groups.overdue.size() == 1 && groups.overdue[0].ref_id == "a");
+  assert(groups.today.size() == 1 && groups.today[0].ref_id == "b");
+  assert(groups.upcoming.size() == 1 && groups.upcoming[0].ref_id == "c");
+  assert(groups.next && groups.next->ref_id == "c" && groups.next_date_key == "2026-09-18");
+  assert(group_reviews(records, "not-a-date").overdue.empty());
+  std::vector<MasteryRecord> tied{
+      {"first", MasteryEvidenceKind::Lesson, 1, {}, {}, "2026-09-10", 0, {}},
+      {"second", MasteryEvidenceKind::Lesson, 1, {}, {}, "2026-09-10", 0, {}}};
+  const auto tied_groups = group_reviews(tied, "2026-09-09");
+  assert(tied_groups.upcoming.size() == 2 && tied_groups.upcoming[0].ref_id == "first" &&
+      tied_groups.upcoming[1].ref_id == "second");
+}
+
+void test_evidence_store_is_idempotent_and_atomic() {
+  Fixture fixture;
+  codeweave::learning::EvidenceStore store(fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::EvidenceRecord record{
+      "evidence-store-01", "java-01", "exercise-01", "2026-10-05", "42", "42",
+      codeweave::learning::RanBy::Learner, true, "L1", {"run-log"}, {},
+      codeweave::learning::EvidenceState::Pending, "op-store1-0123ab"};
+  bool duplicate = false;
+  assert(store.append_idempotent(record, duplicate).ok && !duplicate);
+  assert(store.append_idempotent(record, duplicate).ok && duplicate);
+  auto conflict = record;
+  conflict.evidence_id = "evidence-store-02";
+  assert(!store.append_idempotent(conflict, duplicate).ok);
+  auto same_id_different_body = record;
+  same_id_different_body.actual_result = "different";
+  assert(!store.append_idempotent(same_id_different_body, duplicate).ok);
+  std::vector<codeweave::learning::EvidenceRecord> records;
+  assert(store.read_all(records).ok && records.size() == 1 && records[0].actual_result == "42");
+}
+
+void test_learning_stores_serialize_concurrent_appends() {
+  Fixture fixture;
+  codeweave::learning::EvidenceStore evidence_store(
+      fixture.root / "data" / "runtime" / "native");
+  codeweave::learning::ProgressStore progress_store(
+      fixture.root / "data" / "runtime" / "native");
+  const auto evidence = codeweave::learning::EvidenceRecord{
+      "evidence-concurrent", "java-01", "exercise-01", "2026-10-05",
+      "42", "42", codeweave::learning::RanBy::Learner, true, "L1", {}, {},

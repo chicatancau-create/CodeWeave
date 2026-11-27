@@ -1,0 +1,146 @@
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  background: transparent;
+  border: var(--ds-line-width, 1px) solid var(--cs-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--cs-ink);
+  font-size: var(--cs-body);
+  line-height: var(--cs-leading);
+}
+
+/* 共享层的形状通道（ok 实心方 / warn 空心菱）保留；这里只补文字档的字号与颜色 */
+.cw-source.content-source-banner.ok {
+  border-color: var(--cs-hair-raised);
+  background: transparent;
+  color: var(--cs-ink);
+}
+
+.cw-source.content-source-banner.warn {
+  border-color: var(--cs-field-line);
+  background: transparent;
+  color: var(--cs-ink);
+}
+
+/* 状态点（`ok` / `warn` 的 `::before`）在 grid 容器里**也是**一个网格项：它没有
+   显式定位，而其余三块把三列全占满了，于是被自动摆到**第 2 行**——
+   `grid-template-rows` 因此算成 `44px 8.6px`，凭空多一条 8.6px 的空行。
+   给它自己的第 1 列，其余三块顺次右移一列，行数就回到 1。 */
+.cw-source.content-source-banner::before {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: center;
+}
+.cw-source .cs-banner-lead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-6, 6px) var(--ds-space-8, 8px);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  grid-row: 1;
+  grid-column: 2;
+  color: var(--cs-ink);
+  font-size: var(--cs-body);
+  line-height: 1.6;
+}
+
+/* ── specs 五块分区（site.css L286-L305） ────────────────────────────────── */
+.cw-source .cs-specs {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: var(--ds-line-width, 1px) solid var(--cs-hair);
+}
+
+.cw-source .cs-spec {
+  display: grid;
+  grid-template-columns: minmax(0, 10ch) minmax(0, 1fr);
+  gap: var(--ds-space-4, 4px) var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--cs-hair);
+  margin: 0;
+}
+
+.cw-source .cs-spec dt {
+  margin: 0;
+  font-size: var(--cs-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--cs-dim);
+}
+
+.cw-source .cs-spec dd {
+  margin: 0;
+  font-size: var(--cs-body);
+  line-height: 1.6;
+  color: var(--cs-ink);
+  opacity: var(--ds-text-emphasis, 0.82); /* L306 */
+}
+
+/* 状态条里的五块并排（宽屏）；窄屏自动回到一列，语义不降级 */
+.cw-source .cs-specs--inline {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24ch), 1fr));
+  column-gap: clamp(var(--ds-space-12, 12px), 2vw, var(--ds-space-28, 28px));
+  border-top: 0;
+}
+
+.cw-source .cs-specs--inline .cs-spec {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-space-4, 4px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px) var(--ds-space-8, 8px) 0;
+  border-bottom: 0;
+  border-left: var(--ds-line-width, 1px) solid var(--cs-hair);
+  padding-left: var(--ds-space-10, 10px);
+}
+
+/* ── 核验状态标识：固定字符徽记 + 文字 + 边框样式，三通道（§5.1 末段） ─────── */
+.cw-source .cs-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  margin-right: var(--ds-space-8, 8px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px) var(--ds-space-2, 2px) var(--ds-space-4, 4px);
+  border: var(--ds-line-width, 1px) solid var(--cs-hair);
+  border-radius: var(--ds-shape-none, 0);
+  font-size: var(--cs-meta);
+  line-height: 1.4;
+  color: var(--cs-ink);
+  vertical-align: middle;
+}
+
+.cw-source .cs-mark-glyph {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.7em;
+  height: 1.7em;
+  border: var(--ds-line-width, 1px) solid currentColor;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+/* 库内已存在：实线框；其余（含「外部未复核」「待核验」）：点线框 + 点线下划线。
+   两者都不使用场景色，也不因状态而改变文字内容。 */
+.cw-source .cs-mark--verified {
+  border-style: solid;
+}
+
+.cw-source .cs-mark--unverified {
+  border-style: dotted;
+  border-color: var(--cs-hair-raised);
+}
+
+.cw-source .cs-mark--unverified .cs-mark-text {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* ── 来源详情：标题行沿用共享 .lesson-source-head，本文件只补分区与细线 ────── */
+.cw-source.lesson-source {
+  display: grid;
+  gap: var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-14, 14px);

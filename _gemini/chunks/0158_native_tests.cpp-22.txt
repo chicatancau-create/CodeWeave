@@ -1,0 +1,73 @@
+  codeweave::execution::Session session(request);
+  assert(session.result().state == codeweave::execution::State::Created);
+  assert(!session.pause().ok);
+  assert(session.start().ok);
+  assert(session.append_output("hello").ok);
+  assert(session.pause().ok);
+  assert(session.resume().ok);
+  assert(session.cancel().ok);
+  assert(!session.complete().ok);
+  assert(session.result().error_code == "cancelled");
+
+  codeweave::execution::Session limited({"session-02", "python", "print(1)", 1000, 256});
+  assert(limited.start().ok);
+  const std::string too_large(257, 'x');
+  assert(!limited.append_output(too_large).ok);
+  assert(limited.result().output_truncated);
+  assert(limited.result().output_bytes == 256);
+  assert(!codeweave::execution::validate_request({"../escape", "cpp", "x", 1000, 256}).ok);
+  assert(!codeweave::execution::validate_request({"会话-01", "cpp", "x", 1000, 256}).ok);
+  assert(!codeweave::execution::validate_request({"session-03", "shell", "x", 1000, 256}).ok);
+  assert(!codeweave::execution::validate_request({"session-04", "cpp", "x", 10, 256}).ok);
+}
+
+void test_process_contract_requires_whitelisted_absolute_tools() {
+  const auto valid = codeweave::execution::ProcessRequest{
+      std::filesystem::path("C:/CodeWeave/tools/node.exe"), {L"--version"},
+      std::filesystem::path("C:/CodeWeave/runtime"), "javascript"};
+  assert(codeweave::execution::validate_process_request(valid).ok);
+  assert(codeweave::execution::validate_process_request({
+      std::filesystem::path("C:/CodeWeave/tools/g++.exe"), {},
+      valid.working_directory, "cpp"}).ok);
+  assert(!codeweave::execution::validate_process_request({
+      std::filesystem::path("node.exe"), {}, valid.working_directory, "javascript"}).ok);
+  assert(!codeweave::execution::validate_process_request({
+      std::filesystem::path("C:/CodeWeave/tools/powershell.exe"), {}, valid.working_directory, "javascript"}).ok);
+  assert(!codeweave::execution::validate_process_request({
+      valid.executable, {}, std::filesystem::path("runtime"), "javascript"}).ok);
+}
+
+void test_test_runner_is_not_a_production_tool() {
+  const auto test_tool = std::filesystem::path("C:/CodeWeave/tools/codeweave-cpp-runner.exe");
+  const auto working_directory = std::filesystem::path("C:/CodeWeave/runtime");
+  const auto request = codeweave::execution::ProcessRequest{
+      test_tool, {}, working_directory, "cpp"};
+  assert(codeweave::execution::validate_process_request(request).ok);
+  assert(request.executable.filename() == L"codeweave-cpp-runner.exe");
+  assert(codeweave::execution::validate_process_request({
+      std::filesystem::path("C:/CodeWeave/runtime/codeweave-program-session-01.exe"),
+      {}, working_directory, "cpp-runtime"}).ok);
+  assert(!codeweave::execution::validate_process_request({
+      std::filesystem::path("C:/CodeWeave/runtime/other.exe"),
+      {}, working_directory, "cpp-runtime"}).ok);
+}
+
+void test_execution_plan_reuses_both_request_and_process_guards() {
+  codeweave::execution::ProcessPlan plan{};
+  const auto result = codeweave::execution::build_process_plan(
+      {"session-01", "javascript", "console.log(1)", 1000, 4096},
+      std::filesystem::path("C:/CodeWeave/tools/node.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"), plan);
+  assert(result.ok);
+  assert(plan.timeout_ms == 1000 && plan.output_limit == 4096);
+  assert(plan.process.language == "javascript");
+  assert(plan.process.arguments.size() == 1 && plan.process.arguments[0] == L"-");
+  assert(codeweave::execution::build_process_plan(
+      {"session-01", "cpp", "int main() { return 0; }", 1000, 4096},
+      std::filesystem::path("C:/CodeWeave/tools/g++.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"), plan).ok);
+  assert(plan.process.arguments.size() == 9 &&
+      plan.process.arguments[0] == L"-std=c++23" &&
+      plan.process.arguments[2] == L"-g" &&
+      plan.process.arguments[8] == L"codeweave-source-session-01.cpp");
+  const std::string long_session(96, 'a');

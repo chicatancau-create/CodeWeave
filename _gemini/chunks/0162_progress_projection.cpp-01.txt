@@ -1,0 +1,122 @@
+#include "progress_projection.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <regex>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+
+namespace codeweave::learning {
+namespace {
+
+struct Section {
+  std::string number;
+  std::vector<std::string> lines;
+};
+
+std::string normalize_newlines(std::string_view text) {
+  std::string normalized;
+  normalized.reserve(text.size());
+  for (size_t index = 0; index < text.size(); ++index) {
+    if (text[index] == '\r') {
+      if (index + 1 < text.size() && text[index + 1] == '\n') ++index;
+      normalized.push_back('\n');
+    } else {
+      normalized.push_back(text[index]);
+    }
+  }
+  return normalized;
+}
+
+std::vector<std::string> lines_of(const std::string& text) {
+  std::vector<std::string> lines;
+  size_t start = 0;
+  while (start <= text.size()) {
+    const auto end = text.find('\n', start);
+    lines.emplace_back(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
+    if (end == std::string::npos) break;
+    start = end + 1;
+  }
+  return lines;
+}
+
+std::unordered_map<std::string, Section> sections_of(const std::vector<std::string>& lines) {
+  std::unordered_map<std::string, Section> sections;
+  std::string current;
+  for (const auto& line : lines) {
+    if (line.rfind("## ", 0) == 0) {
+      const auto title = line.substr(3);
+      const auto separator = title.find('.');
+      if (separator != std::string::npos && separator > 0 &&
+          std::all_of(title.begin(), title.begin() + static_cast<std::ptrdiff_t>(separator),
+              [](unsigned char character) { return std::isdigit(character) != 0; })) {
+        current = title.substr(0, separator);
+        sections[current] = Section{current, {}};
+        continue;
+      }
+    }
+    if (!current.empty()) sections[current].lines.push_back(line);
+  }
+  return sections;
+}
+
+std::vector<std::string> table_row(const std::string& line) {
+  const auto first = line.find('|');
+  if (first == std::string::npos || line.substr(0, first).find_first_not_of(" \t") != std::string::npos) return {};
+  std::vector<std::string> cells;
+  std::string current;
+  bool escaped = false;
+  for (size_t index = first; index < line.size(); ++index) {
+    const char character = line[index];
+    if (escaped) {
+      current.push_back(character);
+      escaped = false;
+    } else if (character == '\\' && index + 1 < line.size() && line[index + 1] == '|') {
+      escaped = true;
+    } else if (character == '|') {
+      cells.push_back(current);
+      current.clear();
+    } else {
+      current.push_back(character);
+    }
+  }
+  if (escaped) current.push_back('\\');
+  if (!current.empty()) cells.push_back(current);
+  for (auto& cell : cells) {
+    const auto begin = cell.find_first_not_of(" \t");
+    const auto end = cell.find_last_not_of(" \t");
+    cell = begin == std::string::npos ? "" : cell.substr(begin, end - begin + 1);
+  }
+  if (!cells.empty() && cells.front().empty()) cells.erase(cells.begin());
+  if (!cells.empty() && cells.back().empty()) cells.pop_back();
+  return cells;
+}
+
+bool separator_row(const std::vector<std::string>& cells) {
+  if (cells.empty()) return false;
+  return std::all_of(cells.begin(), cells.end(), [](const std::string& cell) {
+    const auto compact = [&cell] {
+      std::string value;
+      for (const auto character : cell) {
+        if (character != ' ' && character != '\t') value.push_back(character);
+      }
+      return value;
+    }();
+    if (compact.size() < 2) return false;
+    return std::all_of(compact.begin(), compact.end(), [](char character) {
+      return character == '-' || character == ':';
+    });
+  });
+}
+
+std::vector<std::vector<std::string>> first_table(const Section& section) {
+  std::vector<std::vector<std::string>> rows;
+  bool started = false;
+  for (const auto& line : section.lines) {
+    const auto row = table_row(line);
+    if (row.empty()) {
+      if (started) break;
+      continue;
+    }
+    started = true;

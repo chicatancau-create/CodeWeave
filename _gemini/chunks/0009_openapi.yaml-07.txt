@@ -1,0 +1,113 @@
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 250, default: 100 } }
+      responses:
+        '200': { description: 包含 events、cursor、hasMore、syncEpoch }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+        '409': { description: sync_cursor_expired }
+
+  /api/sync/push:
+    post:
+      tags: [sync]
+      summary: 幂等推送单事件
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string }, description: 与 changeId 一致 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LearningChange' }
+      responses:
+        '200': { description: accepted 与 sequence，或 conflict 与 conflictId }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+        '409': { description: idempotency_conflict / unsupported_sync_schema / unsupported_sync_fields }
+
+  /api/sync/conflicts:
+    get:
+      tags: [sync]
+      summary: 读取本账户保留的冲突双方
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: 本账户的冲突记录 }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+
+  /api/learning/status:
+    get:
+      tags: [learning]
+      summary: 拥有者绑定与可见范围状态
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 读 10s
+      x-sensitive-fields: 返回 vaultId（资料库标识），不返回绝对路径
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bound, isOwner]
+                properties:
+                  bound: { type: boolean }
+                  isOwner: { type: boolean }
+                  vaultId: { type: string }
+                  publicContent: { type: boolean }
+        '401': { description: 学习事实需要登录后访问（unauthorized） }
+
+  /api/learning/owner:
+    post:
+      tags: [learning]
+      summary: 把自己绑定为该资料库的拥有者
+      description: "必须显式 `confirm: true`；服务端绝不按昵称或邮箱猜测拥有者。"
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 已绑定同一账户时幂等返回现有绑定
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 只写绑定关系，不复制资料库内容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [confirm], properties: { confirm: { const: true } } }
+      responses:
+        '200': { description: 绑定结果, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '400': { description: confirmation_required / bind_failed }
+        '401': { description: unauthorized }
+        '409': { description: owner_taken }
+    delete:
+      tags: [learning]
+      summary: 解除拥有者绑定
+      security: [{ sessionCookie: [] }]
+      x-request-body: 无请求体（该路径在 BODYLESS_WRITE_PATHS 里，不要求 application/json）
+      x-idempotency: 幂等（未绑定时再解仍成功或按既有码返回）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 不解散任何学习事实
+      responses:
+        '200': { description: 解绑结果 }
+        '403': { description: unbind_failed / forbidden }
+
+  /api/learning/owner/visibility:
+    patch:
+      tags: [learning]
+      summary: 切换教材对其它账户的可见性
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等（同一 boolean 重复提交结果一致）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 只改标志位
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [publicContent]
+              properties: { publicContent: { type: boolean } }
+      responses:
+        '200': { description: 最新可见性 }

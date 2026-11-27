@@ -1,0 +1,61 @@
+/* ─────────────── 6. 组件渲染契约：改版没吃掉结构、文案与回调 ─────────────── */
+
+/**
+ * 步进器夹具：节点骨架 + 每一拍的事件。第 1/2 拍已走到（带变量快照），
+ * 第 3 拍是「当前」拍，第 4/5 拍还没到（ordinal 缺席 → 渲染成 `--`）。
+ */
+const flowSteps: FlowStep[] = [
+  { id: 'start', label: '开始', kind: 'start', tone: 'purple', line: 1, ordinal: 1, event: { id: 'e1', type: 'start', line: 1, label: '开始执行', detail: '', variables: [], nodeId: 'start' } },
+  { id: 'call', label: '调用 add', kind: 'process', tone: 'blue', line: 4, ordinal: 2, event: { id: 'e2', type: 'assign', line: 4, label: 'total = add(1, 2, 3)', detail: '', variables: [{ name: 'total', value: '6', type: 'int', color: 'blue' }], nodeId: 'call' } },
+  { id: 'check', label: '是否三参数', kind: 'decision', tone: 'yellow', line: 2, ordinal: 3, event: { id: 'e3', type: 'condition', line: 2, label: 'if nargs == 3', detail: '三个参数都给了', variables: [{ name: 'nargs', value: '3', type: 'int', color: 'blue' }], nodeId: 'check' } },
+  { id: 'update', label: '更新计数', kind: 'process', tone: 'green', line: 3 },
+  { id: 'end', label: '结束', kind: 'end', tone: 'green' },
+]
+const variables: VariableValue[] = [
+  { name: 'result', value: '5', type: 'int', color: 'blue' },
+  { name: 'table', value: '{"k": [1, 2, 3, 4, 5, 6, 7, 8, 9]}', type: 'dict', color: 'coral' },
+]
+
+describe('M4 子组件基座 · 渲染契约', () => {
+  afterEach(() => cleanup())
+
+  it('CodeEditor：三层齐备，输入与光标位置仍由组件按用户字号计算', async () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <CodeEditor code={'def add(a, b):\n    return a + b'} language='python' languageLabel='Python' runtime='教学模拟器' activeLine={2} onChange={onChange} />,
+    )
+    expect(container.querySelectorAll('div.line-numbers span')).toHaveLength(2)
+    expect(container.querySelector('div.line-numbers span.active')?.textContent).toBe('02')
+    expect(container.querySelector('pre.code-tokens')?.getAttribute('aria-hidden')).toBe('true')
+    const highlightStyle = (container.querySelector('div.code-highlight') as HTMLElement).getAttribute('style') ?? ''
+    expect(highlightStyle).toContain('var(--editor-font-size)') // 基座不接管用户字号
+    expect(highlightStyle).toContain('var(--line-height-editor)')
+    const area = container.querySelector('textarea') as HTMLTextAreaElement
+    fireEvent.change(area, { target: { value: 'x = 1' } })
+    expect(onChange).toHaveBeenLastCalledWith('x = 1')
+    expect(container.querySelector('span.editor-actions button')).toBeTruthy()
+    // 滚动同步：transform 由组件持有（行号层与高亮层跟随 textarea 滚动）
+    fireEvent.scroll(area, { target: { scrollTop: 40, scrollLeft: 12 } })
+    await waitFor(() => expect(((container.querySelector('div.line-numbers-inner') as HTMLElement).getAttribute('style') ?? '')).toContain('-40px'))
+    expect(((container.querySelector('pre.code-tokens') as HTMLElement).getAttribute('style') ?? '')).toContain('-12px')
+  })
+
+  it('RuntimeControls：五种状态都有文字通道，三个按钮的调用不改判定', () => {
+    const onRun = vi.fn()
+    const onStep = vi.fn()
+    const onReset = vi.fn()
+    for (const status of ['idle', 'running', 'paused', 'completed', 'error'] as const) {
+      const { container, unmount } = render(<RuntimeControls status={status} onRun={onRun} onStep={onStep} onReset={onReset} />)
+      expect(container.querySelector(`div.run-indicator.${status}`), status).toBeTruthy()
+      expect(container.querySelector('div.run-copy strong')?.textContent, status).not.toBe('')
+      unmount()
+    }
+    const { container } = render(<RuntimeControls status='idle' onRun={onRun} onStep={onStep} onReset={onReset} />)
+    fireEvent.click(container.querySelector('button.run-button') as HTMLButtonElement)
+    fireEvent.click(container.querySelector('button.step-button') as HTMLButtonElement)
+    fireEvent.click(container.querySelector('button.reset-button') as HTMLButtonElement)
+    expect([onRun, onStep, onReset].map((fn) => fn.mock.calls.length)).toEqual([1, 1, 1])
+  })
+
+  it('ConsolePanel：空态 / stdout / 错误三态都带文字（错误不只靠颜色）', () => {
+    const empty = render(<ConsolePanel output={[]} />)

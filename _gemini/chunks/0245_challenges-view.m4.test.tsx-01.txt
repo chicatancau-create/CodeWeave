@@ -1,0 +1,115 @@
+// @vitest-environment jsdom
+/**
+ * M4 全站统一 · 挑战页契约测试（01 号方案 §3.4 挑战与项目 + §2.2 令牌 + §5 无障碍 + §8 验收清单）
+ *
+ * 覆盖四件事：
+ * 1. 编号列表：序号是**渲染进 DOM 的真实文本**并进入可访问名称，CSS 侧不做 counter 注入；
+ * 2. 轻边界信息区 + 语义状态双通道：状态恒定 --ds-status-*，不借用场景点缀色；
+ * 3. 提交与草稿分成两个信息区（虚线/实线 + 编号 + 文字三通道），且提交入口只在草稿区；
+ * 4. 改版没碰到的行为：筛选、分页、键盘标签页、视图与草稿恢复、证据提交入口。
+ *
+ * 断言风格与 M3 代表页一致（docs/01-应用前端与交互重构方案.md §3）：jsdom 不做层叠与布局，
+ * 视觉不变式按 CSS 源码文本核对；色彩对比与触控尺寸由 CSS 不变式 + 浏览器复核承担。
+ * 本文件只读组件与样式；行为基线由 challenges-view.test.tsx / .browse / .persistence 三个
+ * 文件承担（43 条测试）。
+ */
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ChallengesView } from './challenges-view'
+import { challenges } from '../data/challenges'
+import type { ChallengeRecord } from '../types/lesson'
+
+/**
+ * 组件样式表原文。
+ * vitest 默认不处理 CSS，`?raw` 会被替换成空模块，所以只能从磁盘读原文核对 ——
+ * 与 learning-path-view.m3.test.tsx 同一手法：变量说明符动态 import，不用 `process`。
+ * 下方 length 断言是防空模块的守卫：读不到原文时全部 CSS 断言会失败而不是假绿。
+ */
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
+const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+const cssPath = `${moduleDir}/challenges-view.css`
+const tsxPath = `${moduleDir}/challenges-view.tsx`
+const cssText = readFileSync(cssPath, 'utf8')
+const tsxText = readFileSync(tsxPath, 'utf8')
+const cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '')
+
+const normalize = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+/**
+ * 取某个选择器的声明体（支持同一规则里的逗号选择器列表）。
+ * 顺带剥掉媒体块收尾的 `}` —— 否则紧跟在 @media 之后的那条规则选择器会被污染。
+ */
+function rulesFor(selector: string): string[] {
+  const wanted = normalize(selector)
+  const bodies: string[] = []
+  const pattern = /([^{}]+)\{([^{}]*)\}/g
+  let match: RegExpExecArray | null = pattern.exec(cssText)
+  while (match) {
+    const selText = (match[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/}/g, ' ')
+    const parts = selText.split(',').map((part) => normalize(part))
+    if (normalize(selText) === wanted || parts.some((part) => part === wanted)) bodies.push(match[2] ?? '')
+    match = pattern.exec(cssText)
+  }
+  return bodies
+}
+
+/** 找不到规则时返回哨兵串，避免「断言空字符串通过」的假绿。 */
+function ruleBody(selector: string): string {
+  const bodies = rulesFor(selector)
+  if (bodies.length === 0) return `__NO_RULE_FOR__${selector}__`
+  return bodies[0]!
+}
+
+/** 取 @media 查询内部全文（支持嵌套花括号）。 */
+function mediaBlock(query: string): string {
+  const at = cssText.indexOf(`@media (${query})`)
+  if (at === -1) return ''
+  const open = cssText.indexOf('{', at)
+  let depth = 0
+  for (let index = open; index < cssText.length; index += 1) {
+    const char = cssText[index]
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) return cssText.slice(open + 1, index)
+    }
+  }
+  return ''
+}
+
+/** 文件内所有选择器（去掉 at-rules 与媒体块残留括号；逗号只在括号外切分）。 */
+function allSelectors(): string[] {
+  const splitTopLevel = (value: string): string[] => {
+    const parts: string[] = []
+    let depth = 0
+    let current = ''
+    for (const char of value) {
+      if (char === '(' || char === '[') depth += 1
+      else if (char === ')' || char === ']') depth -= 1
+      if (char === ',' && depth === 0) {
+        parts.push(current)
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    parts.push(current)
+    return parts
+  }
+  return [...cssCode.matchAll(/([^{}]+)\{/g)]
+    .map((match) => normalize((match[1] ?? '').replace(/}/g, ' ')))
+    .filter((selector) => selector.length > 0 && !selector.startsWith('@'))
+    .flatMap((selector) => splitTopLevel(selector).map((part) => normalize(part)))
+}
+
+const renderView = (props: { progress?: Record<string, ChallengeRecord>; scope?: string } = {}) =>
+  render(
+    <ChallengesView
+      challenges={challenges}
+      progress={props.progress ?? {}}
+      unitsByStage={{}}
+      onOpenUnit={vi.fn()}

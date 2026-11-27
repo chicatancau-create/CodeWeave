@@ -1,0 +1,75 @@
+                                implicitHeight: 32
+                                label: "复制"
+                                enabled: false
+                            }
+                            QuietButton {
+                                ds: draftsPage.ds
+                                implicitHeight: 32
+                                label: "删除"
+                                enabled: false
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: uiShell.hasSelectedContent
+                            spacing: ds.s6
+                            Text { text: "名称"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            ShellField {
+                                ds: draftsPage.ds
+                                objectName: "draftNameField"
+                                Layout.fillWidth: true
+                                text: draftsPage.draftName
+                                readOnly: true
+                                Accessible.name: "草稿名称（课程名称，只读）"
+                            }
+                            Text { text: "说明（来自课程，只读）"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            TextArea {
+                                objectName: "draftDescription"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 58
+                                text: draftsPage.draftDescription
+                                placeholderText: "暂无草稿说明"
+                                placeholderTextColor: ds.faint
+                                readOnly: true
+                                wrapMode: TextArea.Wrap
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 12
+                                padding: ds.s8
+                                background: Rectangle { color: ds.inset; border.color: ds.line; radius: ds.radiusSm }
+                                Accessible.name: "草稿说明（课程说明，只读）"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: fileCol.implicitHeight + ds.s24
+                            objectName: "draftFileList"
+                            color: ds.page
+                            border.color: ds.line
+                            border.width: 1
+                            ColumnLayout {
+                                id: fileCol
+                                anchors.fill: parent
+                                anchors.margins: ds.s12
+                                spacing: ds.s6
+                                Text { text: "文件"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { objectName: "draftFileName"; Layout.fillWidth: true; text: draftsPage.draftFileName; color: ds.muted; font.family: ds.mono; font.pixelSize: 12 }
+                                    Text { objectName: "draftLineCount"; text: draftsPage.draftLineCount + " 行"; color: ds.faint; font.family: ds.mono; font.pixelSize: 12 }
+                                }
+                            }
+                        }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+
+                        // .project-zone--draft
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s10
+                            Text {
+                                text: "01"
+                                color: ds.accent
+                                font.family: ds.ui

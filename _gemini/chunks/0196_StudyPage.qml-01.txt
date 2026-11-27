@@ -1,0 +1,87 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import QtQuick.Shapes
+import QtQuick.Effects
+import "../components"
+import "../components/LearningCatalog.js" as Catalog
+
+Item {
+    property var hostRoot
+    property QtObject ds
+        id: studyPage
+        objectName: "studyPageRoot"
+        property int subjectFilter: -1
+        property bool showDetails: false
+        property bool evidenceRefreshPending: false
+        readonly property var allLessons: uiShell.lessonMeta.map(function(lesson, index) {
+            return Object.assign({}, lesson, { originalIndex: index });
+        })
+        readonly property var subjectLessons: allLessons.filter(function(lesson) {
+            return subjectFilter < 0 || Catalog.subjectLabel(lesson) === subjectOptions[subjectFilter];
+        })
+        readonly property int completedLessonCount: uiShell.lessonEvidenceReady ? subjectLessons.filter(function(lesson) {
+            return Catalog.holdsCompletion(uiShell.lessonEvidenceStates[lesson.id]);
+        }).length : 0
+        readonly property var filteredLessons: {
+            if (hostRoot.lessonStatusFilter === 0) return subjectLessons;
+            if (!uiShell.lessonEvidenceReady) return [];
+            return subjectLessons.filter(function(lesson) {
+                return Catalog.holdsCompletion(uiShell.lessonEvidenceStates[lesson.id]) === (hostRoot.lessonStatusFilter === 2);
+            });
+        }
+        readonly property var subjectOptions: {
+            const seen = [];
+            const lessons = uiShell.lessonMeta;
+            for (let i = 0; i < lessons.length; ++i) {
+                const label = Catalog.subjectLabel(lessons[i]);
+                if (label !== "" && seen.indexOf(label) < 0) seen.push(label);
+            }
+            return seen;
+        }
+        function selectCourse(index) {
+            if (index >= 0 && index < uiShell.lessonMeta.length) hostRoot.selectedLessonIndex = index;
+        }
+        function selectSubject(index) {
+            subjectFilter = index >= 0 && index < subjectOptions.length ? index : -1;
+            const current = subjectLessons.find(function(lesson) { return lesson.originalIndex === hostRoot.safeSelectedLessonIndex; });
+            if (!current && subjectLessons.length > 0) selectCourse(subjectLessons[0].originalIndex);
+        }
+        function refreshEvidence() {
+            evidenceRefreshPending = visible && uiShell.hasActiveAccount;
+            flushEvidenceRefresh();
+        }
+        function flushEvidenceRefresh() {
+            if (evidenceRefreshPending && visible && uiShell.hasActiveAccount
+                    && !uiShell.operationBusy && !uiShell.accountBusy && !uiShell.executionBusy) {
+                evidenceRefreshPending = false;
+                uiShell.refreshReviewSummary();
+            }
+        }
+        Component.onCompleted: refreshEvidence()
+        onVisibleChanged: { if (visible) refreshEvidence(); }
+        Connections {
+            target: uiShell
+            function onAccountChanged() { hostRoot.lessonStatusFilter = 0; studyPage.refreshEvidence(); }
+            function onOperationBusyChanged() { studyPage.flushEvidenceRefresh(); }
+            function onAccountBusyChanged() { studyPage.flushEvidenceRefresh(); }
+            function onExecutionBusyChanged() { studyPage.flushEvidenceRefresh(); }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            // .content-source-banner — source-status strip (not dismissible)
+            Rectangle {
+                objectName: "learningSourceBanner"
+                Layout.fillWidth: true
+                Layout.bottomMargin: ds.s8
+                implicitHeight: 44
+                radius: ds.radiusSm
+                color: ds.bannerBg
+                border.color: ds.line
+                border.width: 1
+                RowLayout {
+                    anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
+                    spacing: ds.s12

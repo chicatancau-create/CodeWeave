@@ -1,0 +1,69 @@
+#include "ui_shell.hpp"
+#include "external_evidence_service.hpp"
+#include "output_comparison.hpp"
+
+#include <QDateTime>
+#include <QMetaObject>
+#include <QUuid>
+
+QVariantMap UiShell::lessonAssessment() const {
+  const auto states = lesson_evidence_states_.value(selected_content_id_).toMap();
+  const bool completed = states.value("autoVerifiedPassed").toBool() ||
+      states.value("selfDeclaredPassed").toBool() || states.value("reviewMastered").toBool();
+  const bool ready = hasSelectedContent() && !selected_content_id_.startsWith("free-") &&
+      lesson_contract_ready_ && !content_busy_;
+  const bool external = ready && execution_policy_ == "external";
+  const bool local = ready && execution_policy_ == "native" && !starter_code_.trimmed().isEmpty();
+  const bool ran = local && lesson_run_succeeded_ && lesson_run_revision_ == draft_revision_;
+  const bool contract = local && !lesson_expected_output_.isEmpty();
+  QVariantList cases, extras;
+  bool verified = false;
+  int matched = 0;
+  if (contract) {
+    std::vector<std::string> expected;
+    for (const auto& line : lesson_expected_output_) expected.push_back(line.toUtf8().toStdString());
+    const auto judgement = codeweave::learning::judge_output(expected,
+        ran ? execution_output_.toUtf8().toStdString() : std::string{});
+    verified = ran && judgement.passed;
+    for (const auto& item : judgement.cases) {
+      if (item.matched) ++matched;
+      cases.append(QVariantMap{{"expected", QString::fromUtf8(item.expected)},
+          {"matched", item.matched}, {"reason", QString::fromUtf8(item.reason)}});
+    }
+    for (const auto& line : judgement.extra_lines) extras.append(QString::fromUtf8(line));
+  }
+  const bool available = ready && lesson_evidence_ready_ && hasActiveAccount() && !closing_ && !account_busy_ &&
+      !operation_busy_ && !execution_busy_ && !draft_saving_ && !draft_persistence_blocked_ &&
+      !challenge_run_busy_ && !challenge_history_busy_;
+  QString label = QStringLiteral("标记完成（自行声明）");
+  if (!hasActiveAccount()) label = QStringLiteral("登录后可记录学习证据");
+  else if (!ready) label = QStringLiteral("课程契约未就绪");
+  else if (!lesson_evidence_ready_) label = QStringLiteral("学习证据尚未读取");
+  else if (completed) label = QStringLiteral("本单元已完成");
+  else if (local && !ran) label = QStringLiteral("运行成功后可标记完成");
+  else if (contract && !verified) label = QStringLiteral("验收点 %1/%2 未全中").arg(matched).arg(cases.size());
+  else if (verified) label = QStringLiteral("标记完成（自动验证）");
+  QString source;
+  if (states.value("autoVerifiedPassed").toBool()) source = QStringLiteral("该题验收点自动比对通过");
+  else if (states.value("selfDeclaredPassed").toBool()) source = QStringLiteral("学习者自行声明，系统未比对输出");
+  else if (states.value("reviewMastered").toBool()) source = QStringLiteral("到期复测判为掌握，本课没有逐题验收记录");
+  return {{"ready", ready}, {"external", external}, {"local", local}, {"ran", ran},
+      {"completed", completed}, {"completionSource", source}, {"buttonLabel", label},
+      {"canComplete", available && !completed && (!local || ran) && (!contract || verified)},
+      {"canMarkRead", available && !selected_content_body_.isEmpty() && !states.value("read").toBool()},
+      {"autoVerified", verified}, {"cases", cases}, {"extraLines", extras}};
+}
+
+codeweave::app::Result UiShell::recordLessonFact(const std::filesystem::path& root,
+    const QString& document, const QString& signal, const QString& note,
+    bool verified, bool independent, bool hintsViewed) {
+  using namespace codeweave::learning;
+  MasteryStore store(root);
+  std::vector<MasteryEvidence> previous;
+  const auto read = store.read_all(previous);
+  if (!read.ok) return read;
+  const bool completion = signal == "completion";
+  const auto prefix = signal == "read" ? QStringLiteral("学习信号：已阅读 · ")
+      : QStringLiteral("学习信号：已练习 · ");
+  for (const auto& item : previous) {
+    if (item.ref_id != document.toStdString()) continue;

@@ -1,0 +1,108 @@
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_vault_mismatch }
+        '410': { description: content_bundle_retired }
+
+  /api/content/sync:
+    post:
+      tags: [content]
+      summary: 请求重建内容快照（异步作业）
+      description: >-
+        需要 publisher 或 owner 权限。dryRun 必须显式传入，真实发布必须引用已完成的 dry-run 作业。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: "同一账户、资料库、幂等键和请求复用原作业。相同键用于不同请求返回 409。"
+      x-pagination: 不适用
+      x-timeout: 写 10s（只负责排队，不同步等待结果）
+      x-sensitive-fields: 不返回资料库路径；作业结果只含计数与缺口统计
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 12, maxLength: 128 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dryRun]
+              properties:
+                dryRun: { type: boolean }
+                approvalJobId: { type: string }
+      responses:
+        '202':
+          description: 已排队
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobId, reused, status, dryRun]
+                properties:
+                  jobId: { type: string }
+                  reused: { type: boolean }
+                  status: { type: string }
+                  dryRun: { type: boolean }
+        '400': { description: invalid_json }
+        '403': { description: publisher_required }
+        '409': { description: idempotency_conflict / approval_required / publish_busy }
+        '413': { description: body_too_large }
+        '429': { description: sync_rate_limited }
+        '503': { description: vault_unavailable }
+
+  /api/content/sync/{jobId}:
+    get:
+      tags: [content]
+      summary: 查询同步作业状态
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；作业终态持久保存
+      x-timeout: 读 10s
+      x-sensitive-fields: summary 只含计数与阻断条数
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 作业状态与报告摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobId, status]
+                properties:
+                  jobId: { type: string }
+                  status: { type: string }
+                  startedAt: { type: [string, 'null'] }
+                  finishedAt: { type: [string, 'null'] }
+                  published: { type: boolean }
+                  error:
+                    type: [object, 'null']
+                    properties:
+                      code: { type: string }
+                      message: { type: string }
+                  summary:
+                    description: 报告未生成时为 null
+                    type: [object, 'null']
+                    properties:
+                      bundleId: { type: string }
+                      counts: { type: object, additionalProperties: true }
+                      blockingCount: { type: integer }
+                      gaps:
+                        type: object
+                        properties:
+                          emptyTopics: { type: integer }
+                          uncoveredTopics: { type: integer }
+                          publishedWithoutExercise: { type: integer }
+                          unmappedLegacy: { type: integer }
+        '404': { description: job_not_found }
+
+  # =========================================================================
+  /api/sync/state:
+    get:
+      tags: [sync]
+      summary: 查询本账户同步范围、日志代次和冲突计数
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200': { description: 包含 serviceInstance、vaultId、accountId、syncEpoch、cursor、conflicts }
+        '401': { description: unauthorized }
+        '403': { description: sync_forbidden / owner_vault_mismatch }
+
+  /api/sync/pull:
+    get:
+      tags: [sync]
+      summary: 按服务端序号拉取本账户的日志或增量

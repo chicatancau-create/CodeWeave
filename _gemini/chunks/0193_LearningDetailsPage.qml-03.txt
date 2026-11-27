@@ -1,0 +1,71 @@
+                                Text {
+                                    Layout.fillWidth: true
+                                    objectName: "detailSubjectMeta-" + subjectButton.index
+                                    text: subjectButton.summary.count + " 个单元 · "
+                                        + (subjectButton.summary.hasVault ? "含资料库正式内容" : "未含资料库内容")
+                                        + (subjectButton.summary.executable ? "" : " · 不可自动执行")
+                                    color: ds.muted; font.family: ds.ui; font.pixelSize: 11; wrapMode: Text.WordWrap
+                                }
+                            }
+                            Text { visible: subjectButton.index === details.subjectIndex; text: "当前"; color: ds.accent; font.family: ds.ui; font.pixelSize: 11 }
+                        }
+                    }
+                }
+            }
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
+            Text { text: "02  课程清单 · S0—S9 编号阶段"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+            Repeater {
+                model: details.groups
+                delegate: RowLayout {
+                    id: stageGroup
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: ds.s24
+                    ColumnLayout {
+                        objectName: "detailStageRail-" + stageGroup.modelData.key
+                        Layout.preferredWidth: details.width < 900 ? 56 : 80
+                        Layout.fillHeight: true
+                        spacing: ds.s8
+                        Text {
+                            text: stageGroup.modelData.numbered ? stageGroup.modelData.key : "—"
+                            color: stageGroup.modelData.numbered ? ds.accent : ds.faint
+                            font.family: ds.mono
+                            font.pixelSize: 32
+                            font.weight: Font.Light
+                        }
+                        Rectangle { Layout.fillHeight: true; implicitWidth: 1; implicitHeight: 24; color: ds.lineRaised }
+                    }
+                    ColumnLayout {
+                        objectName: "detailStageBody-" + stageGroup.modelData.key
+                        Layout.fillWidth: true
+                        spacing: ds.s10
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.title + " · " + modelData.lessons.length + " 个单元"
+                            color: ds.accent
+                            font.family: ds.mono
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: stageGroup.modelData.numbered
+                            text: "阶段验收与交付物：当前目录未提供该编号阶段的信息。"
+                            color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: stageGroup.modelData.lessons.length === 0
+                            text: details.publishedStageCount === 0
+                                ? "当前目录未提供该编号阶段的映射单元。"
+                                : "当前科目在本阶段没有已发布单元。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                        }
+                        RowLayout {
+                            objectName: "detailLedgerHeader-" + stageGroup.modelData.key
+                            Layout.fillWidth: true
+                            Layout.leftMargin: ds.s12
+                            Layout.rightMargin: ds.s12

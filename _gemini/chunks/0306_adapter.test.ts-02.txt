@@ -1,0 +1,76 @@
+    const legacy = adapted.lessons.filter((lesson) => lesson.legacy)
+    expect(legacy.length).toBeGreaterThan(0)
+    expect(legacy.every((lesson) => lesson.contentId === undefined)).toBe(true)
+  })
+
+  it('回退快照只给旧内置课程，且阶段为空（明确未连接）', () => {
+    const fallback = adaptFallback()
+    expect(fallback.lessons.every((lesson) => lesson.legacy === true)).toBe(true)
+    expect(fallback.stages).toEqual([])
+    expect(fallback.legacyStages.length).toBeGreaterThan(0)
+  })
+
+  it('执行方式文案区分教学模拟、浏览器沙箱与外部环境', () => {
+    expect(runCommandLabel({ ...baseLesson, executionPolicy: 'teaching' })).toContain('教学运行器')
+    expect(runCommandLabel({ ...baseLesson, executionPolicy: 'worker' })).toContain('沙箱')
+    expect(runCommandLabel({ ...baseLesson, executionPolicy: 'external' })).toContain('外部环境')
+  })
+})
+
+/**
+ * LINK-07 修复回归：科目 ≠ 可执行语言。
+ *
+ * 旧实现把 Vue/HTML/CSS/Webpack 等科目塞进五种 LanguageId，
+ * 导致 Vue 单元出现在「JavaScript」筛选下（真实浏览器验收发现）。
+ */
+describe('内容科目分组（与可执行语言分离）', () => {
+  it('Vue / HTML / CSS / Webpack 各自成组，不并入 JavaScript', () => {
+    expect(subjectKeyOf('Vue 3')).toBe('vue3')
+    expect(subjectKeyOf('HTML')).toBe('html')
+    expect(subjectKeyOf('CSS')).toBe('css')
+    expect(subjectKeyOf('Webpack 5')).toBe('webpack')
+    // DOM 属于 JS，归一到同一科目
+    expect(subjectKeyOf('JavaScript DOM')).toBe('javascript')
+    expect(subjectKeyOf('C#')).toBe('csharp')
+    expect(subjectKeyOf('C')).toBe('c')
+  })
+
+  it('资料库条目按 bundle 里的 subject 分组，不按可执行语言分组', () => {
+    const vue = snapshotSummaryToLesson({ ...summaryLesson, subject: 'Vue 3', language: 'none' })
+    expect(vue.subjectId).toBe('vue3')
+    expect(vue.subjectLabel).toBe('Vue 3')
+    // 仍标记为不可自动执行，但科目与 JavaScript 无关
+    expect(vue.executable).toBe(false)
+    expect(vue.language).toBe('javascript')
+  })
+
+  it('旧内置课程按 languageLabel 归一，不把 HTML/CSS 混进 JavaScript', () => {
+    const legacy = legacyLessonsWithFlag()
+    const byId = new Map(legacy.map((lesson) => [lesson.id, lesson.subjectId]))
+    expect(byId.get('d1-html-semantics')).toBe('html')
+    expect(byId.get('d2-css-box-model')).toBe('css')
+    expect(byId.get('e1-vue-composition')).toBe('vue3')
+    expect(byId.get('f1-webpack-entry-loader')).toBe('webpack')
+    expect(byId.get('l1-linux-ops-basics')).toBe('linux')
+    // 真正的 JS 课程仍是 javascript
+    expect(byId.get('javascript-03')).toBe('javascript')
+    expect(byId.get('d3-dom-events')).toBe('javascript')
+  })
+
+  it('科目选项：含资料库内容的科目排最前，且计数正确', () => {
+    const adapted = adaptCatalog(snapshot)
+    const subjects = collectSubjects(adapted.lessons)
+    expect(subjects[0]?.id).toBe('java')
+    expect(subjects[0]?.hasVaultContent).toBe(true)
+    const total = subjects.reduce((sum, subject) => sum + subject.lessonCount, 0)
+    expect(total).toBe(adapted.lessons.length)
+    // 每个科目 id 唯一
+    expect(new Set(subjects.map((subject) => subject.id)).size).toBe(subjects.length)
+  })
+
+  it('回退状态下也能汇总出科目（旧课程不被吞掉）', () => {
+    const subjects = collectSubjects(adaptFallback().lessons)
+    expect(subjects.length).toBeGreaterThan(5)
+    expect(subjects.some((subject) => subject.hasVaultContent)).toBe(false)
+  })
+})

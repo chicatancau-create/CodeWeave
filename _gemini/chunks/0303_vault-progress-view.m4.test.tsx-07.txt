@@ -1,0 +1,90 @@
+      expect((mark.querySelector('.vp-mark-text')?.textContent ?? '').length).toBeGreaterThan(0)
+    }
+    expect(matrix.textContent).toContain('待补证据')
+    expect(matrix.textContent).toContain('原文未标')
+  })
+
+  it('结构待适配的块显示原文，不显示猜测值', async () => {
+    const content = makeContent()
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    const details = container.querySelector('.vp-unparsed') as HTMLDetailsElement
+    expect(details.querySelector('summary')?.textContent).toContain('结构待适配的原文（1）')
+    expect(details.querySelector('pre')?.textContent).toContain('| 阶段 | 状态 |')
+  })
+
+  it('下一步行动按原文顺序，空 action 回退 actionRaw，完成状态双通道', async () => {
+    const content = makeContent()
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    const actions = [...container.querySelectorAll('table.vp-ledger')][2] as HTMLTableElement
+    const orders = [...actions.querySelectorAll('tbody th[scope="row"]')].map((th) => th.textContent)
+    expect(orders).toEqual(['1', '2'])
+    expect([...actions.querySelectorAll('tbody .vp-cell-value')].map((cell) => cell.textContent)).toEqual([
+      '补齐线程观测记录',
+      '整理竞态样例',
+    ])
+    expect([...actions.querySelectorAll('.vp-mark-text')].map((el) => el.textContent)).toEqual([
+      '原文未标完成',
+      '原文标为已完成',
+    ])
+    expect(actions.textContent).toContain('原文未填写')
+  })
+
+  it('只读边界声明保留：本机历史活动不算等级、不写回、不因阅读提升', async () => {
+    const content = makeContent()
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    expect(container.textContent).toContain('本机历史活动不算作资料库掌握等级')
+    expect(container.textContent).toContain('本卡片只读，不提供写回，也不因导入或阅读而提升任何等级。')
+    expect(container.textContent).toContain('只读投影：本页不写回资料库。')
+    expect(container.textContent).toContain('等级口径来自资料库原文，不折算。')
+  })
+})
+
+describe('M4 正式进度 · CSS 源码不变式', () => {
+  it('样式表原文确实读到，且全局裸选择器数量为 0', () => {
+    expect(cssText.length).toBeGreaterThan(3000)
+    expect(selectorParts(cssCode).length).toBeGreaterThan(35)
+    const bare = selectorParts(cssCode).filter(
+      (selector) => !selector.startsWith('.cw-vault') && !selector.startsWith('.reduce-motion'),
+    )
+    expect(bare).toEqual([])
+  })
+
+  it('不声明 :root / html / body；零 !important；发光走别名、无渐变玻璃；圆角只有令牌档', () => {
+    const selectors = selectorParts(cssCode)
+    expect(selectors.some((selector) => /(^|[\s,])(:root|html|body)(\s|,|$)/.test(selector))).toBe(false)
+    expect(cssCode).not.toContain('!important')
+    // 科技档反转（tokens §4.5）：发光代替黑投影承担层级；仍不许裸字面量。
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((m) => m[1]!.trim())
+    for (const value of shadows) {
+      expect(/^var\(--vp-glow-(near|panel|inset)\)$/.test(value), `未走发光令牌：${value}`).toBe(true)
+    }
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('正文 16px、行高 1.6–1.75；长中文与原文代码块不破版', () => {
+    const root = declarationBlock('.cw-vault')
+    expect(root).toContain('--vp-body: var(--ds-size-body, 16px)')
+    const leading = Number(/--vp-leading:\s*var\(--ds-leading-body,\s*([\d.]+)\)/.exec(root)?.[1])
+    expect(leading).toBeGreaterThanOrEqual(1.6)
+    expect(leading).toBeLessThanOrEqual(1.75)

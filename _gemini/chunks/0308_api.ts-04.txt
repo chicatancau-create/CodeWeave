@@ -1,0 +1,31 @@
+  return { status: 'failed', code: result.code, reason: result.message }
+}
+
+/**
+ * 从 409 `rollback_blocked` 的响应里取出阻断项。
+ * 拿不到结构化 blockers 就返回 null —— 界面宁可只复述服务端给的那句话，
+ * 也不根据 error 文本编一份「哪几步被谁挡住」的清单。
+ * 每条文本再过一遍 `redactAbsolutePaths`：这道隐去是本模块的边界，不能因为
+ * 「服务端已经抹过一遍」就在客户端省掉（服务端漏抹时这里是最后一道）。
+ */
+export function readRollbackBlockers(details: unknown): RollbackBlockedDetails['blockers'] | null {
+  const list = (details as { blockers?: unknown } | null | undefined)?.blockers
+  if (!Array.isArray(list)) return null
+  return list.map((item) => {
+    const record = (item ?? {}) as Partial<RollbackBlockedDetails['blockers'][number]>
+    return {
+      path: redactAbsolutePaths(String(record.path ?? '')),
+      kind: String(record.kind ?? ''),
+      reason: redactAbsolutePaths(String(record.reason ?? '')),
+    }
+  })
+}
+
+/** 未授权写回或离线时导出待保存 Markdown（只读应用侧暂存，不读资料库）。 */
+export function exportEvidenceMarkdown(evidenceIds?: string[]): Promise<ApiResult<EvidenceExportResult>> {
+  return request<EvidenceExportResult>('/api/learning/evidence-export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ evidenceIds: evidenceIds ?? [] }),
+  })
+}

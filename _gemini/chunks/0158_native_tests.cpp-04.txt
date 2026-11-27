@@ -1,0 +1,72 @@
+void test_account_contract_uses_non_sensitive_vectors() {
+  const codeweave::account::Record valid{
+      "user-01", "demo@example.test", "", "Demo", 
+      "scrypt$v1$0123456789abcdef0123456789abcdef:"
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"};
+  assert(codeweave::account::validate(valid).ok);
+  assert(codeweave::account::is_phone("138 0013 8000"));
+  assert(codeweave::account::normalized_phone("138 0013 8000") == "13800138000");
+  assert(!codeweave::account::validate({ "../escape", "", "", "Demo", valid.password_hash }).ok);
+  assert(!codeweave::account::validate({ "user-02", "bad", "", "Demo", valid.password_hash }).ok);
+  assert(!codeweave::account::validate({ "user-03", "", "", "Demo", valid.password_hash }).ok);
+  assert(!codeweave::account::validate({ "user-04", "demo@example.test", "", "Demo", "plain-password" }).ok);
+  assert(!codeweave::account::validate({ "user-05", "demo@example.test", "", std::string("bad\xC3\x28"), valid.password_hash }).ok);
+}
+
+void test_password_crypto_matches_legacy_scrypt_vector() {
+#ifdef _WIN32
+  std::string encoded;
+  const auto hashed = codeweave::account::hash_password_with_salt(
+      "password", "0123456789abcdef0123456789abcdef", encoded);
+  assert(hashed.ok);
+  assert(encoded == "scrypt$v1$0123456789abcdef0123456789abcdef:d17d0629e32ad3ac88ab78b388a13cb98d41fa6ed2e104e81b80e25bc66af3008a31dd0a0a9fa8bef5b167c25ca65cb0c9278b211bd5ab1270f7104cadd89486");
+  bool matches = false;
+  assert(codeweave::account::verify_password("password", encoded, matches).ok && matches);
+  assert(codeweave::account::verify_password("wrong", encoded, matches).ok && !matches);
+#endif
+}
+
+void test_account_store_is_native_only_and_idempotence_guarded() {
+#ifdef _WIN32
+  Fixture fixture;
+  codeweave::account::AccountStore store(fixture.root / "data" / "runtime" / "native");
+  codeweave::account::Record record;
+  const auto register_result = store.register_with_password("native-user-01", "native@example.test", "", "Native User", "Password-123!", record);
+  assert(register_result.ok);
+  assert(!store.register_account(record).ok);
+  std::vector<codeweave::account::Record> records;
+  assert(store.list_accounts(records).ok && records.size() == 1);
+  codeweave::account::Record authenticated;
+  assert(store.authenticate_password("native@example.test", "Password-123!", authenticated).ok);
+  assert(authenticated.id == record.id);
+  assert(!store.authenticate_password("native@example.test", "wrong", authenticated).ok);
+  assert(store.change_password("native@example.test", "Password-123!", "Password-456!").ok);
+  assert(!store.authenticate_password("native@example.test", "Password-123!", authenticated).ok);
+  assert(store.authenticate_password("native@example.test", "Password-456!", authenticated).ok);
+  assert(!std::filesystem::exists(fixture.root / "data" / "runtime" / "desktop" / "users.json"));
+#endif
+}
+
+void test_account_service_owns_in_memory_session_only() {
+#ifdef _WIN32
+  Fixture fixture;
+  codeweave::account::AccountStore store(fixture.root / "data" / "runtime" / "native");
+  codeweave::account::AccountService service(store);
+  assert(service.register_account("Native", "service@example.test", "Password-123!").ok);
+  assert(service.authenticated());
+  assert(service.change_password("Password-123!", "Password-456!").ok);
+  assert(service.logout().ok && !service.authenticated());
+  assert(service.login("service@example.test", "Password-456!").ok);
+  assert(service.logout().ok && !service.authenticated());
+#endif
+}
+
+void test_account_learning_roots_are_session_scoped_and_fail_closed() {
+#ifdef _WIN32
+  Fixture fixture;
+  const auto native_root = fixture.root / "data" / "runtime" / "native";
+  codeweave::account::AccountStore store(native_root);
+  codeweave::account::AccountService first(store);
+  codeweave::account::AccountService second(store);
+  std::filesystem::path root;

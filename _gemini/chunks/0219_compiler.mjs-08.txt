@@ -1,0 +1,87 @@
+        blocking.push({ code: 'source_not_found', path: unit.path, message: `章节引用不存在：${formatSectionRef(ref.path, ref.headingPath)}` })
+      }
+    }
+    for (const stageId of unit.stageIds) {
+      if (!stageIds.has(stageId)) {
+        blocking.push({ code: 'unknown_stage', path: unit.path, message: `阶段未在规则投影中定义：${stageId}` })
+      }
+    }
+    for (const exerciseId of unit.exerciseIds) {
+      if (!sceneIds.has(exerciseId)) {
+        blocking.push({ code: 'missing_exercise', path: unit.path, message: `引用了不存在的练习：${exerciseId}` })
+      }
+    }
+    if (unit.sectionRefs.length === 0 && !unit.primaryTopicRef) {
+      blocking.push({ code: 'empty_source', path: unit.path, message: '教学单元必须至少有一个来源引用' })
+    }
+    if (!rulesCheck.usable && unit.stageIds.length > 0) {
+      const code = rulesCheck.status === 'section_missing' || rulesCheck.status === 'invalid' ? 'rules_section_unverifiable' : 'rules_stale'
+      blocking.push({ code, path: unit.path, message: rulesCheck.reason })
+    }
+  }
+
+  const unitById = new Map(units.map((unit) => [unit.contentId, unit]))
+  for (const exercise of exercises) {
+    const unit = unitById.get(exercise.primaryLessonId)
+    if (!unit) {
+      blocking.push({ code: 'missing_lesson', path: exercise.path, message: `primaryLessonId 不存在：${exercise.primaryLessonId}` })
+    } else if (exercise.executionPolicy !== unit.executionPolicy) {
+      blocking.push({
+        code: 'policy_mismatch',
+        path: exercise.path,
+        message: `练习执行策略(${exercise.executionPolicy})与教学单元(${unit.executionPolicy})不一致`,
+      })
+    }
+  }
+
+  const cycle = findPrerequisiteCycle(units)
+  if (cycle) {
+    blocking.push({ code: 'prerequisite_cycle', message: `先备知识存在循环：${cycle.join(' → ')}` })
+  }
+
+  const legacyProblems = validateLegacyMap(legacyMap, { topicById, contentIds, stageIds })
+  blocking.push(...legacyProblems)
+
+  // 正式正文里「有内容但没有单元」的主题计入缺口，不阻止发布。
+  const coveredTopicIds = new Set(published.map((unit) => unit.primaryTopicId))
+  // 覆盖率分母只算正式主题：兼容指针不上架，空容器无可教学内容（DATA-02）。
+  const gaps = {
+    emptyTopics: [...topicById.values()].filter((topic) => topic.status === 'active' && topic.topicKind === 'container').map((topic) => topic.topicId),
+    uncoveredTopics: [...topicById.values()]
+      .filter((topic) => topic.status === 'active' && isTeachable(topic) && !coveredTopicIds.has(topic.topicId))
+      .map((topic) => topic.topicId),
+    // 练习覆盖只看「需要练习」的单元：清单 §7 要求纯阅读单元单列，
+    // 既不留在分母里冒充缺口，也不静默丢掉（下面那一项就是给审计看的）。
+    publishedWithoutExercise: published.filter((unit) => unit.exerciseIds.length === 0 && unit.lessonKind !== 'reading').map((unit) => unit.contentId),
+    readingWithoutExercise: published.filter((unit) => unit.exerciseIds.length === 0 && unit.lessonKind === 'reading').map((unit) => unit.contentId),
+    unmappedLegacy: (legacyMap?.entries ?? []).filter((entry) => entry.relation === 'unmapped').map((entry) => entry.legacyId),
+    volumesWithoutUnit: volumes
+      .filter((volume) => !published.some((unit) => unit.sectionRefs.some((ref) => ref.path === volume.path) || unit.primaryTopicRef?.path === volume.path))
+      .map((volume) => volume.path),
+  }
+  return { blocking, gaps, publishedContentIds: published.map((unit) => unit.contentId) }
+}
+
+function findPrerequisiteCycle(units) {
+  const graph = new Map(units.map((unit) => [unit.contentId, unit.prerequisiteRefs.filter((ref) => units.some((item) => item.contentId === ref))]))
+  const state = new Map()
+  const stack = []
+  let found = null
+  function visit(node) {
+    if (found) return
+    const current = state.get(node)
+    if (current === 'done') return
+    if (current === 'visiting') {
+      found = [...stack.slice(stack.indexOf(node)), node]
+      return
+    }
+    state.set(node, 'visiting')
+    stack.push(node)
+    for (const next of graph.get(node) ?? []) visit(next)
+    stack.pop()
+    state.set(node, 'done')
+  }
+  for (const node of graph.keys()) visit(node)
+  return found
+}
+

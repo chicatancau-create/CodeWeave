@@ -1,0 +1,115 @@
+        <em className={`tag-verification ${status.isOwner ? 'ok' : 'warn'}`}>{status.isOwner ? '可读正式进度' : '看不到正式进度'}</em>
+      </div>
+      <p className="vp-lead">{status.notice}</p>
+      {!status.vaultMatches && (
+        <p className="vault-binding-warn vp-warn">
+          <AlertTriangle size={13} aria-hidden /> 当前连接的资料库与绑定记录不是同一个（换过资料库）；正式进度不会跨库串用，请确认后再继续。
+        </p>
+      )}
+      <details className="vp-facts">
+        <summary className="vp-facts-summary">来源事实明细（5 项）</summary>
+        <SourceSpecs fields={boundFields} className="vp-specs" />
+      </details>
+      {status.isOwner && (
+        <div className="vault-binding-actions">
+          {busy && busyHint}
+          <label className="vault-binding-toggle vp-toggle">
+            <input
+              type="checkbox"
+              checked={status.publicContent}
+              disabled={busy}
+              aria-disabled={busy || undefined}
+              aria-describedby={busy ? busyHintId : undefined}
+              onChange={(event) => void run(() => content.setVisibility(event.target.checked))}
+            />
+            允许其他已登录账户查看教材（正式进度始终仅拥有者可见）
+          </label>
+          <button
+            className="subtle-button vp-btn"
+            disabled={busy}
+            aria-disabled={busy || undefined}
+            aria-describedby={busy ? busyHintId : undefined}
+            onClick={() => void run(content.unbindOwner)}
+          >
+            <Unlink size={12} aria-hidden /> 解除绑定
+          </button>
+        </div>
+      )}
+      {message && <small className="vault-binding-message vp-message">{message}</small>}
+    </div>
+  )
+}
+
+/** 解析结论都不等同于知识正确性核验：这条尾巴对四种状态一致适用。 */
+const PARSE_SUFFIX = '；结构解析结论不等同于知识正确性核验'
+
+/** 正式进度追踪的解析结论：只描述结构是否解析成功，不写成「已核实」。 */
+function parseStatusText(progress: VaultProgress): string {
+  switch (progress.status) {
+    case 'ok':
+      return `结构已解析（资料库侧文件口径）${PARSE_SUFFIX}`
+    case 'partial':
+      return `部分解析：${progress.unparsed.length} 处结构待适配，按原文展示${PARSE_SUFFIX}`
+    case 'structure_unsupported':
+      return `结构待适配：解析器未覆盖该文件结构，全部按原文展示${PARSE_SUFFIX}`
+    default:
+      return `进度追踪缺失：没有可展示的正式事实${PARSE_SUFFIX}`
+  }
+}
+
+/** 快照里确实存在的三项（原文没有的项不占位、不补 0）。 */
+function snapshotItems(progress: VaultProgress) {
+  return [progress.snapshot.currentStage, progress.snapshot.stagePassable, progress.snapshot.mainBlocker].filter(
+    (item): item is NonNullable<typeof item> => Boolean(item),
+  )
+}
+
+/**
+ * 「正式进度读不到」按原因分开陈述（01 号方案 §4 error 行）。
+ *
+ * 改版前是一句「正式进度暂不可用（未绑定、未授权或进度追踪不可读）」，三因合一：
+ * 用户看完不知道自己该绑库、该换账户还是该点重试。HTTP 档位与服务端一致
+ * （`server.mjs` 的 /api/learning/vault-progress：`forbidden` → 403、`owner_unbound` → 409、其余 → 503），
+ * 只有读取失败那一档给重试按钮——未绑定要在上方面板显式点绑定，无权限重试也不会多出一个拥有者。
+ * 本函数只做陈述，不判断「某一课/某一关算不算完成」（那套口径在 `utils/lesson-evidence.ts`，01 号方案 §9）。
+ */
+function unavailableNotice(
+  status: LearningStatus | null,
+  failure: { message: string; status: number } | null,
+): { text: string; retryable: boolean } {
+  if (status && !status.bound) {
+    return {
+      text: '未绑定：资料库拥有者还没绑定，正式进度不对任何账户开放。下一步：在上方「资料库拥有者绑定」面板里显式点一次绑定。',
+      retryable: false,
+    }
+  }
+  if (failure?.status === 403) {
+    return {
+      text: `无权限：进度追踪只对资料库拥有者返回内容（HTTP 403：${failure.message}）。本页下方显示的都是本机历史活动，不是资料库事实。`,
+      retryable: false,
+    }
+  }
+  if (failure?.status === 409) {
+    return {
+      text: `未绑定：服务端那边的拥有者绑定记录缺失或与当前资料库不符（HTTP 409：${failure.message}）。下一步：在上方绑定面板重新绑定。`,
+      retryable: false,
+    }
+  }
+  return {
+    text: `读取失败：${failure?.message || '进度追踪接口没有返回内容'}${failure ? `（HTTP ${failure.status}）` : ''}。这是「读不到」，不是「没有进度」。`,
+    retryable: true,
+  }
+}
+
+/** 正式事实 · 快照：ledger 细线表格，编号 + 发丝线分层。 */
+function SnapshotLedger({ items }: { items: ReturnType<typeof snapshotItems> }) {
+  return (
+    <table className="vp-ledger">
+      <caption className="vp-sr-only">正式进度快照（原文口径），共 {items.length} 项</caption>
+      <thead>
+        <tr>
+          <th scope="col" className="vp-col vp-col-num">
+            次
+          </th>
+          <th scope="col" className="vp-col">
+            事实项

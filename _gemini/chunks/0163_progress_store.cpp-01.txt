@@ -1,0 +1,105 @@
+#include "progress_store.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <system_error>
+#include <chrono>
+#include <random>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::learning {
+namespace {
+
+constexpr std::uintmax_t kMaxProgressFileBytes = 16 * 1024 * 1024;
+constexpr std::size_t kMaxProgressLineBytes = 64 * 1024;
+constexpr std::size_t kMaxProgressRecords = 100'000;
+
+std::filesystem::path pending_path(const std::filesystem::path& destination) {
+  return destination.string() + ".append.txn";
+}
+
+std::filesystem::path temporary_path(const std::filesystem::path& destination) {
+  return destination.string() + ".tmp." + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "." + std::to_string(std::random_device{}());
+}
+
+std::string encode_hex(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string encoded;
+  for (const unsigned char byte : value) {
+    encoded.push_back(digits[byte >> 4]);
+    encoded.push_back(digits[byte & 0x0f]);
+  }
+  return encoded;
+}
+
+std::string serialize(const ProgressFact& fact) {
+  return encode_hex(fact.fact_id) + '\t' + encode_hex(fact.content_id) + '\t' +
+      encode_hex(fact.exercise_id) + '\t' + encode_hex(fact.at) + '\t' +
+      encode_hex(fact.status) + '\t' + encode_hex(fact.operation_id);
+}
+
+bool decode_hex(std::string_view value, std::string& output) {
+  if (value.size() % 2 != 0) return false;
+  const auto digit = [](char value) -> int {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    return -1;
+  };
+  output.clear();
+  for (size_t index = 0; index < value.size(); index += 2) {
+    const int high = digit(value[index]);
+    const int low = digit(value[index + 1]);
+    if (high < 0 || low < 0) return false;
+    output.push_back(static_cast<char>((high << 4) | low));
+  }
+  return true;
+}
+
+bool parse_line(std::string_view line, ProgressFact& fact) {
+  if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+  std::vector<std::string_view> fields;
+  size_t start = 0;
+  while (start <= line.size()) {
+    const auto end = line.find('\t', start);
+    fields.push_back(line.substr(start, end == std::string_view::npos ? line.size() - start : end - start));
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  if (fields.size() != 6) return false;
+  std::string values[6];
+  for (size_t index = 0; index < 6; ++index) if (!decode_hex(fields[index], values[index])) return false;
+  fact = {std::move(values[0]), std::move(values[1]), std::move(values[2]),
+          std::move(values[3]), std::move(values[4]), std::move(values[5])};
+  return validate_progress_fact(fact).ok;
+}
+
+bool safe_identifier(std::string_view value, size_t max_length) {
+  if (value.empty() || value.size() > max_length) return false;
+  for (const unsigned char character : value) {
+    if (!(std::isalnum(character) != 0 || character == '-' || character == '_' || character == '.')) return false;
+  }
+  return true;
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+        error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND) { error.clear(); continue; }
+    if (error) return true;
+  }
+  return false;
+}
+
+app::Result append_durable(const std::filesystem::path& destination, std::string_view line) {
+  std::ofstream output(destination, std::ios::binary | std::ios::app);

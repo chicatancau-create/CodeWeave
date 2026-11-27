@@ -1,0 +1,53 @@
+      CreateWindowW(L"BUTTON", L"保存草稿", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 24, 588, 120, 32, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kSaveButtonId)), nullptr, nullptr);
+      g_status = CreateWindowW(L"STATIC", L"已打开本地工作区", WS_CHILD | WS_VISIBLE, 164, 594, 680, 24, window, nullptr, nullptr, nullptr);
+
+      refresh_progress_status();
+      refresh_review_summary();
+      list_content();
+      RECT client{}; GetClientRect(window, &client);
+      layout_controls(window, client.right - client.left, client.bottom - client.top);
+      if (g_gui_smoke || g_gui_interaction_smoke) SetTimer(window, 1, 100, nullptr);
+      return 0;
+    }
+    case WM_COMMAND:
+      if (LOWORD(wparam) == kExternalEvidenceId) { show_external_evidence(window); return 0; }
+      if (LOWORD(wparam) >= kBackupId && LOWORD(wparam) <= kOpenDataId) { manage_data(window, LOWORD(wparam)); return 0; }
+      if (LOWORD(wparam) == kHintId && HIWORD(wparam) == BN_CLICKED) {
+        codeweave::content::ContentRepository repository(configured_content_root());
+        std::string hints;
+        const auto result = repository.read_hints(g_selected_content, hints);
+        if (result.ok) {
+          if (!g_personal_core.is_open()) { set_status(L"请先登录后查看提示"); return 0; }
+          const auto marked = g_personal_core.save_draft(draft_id() + "-hint", "assisted");
+          if (!marked.ok) { set_status(wide_from_utf8(marked.message)); return 0; }
+          g_hint_viewed = true; MessageBoxW(window, wide_from_utf8(hints).c_str(), L"提示（当前课程草稿按辅助练习记录）", MB_OK); }
+        else set_status(wide_from_utf8(result.message));
+      }
+      if (LOWORD(wparam) == kScratchId && HIWORD(wparam) == BN_CLICKED) {
+        if (g_draft_dirty && !persist_draft()) return 0;
+        g_selected_content.clear(); g_starter.clear(); g_execution_policy = "native"; g_hint_viewed = false;
+        SetWindowTextW(g_exercise_id, L"");
+        SetWindowTextW(g_content_body, L"自由编程：选择语言并编辑代码。运行结果保存在个人轨迹中，不自动计为课程完成。");
+        load_personal_draft();
+      }
+      if (LOWORD(wparam) == kDraftEditId && HIWORD(wparam) == EN_CHANGE && !g_loading_draft) g_draft_dirty = true;
+      if (LOWORD(wparam) == kToolButtonId && HIWORD(wparam) == BN_CLICKED) choose_tool();
+      if (LOWORD(wparam) == kSaveButtonId && HIWORD(wparam) == BN_CLICKED) save_draft();
+      if (LOWORD(wparam) == kValidateExecutionButtonId && HIWORD(wparam) == BN_CLICKED) validate_execution_request();
+      if (LOWORD(wparam) == kRunExecutionButtonId && HIWORD(wparam) == BN_CLICKED) run_execution_request();
+      if (LOWORD(wparam) == kCancelExecutionButtonId && HIWORD(wparam) == BN_CLICKED) cancel_execution_request();
+      if (LOWORD(wparam) == kPauseExecutionButtonId && HIWORD(wparam) == BN_CLICKED) control_execution_request(codeweave::execution::ControlCommand::Pause);
+      if (LOWORD(wparam) == kResumeExecutionButtonId && HIWORD(wparam) == BN_CLICKED) control_execution_request(codeweave::execution::ControlCommand::Resume);
+      if (LOWORD(wparam) == kStepExecutionButtonId && HIWORD(wparam) == BN_CLICKED) control_execution_request(codeweave::execution::ControlCommand::Step);
+      if (LOWORD(wparam) == kReviewButtonId && HIWORD(wparam) == BN_CLICKED) refresh_review_summary();
+      if (LOWORD(wparam) == kListContentButtonId && HIWORD(wparam) == BN_CLICKED) list_content();
+      if (LOWORD(wparam) == kContentListId && HIWORD(wparam) == LBN_SELCHANGE) show_selected_content();
+      if (LOWORD(wparam) == kAccountRegisterId && HIWORD(wparam) == BN_CLICKED) account_register();
+      if (LOWORD(wparam) == kAccountLoginId && HIWORD(wparam) == BN_CLICKED) account_login();
+      if (LOWORD(wparam) == kAccountLogoutId && HIWORD(wparam) == BN_CLICKED) account_logout();
+      if (LOWORD(wparam) == kAccountChangePasswordId && HIWORD(wparam) == BN_CLICKED) account_change_password();
+      return 0;
+    case kExecutionResultMessage:
+      show_execution_result();
+      return 0;
+    case WM_TIMER:

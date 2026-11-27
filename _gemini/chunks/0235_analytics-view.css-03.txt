@@ -1,0 +1,143 @@
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-analytics .an-row-idx {
+  display: block;
+  font-size: var(--ds-size-control, 13px);
+  color: var(--an-dim);
+}
+
+.cw-analytics .an-cell-name {
+  color: var(--an-ink);
+}
+
+/* 数值：暖白 + 等宽数字；「样本不足」「未统计」也走同一档，不降级成浅色装饰 */
+.cw-analytics .an-cell-value {
+  color: var(--an-ink);
+  font-variant-numeric: tabular-nums;
+  opacity: var(--ds-text-emphasis, 0.82);
+}
+
+.cw-analytics .an-cell-basis,
+.cw-analytics .an-cell-den {
+  font-size: var(--an-meta);
+  line-height: 1.6;
+  color: var(--an-dim);
+}
+
+/* §4 empty 行要求的「下一步动作」：与原因同一格，但另起一行并加一条发丝线分开，
+   读起来不会把「口径」和「该做什么」混成一句。字号仍走承载信息的 --an-meta 档。 */
+.cw-analytics .an-cell-action {
+  display: block;
+  margin-top: var(--ds-space-6, 6px);
+  padding-top: var(--ds-space-6, 6px);
+  border-top: var(--ds-line-width, 1px) solid var(--an-hair);
+  color: var(--an-dim);
+  font-size: var(--an-meta);
+  line-height: 1.6;
+}
+
+/* 无分母档：点线下划线 + 文字，双重非颜色通道（不用颜色单独表意） */
+.cw-analytics .an-no-den {
+  color: var(--an-ink);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+/* ── 诚实说明行（含原有的「样本不足」句）：细线分区，不是卡片 ──────────────── */
+.cw-analytics .an-honest {
+  padding: var(--ds-space-12, 12px) 0 0;
+  border-top: var(--ds-line-width, 1px) solid var(--an-hair);
+  color: var(--an-dim);
+  font-size: var(--an-body);
+  line-height: var(--an-leading);
+  margin: 0;
+  max-width: 88ch;
+}
+
+/* ── 响应式：窄屏放宽列宽约束，表格语义不降级为 div ────────────────────────── */
+@media (max-width: 900px) {
+  .cw-analytics .an-col:nth-child(2),
+  .cw-analytics .an-cell-name {
+    width: 22%;
+  }
+  .cw-analytics .an-col-value,
+  .cw-analytics .an-cell-value {
+    width: 6em;
+  }
+}
+
+@media (max-width: 679px) {
+  .cw-analytics {
+    --an-pad-x: 12px;
+  }
+  .cw-analytics .an-ledger {
+    table-layout: auto;
+    /* 指标名不许被挤成一字一行（320 档实测 37px）：给下限，多出来的宽度交给滚动区 */
+    min-width: 620px;
+  }
+  .cw-analytics .an-cell-name {
+    min-width: 10em;
+  }
+  /* #95（普查实测分母列 109px≈7.3 字/行）：口径与分母两列装的是「窗口 2026-09-19 至 …」
+     这类整句，同样给地板；表格总宽交给 .an-table-scroll 横滚，不靠压字换零溢出。
+     这两列走 --an-meta（≤399 档 12px），11em = 132px，留一点余量过本库自设的 120px 关键列下限。 */
+  .cw-analytics .an-cell-basis,
+  .cw-analytics .an-cell-den {
+    min-width: 11em;
+  }
+  .cw-analytics .an-col:nth-child(2),
+  .cw-analytics .an-cell-name,
+  .cw-analytics .an-col-value,
+  .cw-analytics .an-cell-value {
+    width: auto;
+  }
+  .cw-analytics .an-ledger th,
+  .cw-analytics .an-ledger td {
+    padding-right: var(--ds-space-8, 8px);
+  }
+}
+
+/* 320px 最小宽度：字号收一档、编号列变窄，长中文继续换行 */
+@media (max-width: 399px) {
+  .cw-analytics {
+    --an-body: 15px;
+    --an-meta: 12px;
+    padding-left: var(--ds-space-10, 10px);
+    padding-right: var(--ds-space-10, 10px);
+  }
+  .cw-analytics .an-col-num,
+  .cw-analytics .an-cell-num {
+    width: 2.6em;
+  }
+  .cw-analytics .an-block-idx {
+    font-size: 20px;
+  }
+  .cw-analytics .an-spec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-2, 2px);
+  }
+}
+
+/* ── §5.3 第 3 条：动效真正停止（两条路径各自完整生效，不依赖 tokens.css） ───
+   本页当前只有 hover 底色过渡，没有持续动画；这里把它真停而不是放慢。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .cw-analytics *,
+  .cw-analytics *::before,
+  .cw-analytics *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.reduce-motion .cw-analytics,
+.reduce-motion .cw-analytics *,
+.reduce-motion .cw-analytics *::before,
+.reduce-motion .cw-analytics *::after {
+  animation: none;
+  transition: none;
+  scroll-behavior: auto;
+}

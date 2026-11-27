@@ -1,0 +1,158 @@
+        },
+        {
+            "name": "cpp-source-snapshot-screenshot",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-free-program-clears-lesson",
+            "passed": true
+        },
+        {
+            "name": "execution-live-output-and-source-before-exit",
+            "passed": true
+        },
+        {
+            "name": "execution-pause",
+            "passed": true
+        },
+        {
+            "name": "execution-live-paused-screenshot",
+            "passed": true
+        },
+        {
+            "name": "execution-step",
+            "passed": true
+        },
+        {
+            "name": "execution-live-preserves-browsed-event",
+            "passed": true
+        },
+        {
+            "name": "execution-live-end-follows-latest",
+            "passed": true
+        },
+        {
+            "name": "execution-resume",
+            "passed": true
+        },
+        {
+            "detail": "执行已取消",
+            "name": "execution-cancel",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-cancelled-event",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-pause-resume-events",
+            "passed": true
+        },
+        {
+            "name": "execution-stage-cancelled-terminal-visible-without-success",
+            "passed": false
+        },
+        {
+            "detail": "执行超时",
+            "name": "execution-timeout",
+            "passed": true
+        },
+        {
+            "name": "execution-trace-failed-event",
+            "passed": true
+        },
+        {
+            "name": "execution-stage-failed-terminal-and-error-visible",
+            "passed": true
+        },
+        {
+            "name": "console-error-row-style",
+            "passed": true
+        },
+        {
+            "name": "editor-long-unicode-input",
+            "passed": true
+        },
+        {
+            "name": "editor-undo-reset",
+            "passed": true
+        },
+        {
+            "name": "editor-clipboard-paste",
+            "passed": true
+        },
+        {
+            "name": "editor-undo",
+            "passed": true
+        },
+        {
+            "name": "editor-redo",
+            "passed": true
+        },
+        {
+            "name": "course-scroll",
+            "passed": true
+        },
+        {
+            "name": "review-progress",
+            "passed": true
+        },
+        {
+            "name": "page-challenge",
+            "passed": true
+        },
+        {
+            "name": "challenge-filter-controls-loaded",
+            "passed": true
+        },
+        {
+            "name": "challenge-filter-combination",
+            "passed": true
+        },
+        {
+            "name": "challenge-title-search",
+            "passed": true
+        },
+        {
+            "name": "challenge-title-sort",
+            "passed": true
+        },
+        {
+            "name": "challenge-pagination-boundaries-and-stable-sequence",
+            "passed": true
+        },
+        {
+            "name": "challenge-empty-filter-state",
+            "passed": true
+        },
+        {
+            "name": "challenge-filter-reset",
+            "passed": true
+        },
+        {
+            "name": "challenge-card-keyboard-opens-detail",
+            "passed": true
+        },
+        {
+            "name": "challenge-detail-metadata-and-honest-run-state",
+            "passed": true
+        },
+        {
+            "name": "challenge-detail-focuses-back-button",
+            "passed": true
+        },
+        {
+            "name": "challenge-detail-window-matrix",
+            "passed": true
+        },
+        {
+            "name": "challenge-detail-escape-restores-list-and-focus",
+            "passed": false
+        },
+        {
+            "name": "challenge-runner-editor-is-challenge-scoped",
+            "passed": true
+        },
+        {
+            "name": "challenge-run-starts-with-busy-state",
+            "passed": true

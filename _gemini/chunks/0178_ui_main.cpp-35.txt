@@ -1,0 +1,60 @@
+          context->step++;
+          return;
+        case 55:
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("javascript-execution"), shell.executionOutput().contains(QStringLiteral("15")),
+              shell.executionOutput());
+          {
+            const auto trace_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            int snapshot_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              const auto event = trace_events.at(index).toMap();
+              if (event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                  event.value(QStringLiteral("sourceLine")).toInt() == 5 &&
+                  event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "15") {
+                snapshot_index = static_cast<int>(index);
+                break;
+              }
+            }
+            auto* events = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            const bool snapshot_visible = events && line && variables && snapshot_index >= 0 &&
+                events->setProperty("currentIndex", snapshot_index) && line->property("visible").toBool() &&
+                line->property("text").toString() == QStringLiteral("源码第 5 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 15")) &&
+                !variables->property("text").toString().contains(QStringLiteral("Symbol("));
+            u3_record(*context, QStringLiteral("javascript-source-snapshot-line-and-local-variable"), snapshot_visible);
+            u3_record(*context, QStringLiteral("javascript-snapshots-exclude-module-wrapper-lines"),
+                std::none_of(trace_events.begin(), trace_events.end(), [](const auto& value) {
+                  const auto event = value.toMap();
+                  return event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                      event.value(QStringLiteral("sourceLine")).toInt() > 5;
+                }));
+            auto* editor = u3_find_item(view.rootObject(), QStringLiteral("codeEditor"));
+            auto* numbers = u3_find_item(view.rootObject(), QStringLiteral("codeLineNumbers"));
+            const auto fifth_line = shell.draftCode().lastIndexOf(QStringLiteral("console.log"));
+            QRectF rectangle;
+            const bool aligned = editor && numbers && fifth_line >= 0 &&
+                QMetaObject::invokeMethod(editor, "positionToRectangle", Q_RETURN_ARG(QRectF, rectangle),
+                    Q_ARG(int, static_cast<int>(fifth_line))) &&
+                std::abs(numbers->y() + 4 * numbers->property("lineAdvance").toReal() -
+                    rectangle.y()) < 1.0;
+            u3_record(*context, QStringLiteral("editor-gutter-matches-source-line-position"), aligned);
+            u3_record(*context, QStringLiteral("javascript-source-snapshot-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-javascript-source-snapshot")));
+          }
+          shell.openFreeProgram(QStringLiteral("javascript"));
+          context->step = 551;
+          return;
+        case 551:
+          if (shell.contentBusy()) return;
+          shell.updateDraftCode(QStringLiteral("import path from 'node:path';\nlet total = 7;\n"
+              "total += await Promise.resolve(8);\nconsole.log(total, path.sep.length);\n"));
+          shell.runCode();
+          context->step = 552;
+          return;
+        case 552:
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          {

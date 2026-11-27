@@ -1,0 +1,54 @@
+    QObject::connect(&comparison_timer, &QTimer::timeout, &application, [&, context = matrix_context.get()] {
+      if (++context->ticks > 100) { application.exit(3); return; }
+      if (shell.contentBusy() || !view.isExposed()) return;
+      if (view.windowState() != Qt::WindowNoState || view.size() != QSize(1440, 900)) {
+        view.setWindowState(Qt::WindowNoState);
+        view.resize(1440, 900);
+        return;
+      }
+      const QStringList pages{QStringLiteral("学习"), QStringLiteral("复习与进度"),
+          QStringLiteral("挑战"), QStringLiteral("编辑器")};
+      const QStringList names{QStringLiteral("qt-learning"), QStringLiteral("qt-review"),
+          QStringLiteral("qt-challenge"), QStringLiteral("qt-workbench")};
+      if (context->step >= 12 && context->step < 25) {
+        auto* editor = u3_find_item(view.rootObject(), QStringLiteral("editorPageRoot"));
+        auto* toggle = u3_find_item(view.rootObject(), QStringLiteral("workspaceCodeModeToggle"));
+        auto* guide_button = u3_find_item(view.rootObject(), QStringLiteral("workspaceGuideButton"));
+        auto* help_button = u3_find_item(view.rootObject(), QStringLiteral("workspaceHelpButton"));
+        auto* guide = view.rootObject()->findChild<QObject*>(QStringLiteral("workspaceCourseGuide"));
+        switch (context->step) {
+          case 12: {
+            auto* code = u3_find_item(view.rootObject(), QStringLiteral("workspaceCodePane"));
+            auto* runtime = u3_find_item(view.rootObject(), QStringLiteral("workspaceRuntimePane"));
+            auto* reader = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonReader"));
+            const auto lesson = shell.lessonMeta().first().toMap();
+            context->workspace_reference = {{"documentId", shell.documentId()}, {"state", "not-run"},
+                {"sourceCodeSha256", QString::fromLatin1(QCryptographicHash::hash(
+                    shell.draftCode().toUtf8(), QCryptographicHash::Sha256).toHex())}};
+            u3_record(*context, QStringLiteral("workspace-code-mode-default-and-full-width"),
+                editor && editor->property("codeMode").toBool() &&
+                view.rootObject()->property("workspaceCodeMode").toBool() &&
+                shell.documentId() == QStringLiteral("python-loop-sum") &&
+                shell.draftCode() == lesson.value("code").toString() && shell.executionTrace().isEmpty() &&
+                code && runtime && reader && !reader->isVisible() &&
+                code->mapToItem(view.rootObject(), QPointF()).x() == 8 &&
+                code->width() + runtime->width() > 1300 &&
+                code->mapToItem(view.rootObject(), QPointF()).y() ==
+                    runtime->mapToItem(view.rootObject(), QPointF()).y());
+            if (toggle) { toggle->forceActiveFocus(); send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier); }
+            break;
+          }
+          case 13: {
+            auto* reader = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonReader"));
+            u3_record(*context, QStringLiteral("workspace-reading-mode-restores-shell-and-reader"),
+                editor && !editor->property("codeMode").toBool() &&
+                !view.rootObject()->property("workspaceCodeMode").toBool() && reader && reader->isVisible());
+            u3_screenshot(*context, view, QStringLiteral("qt-workbench-reading"));
+            if (guide_button) QMetaObject::invokeMethod(guide_button, "clicked", Qt::DirectConnection);
+            break;
+          }
+          case 14: {
+            auto* title = guide ? guide->findChild<QQuickItem*>(QStringLiteral("workspaceGuideTitle")) : nullptr;
+            u3_record(*context, QStringLiteral("workspace-guide-current-course-and-scrollable-dialog"),
+                guide && guide->property("opened").toBool() && title && title->isVisible() &&
+                title->property("text").toString() == shell.lessonMeta().first().toMap().value("title").toString());

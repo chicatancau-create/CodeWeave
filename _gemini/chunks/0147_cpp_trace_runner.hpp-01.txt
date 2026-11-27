@@ -1,0 +1,118 @@
+#pragma once
+
+#include <string_view>
+
+namespace codeweave::execution {
+
+inline constexpr std::string_view kCppTraceRunner = R"GDBPY(
+import gdb
+import json
+import pathlib
+import os
+
+root = pathlib.Path(__file__).resolve().parent
+snapshots = root / "snapshots.jsonl"
+steps = 0
+step_bytes = 0
+process_handle = None
+capture_error = False
+disable_queued = False
+breakpoints = []
+source_path = None
+exit_code = None
+
+def fail(error):
+    global capture_error
+    capture_error = True
+    (root / "trace-error").write_text(type(error).__name__, encoding="ascii")
+
+def disable_sampling():
+    for breakpoint in breakpoints:
+        if breakpoint.is_valid():
+            breakpoint.enabled = False
+
+def stop_sampling():
+    global disable_queued
+    if not disable_queued:
+        disable_queued = True
+        gdb.post_event(disable_sampling)
+
+def render(value):
+    if value.is_optimized_out:
+        return "<unavailable>"
+    type = value.type.strip_typedefs()
+    if type.code in (gdb.TYPE_CODE_REF, gdb.TYPE_CODE_RVALUE_REF):
+        value = value.referenced_value()
+        type = value.type.strip_typedefs()
+    if type.code in (gdb.TYPE_CODE_INT, gdb.TYPE_CODE_CHAR, gdb.TYPE_CODE_BOOL,
+                     gdb.TYPE_CODE_FLT, gdb.TYPE_CODE_ENUM):
+        return value.format_string(raw=True)
+    address = None
+    size = 0
+    null_terminated = False
+    if type.code == gdb.TYPE_CODE_ARRAY and type.target().strip_typedefs().code == gdb.TYPE_CODE_CHAR:
+        address, size = value.address, type.sizeof
+        null_terminated = True
+    elif type.code == gdb.TYPE_CODE_STRUCT and "basic_string<char," in str(type):
+        try:
+            address = value["_M_dataplus"]["_M_p"]
+            size = int(value["_M_string_length"])
+        except gdb.error:
+            return "<object>"
+    if address is not None and size >= 0:
+        data = bytes(gdb.selected_inferior().read_memory(int(address), min(size, 160)))
+        if null_terminated:
+            data = data.split(b"\0", 1)[0]
+        text = data.decode("utf-8", errors="replace")
+        return json.dumps(text, ensure_ascii=False) + ("..." if size > 160 else "")
+    return "<object>"
+
+def capture():
+    global steps, step_bytes
+    if steps >= 512 or step_bytes >= 262144 or capture_error:
+        stop_sampling()
+        return
+    frame = gdb.newest_frame()
+    if frame is None:
+        return
+    location = frame.find_sal()
+    if not location.symtab or location.line <= 0 or os.path.normcase(location.symtab.fullname()) != source_path:
+        return
+    steps += 1
+    variables = {}
+    block = frame.block()
+    while block is not None and not block.is_global and not block.is_static and len(variables) < 16:
+        for symbol in block:
+            if len(variables) >= 16:
+                break
+            name = symbol.name
+            if not name or name.startswith("__") or name in variables or not (symbol.is_variable or symbol.is_argument):
+                continue
+            try:
+                variables[name[:128]] = render(frame.read_var(symbol))
+            except (gdb.error, RuntimeError, ValueError):
+                variables[name[:128]] = "<unavailable>"
+        block = block.superblock
+    record = json.dumps({"line": location.line, "phase": "line", "variables": variables},
+                        ensure_ascii=True, separators=(",", ":")) + "\n"
+    encoded = record.encode("utf-8")
+    if len(encoded) <= 8192 and step_bytes + len(encoded) <= 262144:
+        with snapshots.open("ab") as output:
+            output.write(encoded)
+        step_bytes += len(encoded)
+    if steps >= 512 or step_bytes >= 262144:
+        stop_sampling()
+
+class SourceBreakpoint(gdb.Breakpoint):
+    def stop(self):
+        try:
+            capture()
+        except Exception as error:
+            fail(error)
+            stop_sampling()
+        return False
+
+def thread_created(event):
+    global process_handle
+    if process_handle is None:
+        try:

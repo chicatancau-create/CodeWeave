@@ -1,0 +1,42 @@
+- 可见窗口时间、进程总工作集、启动 CPU 和关闭时间；
+- 60 Hz/120 Hz 动画帧间隔、滚动期间丢帧和主线程阻塞；
+- 中文输入、连续编辑、撤销/重做的输入响应；
+- 备份/恢复、scrypt 登录、内容读取期间窗口是否保持可交互；
+- 发布目录大小、Qt 运行库体积、启动依赖和崩溃退出清理。
+
+测量脚本、机器信息、EXE hash 和原始样本放 `应用端/项目/evidence/qt-ui-benchmark-*.json`；没有原始样本不得写“性能提升”。初始工程预算（待 U0 记录目标硬件后冻结，不是实测结论）：60 Hz 场景呈现帧间隔 P95 ≤ 20 ms、超过 33.3 ms 的帧 < 1%；120 Hz 仅对实际支持硬件单列验收。编辑键入到呈现 P95 ≤ 50 ms，主线程任务 P95 ≤ 16.7 ms，取消确认 ≤ 100 ms；工作集/可交互启动若相对同负载基线增加超过 20% 或包增加超过 50 MiB，必须解释并由用户接受取舍，不能直接宣称提速。动画渲染结束不是屏幕呈现：优先使用 PresentMon/ETW 呈现数据，Qt Profiler 辅助定位，工具不可用须标注。若 Qt 原型不满足预算，先定位线程、模型、渲染或编辑器瓶颈并优化，不擅自更换路线；保留 Win32 入口直至 Qt 验收通过。必须改变范围或放宽预算时记录证据交用户决定。
+
+### 分阶段实施
+
+| 阶段 | 内容 | 产物 | 门禁 |
+| --- | --- | --- | --- |
+| U0 | 固定原界面参考、Win32 原始基线；补长任务调度并复测 | 原始/修复后两组基线、线程回归、视觉矩阵 | 可重复；主线程不执行重任务 |
+| U1 | 先完成模块许可和工具链选择，再在 `native/ui-qt/` 创建原型；同时验证编辑器 | 独立 CMake 可选目标，使用隔离数据 | 性能/输入法/编辑器/许可证初测通过再推进 |
+| U2 | 补后端 facade 和异步命令队列 | `ui_contract`、QObject facade、请求代次 | 后端测试通过，UI 不直接碰 Store |
+| U3 | 按页面逐块对照复刻 | QML 页面、模型、输入法和无障碍回归 | Win32 与 Qt 功能矩阵相等 |
+| U4 | 发布候选与部署 | Qt 运行库、插件、许可证、完整 manifest、安装器材料 | 干净 Windows 安装/升级/卸载与性能复测 |
+
+任何阶段失败都保留当前 Win32 EXE，不恢复网页端，不把原型代码混进发布目录。Qt 版本、编译器、模块和许可证在 U1 记录锁定；不要只按网上文章写死“Qt 6.11”，实施时以当前官方支持版本重新核验。
+
+依据：Qt Quick Scene Graph/D3D11 渲染说明（<https://doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph.html>）、QQuickWidget 性能限制（<https://doc.qt.io/qt-6/qquickwidget.html>）、Qt 6.11 发布说明（<https://www.qt.io/blog/qt-6.11-released>）、Qt 许可与模块清单（<https://doc.qt.io/qt-6/licensing.html>）、Qt Windows 部署说明（<https://doc.qt.io/qt-6/windows-deployment.html>）、QScintilla 官方许可说明（<https://www.riverbankcomputing.com/software/qscintilla/intro>）。这些链接是选型依据，不替代本机验证和正式法律审查。
+
+## 未来发展路线
+
+计划路线为 P0→U0a→U0b→U0c→U1→U2→U3→U4→B0→B1→B2→B3；当前阶段状态只以实际命令和证据更新，不把路线表述当作全部完成的证明。
+
+工程记录集中在本端 `工程文件/`；总工程只保留当前路线，阶段证据不得冒充当前产品完成状态。
+
+## 部署与实现约束
+
+当前 `native/CMakeLists.txt` 使用 `/MT`；Qt 官方 MSVC 二进制通常使用 `/MD`。U1 须锁定同架构、工具链、CRT 与 Release/Debug 组合；Qt 目标及相连核心在独立构建树中统一 `/MD`，不得直接混链接现有 `/MT` 对象，也不承诺旧 EXE 的运行库条件继续成立。
+
+仅在获准实施后新增可选 Qt CMake 目标；Qt OFF 时既有核心与 Win32 必须仍可构建。U1 的 `codeweave-qt-deploy` 目标调用 `native/ui-qt/deploy-qt.ps1`，固定传入 Qt SDK 的 `bin` 与 QML 源目录，并使用 `windeployqt --release --compiler-runtime --no-translations --qmldir` 收集 Qt DLL、`platforms/qwindows.dll`、QML imports 和编译器运行库。脚本在结束时检查 `Qt6Core/Gui/Qml/Quick.dll`、平台插件和 `qml/QtQuick`，不通过就失败；它不替换根 EXE，也不接触用户数据。现有 `package-native.mjs` 只复制单 EXE 与内容，不能直接打 Qt 包，需显式扩充受审查清单，签名后生成所有文件 hash。禁用 WebEngine/WebView，动态库替换不能被应用固定 Qt hash 机制阻止。
+
+干净 Windows x64（无 Qt/开发 PATH）验证启动、插件发现、中文路径、100/150/200% DPI、输入法、无障碍、GPU 不可用/RDP 降级、升级卸载保留数据。软件渲染降级结果单列；不能用更换后端掩盖动画性能失败。原 Win32 UI 自动化依赖 HWND/控件 ID，Qt 阶段必须增加 Qt Quick Test/可访问性驱动的真实窗口流程，旧 smoke 通过不代表 Qt 已测。
+
+官方核验补充：
+- Qt 6.11 发布日期确为 2026-03-23，但这不决定本项目版本选择。
+- [LGPL 义务与闭源条件](https://www.qt.io/development/open-source-lgpl-obligations)、[Qt 6.11 模块许可](https://doc.qt.io/qt-6.11/licensing.html)。
+- [QML/C++ 适配要求](https://doc.qt.io/qt-6/qtqml-cppintegration-overview.html)、[WinUI unpackaged 部署](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/deploy-unpackaged-apps)。
+
+当前验证状态（2026-10-06）：Qt SDK、基础壳、部署、课程/账户/草稿/执行 facade 隔离测试、真实窗口 smoke、便携候选、安装/升级/卸载生命周期和内部签名均已执行；性能对照原始样本见 `../../evidence/qt-ui-benchmark-20261006.json`。Qt 预览相对现有 Win32 基线更重，不能宣称相对 Win32 提速。干净 Windows、DPI/IME/UIA 和 Qt LGPL 正式材料仍是公开发布前门禁。

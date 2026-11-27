@@ -1,0 +1,97 @@
+                phone: { type: string, pattern: '^[0-9]{11}$' }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '201':
+          description: 注册成功，Set-Cookie 建立会话
+          headers:
+            Set-Cookie: { schema: { type: string }, description: code_canvas_session，HttpOnly + SameSite=Lax }
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '400': { description: invalid_name / invalid_email / invalid_phone / invalid_password / invalid_json / body_too_large, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: email_taken / phone_taken, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '415': { description: unsupported_media_type, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '500': { description: storage_error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 登录（邮箱或手机号同一字段提交）
+      description: 失败信息不区分「账号不存在」与「密码错误」，防账号枚举。
+      security: []
+      x-idempotency: 语义幂等但每次成功都新建一个会话；重复调用会产生多个有效会话（受 MAX_SESSIONS 约束）
+      x-pagination: 不适用
+      x-timeout: 写 15s；429 后必须按窗口退避，不得循环重试
+      x-sensitive-fields: 密码不入日志；返回体不含 passwordHash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                identifier: { type: string, description: 邮箱或 11 位手机号；也可用 email / phone 字段 }
+                email: { type: string }
+                phone: { type: string }
+                password: { type: string, maxLength: 128 }
+      responses:
+        '200':
+          headers:
+            Set-Cookie: { schema: { type: string } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '400': { description: invalid_credentials_format / invalid_password / invalid_json }
+        '401': { description: invalid_credentials, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: too_many_attempts, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: 登出并清除会话 Cookie
+      description: 无请求体的写操作，因此不要求 Content-Type（`BODYLESS_WRITE_PATHS`）。
+      security: [{ sessionCookie: [] }]
+      x-request-body: 无请求体（该路径在 BODYLESS_WRITE_PATHS 里，不要求 application/json）
+      x-idempotency: 幂等（无会话时也返回 200）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 无
+      responses:
+        '200': { description: 已登出，body 为 null }
+        '403': { description: cross_site_rejected }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: 当前会话对应的账户
+      description: 未登录返回 200 + null（不是 401），让登录壳能在无会话时正常打开。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 读 10s
+      x-sensitive-fields: 返回体不含 passwordHash
+      responses:
+        '200':
+          description: 已登录返回 User；未登录返回 null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/User' }
+                  - { type: 'null' }
+
+  /api/auth/change-password:
+    post:
+      tags: [auth]
+      summary: 修改密码并使其它会话失效
+      description: 改密成功后，该用户的其余会话全部销毁，只保留发起修改的当前会话。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等（新密码与当前密码相同返回 400 password_unchanged）
+      x-pagination: 不适用
+      x-timeout: 写 15s（两次 scrypt）
+      x-sensitive-fields: 新旧密码都不入日志、不回显
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:

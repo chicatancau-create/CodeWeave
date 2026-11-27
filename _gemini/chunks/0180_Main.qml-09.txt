@@ -1,0 +1,81 @@
+                Rectangle { Layout.fillWidth: true; height: 1; color: ds.line }
+                ShellMenuItem {
+                    id: continueAction
+                    objectName: "continueAction"
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "Play"
+                    label: "继续学习"
+                    detail: root.selectedLesson ? root.selectedLesson.title : "暂无可继续的课程"
+                    framed: true
+                    enabled: root.selectedLesson !== null
+                    onClicked: { quickPopup.close(); root.openLesson(root.safeSelectedLessonIndex); }
+                }
+                ShellMenuItem {
+                    id: reviewAction
+                    objectName: "reviewAction"
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "RotateCcw"
+                    label: uiShell.hasActiveAccount && uiShell.analysisSnapshot.reviewDueCount !== undefined
+                        ? "今日复习 " + uiShell.analysisSnapshot.reviewDueCount + " 项" : "复习中心"
+                    detail: uiShell.hasActiveAccount ? "查看到期复测" : "登录后查看到期复测"
+                    framed: true
+                    onClicked: { quickPopup.close(); uiShell.selectPage("复习与进度"); }
+                }
+                ShellMenuItem {
+                    id: helpAction
+                    objectName: "helpAction"
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "BookOpen"
+                    label: "学习指南"
+                    detail: "如何学习"
+                    framed: true
+                    onClicked: {
+                        root.dialogReturnFocusItem = quickButton;
+                        quickPopup.closeForTransfer();
+                        helpDialog.open();
+                    }
+                }
+            }
+        }
+
+        ShellPopup {
+            id: notificationPopup
+            objectName: "notificationPopup"
+            parent: root
+            anchorItem: notificationButton
+            width: 300
+            height: 104
+            ds: root.designSystem
+            returnFocusItem: notificationButton
+            onClosed: root.notificationsOpen = false
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: ds.s8
+                Text { text: "通知"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+                Text { Layout.fillWidth: true; text: "暂无通知，通知来源尚未接入。"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13; wrapMode: Text.WordWrap; lineHeight: 1.6 }
+            }
+        }
+
+        ShellPopup {
+            id: accountPopup
+            objectName: "accountPopup"
+            parent: root
+            anchorItem: topbarAvatar
+            anchorGap: ds.s6
+            menuItems: [profileAction, securityAction, privacyAction, exportAction, logoutAction]
+            width: 196
+            padding: ds.s14
+            height: accountActionsColumn.implicitHeight + padding * 2
+            ds: root.designSystem
+            returnFocusItem: topbarAvatar
+            onClosed: root.accountMenuOpen = false
+            ColumnLayout {
+                id: accountActionsColumn
+                anchors.fill: parent
+                spacing: ds.s6
+                Text { objectName: "accountNameLabel"; text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; lineHeight: 1.2; font.weight: Font.Bold }
+                Text { objectName: "accountContactLabel"; Layout.fillWidth: true; text: uiShell.hasActiveAccount ? (uiShell.accountContact || uiShell.activeAccountId || "—") : "登录后可保存草稿与进度"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13; lineHeight: 1.2; elide: Text.ElideRight }
+                Rectangle { Layout.fillWidth: true; Layout.bottomMargin: ds.s4; height: 1; color: ds.line }

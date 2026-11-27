@@ -1,0 +1,89 @@
+    if (c == '[') {
+      ++at_; out.type = Json::Type::Array;
+      if (take(']')) return true;
+      do { Json item; if (!value(item, depth+1)) return false; out.array.push_back(std::move(item));
+        if (take(']')) return true; } while (take(','));
+      return false;
+    }
+    for (const auto literal : {"true", "false", "null"}) {
+      const std::string_view token(literal);
+      if (text_.substr(at_, token.size()) == token) {
+        at_ += token.size(); out.type = token == "null" ? Json::Type::Null : Json::Type::Boolean;
+        out.text = token; return true;
+      }
+    }
+    const auto start = at_;
+    if (text_[at_] == '-') ++at_;
+    if (at_ == text_.size()) return false;
+    if (text_[at_] == '0') ++at_;
+    else {
+      if (text_[at_] < '1' || text_[at_] > '9') return false;
+      while (at_ < text_.size() && text_[at_] >= '0' && text_[at_] <= '9') ++at_;
+    }
+    if (at_ < text_.size() && text_[at_] == '.') {
+      ++at_; const auto digits = at_;
+      while (at_ < text_.size() && text_[at_] >= '0' && text_[at_] <= '9') ++at_;
+      if (at_ == digits) return false;
+    }
+    if (at_ < text_.size() && (text_[at_] == 'e' || text_[at_] == 'E')) {
+      ++at_; if (at_ < text_.size() && (text_[at_] == '+' || text_[at_] == '-')) ++at_;
+      const auto digits = at_;
+      while (at_ < text_.size() && text_[at_] >= '0' && text_[at_] <= '9') ++at_;
+      if (at_ == digits) return false;
+    }
+    out.type = Json::Type::Number; out.text = text_.substr(start, at_-start); return true;
+  }
+  std::string_view text_;
+  std::size_t at_{}, nodes_{};
+};
+
+bool safe_path(const std::filesystem::path& path) {
+  if (path.empty() || !path.is_absolute()) return false;
+  std::filesystem::path current;
+  for (const auto& part : path) {
+    if (part == "..") return false;
+    current /= part;
+    if (current == path.root_name() || current == path.root_path()) continue;
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(current, error);
+    bool missing = error == std::make_error_code(std::errc::no_such_file_or_directory);
+#ifdef _WIN32
+    missing = missing || error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND;
+#endif
+    if ((error && !missing) || std::filesystem::is_symlink(status)) return false;
+  }
+  return true;
+}
+
+bool read_json(const std::filesystem::path& source, std::string& contents, Json& out) {
+  if (!safe_path(source)) return false;
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(source, error) || error) return false;
+  const auto size = std::filesystem::file_size(source, error);
+  if (error || size == 0 || size > kMaxJsonBytes) return false;
+  std::ifstream input(source, std::ios::binary);
+  contents.resize(static_cast<std::size_t>(size));
+  if (!input.read(contents.data(), static_cast<std::streamsize>(size))) return false;
+  if (input.peek() != std::char_traits<char>::eof() || contents.find('\0') != std::string::npos) return false;
+#ifdef _WIN32
+  if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, contents.data(),
+      static_cast<int>(contents.size()), nullptr, 0)) return false;
+#endif
+  return Parser(contents).parse(out);
+}
+
+bool fields(const Json& value, const std::set<std::string>& allowed) {
+  if (value.type != Json::Type::Object) return false;
+  return std::all_of(value.object.begin(), value.object.end(),
+      [&](const auto& item) { return allowed.contains(item.first); });
+}
+bool field(const Json& value, std::string_view key, std::string& out, bool optional = false) {
+  const auto found = value.object.find(std::string(key));
+  if (found == value.object.end()) { out.clear(); return optional; }
+  if (found->second.type != Json::Type::String) return false;
+  out = found->second.text; return true;
+}
+bool create_target(const std::filesystem::path& target) {
+  if (!safe_path(target)) return false;
+  std::error_code error;
+  std::filesystem::create_directories(target.parent_path(), error);

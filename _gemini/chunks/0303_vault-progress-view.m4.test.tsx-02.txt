@@ -1,0 +1,94 @@
+  source: { path: '资料库/进度追踪.md', fileHash: 'deadbeefcafebabe', parsedAt: '2026-09-20T01:00:00.000Z' },
+  header: {
+    structureUpdatedOn: '2026-09-10',
+    environmentVerifiedOn: '2026-09-12',
+    latestEvidenceOn: '2026-09-19',
+    raw: '---',
+  },
+  snapshot: {
+    items: [],
+    currentStage: { label: '当前阶段', value: 'S2 并发基础', valueRaw: 'S2', evidence: '进度追踪 §当前' },
+    stageProgress: null,
+    stagePassable: { label: '阶段可通过', value: '', valueRaw: '', evidence: '' },
+    nextStage: null,
+    deadline: null,
+    mainBlocker: { label: '主要阻塞', value: '缺少真实环境证据', valueRaw: '缺少真实环境证据', evidence: '日志 3 条' },
+  },
+  mastery: {
+    rows: [
+      { skill: '并发模型', level: { kind: 'numeric', value: 3, label: '3 级' }, levelRaw: '3', status: null, evidence: '证据 2 条' },
+      { skill: '锁与竞态', level: { kind: 'range', low: 0, high: 1, label: '0—1 级' }, levelRaw: '0—1', status: '待补证据', evidence: '证据 0 条' },
+      { skill: '内存模型', level: { kind: 'uncertain', label: '无法确认' }, levelRaw: '？', status: null, evidence: '原文未标' },
+    ],
+    raw: '| 并发模型 | 3 |',
+    note: '> 等级口径来自资料库原文，不折算。',
+  },
+  nextActions: {
+    rows: [
+      { order: '1', action: '补齐线程观测记录', actionRaw: '补齐线程观测记录', deliverable: '一份观测日志', relation: 'S2', done: false },
+      { order: '2', action: '', actionRaw: '整理竞态样例', deliverable: '', relation: '', done: true },
+    ],
+    raw: '- [ ] 补齐',
+  },
+  stages: { rows: [], raw: '' },
+  environment: { rows: [], raw: '', conclusion: '' },
+  handoff: { rows: [], raw: '' },
+  unparsed: [{ key: '阶段表', scope: 'section', reason: '表头与解析器约定不一致', raw: '| 阶段 | 状态 |\n| S2 | 进行 |' }],
+  readOnlyNotice: '只读投影：本页不写回资料库。',
+}
+
+function makeContent(overrides: Partial<ContentContextValue> = {}): ContentContextValue {
+  return {
+    learningStatus: OWNER_STATUS,
+    /** Provider 的两档异步事实：默认「不在读取、没有错误」，各用例按需覆写。 */
+    loading: false,
+    error: null,
+    refresh: vi.fn(async () => {}),
+    loadVaultProgress: vi.fn(async () => ({ ok: true, progress: PROGRESS }) as const),
+    bindOwner: vi.fn(async () => ({ ok: true, message: '已绑定为拥有者' })),
+    unbindOwner: vi.fn(async () => ({ ok: true, message: '已解除绑定' })),
+    setVisibility: vi.fn(async () => ({ ok: true, message: '可见范围已更新' })),
+    ...overrides,
+  } as unknown as ContentContextValue
+}
+
+function fields(container: HTMLElement) {
+  return [...container.querySelectorAll<HTMLElement>('[data-vp-field]')].map((node) => ({
+    key: node.getAttribute('data-vp-field') ?? '',
+    label: node.querySelector('dt')?.textContent ?? '',
+    value: node.querySelector('dd')?.textContent ?? '',
+  }))
+}
+
+const FIVE_ZONES = ['topic', 'source', 'verification', 'sync', 'facts']
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('M4 拥有者绑定 · 权限入口不改语义', () => {
+  it('§4 loading：没有学习状态且在读取中时挂占位，不整块塌陷、也不给猜测结论', () => {
+    const { container } = render(
+      <ContentProviderHost.Provider value={makeContent({ learningStatus: null, loading: true })}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    // 改版前这里是 `return null`：绑定面板在取数期间整块不存在，落地时把正文顶下去。
+    expect(container.querySelector('[data-vp-panel="loading"]')).toBeTruthy()
+    expect(container.querySelector('.vault-binding')).toBeTruthy()
+    expect(container.querySelector('[data-vp-panel="loading"]')?.getAttribute('aria-busy')).toBe('true')
+    const status = container.querySelector('.vault-progress-empty')
+    expect(status?.getAttribute('role')).toBe('status')
+    expect(container.textContent).toContain('正在读取资料库绑定状态')
+    expect(status?.textContent).toContain('读取期间不显示推测出来的绑定结论')
+    // 骨架只作装饰，朗读顺序里仍只有那句实话
+    expect(container.querySelector('.view-skeleton__shape')?.getAttribute('aria-hidden')).toBe('true')
+    // 未绑定 / 已绑定这两种结论一个都不许出现
+    expect(container.textContent).not.toContain('资料库拥有者尚未绑定')
+    expect(container.textContent).not.toContain('你是本资料库的拥有者')
+    expect(container.querySelector('button')).toBeNull()
+  })
+
+  it('§4 error：读不到绑定状态说「读不到」，给重试并指向 Provider，不说成「尚未绑定」', async () => {
+    const content = makeContent({

@@ -1,0 +1,110 @@
+              onChange={(e) => onChange({ compactMode: e.target.checked })}
+            />
+          </label>
+          <label className="setting-row cw-modal-row">
+            <span className="cw-modal-row-text">
+              <strong>减弱动画</strong>
+              <small>关闭过渡与闪烁动画，保持静态界面</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.reduceMotion ?? false}
+              onChange={(e) => onChange({ reduceMotion: e.target.checked })}
+            />
+          </label>
+          <label className="setting-row cw-modal-row">
+            <span className="cw-modal-row-text">
+              <strong>编辑器字号</strong>
+              <small>调整代码编辑区的字体大小</small>
+            </span>
+            <select
+              className="setting-select cw-modal-select"
+              value={String(settings.editorFontSize ?? 13)}
+              onChange={(e) => onChange({ editorFontSize: Number(e.target.value) })}
+            >
+              {[12, 13, 14, 15, 16, 18].map((size) => (
+                <option key={size} value={size}>
+                  {size} px
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* EDIT-01：Tab 宽度 / 自动换行 / 行号三项都是「设了就真生效」的编辑器行为，
+              判据与生效链路分别由 code-editor 的测试与 §5.4 的编辑器字号那一格守着。 */}
+          <label className="setting-row cw-modal-row">
+            <span className="cw-modal-row-text">
+              <strong>Tab 缩进宽度</strong>
+              <small>按 Tab / Shift+Tab 一次进或退几格；复制的行号与对齐也按这个走</small>
+            </span>
+            <select
+              className="setting-select cw-modal-select"
+              aria-label="Tab 缩进宽度"
+              value={String(settings.editorTabSize ?? 2)}
+              onChange={(e) => onChange({ editorTabSize: Number(e.target.value) })}
+            >
+              {[2, 4].map((size) => (
+                <option key={size} value={size}>
+                  {size} 格
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="setting-row cw-modal-row">
+            <span className="cw-modal-row-text">
+              <strong>代码自动换行</strong>
+              <small>开着长行折进本栏；关着长行走横向滚动条（默认）</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.editorWordWrap ?? false}
+              onChange={(e) => onChange({ editorWordWrap: e.target.checked })}
+            />
+          </label>
+          <label className="setting-row cw-modal-row">
+            <span className="cw-modal-row-text">
+              <strong>显示行号</strong>
+              <small>关掉只是不画左栏那一列，代码文本一个字都不变</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.editorLineNumbers ?? true}
+              onChange={(e) => onChange({ editorLineNumbers: e.target.checked })}
+            />
+          </label>
+        </div>
+
+        <div className="settings-section cw-modal-section">
+          <h3 className="cw-modal-section-head">数据管理</h3>
+          <div className="settings-data-row cw-modal-row">
+            <div>
+              <strong>导出本机学习数据</strong>
+              <small>把课程进度、挑战记录、打卡和掌握度导出为 JSON 文件</small>
+            </div>
+            <button className="subtle-button" onClick={onExport}>
+              <Download size={14} />
+              导出
+            </button>
+          </div>
+          <div className="settings-data-row cw-modal-row">
+            <div>
+              <strong>清除本机学习数据</strong>
+              <small>删除所有账户的课程进度、项目草稿和挑战记录，不影响账户资料</small>
+            </div>
+            <button className="danger-button" onClick={handleClearLocalData}>
+              <Trash2 size={14} />
+              清除数据
+            </button>
+          </div>
+        </div>
+
+        <p className="modal-note cw-modal-note">当前使用统一深色护眼工作台；护眼指舒适对比与可调字号，不构成医疗建议。</p>
+      </section>
+    </div>
+  )
+}
+
+type HelpModalProps = {
+  onClose: () => void
+}
+
+export function HelpModal({ onClose }: HelpModalProps) {

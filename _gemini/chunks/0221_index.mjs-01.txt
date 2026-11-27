@@ -1,0 +1,107 @@
+/**
+ * 内容服务门面（LINK-05 服务侧）。
+ *
+ * 对外只暴露经过校验的快照数据；不暴露绝对路径、不返回私人进度、
+ * 不接受客户端传入的磁盘路径。所有读取都以 bundleId 为版本边界。
+ */
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { COMPILER_VERSION, compileContent } from './compiler.mjs'
+import { resolveCanonicalContentId } from './identity.mjs'
+import { publicAssetId } from './asset.mjs'
+import { ContentError, normalizeText, sha256, stableStringify } from './markdown.mjs'
+import { createSnapshotStore, KEEP_SNAPSHOTS, STATUS } from './snapshot.mjs'
+import { readVaultText, resolveVaultRoot } from './vault-paths.mjs'
+
+export const MANIFEST_PATH = 'CodeWeave/content-manifest.json'
+const SYNC_LOG_PATH = 'CodeWeave/同步报告/同步记录.json'
+const SYNC_LOG_LIMIT = 30
+
+export function createContentService({ dataRoot, vaultRoot, configFingerprint, recordCommitted, publicationCheckpoint = () => {} } = {}) {
+  const store = createSnapshotStore({ dataRoot })
+  let lastError = null
+  /** 上次扫描得到的派生信息（不进入快照）：缺口与诊断，供设置页展示。 */
+  let lastReport = null
+
+  function configuredRoot() {
+    return resolveVaultRoot(vaultRoot ?? process.env.CODEWEAVE_VAULT_ROOT)
+  }
+
+  async function loadManifest() {
+    const resolved = configuredRoot()
+    if (!resolved.ok) {
+      throw new ContentError('vault_unavailable', `资料库根不可用：${resolved.reason}`)
+    }
+    let raw
+    try {
+      raw = await readVaultText(resolved.root, MANIFEST_PATH)
+    } catch (error) {
+      if (error?.code === 'source_not_found') {
+        throw new ContentError('invalid_manifest', `缺少内容清单：${MANIFEST_PATH}`)
+      }
+      throw error
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(raw)
+    } catch (error) {
+      throw new ContentError('invalid_manifest', `${MANIFEST_PATH}: JSON 解析失败 ${error.message}`)
+    }
+    if (parsed.schemaVersion !== 1) {
+      throw new ContentError('invalid_manifest', `${MANIFEST_PATH}: schemaVersion 必须为 1`)
+    }
+    if (typeof parsed.vaultId !== 'string' || !parsed.vaultId) {
+      throw new ContentError('invalid_manifest', `${MANIFEST_PATH}: 缺少稳定 vaultId`)
+    }
+    return { root: resolved.root, manifest: parsed, manifestSourceHash: sha256(raw) }
+  }
+
+  /** 原子写回清单（只更新 topics / publishedContentIds，其余字段按原样保留）。 */
+  async function writeManifest(root, manifest) {
+    const abs = join(root, MANIFEST_PATH)
+    const temp = `${abs}.${process.pid}.tmp`
+    await mkdir(dirname(abs), { recursive: true })
+    await writeFile(temp, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    await rename(temp, abs)
+  }
+
+  async function appendSyncLog(root, entry) {
+    const abs = join(root, SYNC_LOG_PATH)
+    let history = []
+    try {
+      const parsed = JSON.parse(normalizeText(await readFile(abs, 'utf8')))
+      if (Array.isArray(parsed?.history)) history = parsed.history
+    } catch {
+      history = []
+    }
+    // 重放同一个 operationId 不产生第二条记录（恢复流程可安全重试）。
+    if (entry.operationId && history.some((item) => item.operationId === entry.operationId)) return
+    history.unshift(entry)
+    const payload = { schemaVersion: 1, updatedAt: entry.finishedAt, history: history.slice(0, SYNC_LOG_LIMIT) }
+    const temp = `${abs}.${process.pid}.tmp`
+    await mkdir(dirname(abs), { recursive: true })
+    await writeFile(temp, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+    await rename(temp, abs)
+  }
+
+  /** 发布前复核：扫描后源文件是否被改动（含外部写入者并发修改）。 */
+  async function detectSourceChanges(root, sourceHashes) {
+    const changed = []
+    for (const [path, expected] of Object.entries(sourceHashes)) {
+      try {
+        const actual = sha256(await readVaultText(root, path))
+        if (actual !== expected) changed.push(path)
+      } catch (error) {
+        if (expected !== null || error?.code !== 'source_not_found') changed.push(path)
+      }
+    }
+    return changed
+  }
+
+  /**
+   * 发布事务（DATA-05）：候选包 → 事务日志 → 活动指针 → 源清单 → 同步报告。
+   *
+   * 每个跨文件边界都先写日志再动作，所以半途崩溃后 `reconcilePublishJournal` 能判断
+   * 停在哪一步：要么前滚补完，要么回滚到上一个有效指针。源清单写失败不会留下
+   * “对外已发布但无记录”的状态。
+   */

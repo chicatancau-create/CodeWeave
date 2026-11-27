@@ -1,0 +1,71 @@
+  const auto catalog = pointer.value("catalog").toMap();
+  if (!validBundle(bundle) || !validDigest(hash) || catalog.value("bundleId").toString() != bundle ||
+      catalog.value("manifestHash").toString() != hash) return {};
+  const auto target = QDir(root).filePath(bundle);
+  const auto bytes = loadFile(QDir(target).filePath(QStringLiteral("content.json")));
+  if (bytes.isEmpty() || digest(bytes) != hash.toUtf8()) return {};
+  const auto payload = QJsonDocument::fromJson(bytes).object().toVariantMap();
+  if (payload.value("bundleId").toString() != bundle || payload.value("vaultId") != catalog.value("vaultId")) return {};
+  for (const auto& item : payload.value("assets").toList()) {
+    const auto asset = item.toMap();
+    const auto assetHash = asset.value("sha256").toString();
+    if (!validDigest(assetHash)) return {};
+    const auto assetBytes = loadFile(QDir(target).filePath(QStringLiteral("objects/") + assetHash));
+    if (assetBytes.size() != asset.value("size").toLongLong() || digest(assetBytes) != assetHash.toUtf8()) return {};
+  }
+  if (outputPointer) *outputPointer = pointer;
+  return payload;
+}
+
+QVariantMap UnifiedContentSource::offlineLesson(const QString& contentId) const {
+  const auto bundle = verifiedOfflineBundle();
+  if (bundle.isEmpty() || bundle.value("bundleId") != catalog_.value("bundleId") ||
+      bundle.value("vaultId") != catalog_.value("vaultId")) return {};
+  QVariantMap lesson;
+  for (const auto& item : bundle.value("lessons").toList()) {
+    if (item.toMap().value("contentId").toString() == contentId) {
+      lesson = item.toMap();
+      break;
+    }
+  }
+  if (lesson.isEmpty()) return {};
+  QVariantList exercises;
+  const auto ids = lesson.value("exerciseIds").toStringList();
+  for (const auto& item : bundle.value("exercises").toList()) {
+    if (ids.contains(item.toMap().value("exerciseId").toString())) exercises.append(item);
+  }
+  QVariantList images;
+  const auto target = QDir(offlineRoot()).filePath(bundle.value("bundleId").toString());
+  const auto markdown = lesson.value("reading").toMap().value("markdown").toString();
+  for (const auto& item : bundle.value("assets").toList()) {
+    const auto asset = item.toMap();
+    const auto path = asset.value("path").toString();
+    const auto key = asset.value("sha256").toString();
+    if (!validDigest(key) || !markdown.contains('(' + path + ')')) continue;
+    const auto filename = QDir(target).filePath(QStringLiteral("objects/") + key);
+    images.append(QVariantMap{{"title", QFileInfo(path).fileName()}, {"url", QUrl::fromLocalFile(filename)}});
+  }
+  return QVariantMap{{"lesson", lesson}, {"exercises", exercises}, {"images", images}};
+}
+
+void UnifiedContentSource::saveOfflineAssets(const QVariantList& assets, int index, const QString& bundle, const QString& hash, const QString& target) {
+  if (catalog_.value("bundleId").toString() != bundle || catalog_.value("manifestHash").toString() != hash) {
+    finishOffline(QStringLiteral("课程快照已切换"));
+    return;
+  }
+  if (index >= assets.size()) {
+    const auto pointer = QJsonDocument(QJsonObject{{"bundleId", bundle}, {"manifestHash", hash},
+      {"catalog", QJsonObject::fromVariantMap(catalog_)}, {"assets", QJsonArray::fromVariantList(assets)}}).toJson();
+    finishOffline(saveFile(QDir(offlineRoot()).filePath(QStringLiteral("current.json")), pointer)
+      ? QStringLiteral("离线课程已校验") : QStringLiteral("无法激活离线课程"));
+    return;
+  }
+  const auto asset = assets.at(index).toMap();
+  const auto digestValue = asset.value("sha256").toString();
+  const auto id = asset.value("assetId").toString();
+  static const QRegularExpression idPattern(QStringLiteral("^asset-[a-f0-9]{32}$"));
+  if (!validDigest(digestValue) || !idPattern.match(id).hasMatch()) {
+    finishOffline(QStringLiteral("离线附件清单无效"));
+    return;
+  }
+  const auto path = QStringLiteral("/api/content/assets/") + id + QStringLiteral("?bundleId=") + bundle;

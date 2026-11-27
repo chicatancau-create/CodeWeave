@@ -1,0 +1,62 @@
+        {QStringLiteral("python-loop-sum"), QStringLiteral("15\n")},
+        {QStringLiteral("java-loop-sum"), QStringLiteral("15\n")},
+        {QStringLiteral("javascript-loop-sum"), QStringLiteral("15\n")},
+        {QStringLiteral("b1-array-basics"), QStringLiteral("0: 3\n1: 1\n2: 4\n3: 1\n4: 5\n")}};
+    for (const auto& [document, expected] : execution_cases) {
+      const auto index = shell.publishedIds().indexOf(document);
+      assert(index >= 0);
+      shell.openPublishedContent(index);
+      wait_for([&] { return !shell.contentBusy(); });
+      shell.loadStarterCode();
+      wait_for([&] { return !shell.contentBusy(); });
+      assert(shell.executionPolicy() == QStringLiteral("native"));
+      shell.runCode();
+      wait_for([&] { return !shell.executionBusy() && !shell.operationBusy(); });
+      assert(shell.executionOutput() == expected);
+      const auto trace = shell.executionTrace();
+      const auto events = trace.value(QStringLiteral("events")).toList();
+      assert(trace.value(QStringLiteral("documentId")).toString() == document);
+      assert(events.size() >= 3);
+      assert(events.first().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("started"));
+      if (document == QStringLiteral("python-loop-sum") || document == QStringLiteral("javascript-loop-sum") ||
+          document == QStringLiteral("java-loop-sum") || document == QStringLiteral("b1-array-basics")) {
+        const auto source_step = std::find_if(events.begin(), events.end(), [](const auto& event) {
+          const auto map = event.toMap();
+          return map.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+              map.value(QStringLiteral("variables")).toMap().size() > 0;
+        });
+        assert(source_step != events.end());
+        assert(source_step->toMap().value(QStringLiteral("sourceLine")).toInt() > 0);
+        assert(source_step->toMap().value(QStringLiteral("variables")).toMap().size() > 0);
+      }
+      QString traced_output;
+      for (qsizetype event_index = 0; event_index < events.size(); ++event_index) {
+        const auto event = events.at(event_index).toMap();
+        const auto kind = event.value(QStringLiteral("kind")).toString();
+        assert(event.value(QStringLiteral("sequence")).toULongLong() == static_cast<qulonglong>(event_index + 1));
+        if (kind == QStringLiteral("output")) traced_output += event.value(QStringLiteral("payload")).toString();
+        else if (kind == QStringLiteral("started")) assert(event_index == 0);
+        else if (kind == QStringLiteral("completed")) assert(event_index == events.size() - 1);
+        else assert(kind == QStringLiteral("source_step"));
+      }
+      assert(traced_output == expected);
+      assert(events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("completed"));
+      shell.refreshReviewSummary();
+      wait_for([&] { return !shell.operationBusy(); });
+      assert(shell.lessonEvidenceStates().value(document).toMap().value("practiced").toBool());
+      assert(!shell.lessonAssessment().value("completed").toBool());
+    }
+    shell.openFreeProgram(QStringLiteral("cpp"));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.updateDraftCode(QStringLiteral("#include <iostream>\nint main() {\n int total = 7;\n total += 8;\n"
+        " std::cout << total << '\\n';\n return 0;\n}\n"));
+    shell.setExecutionTimeout(10000);
+    shell.runCode();
+    wait_for([&] { return !shell.executionBusy() && !shell.operationBusy(); });
+    assert(shell.executionOutput() == "15\n");
+    const auto cpp_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+    const auto ascii_path = [](const std::filesystem::path& path) {
+      const auto text = path.wstring();
+      return std::all_of(text.begin(), text.end(), [](wchar_t value) { return value > 0 && value < 128; });
+    };
+    if (std::filesystem::is_regular_file(std::filesystem::path(argv[2]).parent_path() / "gdb.exe") &&

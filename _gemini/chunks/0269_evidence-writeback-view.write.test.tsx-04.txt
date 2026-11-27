@@ -1,0 +1,87 @@
+    expect(screen.queryByText('检测到第三方改动，未覆盖任何内容')).toBeNull()
+  })
+
+  it('预览过期（stale_preview）不冒充第三方冲突：同样撤下预览，只给「重新预览」的理由', async () => {
+    await openPreviewAndConfirm(() =>
+      json({ error: '页面上的预览已过期，请重新预览后再提交', code: 'stale_preview', details: { path: PROGRESS_PATH } }, 409),
+    )
+
+    expect(await screen.findByText(/页面上的预览已过期/)).toBeTruthy()
+    // 「检测到第三方改动」是需要证据的断言，stale_preview 给不出逐字段差异，不能冒领。
+    expect(screen.queryByText('检测到第三方改动，未覆盖任何内容')).toBeNull()
+    expect(screen.queryByText('预览（尚未写入任何文件）')).toBeNull()
+    expect(screen.queryByRole('button', { name: '确认写入' })).toBeNull()
+  })
+
+  it('与指纹无关的失败（格式非法）不撤销预览：写入没有开始，核对结果仍然有效', async () => {
+    await openPreviewAndConfirm(() => json({ error: 'operationId 格式非法', code: 'invalid_operation' }, 400))
+
+    expect(await screen.findByText(/operationId 格式非法/)).toBeTruthy()
+    // 预览内容与目标指纹都没有变化：不把它说成冲突，也不撤掉已经核对过的预览。
+    expect(screen.queryByText('检测到第三方改动，未覆盖任何内容')).toBeNull()
+    expect(screen.getByText('预览（尚未写入任何文件）')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '确认写入' }).hasAttribute('disabled')).toBe(false)
+  })
+})
+
+describe('挂账⑤ 部分成功的重试带真实指纹', () => {
+  it('重试补齐提交的 expectedHashes 与预览一致，不是空对象', async () => {
+    const posts = route({ commit: PROGRESS_PENDING })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    await screen.findByText(/日志已保存，进度待合并/)
+    fireEvent.click(screen.getByRole('button', { name: /重试补齐/ }))
+    await waitFor(() => expect(commitBodies(posts).count).toBe(2))
+
+    const commits = commitBodies(posts)
+    expect(commits.at(0)).toMatchObject({ operationId: 'op-test-abc123' })
+    expect(commits.at(0).expectedHashes).toEqual(PREVIEW_HASHES)
+    // 关键：第二次（重试）与第一次带同一批真实指纹，绝不退回 `{}` 关闭校验。
+    expect(commits.at(1).expectedHashes).toEqual(PREVIEW_HASHES)
+    expect(Object.keys(commits.at(1).expectedHashes as Record<string, unknown>)).toHaveLength(3)
+    expect(commits.at(1).operationId).toBe('op-test-abc123')
+  })
+
+  it('重试按钮旁写明沿用的指纹项数；没有指纹可带时宁可不可点', async () => {
+    route({ commit: PROGRESS_PENDING })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+
+    const note = await screen.findByText(/重试沿用的目标指纹/)
+    const zone = note.closest('.ewb-zone--partial')
+    expect(zone).not.toBeNull()
+    expect(within(zone as HTMLElement).getByText('3 项')).toBeTruthy()
+    expect(within(zone as HTMLElement).getByText('校验不关闭')).toBeTruthy()
+
+    // 目标清单为空（没有任何指纹可带）时，不提供盲写入口。
+    cleanup()
+    route({ preview: () => json({ data: { ...PREVIEW, targets: [] } }), commit: PROGRESS_PENDING })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+    await screen.findByText(/日志已保存，进度待合并/)
+    expect((screen.getByRole('button', { name: /重试补齐/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('重试再次半成功时仍然保留同一批指纹，可继续补齐', async () => {
+    const posts = route({ commit: PROGRESS_PENDING })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+    await screen.findByText('预览（尚未写入任何文件）')
+    fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+    fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+    await screen.findByText(/日志已保存，进度待合并/)
+    fireEvent.click(screen.getByRole('button', { name: /重试补齐/ }))

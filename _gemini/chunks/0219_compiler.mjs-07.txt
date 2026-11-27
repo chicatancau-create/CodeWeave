@@ -1,0 +1,90 @@
+    return {
+      status: 'invalid',
+      reason: 'schemaVersion 2 但没有声明任何 ruleSections，规则投影无从验证',
+      usable: false,
+      sections: [],
+    }
+  }
+  const uncovered = uncoveredRuleFamilies(rules, sources.sections)
+  const unreadable = sources.sections.filter((section) => !section.sourceReadable)
+  if (unreadable.length > 0) {
+    return {
+      status: 'section_missing',
+      reason: `规则来源文件不可读取：${[...new Set(unreadable.map((s) => s.path))].join('、')}`,
+      usable: false,
+      sections: sources.sections,
+    }
+  }
+  const unlocated = sources.sections.filter((section) => !section.located)
+  if (unlocated.length > 0) {
+    return {
+      status: 'section_missing',
+      reason: `规则章节定位失败，需人工核对来源标题结构（不允许静默忽略）：${unlocated.map(labelSection).join('、')}`,
+      usable: false,
+      sections: sources.sections,
+    }
+  }
+
+  const declared = rules.sectionReviews ?? {}
+  const changed = sources.sections.filter((section) => declared[section.id]?.fingerprint !== section.fingerprint)
+  const dropped = Object.keys(declared).filter((id) => !ids.includes(id))
+  if (changed.length > 0 || dropped.length > 0 || uncovered.length > 0) {
+    const parts = []
+    if (changed.length > 0) {
+      parts.push(`规则段内容或复核状态待更新：${changed.map((s) => `${s.id}[${s.covers.join(',')}]`).join('、')}`)
+    }
+    if (dropped.length > 0) parts.push(`规则投影中移除了已登记的规则段：${dropped.join('、')}`)
+    if (uncovered.length > 0) parts.push(`投影字段缺少规则段授权，不能靠删除规则段关闭门禁：${uncovered.join('、')}`)
+    return {
+      status: 'stale',
+      schema: 'v2-section-fingerprint',
+      reason: `规则来源已变化，需人工复核后更新 sectionReviews（重算：node scripts/content-check.mjs --rule-hashes）。${parts.join('；')}`,
+      usable: false,
+      sections: sources.sections,
+    }
+  }
+  return { status: 'current', schema: 'v2-section-fingerprint', reason: '', usable: true, sections: sources.sections }
+}
+
+// ---------------------------------------------------------------------------
+// 引用校验
+// ---------------------------------------------------------------------------
+function validateCrossReferences({ units, exercises, topicByKey, topicById, volumes, rulesCheck, legacyMap, stageIds }) {
+  const blocking = []
+  const contentIds = new Set()
+  const exerciseIds = new Set()
+  const sceneIds = new Set(exercises.map((exercise) => exercise.exerciseId))
+
+  for (const unit of units) {
+    if (contentIds.has(unit.contentId)) {
+      blocking.push({ code: 'duplicate_content_id', path: unit.path, message: `contentId 重复：${unit.contentId}` })
+    }
+    contentIds.add(unit.contentId)
+  }
+  for (const exercise of exercises) {
+    if (exerciseIds.has(exercise.exerciseId)) {
+      blocking.push({ code: 'duplicate_exercise_id', path: exercise.path, message: `exerciseId 重复：${exercise.exerciseId}` })
+    }
+    exerciseIds.add(exercise.exerciseId)
+  }
+
+  const published = units.filter((unit) => unit.status === 'published')
+  for (const unit of published) {
+    const topic = topicById.get(unit.primaryTopicId)
+    if (!topic) {
+      blocking.push({ code: 'unknown_topic', path: unit.path, message: `primaryTopicId 未登记：${unit.primaryTopicId}` })
+    } else if (topic.status !== 'active') {
+      blocking.push({ code: 'retired_topic', path: unit.path, message: `主主题已停用：${unit.primaryTopicId}` })
+    } else if (unit.primaryTopicRef) {
+      const resolvedKey = topicKey(unit.primaryTopicRef.path, unit.primaryTopicRef.headingPath)
+      if (resolvedKey !== topicKey(topic.path, topic.headingPath)) {
+        blocking.push({
+          code: 'source_mismatch',
+          path: unit.path,
+          message: `primaryTopicRef 与 primaryTopicId 指向不同主题：${formatSectionRef(unit.primaryTopicRef.path, unit.primaryTopicRef.headingPath)} ≠ ${formatSectionRef(topic.path, topic.headingPath)}`,
+        })
+      }
+    }
+    for (const ref of unit.sectionRefs) {
+      const key = topicKey(ref.path, ref.headingPath)
+      if (!topicByKey.has(key)) {

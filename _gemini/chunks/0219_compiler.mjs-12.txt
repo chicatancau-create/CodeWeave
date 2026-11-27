@@ -1,0 +1,129 @@
+      warnings,
+      gaps,
+    },
+  }
+
+  const nextManifest = {
+    ...manifest,
+    topics: registry.map((topic) => ({
+      topicId: topic.topicId,
+      path: topic.path,
+      headingPath: topic.headingPath,
+      title: topic.title,
+      level: topic.level,
+      line: topic.line,
+      topicKind: topic.topicKind,
+      sourceIds: topic.sourceIds,
+      verificationStatus: topic.verificationStatus,
+      contentHash: topic.contentHash,
+      status: topic.status,
+      ...(topic.retiredReason ? { retiredReason: topic.retiredReason } : {}),
+    })),
+    publishedContentIds,
+  }
+
+  // 源文件 hash 台账：扫描前记录、发布前复核，期间被改则整包重扫（§5.3 第 1 条）。
+  const sourceHashes = { ...inputFileHashes, ...sourceCards.fileHashes }
+  for (const volume of scan.volumes) sourceHashes[volume.path] = volume.fileHash
+  for (const unit of units) sourceHashes[unit.path] = unit.sourceHash
+  for (const exercise of exercises) sourceHashes[exercise.path] = exercise.sourceHash
+  for (const [path, hash] of Object.entries(ruleSources.fileHashes)) sourceHashes[path] = hash
+
+  return {
+    ok: true,
+    bundle,
+    nextManifest,
+    assetObjects: attachments.objects,
+    report: {
+      generatedAt: bundle.buildTime,
+      bundleId,
+      counts: bundle.counts,
+      sourceHashes,
+      addedTopics: added.length,
+      movedTopics: moved,
+      retiredTopics: retired,
+      blocking: blockingAll,
+      warnings,
+      gaps,
+      topicReconciliation,
+      topicIndex: { path: wl.topicIndexPath, ...topicIndexDiff },
+      rules: {
+        status: rulesCheck.status,
+        reason: rulesCheck.reason,
+        schemaVersion: rules.schemaVersion ?? 1,
+        // 报告始终反映本次扫描的规则段实况，便于人工复核定位。
+        fingerprint: ruleFingerprint(rulesCheck.sections),
+        sections: rulesCheck.sections,
+      },
+    },
+  }
+}
+
+/** 投影中会出现的规则字段家族；每个非空家族都必须由某个规则段授权。 */
+export const RULE_FAMILIES = [
+  'milestones',
+  'stages',
+  'stageTestComposition',
+  'masteryLevels',
+  'masteryRule',
+  'hintLevels',
+  'reviewOffsetsDays',
+  'reviewMethods',
+  'reviewRule',
+]
+
+/** `stages[S3].checkpoint` 与 `stages` 都归属 stages 家族。 */
+function familyOf(cover) {
+  return String(cover).split(/[.[]/)[0].trim()
+}
+
+/**
+ * 未被任何规则段授权的非空字段家族。
+ * 没有这一条时，删掉授权段落就能把规则门禁静默关掉。
+ */
+export function uncoveredRuleFamilies(rules, sections) {
+  const covered = new Set(sections.flatMap((section) => section.covers).map(familyOf))
+  return RULE_FAMILIES.filter((family) => {
+    const value = rules?.[family]
+    const present = Array.isArray(value) ? value.length > 0 : Boolean(value)
+    return present && !covered.has(family)
+  })
+}
+
+function ruleFingerprint(sections) {
+  return sections.length > 0 ? sha256(stableStringify(sections.map((section) => [section.id, section.fingerprint]))) : null
+}
+
+function projectRules(rules, ruleSources) {
+  const sections = ruleSources.sections
+  return {
+    ruleSchemaVersion: rules.schemaVersion ?? 1,
+    sourceRefs: rules.sourceRefs ?? [],
+    sourceHashes: ruleSources.fileHashes,
+    // 可追溯定位：每个规则段的 id / 来源 / 真实祖先链 / 指纹 / 所覆盖的投影字段。
+    ruleSections: sections,
+    ruleFingerprint: ruleFingerprint(sections),
+    milestones: rules.milestones ?? [],
+    stages: rules.stages ?? [],
+    stageTestComposition: rules.stageTestComposition ?? [],
+    masteryLevels: rules.masteryLevels ?? [],
+    masteryRule: rules.masteryRule ?? '',
+    hintLevels: rules.hintLevels ?? [],
+    reviewOffsetsDays: rules.reviewOffsetsDays ?? [],
+    reviewMethods: rules.reviewMethods ?? [],
+    reviewRule: rules.reviewRule ?? '',
+  }
+}
+
+function buildLesson({ unit, topicById, bodyByKey, exercises }) {
+  const topic = topicById.get(unit.primaryTopicId)
+  const body = topic ? bodyByKey.get(topicKey(topic.path, topic.headingPath)) : null
+  return {
+    contentId: unit.contentId,
+    primaryTopicId: unit.primaryTopicId,
+    title: unit.titleRef,
+    subject: unit.subject,
+    language: unit.language,
+    objective: unit.objective,
+    lessonKind: unit.lessonKind,
+    stageIds: unit.stageIds,

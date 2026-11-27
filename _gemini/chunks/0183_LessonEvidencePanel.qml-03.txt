@@ -1,0 +1,15 @@
+        MotionAwareBusyIndicator {
+            ds: panel.ds
+            implicitWidth: 24; implicitHeight: 24
+            busy: panel.busy
+            accessibleName: "正在更新学习证据"
+        }
+    }
+    Text {
+        objectName: "lessonEvidenceStatus"
+        Layout.fillWidth: true; visible: text.length > 0
+        text: uiShell.operationStatus; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere
+        color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12
+        Accessible.role: Accessible.AlertMessage
+    }
+}

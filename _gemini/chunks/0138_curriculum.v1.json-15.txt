@@ -1,0 +1,150 @@
+          "把安装过程写进 README，重装系统时照着做即可复原。"
+        ],
+        "examples": [
+          {
+            "good": "把每条 --version 输出原文贴进 README",
+            "bad": "只写“已安装 JDK”没有版本号",
+            "why": "无法排查“换台机器就跑不起来”的问题"
+          }
+        ],
+        "guidedSteps": [
+          "依次运行四条版本命令并截图或复制输出。",
+          "发现任一工具缺失时按官方文档安装后重跑。",
+          "在项目 README 里记录版本与安装来源。"
+        ],
+        "exercise": "独立完成四件工具的清点，输出一段带版本号的记录。",
+        "variant": "故意把 JAVA_HOME 指向错误路径，观察 mvn 报什么错并恢复。",
+        "projectTask": "这份清单是 A 阶段项目（后续所有 Java 工程）的环境前置说明。",
+        "mistakes": [
+          "只检查了 java 没检查 JAVA_HOME",
+          "Git 没配置 user.name / user.email 就开始提交"
+        ],
+        "runCommand": "在真实终端执行版本命令（浏览器无法替代）",
+        "completion": "README 中有四条版本输出与安装来源记录。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "四条版本命令全部成功执行",
+          "README 含版本号与安装来源"
+        ],
+        "evidenceChecklist": [
+          "终端版本输出原文",
+          "README 环境章节"
+        ]
+      }
+    },
+    {
+      "id": "java-env-a2",
+      "language": "java",
+      "languageLabel": "Java",
+      "label": "A2",
+      "title": "一次构建与一次报错修复",
+      "description": "故意制造并修复一次构建错误，留下排错记录",
+      "duration": "60 min",
+      "level": "入门",
+      "code": "# 构建排错记录模板\n# 命令：mvn compile\n# 报错原文：（粘贴第一行错误）\n# 原因分析：\n# 修复步骤：\n# 复验结果：BUILD SUCCESS",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "执行构建",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "构建通过？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "阅读首行报错",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "记录修复",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "排错能力 = 完整复制报错 + 定位首个错误 + 记录修复，三者缺一不可。",
+      "fileName": "build-trouble-log.txt",
+      "runtime": "外部环境 · Maven",
+      "content": {
+        "objective": "完成一次成功构建，并故意制造一次构建错误后修复它，形成排错记录。",
+        "prerequisites": [
+          "java-env-a1"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ],
+        "stageId": "A",
+        "explanation": [
+          "读报错只看第一行：它通常直接指出缺失的类、符号或版本。",
+          "构建错误分为依赖类（下载失败、版本冲突）与代码类（语法、符号缺失）。",
+          "排错记录的价值随项目增长：下次遇到同样报错直接查表。"
+        ],
+        "examples": [
+          {
+            "good": "记录报错原文 + 原因 + 修复三段",
+            "bad": "只写“改好了”",
+            "why": "复现与教学价值都在原文里"
+          }
+        ],
+        "guidedSteps": [
+          "用模板创建 build-trouble-log.txt。",
+          "删掉一个分号触发编译错误，按模板填写并修复。",
+          "再制造一次依赖版本错误（如不存在的依赖）观察差异。"
+        ],
+        "exercise": "独立完成“成功构建 + 报错修复 + 记录”完整闭环。",
+        "variant": "把一次运行时异常（如数组越界）也按模板记录，比较与编译错误的差异。",
+        "projectTask": "排错记录模板沉淀为项目的 docs/trouble-shooting.md。",
+        "mistakes": [
+          "只截图不复制文本，无法检索",
+          "同时改多处导致无法定位真正原因"
+        ],
+        "runCommand": "mvn compile（真实 Maven 环境）",
+        "completion": "排错记录含报错原文、原因、修复步骤与复验结果。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 60,
+        "acceptanceCriteria": [
+          "至少一次 BUILD SUCCESS 复验",
+          "排错记录四要素齐全"
+        ],
+        "evidenceChecklist": [
+          "构建日志片段",
+          "排错记录文件"
+        ]
+      }
+    },
+    {
+      "id": "java-env-a3",
+      "language": "java",
+      "languageLabel": "Java",
+      "label": "A3",
+      "title": "Git 分支与提交纪律",
+      "description": "用分支完成一次功能提交并回看历史",
+      "duration": "45 min",
+      "level": "入门",

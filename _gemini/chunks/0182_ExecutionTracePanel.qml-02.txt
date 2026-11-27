@@ -1,0 +1,89 @@
+            Layout.fillWidth: true
+            Layout.preferredHeight: 176
+            Layout.minimumHeight: 176
+            ds: panel.ds
+            frame: panel.frame
+            emptyText: panel.busy ? "运行中，等待执行事件" : "暂无执行事件"
+            onNodeSelected: function(eventIndex) { panel.selectEvent(eventIndex); }
+        }
+
+        ListView {
+            id: eventList
+            objectName: "executionEventList"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 52
+            Layout.preferredHeight: 52
+            model: panel.events
+            orientation: ListView.Horizontal
+            clip: true
+            activeFocusOnTab: true
+            keyNavigationEnabled: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.horizontal: ScrollBar { }
+            Accessible.name: "执行事件回看"
+            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Home || event.key === Qt.Key_End ||
+                        event.key === Qt.Key_Up || event.key === Qt.Key_Down ||
+                        event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                    const target = event.key === Qt.Key_Home ? 0 : event.key === Qt.Key_End ? count - 1 :
+                                   currentIndex + (event.key === Qt.Key_Up || event.key === Qt.Key_Left ? -1 : 1);
+                    panel.selectEvent(target);
+                    event.accepted = true;
+                }
+            }
+            delegate: Item {
+                id: node
+                required property var modelData
+                required property int index
+                width: 220
+                height: 38
+                readonly property bool selected: eventList.currentIndex === index
+                Rectangle {
+                    x: 0
+                    y: 17
+                    width: parent.width
+                    height: 2
+                    color: panel.ds.lineStrong
+                }
+                Rectangle {
+                    x: 8
+                    y: 12
+                    width: 12
+                    height: 12
+                    radius: 6
+                    color: node.selected ? panel.ds.accent : panel.ds.panel
+                    border.color: node.modelData.kind === "failed" ? panel.ds.danger : panel.ds.accent
+                    border.width: 2
+                }
+                ItemDelegate {
+                    x: 30
+                    width: parent.width - 30
+                    height: 34
+                    hoverEnabled: true
+                    text: node.modelData.sequence + " · " + node.modelData.label
+                    onClicked: {
+                        panel.selectEvent(node.index);
+                        eventList.forceActiveFocus();
+                    }
+                    background: Rectangle {
+                        radius: 3
+                        color: node.selected ? panel.ds.accentSoft : parent.hovered ? panel.ds.hoverWash : panel.ds.panel
+                        border.color: node.selected ? panel.ds.accentRing : panel.ds.line
+                    }
+                    contentItem: RowLayout {
+                        Text {
+                            Layout.fillWidth: true
+                            text: node.modelData.sequence + " · " + node.modelData.label
+                            color: node.modelData.kind === "failed" ? panel.ds.danger : panel.ds.ink
+                            font.family: panel.ds.ui
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            visible: node.selected
+                            text: "当前"
+                            color: panel.ds.accent
+                            font.family: panel.ds.ui
+                            font.pixelSize: 11

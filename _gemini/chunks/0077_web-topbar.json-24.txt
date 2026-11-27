@@ -1,0 +1,131 @@
+    "sectionTitles": [
+      {
+        "text": "可视化执行",
+        "geometry": {
+          "x": 547,
+          "y": 319.296875,
+          "width": 364,
+          "height": 22.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "600",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "按十步学习法推进",
+        "geometry": {
+          "x": 547,
+          "y": 406.46875,
+          "width": 364,
+          "height": 22.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "600",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "真实与模拟的边界",
+        "geometry": {
+          "x": 547,
+          "y": 516.03125,
+          "width": 364,
+          "height": 22.390625
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "600",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      }
+    ],
+    "body": [
+      {
+        "text": "点击运行按钮，观察程序的每一步执行过程。流程图会高亮当前步骤，变量面板实时显示数据变化。",
+        "geometry": {
+          "x": 547,
+          "y": 345.6875,
+          "width": 364,
+          "height": 44.78125
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "每个单元包含讲解、例子/反例、跟做、独立题、变式题和项目任务；运行成功后可标记完成，系统会按 1/3/7/14/30 天安排复测。",
+        "geometry": {
+          "x": 547,
+          "y": 432.859375,
+          "width": 364,
+          "height": 67.171875
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      },
+      {
+        "text": "教学运行器只支持子集语法；浏览器沙箱真实执行纯 JavaScript；标注“外部环境实验”的关卡需要在真实环境完成后提交证据。",
+        "geometry": {
+          "x": 547,
+          "y": 542.421875,
+          "width": 364,
+          "height": 67.171875
+        },

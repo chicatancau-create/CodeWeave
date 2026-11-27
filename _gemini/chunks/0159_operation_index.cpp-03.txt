@@ -1,0 +1,90 @@
+app::Result validate_shards(const std::filesystem::path& index_dir,
+    std::uintmax_t ledger_size, std::size_t expected_count) {
+  std::unordered_set<std::string> operation_ids;
+  operation_ids.reserve(expected_count);
+  std::size_t total = 0;
+  for (std::size_t shard = 0; shard < kShardCount; ++shard) {
+    const auto path = shard_path(index_dir, shard);
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (missing(error)) continue;
+    if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+      return app::Result::failure("operation 索引分片类型无效");
+    }
+    const auto size = std::filesystem::file_size(path, error);
+    if (error || size > kMaxIndexBytes) return app::Result::failure("operation 索引分片过大");
+    std::ifstream input(path, std::ios::binary);
+    std::string line;
+    while (std::getline(input, line)) {
+      const auto fields = split(line);
+      std::string operation_id;
+      std::uintmax_t offset = 0;
+      std::uintmax_t length = 0;
+      if (fields.size() != 3 || !hex_decode(fields[0], operation_id) ||
+          !is_operation_id(operation_id) || shard_for(operation_id) != shard ||
+          !parse_uint(fields[1], offset) || !parse_uint(fields[2], length) || length == 0 ||
+          offset + length < offset || offset + length > ledger_size ||
+          !operation_ids.insert(operation_id).second) {
+        return app::Result::failure("operation 索引分片记录无效");
+      }
+      if (++total > expected_count) return app::Result::failure("operation 索引记录数量无效");
+    }
+    if (!input.eof()) return app::Result::failure("读取 operation 索引分片失败");
+  }
+  return total == expected_count ? app::Result::success("operation 索引已验证")
+                                 : app::Result::failure("operation 索引记录数量不一致");
+}
+
+app::Result write_atomic(const std::filesystem::path& destination,
+    const std::filesystem::path& data_root, std::string_view body) {
+  if (!valid_parent(destination, data_root)) return app::Result::failure("operation 索引路径无效");
+  const auto temporary = temporary_path(destination);
+  {
+    std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+    if (!output) return app::Result::failure("创建 operation 索引临时文件失败");
+    output.write(body.data(), static_cast<std::streamsize>(body.size()));
+    output.flush();
+    if (!output) {
+      std::error_code ignored;
+      std::filesystem::remove(temporary, ignored);
+      return app::Result::failure("写入 operation 索引临时文件失败");
+    }
+  }
+#ifdef _WIN32
+  const auto handle = CreateFileW(temporary.wstring().c_str(), GENERIC_READ | GENERIC_WRITE,
+      FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE || !FlushFileBuffers(handle)) {
+    if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return app::Result::failure("刷盘 operation 索引失败");
+  }
+  CloseHandle(handle);
+#endif
+  std::error_code error;
+#ifdef _WIN32
+  if (!MoveFileExW(temporary.wstring().c_str(), destination.wstring().c_str(),
+      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+  }
+#else
+  std::filesystem::rename(temporary, destination, error);
+#endif
+  if (error) {
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
+    return app::Result::failure("提交 operation 索引失败");
+  }
+  return app::Result::success();
+}
+
+app::Result write_metadata(const std::filesystem::path& index_dir,
+    const std::filesystem::path& data_root, const Snapshot& snapshot) {
+  const auto body = std::string(kHeader) + '\t' + std::to_string(snapshot.ledger_size) + '\t' +
+      std::to_string(snapshot.record_count) + '\t' +
+      std::to_string(snapshot.ledger_fingerprint) + '\n';
+  return write_atomic(metadata_path(index_dir), data_root, body);
+}
+
+}  // namespace
+

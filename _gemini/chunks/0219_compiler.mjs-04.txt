@@ -1,0 +1,103 @@
+        path,
+        headingPath,
+        title: section.title,
+        level: section.level,
+        line: section.line,
+        topicKind: classifyTopic({ volumeKind: kind, title: section.title, isEmpty: section.isEmpty }),
+        sourceIds,
+        verificationStatus,
+        contentHash,
+        fileHash,
+        isEmpty: section.isEmpty,
+        bodyText: section.bodyText,
+      })
+    }
+    volume.topicCount = sections.length
+    volume.duplicateTitles = [...seen.entries()].filter(([, count]) => count > 1).map(([title]) => title)
+    if (volume.duplicateTitles.length > 0) {
+      problems.push({
+        code: 'ambiguous_heading',
+        path,
+        message: `同名标题必须用父标题链定位，当前重复：${volume.duplicateTitles.join('、')}`,
+      })
+    }
+    if (topics.length === 0) {
+      problems.push({ code: 'empty_volume', path, message: '声明为正式正文但没有主题标题' })
+    }
+    volumes.push(volume)
+  }
+  return { volumes, topics, problems }
+}
+
+function parseLevels(raw, path) {
+  const value = String(raw ?? '').trim()
+  if (!value) return [2]
+  const text = /^\[(.*)\]$/.exec(value) ? /^\[(.*)\]$/.exec(value)[1] : value
+  const levels = text.split(',').map((item) => item.trim()).filter(Boolean).map((item) => {
+    if (!/^\d+$/.test(item)) {
+      throw new ContentError('invalid_topic_levels', `${path}: topic_levels 只能是标题层级数字，实际 ${raw}`)
+    }
+    const level = Number(item)
+    if (level < 1 || level > 6) {
+      throw new ContentError('invalid_topic_levels', `${path}: topic_levels 必须在 1—6，实际 ${raw}`)
+    }
+    return level
+  })
+  return [...new Set(levels)].sort((a, b) => a - b)
+}
+
+function asList(value) {
+  if (Array.isArray(value)) return value.filter((item) => item !== '')
+  if (value === undefined || value === '') return []
+  return [value]
+}
+
+// ---------------------------------------------------------------------------
+// 教学单元与练习
+// ---------------------------------------------------------------------------
+export async function loadTeachingUnits(root, manifest) {
+  const wl = whitelistOf(manifest)
+  const files = await listMarkdownFiles(root, wl.teachingUnitDir)
+  const units = []
+  const problems = []
+  for (const path of files) {
+    const text = await readVaultText(root, path)
+    const sourceHash = sha256(text)
+    let front
+    try {
+      front = parseRestrictedFrontmatter(text, path)
+    } catch (error) {
+      problems.push({ code: error.code ?? 'frontmatter_error', path, message: error.message })
+      continue
+    }
+    if (front.fields.type !== 'teaching-unit') {
+      problems.push({ code: 'invalid_unit', path, message: '教学单元文件必须声明 type: teaching-unit' })
+      continue
+    }
+    try {
+      validateUnitFields(front.fields, path)
+    } catch (error) {
+      problems.push({ code: error.code ?? 'invalid_unit', path, message: error.message })
+      continue
+    }
+    const sectionRefs = asList(front.fields.sectionRefs).map((raw) => parseSectionRef(raw, path))
+    const body = text.split('\n').slice(front.bodyStartLine - 1).join('\n').trim()
+    units.push({
+      path,
+      sourceHash,
+      contentId: front.fields.contentId,
+      primaryTopicId: front.fields.primaryTopicId,
+      primaryTopicRef: front.fields.primaryTopicRef ? parseSectionRef(front.fields.primaryTopicRef, path) : null,
+      stageIds: asList(front.fields.stageIds),
+      titleRef: front.fields.titleRef,
+      subject: front.fields.subject,
+      language: front.fields.language,
+      objective: front.fields.objective,
+      lessonKind: front.fields.lessonKind,
+      prerequisiteRefs: asList(front.fields.prerequisiteRefs),
+      sectionRefs,
+      exerciseIds: asList(front.fields.exerciseIds),
+      projectTaskRef: front.fields.projectTaskRef || null,
+      runEnvironment: front.fields.runEnvironment || 'external',
+      executionPolicy: front.fields.executionPolicy || (front.fields.runEnvironment === 'teaching' ? 'teaching' : 'external'),
+      estimatedMinutes: front.fields.estimatedMinutes ? Number(front.fields.estimatedMinutes) : null,

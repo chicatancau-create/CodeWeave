@@ -1,0 +1,19 @@
+    transition: none !important;
+  }
+}
+/* 路径 B：应用内「减少动效」设置。该类同时挂在 <html>（app.tsx L600 镜像）与
+   .app-shell（shellClassName）上，弹窗在壳内，两种祖先位置都覆盖得到。 */
+.reduce-motion .modal-backdrop.cw-modal-backdrop :is(button, input, select, textarea) {
+  transition: none !important;
+}
+
+/* ── 10. 高对比模式：发丝线抬到系统描边（细线在 forced-colors 下会整体消失） ─ */
+@media (forced-colors: active) {
+  .modal-backdrop .cw-modal,
+  .cw-modal .cw-modal-close,
+  .cw-modal .cw-modal-row,
+  .cw-modal .cw-modal-row input[type='checkbox'],
+  .cw-modal .cw-modal-select {
+    border-color: CanvasText;
+  }
+}

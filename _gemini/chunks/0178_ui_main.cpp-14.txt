@@ -1,0 +1,68 @@
+          if (quick->property("opened").toBool() || !notifications->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Notifications did not replace quick actions");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!capture_topbar(QStringLiteral("topbar-notifications"))) { application.exit(1); return; }
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 16:
+          if (!require_focus(notification_button)) return;
+          QMetaObject::invokeMethod(settings_button, "clicked");
+          break;
+        case 17:
+          if (!settings->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Settings did not open");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!require_reference_close_style(settings)) return;
+          if (!inspect_settings_text(QStringLiteral("1440x900"))) {
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          {
+            auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
+            bool all_visible = flick && view.size() == QSize(1440, 900) &&
+                std::abs(flick->property("contentY").toReal()) < 0.01;
+            for (int index = 0; index < 8; ++index) {
+              auto* row = u3_find_item(settings_scroll,
+                  QStringLiteral("settingsPreferenceRow%1").arg(index));
+              const auto origin = row && flick ? row->mapToItem(flick, QPointF()) : QPointF(-1, -1);
+              const bool fully_visible = row && flick && row->isVisible() &&
+                  row->width() > 0 && row->height() > 0 && origin.x() >= -1 && origin.y() >= -1 &&
+                  origin.x() + row->width() <= flick->width() + 1 &&
+                  origin.y() + row->height() <= flick->height() + 1;
+              smoke_settings_initial_viewport.append(QJsonObject{{"index", index},
+                  {"windowWidth", view.width()}, {"windowHeight", view.height()},
+                  {"storageReady", shell.preferenceStorageReady()}, {"x", origin.x()}, {"y", origin.y()},
+                  {"width", row ? row->width() : -1}, {"height", row ? row->height() : -1},
+                  {"viewportWidth", flick ? flick->width() : -1},
+                  {"viewportHeight", flick ? flick->height() : -1},
+                  {"contentY", flick ? flick->property("contentY").toReal() : -1},
+                  {"fullyVisible", fully_visible}});
+              all_visible = all_visible && fully_visible;
+            }
+            // Offscreen uses fallback font metrics; compare the initial viewport only in a real window.
+            // Storage errors may wrap status text; all text is still checked after scrolling below.
+            if (QGuiApplication::platformName() != QStringLiteral("offscreen") &&
+                !smoke_preference_storage_unavailable && !all_visible) {
+              diagnostic = QStringLiteral("All eight settings rows must fit the initial 1440x900 viewport");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          if (smoke_preference_storage_unavailable) {
+            for (const int index : {3, 4, 7}) {
+              const auto row_name = QStringLiteral("settingsPreferenceRow%1").arg(index);
+              auto* row = u3_find_item(settings_scroll, row_name);
+              const auto control_name = index == 3 ? QStringLiteral("settingsReducedMotionToggle") :
+                  index == 4 ? QStringLiteral("settingsEditorFontSize") :
+                  QStringLiteral("settingsEditorLineNumbersToggle");
+              auto* control = row ? u3_find_item(row, control_name) : nullptr;
+              auto* description = row ? u3_find_item(row,
+                  QStringLiteral("settingsPreferenceDescription%1").arg(index)) : nullptr;

@@ -1,0 +1,98 @@
+  border-top: var(--hair) solid var(--line);
+}
+.run-copy { display: flex; align-items: center; gap: var(--ds-space-10, 10px); }
+.run-indicator {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-circle);
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--hair) var(--line);
+}
+.run-indicator span { width: 8px; height: 8px; border-radius: var(--radius-circle); background: var(--faint); }
+/* 「运行中」是持续状态：循环闪烁在两条减少动效路径下真停（见 §5.3 降级小节 L<减动效>），
+   状态本身仍由实心底色 + 右侧文字承载，不依赖运动。 */
+.run-indicator.running span {
+  background: var(--accent);
+  animation: blink var(--ds-dur-loop-breathe) var(--ease) infinite;
+  animation-play-state: var(--anim-play-state);
+}
+.run-indicator.completed span, .run-indicator.done span { background: var(--c-green); }
+.run-indicator.error span { background: var(--c-coral); }
+.run-copy > div:last-child { display: flex; flex-direction: column; gap: var(--ds-space-4, 4px); }
+.run-copy strong { color: var(--ink); font-size: var(--ds-size-control, 13px); }
+.run-copy span { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+.run-actions { display: flex; align-items: center; gap: var(--ds-space-8, 8px); }
+.reset-button, .step-button, .run-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  min-height: var(--tap-min);          /* §5.4：运行/单步/重置是工作台主操作 */
+  padding: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color var(--ds-dur-quick) var(--ease), border-color var(--ds-dur-quick) var(--ease),
+    background var(--ds-dur-quick) var(--ease);
+}
+.reset-button { color: var(--muted); }
+.reset-button:hover { color: var(--ink-strong); }
+.reset-button:active { color: var(--accent); }
+/* 细线按钮：去底色、1px 发丝线，hover 抬描边（原为 --panel-2 实底卡片感） */
+.step-button { color: var(--ink); border: var(--hair) solid var(--line-strong); background: transparent; }
+.step-button:hover { border-color: var(--accent); color: var(--accent); }
+.step-button:active { background: var(--scrim-raised); }
+/* 运行按钮：模板唯一的实心形态是「细线药丸」（site.css L392-L394），
+   不用渐变底、不用白字压色底（#fff 压 #4f7cff 只有 3.71:1）。 */
+.run-button {
+  min-width: 104px;
+  justify-content: center;
+  color: var(--ink-strong);
+  border: var(--hair) solid var(--field-line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: color var(--ds-dur-quick) var(--ease), border-color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease);
+}
+.run-button:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.run-button:active { background: var(--scrim-raised); }
+
+.right-panels { display: flex; flex-direction: column; gap: var(--ds-space-12, 12px); }
+
+.panel {
+  min-width: 0;
+  overflow: hidden;
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);          /* 科技档：10px */
+  background: var(--panel);
+  box-shadow: var(--ds-shadow-panel);    /* 科技档：冷色面板发光 */
+}
+.panel-header {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--ds-space-14, 14px);
+  border-bottom: var(--hair) solid var(--line);
+  background: linear-gradient(180deg, rgba(120, 175, 235, 0.07), transparent);
+}
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  color: var(--muted);
+  font-size: var(--ds-size-body);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud);
+  text-transform: uppercase;
+}
+.panel-title svg { color: var(--accent); }
+.step-counter, .console-status { color: var(--faint); font-family: var(--font-mono); font-size: var(--ds-size-meta); }
+.console-status.error { color: var(--c-coral); }
+
+.variable-list { padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px); max-height: 220px; overflow-y: auto; }
+.variable-row {
+  min-height: 46px;
+  display: flex;
+  align-items: center;

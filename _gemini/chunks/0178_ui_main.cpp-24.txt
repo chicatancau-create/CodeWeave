@@ -1,0 +1,86 @@
+                !breadcrumb_section || breadcrumb_section->property("text").toString() != QStringLiteral("课程") ||
+                !breadcrumb_index || !breadcrumb_index->isVisible() ||
+                breadcrumb_index->property("text").toString() != QStringLiteral("01") ||
+                !breadcrumb_entry || breadcrumb_entry->property("text").toString() != QStringLiteral("学习路径")) {
+              diagnostic = QStringLiteral("Compact topbar brand or breadcrumb hierarchy is incomplete");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          if (!capture_topbar(QStringLiteral("topbar-shell-small"))) { application.exit(1); return; }
+          smoke_expected_size = QSize(1440, 900);
+          view.setMinimumSize(QSize(1440, 900));
+          view.setMaximumSize(QSize(1440, 900));
+          view.setWindowState(Qt::WindowNoState);
+          view.resize(1440, 900);
+          QMetaObject::invokeMethod(quick, "open");
+          break;
+        case 20:
+          if (!require_focus(first)) return;
+          QMetaObject::invokeMethod(help, "clicked");
+          break;
+        case 21:
+          if (!help_dialog->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Help did not open");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!require_reference_close_style(help_dialog)) return;
+          if (!capture_topbar(QStringLiteral("topbar-help"))) { application.exit(1); return; }
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 22:
+          if (!require_focus(trigger)) return;
+          search_field->forceActiveFocus();
+          search_field->setProperty("text", QStringLiteral("no-match-qt-smoke"));
+          break;
+        case 23:
+          if (!search->property("opened").toBool() || search->property("height").toReal() < 92 ||
+              search_results->property("count").toInt() != 0) {
+            diagnostic = QStringLiteral("Search empty state is missing or clipped");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          {
+            auto* ring = u3_find_item(view.rootObject(), QStringLiteral("globalSearchFocusRing"));
+            if (!ring || !ring->isVisible() || !search_field->hasActiveFocus() ||
+                QQmlProperty::read(ring, QStringLiteral("border.width")).toReal() != 2 ||
+                std::abs(ring->x() + 4) > 0.01 || std::abs(ring->y() + 4) > 0.01) {
+              diagnostic = QStringLiteral("Focused search is missing its visible outer ring");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          if (!capture_topbar(QStringLiteral("topbar-search"))) { application.exit(1); return; }
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          break;
+        case 24:
+          if (!require_focus(search_field)) return;
+          if (search->property("opened").toBool()) {
+            diagnostic = QStringLiteral("Search did not close on Escape");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (shell.draftDirty()) {
+            diagnostic = QStringLiteral("Editor preference smoke refused to replace an unsaved draft");
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          shell.selectPage(QStringLiteral("编辑器"));
+          if (!shell.publishedIds().isEmpty()) {
+            const auto reference_index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+            shell.openPublishedContent(reference_index >= 0 ? reference_index : 0);
+          } else {
+            shell.selectPage(QStringLiteral("编辑器"));
+          }
+          break;
+        case 25:
+          {
+            if (shell.contentBusy()) {
+              --qml_smoke_page;

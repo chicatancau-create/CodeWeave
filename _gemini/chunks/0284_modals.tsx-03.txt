@@ -1,0 +1,58 @@
+  const dialogRef = useModalFocusTrap<HTMLElement>()
+  useEscapeToClose(onClose)
+
+  return (
+    <div className="modal-backdrop cw-modal-backdrop" role="presentation" onClick={onClose}>
+      <section
+        ref={dialogRef}
+        className="help-modal cw-modal cw-modal--help"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header cw-modal-head">
+          <div>
+            <p className="eyebrow cw-modal-eyebrow">使用指南</p>
+            <h2 id="help-title" className="cw-modal-title">
+              如何学习
+            </h2>
+          </div>
+          <button className="icon-button cw-modal-close" aria-label="关闭帮助" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="help-content cw-modal-body">
+          <div className="help-section cw-modal-help">
+            <Lightbulb size={16} />
+            <div>
+              <h3>可视化执行</h3>
+              <p>运行后，流程图和变量面板会根据当前运行器实际提供的数据展示；未采集到的事件或变量不会补造。</p>
+            </div>
+          </div>
+
+          <div className="help-section cw-modal-help">
+            <Settings2 size={16} />
+            <div>
+              <h3>按十步学习法推进</h3>
+              <p>每个单元包含讲解、例子/反例、跟做、独立题、变式题和项目任务；运行成功后可标记完成，系统会按 1/3/7/14/30 天安排复测。</p>
+            </div>
+          </div>
+
+          <div className="help-section cw-modal-help">
+            <Lightbulb size={16} />
+            <div>
+              <h3>真实与模拟的边界</h3>
+              <p>教学运行器只支持子集语法；浏览器沙箱真实执行纯 JavaScript；标注“外部环境实验”的关卡需要在真实环境完成后提交证据。</p>
+            </div>
+          </div>
+        </div>
+
+        <button className="primary-action cw-modal-cta" data-autofocus onClick={onClose}>
+          知道了
+        </button>
+      </section>
+    </div>
+  )
+}

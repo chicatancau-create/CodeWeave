@@ -1,0 +1,42 @@
+export function snoozeTargetKey(record: Pick<MasteryRecord, 'reviewDueKey'>, todayKey: string): string {
+  const base = record.reviewDueKey && record.reviewDueKey > todayKey ? record.reviewDueKey : todayKey
+  return addDaysKey(base, 1)
+}
+
+/** 稍后提醒：从“今天与计划日期的较晚者”顺延一天——对已排到未来的复测也有可见效果。 */
+export function snoozeReview(record: MasteryRecord, todayKey: string): MasteryRecord {
+  return { ...record, reviewDueKey: snoozeTargetKey(record, todayKey) }
+}
+
+/** 复测分组（F1 复习中心）：逾期 / 今日到期 / 未来 7 天 / 下一次复测。 */
+export function groupReviews(
+  records: MasteryRecord[],
+  todayKey: string,
+): {
+  overdue: MasteryRecord[]
+  today: MasteryRecord[]
+  upcoming: MasteryRecord[]
+  next: { dateKey: string; record: MasteryRecord } | null
+} {
+  const pending = records.filter((record) => record.reviewDueKey !== undefined)
+  const sorted = [...pending].sort((a, b) => (a.reviewDueKey ?? '').localeCompare(b.reviewDueKey ?? ''))
+  const overdue = sorted.filter((record) => (record.reviewDueKey ?? '') < todayKey)
+  const today = sorted.filter((record) => record.reviewDueKey === todayKey)
+  const upcoming = sorted.filter((record) => {
+    const key = record.reviewDueKey ?? ''
+    return key > todayKey && key <= addDaysKey(todayKey, 7)
+  })
+  const nextRecord = sorted.find((record) => (record.reviewDueKey ?? '') > todayKey)
+  const next = nextRecord ? { dateKey: nextRecord.reviewDueKey!, record: nextRecord } : null
+  return { overdue, today, upcoming, next }
+}
+
+/** 找出今天到期（或已过期）的复测记录。 */
+export function dueReviewRecords(
+  records: Record<string, MasteryRecord>,
+  todayKey: string,
+): MasteryRecord[] {
+  return Object.values(records)
+    .filter((record) => record.reviewDueKey !== undefined && record.reviewDueKey <= todayKey)
+    .sort((a, b) => (a.reviewDueKey ?? '').localeCompare(b.reviewDueKey ?? ''))
+}

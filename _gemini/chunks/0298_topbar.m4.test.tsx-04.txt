@@ -1,0 +1,57 @@
+    expect(css).toMatch(/\.topbar-avatar \{ min-width: var\(--tap-min\); min-height: var\(--tap-min\);/)
+    expect(css).toMatch(/\.account-menu button \{[\s\S]*?min-height: var\(--tap-min\);/)
+    expect(css).toMatch(/\.global-search__input \{[\s\S]*?min-height: var\(--tap-min\);/)
+    expect(css).toMatch(/\.profile \{[\s\S]*?min-height: var\(--tap-min\);/)
+  })
+
+  it('styles.css 里不再有 11–12.5px 的裸字号（§5.4 正文档 / meta 档二选一）', () => {
+    expect(css).not.toMatch(/font-size:\s*1[12](\.5)?px/)
+  })
+
+  it('窄屏档：搜索与通知浮层按 .topbar 算宽，不再塌进那 44px 的折叠盒', () => {
+    // 浏览器实测出来的两条（历史执行记录 docs/M6-整体验收-执行记录.md §14）：390 档结果面板只有 44px 宽、通知面板左溢 34px（320 档 104px）。
+    // 同一个根因：它们是绝对定位的，包含块是 .global-search / .notification-wrap 那两个 44px 的
+    // position:relative 盒。钉住「窄屏档把包含块交回 .topbar + 通知面板有左右安全边距」。
+    const at = css.indexOf('@media (max-width: 760px)')
+    expect(at, '找不到 ≤760px 那一档').toBeGreaterThan(-1)
+    let depth = 0
+    let end = -1
+    for (let i = css.indexOf('{', at); i < css.length; i += 1) {
+      if (css[i] === '{') depth += 1
+      else if (css[i] === '}') { depth -= 1; if (depth === 0) { end = i; break } }
+    }
+    const narrow = css.slice(at, end)
+    expect(narrow).toMatch(/\.global-search:focus-within \{[^}]*position: static/)
+    expect(narrow).toMatch(/\.notification-wrap \{[^}]*position: static/)
+    expect(narrow).toMatch(/\.notification-panel \{[^}]*left: 12px;[^}]*right: 12px;[^}]*width: auto/)
+    // 展开态本身仍是绝对定位（否则顶栏会跳行），这条一起钉住，防止下次「顺手」改成 static 以外的东西
+    expect(narrow).toMatch(/\.global-search__input:focus \{[^}]*position: absolute/)
+  })
+
+  it('减少动效的两条路径都挂在根类上，不依赖 .app-shell', () => {
+    expect(css).not.toMatch(/\.app-shell\.reduce-motion|\.app-shell \.reduce-motion/)
+    expect(css).toMatch(/\.reduce-motion, \.reduce-motion \*, \.reduce-motion \*::before, \.reduce-motion \*::after \{/)
+    expect(appSource).toContain("document.documentElement.classList.toggle('reduce-motion'")
+  })
+})
+
+/* 01 号方案 §5「弹层焦点进出正确」。搜索面板由 onFocus 打开，此前只有 Esc / 点面板外 /
+   选中结果三条关闭路，Tab 走出去不收——键盘用户过一次搜索框，listbox 就一直盖在内容上。
+   实测出处：terminal113 writeback「绑定 + 有数据」200% 那一格整页 Tab 只走 3 站，
+   stop-0 截图上挂着的就是上一格留下的搜索面板。 */
+describe('§5 搜索面板跟着键盘离开而收', () => {
+  it('焦点在区内移动不收，离开本区才收（面板是 onFocus 开的，不收就是键盘死角）', () => {
+    setup()
+    const input = document.querySelector('.global-search__input') as HTMLInputElement
+    fireEvent.focus(input)
+    expect(document.querySelector('.global-search__panel')).not.toBeNull()
+    const row = document.querySelector('.global-search__row') as HTMLElement
+    expect(row).toBeTruthy()
+    // 输入框 → 结果行：还在 .global-search 之内，面板必须留着
+    fireEvent.blur(input, { relatedTarget: row })
+    expect(document.querySelector('.global-search__panel')).not.toBeNull()
+    // 结果行 → 本区之外：面板必须收，否则它一直盖住身后的内容
+    fireEvent.blur(row, { relatedTarget: document.body })
+    expect(document.querySelector('.global-search__panel')).toBeNull()
+  })
+})

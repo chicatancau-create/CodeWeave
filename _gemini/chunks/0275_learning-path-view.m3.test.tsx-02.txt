@@ -1,0 +1,110 @@
+  return baseLesson({
+    ...rest,
+    label: stage,
+    content: { ...baseLesson().content, stageId: stage },
+  })
+}
+
+const javaSubject = {
+  id: 'java',
+  label: 'Java',
+  short: 'JA',
+  color: 'orange',
+  lessonCount: 2,
+  hasVaultContent: true,
+  executable: true,
+}
+
+function renderView(lessons: Lesson[], overrides: Partial<Parameters<typeof LearningPathView>[0]> = {}) {
+  const props = {
+    subjectId: 'java',
+    subjects: [javaSubject],
+    lessons,
+    selectedLessonId: lessons[0]?.id ?? '',
+    recommended: { label: 'S0', title: '开发环境清点' },
+    onSubjectChange: vi.fn(),
+    onLessonChange: vi.fn(),
+    onContinue: vi.fn(),
+    ...overrides,
+  }
+  render(<LearningPathView {...props} />)
+  return props
+}
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('M3 学习路径 · S0—S9 编号阶段骨架', () => {
+  it('按编号阶段建组，组标题含阶段号与单元计数', () => {
+    renderView([baseLesson(), lessonAtStage({ id: 'vault-s2-1', stage: 'S2', title: '变式单元' })])
+    // #77：h1 归页内标题之后阶段标题降了一级（原 h4）——这里跟着改，不是放宽：
+    // 下面那条 queryByRole 也在同一批里改，改完它仍会真的去找 h3，找空才算过。
+    const s0 = screen.getByRole('heading', { level: 3, name: /S0 阶段/ })
+    const s2 = screen.getByRole('heading', { level: 3, name: /S2 阶段/ })
+    expect(s0.textContent).toContain('1 个单元')
+    expect(s2.textContent).toContain('1 个单元')
+  })
+
+  it('编号区间内没有单元的阶段如实标为阶段缺口，不拿相邻主题顶替', () => {
+    renderView([baseLesson(), lessonAtStage({ id: 'vault-s2-1', stage: 'S2', title: '变式单元' })])
+    const gapHeading = screen.getByRole('heading', { level: 3, name: /S1 阶段/ })
+    expect(gapHeading.textContent).toContain('本阶段无已发布单元')
+    expect(screen.getByText('阶段缺口')).toBeTruthy()
+    expect(screen.getByText(/本科目在 S1 没有已发布单元/)).toBeTruthy()
+  })
+
+  it('旧口径与未标阶段归入「未并入编号阶段」带，不冒充 S0—S9', () => {
+    renderView([
+      baseLesson({
+        id: 'java-env-a1',
+        label: 'A1',
+        contentId: undefined,
+        source: undefined,
+        content: { ...baseLesson().content, stageId: undefined },
+      }),
+    ])
+    expect(screen.getByRole('heading', { level: 3, name: /未并入编号阶段/ })).toBeTruthy()
+    expect(screen.getByText('未并入 S0—S9 编号阶段')).toBeTruthy()
+    expect(screen.queryByRole('heading', { level: 3, name: /S0 阶段/ })).toBeNull()
+  })
+
+  it('科目为空时保留原有空态说明，不显示阶段骨架', () => {
+    renderView([])
+    expect(screen.getByText(/该科目当前没有已发布内容/)).toBeTruthy()
+    expect(document.querySelectorAll('table.lp-ledger')).toHaveLength(0)
+  })
+})
+
+describe('M3 学习路径 · 清单表格语义（表头/行）', () => {
+  it('#77 换层级没有把版心推开：四类标题的上下边距都显式钉死，不再吃 UA 默认档', async () => {
+    // terminal108 量到路径页文档高度因换标签涨了 51px——字号没动，但 UA 给 h1/h2/h3/h4 的
+    // 上下边距各不相同，换标签就等于换间距。钉成 em 之后与标签脱钩，这条守卫防它被改回去。
+    const fsSpecifier: string = 'node:fs'
+    const { readFileSync } = (await import(fsSpecifier)) as { readFileSync: (p: string, enc: string) => string }
+    const css = readFileSync('./src/components/learning-path-view.css', 'utf8')
+    const NL = String.fromCharCode(10)
+    // 同一个选择器可以出现多次（钉边距那条单独成块），全部拼起来再判：
+    // 只取第一处会读到原来那条没有 margin 的规则，守卫看着在跑其实量错了地方。
+    const blockOf = (sel: string) => {
+      const blocks: string[] = []
+      for (let at = css.indexOf(NL + sel + ' {'); at >= 0; at = css.indexOf(NL + sel + ' {', at + 1)) {
+        blocks.push(css.slice(at, css.indexOf('}', at)))
+      }
+      if (!blocks.length) throw new Error(`找不到 ${sel} 的规则块`)
+      return blocks.join(NL)
+    }
+    expect(blockOf('.lp-title')).toMatch(/margin-top:\s*\.83em/)
+    expect(blockOf('.lp-block-heading')).toMatch(/margin:\s*1em 0/)
+    expect(blockOf('.lp-stage-heading')).toMatch(/margin:\s*1\.33em 0/)
+    expect(blockOf('.lp-continue-title')).toMatch(/margin:\s*1em 0/)
+  })
+
+  it('每阶段一张细线表格：sr-only caption + 列表头 + 行表头', () => {
+    renderView([baseLesson(), baseLesson({ id: 'vault-s0-2', title: '第二个单元' })])
+    const table = document.querySelector('table.lp-ledger')
+    expect(table).toBeTruthy()
+    const caption = table?.querySelector('caption')
+    expect(caption?.textContent).toBe('S0 阶段课程清单，共 2 个单元')
+    expect(caption?.className).toContain('lp-sr-only')

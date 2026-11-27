@@ -1,0 +1,85 @@
+    return sendJson(response, 403, '该账户未获同步授权', access.reason === 'owner_vault_mismatch' ? access.reason : 'sync_forbidden')
+  }
+  const scope = { accountId: user.id, vaultId: await learningService.readVaultId() }
+  if (!scope.vaultId) return sendJson(response, 503, '资料库不可用', 'vault_unavailable')
+  try {
+    if (request.method === 'GET') {
+      switch (url.pathname) {
+        case '/api/sync/state': return sendJson(response, 200, learningSync.state(scope))
+        case '/api/sync/pull': return sendJson(response, 200, learningSync.pull(scope, url.searchParams.get('cursor'), Number(url.searchParams.get('limit') ?? 100)))
+        case '/api/sync/conflicts': return sendJson(response, 200, learningSync.conflicts(scope))
+      }
+    }
+    if (url.pathname === '/api/sync/push' && request.method === 'POST') {
+      const input = await requestBody(request)
+      if (request.headers['idempotency-key'] !== input?.changeId || typeof input?.changeId !== 'string') {
+        return sendJson(response, 400, 'Idempotency-Key 必须与 changeId 一致', 'invalid_idempotency_key')
+      }
+      const result = await learningSync.push(scope, input)
+      return sendJson(response, 200, result)
+    }
+    return sendJson(response, 404, '接口不存在', 'not_found')
+  } catch (error) {
+    if (error.status && error.code) return sendJson(response, error.status, error.message, error.code)
+    throw error
+  }
+}
+
+/** 学习事实接口（LINK-08）：绑定状态、拥有者绑定、教材可见范围、正式进度只读投影。 */
+async function handleLearningRequest(request, response, url, users) {
+  const user = sessionUser(request, users)
+  if (!user) return sendJson(response, 401, '学习事实需要登录后访问', 'unauthorized')
+  const vaultAccess = await learningService.contentAccess(user.id)
+  if (vaultAccess.reason === 'owner_vault_mismatch') return sendJson(response, 403, '拥有者绑定属于其他资料库', vaultAccess.reason)
+
+  if (url.pathname === '/api/learning/status' && request.method === 'GET') {
+    return sendJson(response, 200, await learningService.status(user.id))
+  }
+
+  if (url.pathname === '/api/learning/owner' && request.method === 'POST') {
+    if (!users.some((item) => item.id === user.id)) {
+      return sendJson(response, 401, '账户无效', 'unauthorized')
+    }
+    // 显式绑定：必须由用户主动提交确认，服务端不根据昵称/邮箱猜测。
+    const body = await requestBody(request).catch(() => ({}))
+    if (body?.confirm !== true) {
+      return sendJson(response, 400, '绑定拥有者需要显式确认（confirm: true）', 'confirmation_required')
+    }
+    try {
+      return sendJson(response, 200, await learningService.bind(user.id))
+    } catch (error) {
+      return sendJson(response, error?.code === 'owner_taken' ? 409 : 400, error?.message ?? '绑定失败', error?.code ?? 'bind_failed')
+    }
+  }
+
+  if (url.pathname === '/api/learning/owner' && request.method === 'DELETE') {
+    try {
+      return sendJson(response, 200, await learningService.unbind(user.id))
+    } catch (error) {
+      return sendJson(response, 403, error?.message ?? '解绑失败', error?.code ?? 'unbind_failed')
+    }
+  }
+
+  if (url.pathname === '/api/learning/owner/visibility' && request.method === 'PATCH') {
+    const body = await requestBody(request)
+    try {
+      return sendJson(response, 200, await learningService.setVisibility(user.id, body?.publicContent === true))
+    } catch (error) {
+      return sendJson(response, 403, error?.message ?? '修改失败', error?.code ?? 'visibility_failed')
+    }
+  }
+
+  if (url.pathname === '/api/learning/vault-progress' && request.method === 'GET') {
+    const result = await learningService.vaultProgress(user.id)
+    if (!result.ok) {
+      const statusCode = result.code === 'forbidden' ? 403 : result.code === 'owner_unbound' ? 409 : 503
+      return sendJson(response, statusCode, result.message, result.code)
+    }
+    return sendJson(response, 200, result.data)
+  }
+
+  // -------------------------------------------------------------------------
+  // LINK-09 确认式写回：暂存证据 → 预览 → 提交（仅拥有者）。
+  // 全部不接受客户端传路径：目标文件由服务端按日期与主题推导。
+  // -------------------------------------------------------------------------
+

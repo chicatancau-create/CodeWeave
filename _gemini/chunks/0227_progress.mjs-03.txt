@@ -1,0 +1,133 @@
+        })
+      }
+      mastery.raw = section3.section.body.join('\n').trim()
+      mastery.note = section3.section.body
+        .map((line) => line.trim())
+        .find((line) => line.startsWith('>')) ?? ''
+    }
+  }
+
+  // §6 下一步行动：顺序 | 行动 | 产出物 | 关联
+  const nextActions = { rows: [], raw: '' }
+  const section6 = require('6')
+  if (section6) {
+    for (const cells of section6.table.rows) {
+      const order = plainText(cellOf(cells, 0))
+      const actionRaw = cellOf(cells, 1)
+      const action = plainText(actionRaw)
+      if (!order && !action) continue
+      nextActions.rows.push({
+        order,
+        action,
+        actionRaw,
+        deliverable: plainText(cellOf(cells, 2)),
+        relation: plainText(cellOf(cells, 3)),
+        // `~~...~~` 表示该项已完成或被取代（原文保留）
+        done: /~~/.test(actionRaw),
+      })
+    }
+    nextActions.raw = section6.section.body.join('\n').trim()
+  }
+
+  // §7 阶段状态总表：阶段 | 名称 | 状态 | 说明
+  const stages = { rows: [], raw: '' }
+  const section7 = require('7')
+  if (section7) {
+    for (const cells of section7.table.rows) {
+      const id = plainText(cellOf(cells, 0))
+      if (!/^S\d+$/.test(id)) {
+        if (id) unparsed.push({ key: 'section-7', scope: 'value', reason: `阶段标识未被识别：「${id}」`, raw: cells.join(' | ') })
+        continue
+      }
+      stages.rows.push({
+        id,
+        name: plainText(cellOf(cells, 1)),
+        status: plainText(cellOf(cells, 2)),
+        note: plainText(cellOf(cells, 3)),
+        raw: cells.join(' | '),
+      })
+    }
+    stages.raw = section7.section.body.join('\n').trim()
+  }
+
+  // §2 环境核验清单：环境 | 状态 | 版本 | 证据
+  const environment = { rows: [], raw: '', conclusion: '' }
+  const section2 = require('2')
+  if (section2) {
+    for (const cells of section2.table.rows) {
+      const name = plainText(cellOf(cells, 0))
+      if (!name) continue
+      environment.rows.push({
+        name,
+        status: plainText(cellOf(cells, 1)),
+        version: plainText(cellOf(cells, 2)),
+        evidence: plainText(cellOf(cells, 3)),
+      })
+    }
+    environment.raw = section2.section.body.join('\n').trim()
+    environment.conclusion = section2.section.body
+      .map((line) => line.trim())
+      .find((line) => line.startsWith('**结论**')) ?? ''
+  }
+
+  // §10 会话接续：字段 | 当前记录
+  const handoff = { rows: [], raw: '' }
+  const section10 = require('10')
+  if (section10) {
+    for (const cells of section10.table.rows) {
+      const field = plainText(cellOf(cells, 0))
+      if (!field) continue
+      handoff.rows.push({ field, value: plainText(cellOf(cells, 1)) })
+    }
+    handoff.raw = section10.section.body.join('\n').trim()
+  }
+
+  const hasUnparsed = unparsed.length > 0
+  /**
+   * 状态口径：
+   * - `section` 级问题（必需小节缺失、必需列缺失）→ structure_unsupported，界面按原文展示；
+   * - `value` 级问题（个别单元格写法未识别）→ partial，该格保持「未识别」但不影响其余投影；
+   * - 无问题 → ok。
+   */
+  const status = unparsed.some((item) => item.scope === 'section')
+    ? PROGRESS_STATUS.STRUCTURE_UNSUPPORTED
+    : hasUnparsed
+      ? PROGRESS_STATUS.PARTIAL
+      : PROGRESS_STATUS.OK
+
+  return {
+    schemaVersion: 1,
+    status,
+    source: { path, fileHash, parsedAt: new Date().toISOString() },
+    header: header.value,
+    snapshot: {
+      items: snapshot.items,
+      currentStage: itemOf('当前阶段'),
+      stageProgress: itemOf('阶段进度'),
+      stagePassable: itemOf('阶段能否通过'),
+      nextStage: itemOf('下一阶段'),
+      deadline: itemOf('计划截止'),
+      mainBlocker: itemOf('最大阻塞'),
+    },
+    mastery,
+    nextActions,
+    stages,
+    environment,
+    handoff,
+    unparsed,
+    /**
+     * 只读声明：软件只投影这些事实，不推断阶段通过、不提升任何等级。
+     * 环境核验日期（header.environmentVerifiedOn）与学习证据日期分开保留。
+     */
+    readOnlyNotice: '本投影只读；环境核验不构成学习证据，不提升任何掌握等级，也不代表阶段通过。',
+  }
+}
+
+/** 供测试与诊断：解析 frontmatter（进度追踪当前没有 frontmatter，缺失不算错误）。 */
+export function progressFrontmatter(text) {
+  try {
+    return parseRestrictedFrontmatter(normalizeText(text), PROGRESS_PATH)
+  } catch {
+    return { fields: {}, present: false, bodyStartLine: 1, lineCount: 0 }
+  }
+}

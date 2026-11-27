@@ -1,0 +1,24 @@
+    "path": "isolated-results/review.png",
+    "sha256": "102f204f6546063793498d4acdc10c6d987dd00cb3599f2479a7615bc0cb2ef2"
+  },
+  {
+    "path": "isolated-results/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "isolated-results/stdout.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "isolated-split-and-common-id.patch",
+    "sha256": "452c4af47e1c73ee5377419aec97d2cdfebebb7558c882869956806bab2eeaf0"
+  },
+  {
+    "path": "prepare.py",
+    "sha256": "82eb4b903f79ef142b4bc170afc2a992d5f8c6b64c177cb3b022fa393da1dcec"
+  },
+  {
+    "path": "README.md",
+    "sha256": "b62e996a2c81cc7b867ea672b70c36c56116c00f0facf215684fb9348cbebe34"
+  }
+]

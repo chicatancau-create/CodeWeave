@@ -1,0 +1,93 @@
+import './challenges-view.css'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, FlaskConical, Play } from 'lucide-react'
+import type {
+  AchievementObservation,
+  Challenge,
+  ChallengeJudgeMode,
+  ChallengeRecord,
+  ExecutionResult,
+  ExecutionTier,
+} from '../types/lesson'
+import { EXECUTION_TIER_LABEL, tierOfRunner } from '../types/lesson'
+import { executeJavaScript } from '../engine/javascript-sandbox'
+import { simulateProgram } from '../engine/teaching-runtime'
+import { DEFAULT_JUDGE_MODE, judgeOutput, type JudgeOutcome } from '../engine/challenge-judge'
+import { countPassedChallenges } from '../utils/analytics'
+import { readChallengeDrafts, saveChallengeDrafts, type ChallengeDraftMap } from '../utils/challenge-drafts'
+import { getLocalDateKey } from '../utils/date-helpers'
+import {
+  emptyEvidence,
+  readExternalEvidence,
+  saveExternalEvidence,
+  summarizeExternalEvidence,
+  validateExternalEvidence,
+  type ExternalEvidence,
+} from '../utils/external-evidence'
+import { ChallengeDetail } from './challenges/ChallengeDetail'
+import { ChallengeFilters } from './challenges/ChallengeFilters'
+import { ChallengeGrid, ChallengePagination, type ChallengeRow } from './challenges/ChallengeGrid'
+import { ChallengeOverview } from './challenges/ChallengeOverview'
+import {
+  buildSequence,
+  cardStatus,
+  DEFAULT_FILTERS,
+  describeCodeDraft,
+  describeEvidenceDraft,
+  DIFFICULTY_ORDER,
+  LANGUAGE_EXTENSIONS,
+  loadFilters,
+  loadViewState,
+  makeRunnerLesson,
+  matchesQuery,
+  padOrdinal,
+  PAGE_SIZE,
+  RUNNER_LABELS,
+  saveFilters,
+  saveViewState,
+  STATUS_LABEL,
+  STATUS_RANK,
+  type ChallengeFilters as ChallengeFiltersValue,
+  type ViewMode,
+} from './challenges/challenge-model'
+
+type ChallengesViewProps = {
+  challenges: Challenge[]
+  progress: Record<string, ChallengeRecord>
+  /** 阶段 id → 对应课程单元（可跳转） */
+  unitsByStage: Record<string, { id: string; title: string }[]>
+  onOpenUnit: (lessonId: string) => void
+  /** 全局搜索等外部入口指定要聚焦的关卡 id（变化时选中） */
+  focusChallengeId?: string
+  /** 提交验证：运行代码并比对目标输出，全部满足才算通过 */
+  onSubmit: (challenge: Challenge, submission: { output: string[]; evidence: string; passed: boolean; tier: ExecutionTier; judgeMode?: ChallengeJudgeMode; externalEvidence?: ExternalEvidence }) => void
+  /**
+   * R4 人工复核（LEARN-01 第 4 条：状态机里的 `verified` / `rejected` 不能只活在测试里）。
+   * 两个动作都是 `useChallengeProgress` 的既有函数本身 —— 状态迁移只在那一处，本组件不自己改记录。
+   * 缺省时（调用方没有复核能力）这两个按钮不画：画一个按了没用的按钮是假动作。
+   */
+  onVerifySubmission?: (challengeId: string, observation?: AchievementObservation) => void
+  onRejectSubmission?: (challengeId: string) => void
+  /** 账户作用域：草稿与证据按账户隔离（未提供时退化为 guest） */
+  scope?: string
+}
+
+/** 阶段没有关联单元时的稳定空数组：每次渲染新建会让详情面板的 memo 形同虚设。 */
+const NO_UNITS: { id: string; title: string }[] = []
+
+export function ChallengesView({ challenges, progress, unitsByStage, onOpenUnit, focusChallengeId, onSubmit, onVerifySubmission, onRejectSubmission, scope }: ChallengesViewProps) {
+  // CHAL-01：视图模式 + 选中题 + 页码（恢复自 sessionStorage，重挂载/刷新后回到原位置）。
+  const [initialView] = useState(() => loadViewState(challenges))
+  const [mode, setMode] = useState<ViewMode>(initialView.mode)
+  const [selectedId, setSelectedId] = useState<string>(initialView.selectedId || (challenges[0]?.id ?? ''))
+  const [page, setPage] = useState(initialView.page)
+  const [notice, setNotice] = useState<string | null>(null)
+  // R2-B：草稿与证据按账户作用域持久化（code + evidence），运行结果仍为会话内瞬时状态。
+  const [drafts, setDrafts] = useState<ChallengeDraftMap>(() => readChallengeDrafts(scope))
+  // R4：外部证据使用结构化字段，同样按账户作用域持久化。
+  const [externalDrafts, setExternalDrafts] = useState<Record<string, ExternalEvidence>>(() => readExternalEvidence(scope))
+  const [runResults, setRunResults] = useState<Record<string, ExecutionResult>>({})
+  const [hintOpen, setHintOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [filters, setFilters] = useState<ChallengeFiltersValue>(loadFilters)
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)

@@ -1,0 +1,50 @@
+   * 事务记录为唯一事实来源，界面的部分成功横幅与逐步明细都能在读回后复原。
+   *
+   * 出网关的字段是筛过的：状态、主题、日期、证据条数、每一步的 kind/库内相对路径/是否已应用，
+   * 加上 result.message（同样只回显相对路径，见 scrubLocalPaths 的说明）。
+   * 备份绝对路径、文件指纹、证据正文、`before` 里的日志原文片段一律不带。
+   * 单条记录读不出来时不整列失败：跳过并在 `unreadable` 里如实计数，界面据此说明。
+   */
+  async function listTransactions({ userId }) {
+    await requireOwner(userId)
+    let names
+    try {
+      names = await readdir(txDir)
+    } catch (error) {
+      // 一次都没写回过时目录还不存在，那是正常空态；其余读失败不能压成「没有事务」。
+      if (error?.code === 'ENOENT') return { transactions: [], total: 0, unreadable: 0, capped: TRANSACTION_LIST_CAP }
+      throw new WritebackError('transactions_unreadable', `写回事务记录读取失败：${scrubLocalPaths(error?.message ?? error)}`)
+    }
+    const files = names.filter((name) => name.endsWith('.json')).sort()
+    const rows = []
+    let unreadable = 0
+    for (const name of files) {
+      let transaction
+      try {
+        transaction = JSON.parse(await readFile(join(txDir, name), 'utf8'))
+      } catch {
+        unreadable += 1
+        continue
+      }
+      // 事务文件名里的 operationId 已经过 safeSegment，不含账户信息；归属只认记录体。
+      if (!transaction || transaction.userId !== userId) continue
+      if (typeof transaction.operationId !== 'string' || !OPERATION_ID.test(transaction.operationId)) continue
+      rows.push(toLedgerRow(transaction))
+    }
+    // 新→旧：记录时间相同（同一秒内的两次预览）时按 operationId 兜底，
+    // operationId 中段是生成时刻的 base36，字典序即时间序。
+    rows.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')) || b.operationId.localeCompare(a.operationId))
+    return {
+      transactions: rows.slice(0, TRANSACTION_LIST_CAP),
+      total: rows.length,
+      unreadable,
+      capped: TRANSACTION_LIST_CAP,
+    }
+  }
+
+  return {
+    preview, exportMarkdown, transactionStatus, listTransactions, readTransaction, txDir,
+    commit: (input) => serialize(() => commit(input)),
+    rollback: (input) => serialize(() => rollback(input)),
+  }
+}

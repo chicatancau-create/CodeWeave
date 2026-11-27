@@ -1,0 +1,58 @@
+          key_sent_ = 0;
+          // Leave the lock before finish(), which serializes the samples.
+          stage_ = -1;
+        }
+        view_.update();
+        break;
+      }
+      case 5:
+        shell_.runCode();
+        if (!shell_.executionBusy()) { finish(shell_.operationStatus()); return; }
+        run_started_ = now;
+        stage_ = 6;
+        break;
+      case 6:
+        if (!shell_.executionBusy()) { finish(QStringLiteral("loop exited before cancellation")); return; }
+        if (now - run_started_ < 500) return;
+        cancel_started_ = now;
+        shell_.cancelExecution();
+        stage_ = 7;
+        break;
+      case 7:
+        return;
+      case 9:
+        if (cancels_.size() < 10) { stage_ = 5; return; }
+        shell_.discardDraftChanges();
+        shell_.selectPage(QStringLiteral("学习"));
+        stage_ = 8;
+        break;
+      case 8: {
+        auto* list = view_.rootObject()->findChild<QQuickItem*>(QStringLiteral("courseList"));
+        if (!list) { finish(QStringLiteral("course list not found")); return; }
+        if (++scroll_ticks_ > 220) { finish(); return; }
+        const auto range = std::max(0.0, list->property("contentHeight").toDouble() - list->height());
+        if (range < 1) { finish(QStringLiteral("list too short for scrolling benchmark")); return; }
+        {
+          std::lock_guard lock(mutex_);
+          if (!scrolling_) { last_frame_ = 0; scrolling_ = true; }
+        }
+        // Let Qt's animation driver schedule scrolling at display cadence.
+        // A 16ms OS timer and 16.67ms vsync beat against each other and would
+        // incorrectly label intentional missing updates as rendering stalls.
+        view_.rootObject()->setProperty("benchmarkScrolling", true);
+        break;
+      }
+      default: finish(QStringLiteral("key input did not change editor text"));
+    }
+  }
+  MeasuredApplication& app_;
+  UiShell& shell_;
+  QQuickView& view_;
+  QString output_;
+  QTimer timer_;
+  std::mutex mutex_;
+  std::vector<double> frames_, edits_, cancels_;
+  double entered_, ready_ms_{}, last_frame_{}, key_sent_{}, run_started_{}, cancel_started_{};
+  int stage_{}, scroll_ticks_{};
+  bool scrolling_{}, editor_focused_{};
+};

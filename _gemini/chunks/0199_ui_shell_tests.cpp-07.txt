@@ -1,0 +1,57 @@
+      std::cerr << "Challenge submission failed: " << shell.challengeHistoryStatus().toStdString()
+                << "; account root exists: " << std::filesystem::exists(challenge_learning_root.parent_path()) << '\n';
+    assert(shell.challengeHistory().size() == 1);
+    const auto saved_challenge = shell.challengeHistory().first().toMap();
+    assert(saved_challenge.value("status") == "passed" && saved_challenge.value("judgeMode") == "exact-lines");
+    shell.submitChallenge(QStringLiteral("Executed the current challenge and retained its output."), {});
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().size() == 1);
+    shell.updateChallengeCode(QStringLiteral("console.log('changed after submission')"));
+    shell.submitChallenge(QStringLiteral("Cannot submit stale output"), {});
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().first().toMap() == saved_challenge);
+    shell.openChallenge(QStringLiteral("stage-a"));
+    assert(shell.challengeHistory().isEmpty());
+    const QVariantMap external_fields{
+        {"environment", "Windows 11 local fixture"}, {"command", "codeweave-check --isolated"},
+        {"resultSummary", QStringLiteral("已保存工具链的版本输出记录，并附上构建错误日志与修复说明")},
+        {"artifactRef", "fixture-report.txt"}, {"reproducedOn", QDate::currentDate().toString(Qt::ISODate)}};
+    shell.submitChallenge({}, {});
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    auto sensitive = external_fields;
+    sensitive["command"] = "password=example-secret";
+    shell.submitChallenge({}, sensitive);
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    auto unrelated = external_fields;
+    unrelated["resultSummary"] = QStringLiteral("完成了相关工作，详细内容见附件说明文档");
+    shell.submitChallenge({}, unrelated);
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    assert(shell.challengeHistoryStatus().contains(QStringLiteral("验收点")));
+    auto future = external_fields;
+    future["reproducedOn"] = QDate::currentDate().addDays(1).toString(Qt::ISODate);
+    shell.submitChallenge({}, future);
+    assert(!shell.challengeHistoryBusy() && shell.challengeHistory().isEmpty());
+    shell.submitChallenge({}, external_fields);
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().size() == 1);
+    const auto pending = shell.challengeHistory().first().toMap();
+    assert(pending.value("status") == "submitted" && pending.value("tier") == "external");
+    assert(shell.challengeProgress().value("stage-a").toMap().value("status") == "submitted");
+    shell.reviewChallengeSubmission(pending.value("id").toString(), true, "completed");
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().first().toMap().value("status") == "verified");
+    assert(shell.challengeProgress().value("stage-a").toMap().value("status") == "verified");
+    shell.refreshChallengeHistory();
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().first().toMap().value("evidence") == pending.value("evidence"));
+    auto revised_fields = external_fields;
+    revised_fields["resultSummary"] = QStringLiteral("再次运行，已保存一次构建报错的完整日志。");
+    shell.submitChallenge({}, revised_fields);
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().size() == 2);
+    assert(shell.challengeProgress().value("stage-a").toMap().value("status") == "verified");
+    const auto retry = shell.challengeHistory().first().toMap();
+    shell.reviewChallengeSubmission(retry.value("id").toString(), false, "attempted");
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().first().toMap().value("status") == "rejected");
+    shell.submitChallenge({}, revised_fields);
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    assert(shell.challengeHistory().size() == 3);

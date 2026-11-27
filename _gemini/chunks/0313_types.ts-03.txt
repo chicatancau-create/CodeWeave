@@ -1,0 +1,22 @@
+  conflicts: { path: string; kind: string; reason: string }[]
+  notices: string[]
+}
+
+export type WritebackCommitResult = {
+  synced: boolean
+  idempotent: boolean
+  operationId: string
+  at?: string
+  topic?: string
+  targets: { path: string; kind: string; applied: boolean; skipped?: boolean }[]
+}
+
+export type EvidenceExportResult = { markdown: string; evidenceIds: string[]; logPath: string }
+
+/** 冲突详情（HTTP 409）：逐字段差异，不按时间戳决胜。 */
+export type WritebackConflictDetails = {
+  code: string
+  files: { path: string; kind: string; reason: string; fieldDiffs: FieldDiff[] }[]
+  logSaved?: boolean
+  progressPending?: boolean
+}

@@ -1,0 +1,68 @@
+            {status === 'unsupported' && <ShieldAlert size={11} strokeWidth={3} />}
+            {STATUS_LABEL[status]}
+          </span>
+        </span>
+        <strong className="stage-title">{shortTitle(challenge.title)}</strong>
+        <span className="stage-card-summary">{challenge.description}</span>
+        <span className="stage-card-meta">
+          <span className={`difficulty ${challenge.difficulty}`}>{challenge.difficulty}</span>
+          <span className="stage-runner">{RUNNER_SHORT[challenge.runner]}</span>
+          <span className="stage-track">{challenge.track}</span>
+          {/* 草稿与提交两条通道分开陈述：左边是「本机未提交」，右边是已提交后的状态 */}
+          {draftFlag && (
+            <span className="stage-card-draft">
+              <SquareDashed size={11} aria-hidden="true" />
+              {draftFlag}
+            </span>
+          )}
+          <span className="stage-card-action">{action}</span>
+        </span>
+      </button>
+    </li>
+  )
+}
+
+/* ----------------------------------------------------------------------------
+   分页（CHAL-01）：页面大小 12；导航提供上一页 / 当前页 / 下一页。
+   -------------------------------------------------------------------------- */
+
+function ChallengePaginationBar({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number
+  pageCount: number
+  onChange: (page: number) => void
+}) {
+  return (
+    <nav className="challenge-pagination" aria-label="挑战分页">
+      <button
+        type="button"
+        className="subtle-button"
+        onClick={() => onChange(page - 1)}
+        disabled={page <= 1}
+      >
+        <ChevronLeft size={12} />
+        上一页
+      </button>
+      <span className="challenge-pagination-status" aria-live="polite">
+        第 {page} / {pageCount} 页
+      </span>
+      <button
+        type="button"
+        className="subtle-button"
+        onClick={() => onChange(page + 1)}
+        disabled={page >= pageCount}
+      >
+        下一页
+        <ChevronRight size={12} />
+      </button>
+    </nav>
+  )
+}
+
+export const ChallengeGrid = memo(ChallengeStageGrid)
+/** 单卡也 memo：只有这张卡自己的序号 / 状态 / 草稿标记变了才重画。 */
+export const ChallengeStageCard = memo(ChallengeStageCardView)
+export const ChallengePagination = memo(ChallengePaginationBar)

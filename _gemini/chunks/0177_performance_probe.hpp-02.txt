@@ -1,0 +1,85 @@
+        {"cancel_scope", "cancel request to executionBusy false; Python infinite-loop workload after 500ms"},
+        {"qt_version", QString::fromLatin1(qVersion())}};
+    auto samples = [](const std::vector<double>& values) {
+      QJsonArray array;
+      for (const auto value : values) array.append(value);
+      return array;
+    };
+    report.insert("main_thread_ms", samples(app_.event_ms));
+    QJsonArray slow_events;
+    for (const auto& sample : app_.slow_events) {
+      slow_events.append(QJsonObject{{"duration_ms", sample.duration_ms},
+          {"event_type", sample.type},
+          {"receiver_class", sample.receiver_class},
+          {"object_name", sample.object_name}, {"depth", sample.depth},
+          {"workload_stage", sample.workload_stage},
+          {"since_measurement_ms", sample.since_measurement_ms}});
+    }
+    report.insert("slow_events", slow_events);
+    report.insert("cancel_ms", samples(cancels_));
+    {
+      std::lock_guard lock(mutex_);
+      report.insert("frame_interval_ms", samples(frames_));
+      report.insert("edit_ms", samples(edits_));
+    }
+    QSaveFile file(output_);
+    const bool saved = file.open(QIODevice::WriteOnly) &&
+        file.write(QJsonDocument(report).toJson()) > 0 && file.commit();
+    app_.exit(saved && error.isEmpty() ? 0 : 4);
+  }
+  void tick() {
+    app_.workload_stage = stage_;
+    const double now = probe_clock();
+    if (now - entered_ > 45000) { finish(QStringLiteral("window workload timeout at stage %1").arg(stage_)); return; }
+    switch (stage_) {
+      case 0:
+        if (!view_.isExposed() || shell_.contentBusy() ||
+            !view_.rootObject()->findChild<QQuickItem*>(QStringLiteral("courseList"))) return;
+        if (shell_.publishedTitles().isEmpty()) { finish(QStringLiteral("empty catalog")); return; }
+        ready_ms_ = now - entered_;
+        shell_.registerAccount(QStringLiteral("Benchmark"), QStringLiteral("benchmark@example.test"),
+            QStringLiteral("Isolated-Measurement-42!"));
+        stage_ = 1;
+        break;
+      case 1: {
+        if (shell_.accountBusy() || shell_.contentBusy()) return;
+        if (!shell_.hasActiveAccount()) { finish(shell_.accountStatus()); return; }
+        const auto ids = shell_.publishedIds();
+        int index = -1;
+        for (int i = 0; i < ids.size(); ++i) if (ids[i].contains("python")) { index = i; break; }
+        if (index < 0) { finish(QStringLiteral("Python fixture course missing")); return; }
+        shell_.openPublishedContent(index);
+        stage_ = 2;
+        break;
+      }
+      case 2:
+        if (shell_.contentBusy()) return;
+        shell_.loadStarterCode();
+        stage_ = 3;
+        break;
+      case 3:
+        if (shell_.contentBusy()) return;
+        if (shell_.starterLanguage() != "python") { finish(QStringLiteral("wrong workload language")); return; }
+        shell_.selectPage(QStringLiteral("编辑器"));
+        stage_ = 4;
+        break;
+      case 4: {
+        auto* editor = view_.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+        if (!editor) return;  // asynchronous page incubation
+        if (!editor->isVisible() || editor->width() <= 0 || editor->height() <= 0) return;
+        editor->forceActiveFocus();
+        if (!editor_focused_) { editor_focused_ = true; view_.requestActivate(); return; }
+        std::lock_guard lock(mutex_);
+        if (key_sent_ > 0) return;
+        if (edits_.size() >= 60) {
+          shell_.updateDraftCode(QStringLiteral("while True:\n    pass\n"));
+          stage_ = 5;
+          return;
+        }
+        const auto before = editor->property("text").toString();
+        key_sent_ = now;
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_X, Qt::NoModifier, QStringLiteral("x"));
+        QCoreApplication::sendEvent(&view_, &press);
+        QKeyEvent release(QEvent::KeyRelease, Qt::Key_X, Qt::NoModifier);
+        QCoreApplication::sendEvent(&view_, &release);
+        if (editor->property("text").toString() == before) {

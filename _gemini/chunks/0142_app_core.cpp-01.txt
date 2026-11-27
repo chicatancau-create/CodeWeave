@@ -1,0 +1,106 @@
+#include "app_core.hpp"
+
+#include <chrono>
+#include <cstdio>
+#include <fstream>
+#include <random>
+#include <system_error>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::app {
+namespace {
+
+constexpr std::string_view kWorkspaceMarker = "config/codeweave.config.example.json";
+constexpr std::string_view kDraftDirectory = "drafts";
+constexpr std::size_t kMaxDraftBytes = 4 * 1024 * 1024;
+
+std::string error_message(std::string_view action, const std::error_code& error) {
+  return std::string(action) + ": " + error.message();
+}
+
+bool is_missing_path_error(const std::error_code& error) {
+  if (!error) return false;
+  if (error == std::make_error_code(std::errc::no_such_file_or_directory)) return true;
+#ifdef _WIN32
+  return error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND;
+#else
+  return false;
+#endif
+}
+
+std::string temporary_suffix() {
+  const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+  std::random_device random;
+  return ".tmp." + std::to_string(now) + "." + std::to_string(random());
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    // On Windows, probing the drive root with symlink_status may report a
+    // platform-specific error even though the root is a valid directory.
+    // Root names cannot be symlink components, so skip them explicitly.
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (is_missing_path_error(error)) {
+      error.clear();
+      continue;
+    }
+    if (error) return true;
+  }
+  return false;
+}
+
+}  // namespace
+
+ApplicationCore::~ApplicationCore() { close_workspace(); }
+
+Result ApplicationCore::open_workspace(const std::filesystem::path& workspace) {
+  return open_workspace(workspace, {});
+}
+
+Result ApplicationCore::open_workspace(const std::filesystem::path& workspace,
+    const std::filesystem::path& requested_data_root) {
+  if (open_) return Result::failure("工作区已经打开");
+  if (workspace.empty()) return Result::failure("工作区路径不能为空");
+
+  std::error_code error;
+  const auto absolute = std::filesystem::absolute(workspace, error);
+  if (error) return Result::failure(error_message("解析工作区路径失败", error));
+  const auto workspace_status = std::filesystem::symlink_status(absolute, error);
+  if (error || std::filesystem::is_symlink(workspace_status) ||
+      !std::filesystem::is_directory(workspace_status)) {
+    if (error) return Result::failure(error_message("读取工作区失败", error));
+    return Result::failure("工作区目录不存在: " + absolute.string());
+  }
+  if (!std::filesystem::is_regular_file(absolute / kWorkspaceMarker, error)) {
+    if (error) return Result::failure(error_message("读取工作区标记失败", error));
+    return Result::failure("工作区缺少配置标记: " + (absolute / kWorkspaceMarker).string());
+  }
+  std::error_code marker_status_error;
+  const auto marker_status = std::filesystem::symlink_status(absolute / kWorkspaceMarker,
+      marker_status_error);
+  if (marker_status_error || std::filesystem::is_symlink(marker_status)) {
+    return Result::failure("工作区配置标记不能是符号链接");
+  }
+
+  const auto data_root = requested_data_root.empty()
+      ? absolute / "data" / "runtime" / "native"
+      : std::filesystem::absolute(requested_data_root, error);
+  if (error || data_root.empty() || !data_root.is_absolute()) {
+    return Result::failure("解析应用数据根失败");
+  }
+  const auto data_absolute = std::filesystem::absolute(data_root, error);
+  if (error || data_absolute.empty() || !data_absolute.is_absolute()) {
+    return Result::failure("解析应用数据根失败");
+  }
+  const auto data_status = std::filesystem::symlink_status(data_absolute, error);
+  if (error && !is_missing_path_error(error)) {
+    return Result::failure(error_message("读取应用数据根失败", error));
+  }

@@ -1,0 +1,44 @@
+      categories = root.object.find("categories");
+  if (version == root.object.end() || version->second.type != Json::Type::Number ||
+      version->second.text != "1" || data == root.object.end() ||
+      data->second.type != Json::Type::Object || categories == root.object.end() ||
+      categories->second.type != Json::Type::Array) return app::Result::failure("学习导出版本或数据结构无效");
+  const std::set<std::string> bases{"code-canvas.workspace.v2","code-canvas.projects.v1",
+      "code-canvas.challenge-progress.v2","code-canvas.checkin.v1","code-canvas.mastery.v1",
+      "code-canvas.challenge-drafts.v1","code-canvas.external-evidence.v1"};
+  if (categories->second.array.size() > bases.size() || !no_sensitive_fields(data->second)) {
+    return app::Result::failure("学习导出类别过多或含认证字段");
+  }
+  std::set<std::string> declared_bases;
+  for (const auto& category : categories->second.array) {
+    std::string base, category_scope, label;
+    if (!fields(category, {"base","category","label"}) ||
+        !field(category,"base",base) || !bases.contains(base) ||
+        !declared_bases.insert(base).second || !field(category,"category",category_scope) ||
+        category_scope != "account" || !field(category,"label",label)) {
+      return app::Result::failure("学习导出类别描述无效");
+    }
+  }
+  for (const auto& [key,value] : data->second.object) {
+    const auto separator = key.rfind(':');
+    if (separator == std::string::npos || key.substr(separator+1) != scope ||
+        !bases.contains(key.substr(0,separator)) ||
+        value.type != Json::Type::Object) return app::Result::failure("学习导出含未知类别或跨账户数据");
+  }
+  if (!create_target(target)) return app::Result::failure("历史导入目标必须是尚不存在的绝对目录");
+  bool written = false;
+  {
+    std::ofstream output(target / "legacy-learning.json", std::ios::binary);
+    output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    output.flush(); written = output.good();
+  }
+  if (!written) { remove_created_target(target); return app::Result::failure("保存历史学习文件失败"); }
+  Json verified; std::string saved_contents;
+  if (!read_json(target / "legacy-learning.json", saved_contents, verified) ||
+      saved_contents != contents) {
+    remove_created_target(target); return app::Result::failure("历史学习文件写入校验失败");
+  }
+  report = {true, 0, data->second.object.size(), target};
+  return app::Result::success("学习历史已保存为只读参考，未提升正式进度");
+}
+}  // namespace codeweave::migration

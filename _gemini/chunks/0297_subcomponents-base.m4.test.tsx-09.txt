@@ -1,0 +1,74 @@
+    expect(empty.container.querySelector('div.empty-panel')?.textContent).toBe('运行后显示程序输出')
+    empty.unmount()
+    const ok = render(<ConsolePanel output={['5']} />)
+    expect(ok.container.querySelector('div.console-line > span')?.textContent).toBe('›')
+    expect(ok.container.querySelector('span.console-status')?.textContent).toBe('stdout')
+    ok.unmount()
+    const bad = render(<ConsolePanel output={[]} error={{ line: 3, message: '除数为零' }} />)
+    expect(bad.container.querySelector('span.console-status')?.textContent).toContain('第 3 行错误')
+    expect(bad.container.querySelector('div.console-error')?.textContent).toContain('除数为零')
+  })
+
+  it('VariablePanel：步骤计数与变量行都在，长值不被截断成看不见的样子', () => {
+    const { container } = render(<VariablePanel variables={variables} eventIndex={1} totalEvents={3} />)
+    expect(container.querySelector('span.step-counter')?.textContent).toBe('步骤 2 / 3')
+    expect(container.querySelectorAll('div.variable-row.changed')).toHaveLength(2)
+    expect(container.querySelector('div.variable-icon.blue')).toBeTruthy()
+    expect(container.querySelector('div.variable-icon.coral')).toBeTruthy()
+    expect(container.querySelector('div.variable-value')?.textContent).toBe('5')
+    cleanup()
+    const waiting = render(<VariablePanel variables={[]} eventIndex={0} totalEvents={0} />)
+    expect(waiting.container.querySelector('span.step-counter')?.textContent).toBe('等待运行')
+    expect(waiting.container.querySelector('div.empty-panel')?.textContent).toBe('运行后显示变量的实时变化')
+  })
+
+  it('FlowChart：当前拍三通道可辨（aria-current + is-now + 泛光类），未到的拍不填假数据', () => {
+    const { container } = render(
+      <FlowChart steps={flowSteps} activeNodeId='check' completedNodeIds={['start', 'call', 'check']} />,
+    )
+    const steps = Array.from(container.querySelectorAll('li.flow-step'))
+    expect(steps).toHaveLength(5)
+    // 态：三态互斥，当前拍同时带 aria-current 与 is-now（文字 / 语义通道，不只靠颜色）
+    expect(steps[2]?.className).toContain('is-now')
+    expect(steps[2]?.getAttribute('aria-current')).toBe('step')
+    expect(steps[0]?.className).toContain('is-done')
+    expect(steps[4]?.className).toContain('is-todo')
+  })
+
+  it('FlowChart：每一拍旁边挂着它那一拍的变量快照；没走到就明说，不填占位值', () => {
+    const { container } = render(
+      <FlowChart steps={flowSteps} activeNodeId='check' completedNodeIds={['start', 'call', 'check']} />,
+    )
+    const data = Array.from(container.querySelectorAll('div.flow-data'))
+    expect(data).toHaveLength(5)
+    // 第 2 拍（索引 1）那一拍的快照：total = 6，类型 int
+    const first = data[1]?.querySelector('li')
+    expect(first?.querySelector('.flow-data-name')?.textContent).toBe('total')
+    expect(first?.querySelector('.flow-data-value')?.textContent).toBe('6')
+    expect(first?.querySelector('.flow-data-type')?.textContent).toBe('int')
+    // 未到的拍不编造数据
+    expect(data[4]?.textContent).toContain('尚未执行到这一拍')
+    // 走到但没有变量变化的那一拍，说的是「没有变量变化」而不是空白
+    expect(data[0]?.textContent).toContain('这一拍没有变量变化')
+  })
+
+  it('FlowChart：序号走 1 起步的两位补零，未到的拍记作 --', () => {
+    const { container } = render(
+      <FlowChart steps={flowSteps} activeNodeId='check' completedNodeIds={['start', 'call', 'check']} />,
+    )
+    const nos = Array.from(container.querySelectorAll('span.flow-node-no')).map((n) => n.textContent)
+    expect(nos).toEqual(['01', '02', '03', '--', '--'])
+  })
+
+  it('FlowChart：源码行号与语义档标签成对出现，供学习者对着编辑器核对', () => {
+    const { container } = render(
+      <FlowChart steps={flowSteps} activeNodeId='check' completedNodeIds={[]} />,
+    )
+    expect(container.querySelectorAll('div.flow-node-line')).toHaveLength(4)
+    expect(container.querySelector('.flow-node-line-no')?.textContent).toBe('L1')
+    const kinds = Array.from(container.querySelectorAll('span.flow-node-kind')).map((k) => k.className)
+    expect(kinds[0]).toContain('tone-purple')
+    expect(kinds[1]).toContain('tone-blue')
+    expect(container.querySelector('span.flow-node-kind.tone-yellow')?.textContent).toBe('注意')
+  })
+})

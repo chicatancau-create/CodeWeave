@@ -1,0 +1,136 @@
+                "fitsRow": true,
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 182
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 45
+            },
+            "index": 1,
+            "passed": true,
+            "rowHeight": 83,
+            "rowWidth": 493,
+            "storageReady": false,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 29,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 168
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1100x720",
+            "windowHeight": 720,
+            "windowWidth": 1100
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 195
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 45
+            },
+            "index": 2,
+            "passed": true,
+            "rowHeight": 83,
+            "rowWidth": 493,
+            "storageReady": false,
+            "title": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 29,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 28.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 140
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "viewport": "1100x720",
+            "windowHeight": 720,
+            "windowWidth": 1100
+        },
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 26,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 25.6
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 325
+                },
+                "truncated": false,

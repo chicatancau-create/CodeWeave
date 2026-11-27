@@ -1,0 +1,79 @@
+  if (!backup_result.ok) std::cerr << "native backup failed: " << backup_result.message << "\n";
+  assert(backup_result.ok);
+  assert(report.committed && !report.fixture_only);
+  assert(!std::filesystem::exists(backup / ".native.lock"));
+  assert(!std::filesystem::exists(backup / "accounts" / "user-01" / ".native.lock"));
+  assert(codeweave::backup::restore_native_backup(backup, restored, report).ok);
+  std::ifstream input(restored / "drafts" / "sample.txt");
+  std::string contents((std::istreambuf_iterator<char>(input)), {});
+  assert(contents == "native draft\n");
+  assert(!codeweave::backup::restore_native_backup(backup, source, report).ok);
+  assert(std::filesystem::exists(source / ".native.lock"));
+  std::ofstream(backup / "drafts" / "sample.txt", std::ios::trunc) << "changed";
+  const auto damaged_target = fixture.root / "damaged-restored";
+  assert(!codeweave::backup::restore_native_backup(backup, damaged_target, report).ok);
+  assert(!std::filesystem::exists(damaged_target));
+#ifdef _WIN32
+  CloseHandle(held_lock);
+#endif
+}
+
+void test_native_backup_supports_another_windows_volume() {
+#ifdef _WIN32
+  Fixture fixture;
+  const auto source = fixture.root / "cross-volume-source";
+  std::filesystem::create_directories(source / "drafts");
+  std::ofstream(source / "drafts" / "sample.txt") << "cross-volume fixture\n";
+  // The build runs in the project volume; the source uses the OS temp volume.
+  // Create only a uniquely named test directory and remove exactly that path.
+  const auto destination_parent = std::filesystem::current_path() /
+      ("codeweave-cross-volume-fixture-" + std::to_string(std::random_device{}()));
+  if (destination_parent.root_name() == source.root_name()) {
+    std::cout << "cross-volume backup test unavailable on a single test volume\n";
+    return;
+  }
+  assert(std::filesystem::create_directory(destination_parent));
+  const auto target = destination_parent / "backup";
+  codeweave::backup::Report report;
+  const auto result = codeweave::backup::create_native_backup(source, target, report);
+  const bool copied = std::filesystem::exists(target / "drafts" / "sample.txt");
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(destination_parent, cleanup_error);
+  assert(!cleanup_error);
+  if (!result.ok) std::cerr << result.message << '\n';
+  assert(result.ok && report.committed && copied);
+#endif
+}
+
+void test_review_summary_is_read_only_and_latest_first() {
+  Fixture fixture;
+  const auto root = fixture.root / "data" / "runtime" / "native";
+  codeweave::learning::EvidenceStore evidence(root);
+  codeweave::learning::ProgressStore progress(root);
+  codeweave::learning::EvidenceRecord first{
+      "evidence-review-01", "lesson-01", "exercise-01", "2026-10-01",
+      "42", "41", codeweave::learning::RanBy::Learner, false, "L2", {}, {},
+      codeweave::learning::EvidenceState::Pending, "op-review01-abcdef"};
+  codeweave::learning::EvidenceRecord second = first;
+  second.evidence_id = "evidence-review-02";
+  second.at = "2026-10-02";
+  second.actual_result = "42\r\n";
+  second.independent = true;
+  second.operation_id = "op-review02-abcdef";
+  bool duplicate = false;
+  assert(evidence.append_idempotent(first, duplicate).ok);
+  assert(evidence.append_idempotent(second, duplicate).ok);
+  codeweave::learning::ReviewService service(evidence, progress);
+  codeweave::learning::ReviewSummary summary;
+  assert(service.summarize(summary).ok);
+  assert(summary.evidence_count == 2 && summary.progress_count == 0);
+  assert(summary.passed_count == 1 && summary.independent_passed_count == 1);
+  assert(summary.items.size() == 1 && summary.items[0].latest_at == "2026-10-02" &&
+      summary.items[0].passed && summary.items[0].independent);
+
+  auto failed = second;
+  failed.evidence_id = "evidence-review-03";
+  failed.operation_id = "op-review03-abcdef";
+  failed.unfinished_items = {"执行失败"};
+  assert(evidence.append_idempotent(failed, duplicate).ok);
+  assert(service.summarize(summary).ok);

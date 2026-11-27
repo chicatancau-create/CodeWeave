@@ -1,0 +1,73 @@
+   将来接 WebGPU 时必须按 README §5 第 4 条取消 RAF、摘监听器、清 ScrollTrigger。 */
+
+/* ---------------------------------------------------------------------------
+   响应式
+   ------------------------------------------------------------------------- */
+@media (max-width: 1080px) {
+  :root { --sidebar-w: 200px; }
+  .topbar { padding: 0 var(--ds-space-24, 24px); }
+  .content-wrap { padding: var(--ds-space-24, 24px) var(--ds-space-28, 28px) var(--ds-space-40, 40px); }
+  .learning-view { grid-template-columns: 1fr; }
+  .lesson-list { grid-template-columns: repeat(2, 1fr); }
+  .lesson-guide { grid-template-columns: repeat(3, 1fr); }
+  .projects-layout, .profile-layout { grid-template-columns: 1fr; }
+  .challenge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  :root { --sidebar-w: 62px; }
+  .sidebar { padding: var(--ds-space-20, 20px) var(--ds-space-8, 8px); }
+  .brand { padding: 0; justify-content: center; }
+  /* `.skip-link` 以前也在这份清单里——那是个无障碍缺陷不是省空间的办法：
+     它本来就靠 `top: -56px` 停在屏幕外、:focus 才落回 12px（上方 `.skip-link` 规则），
+     再用 display:none 隐藏等于把「跳到主内容」从 Tab 顺序里整个删掉，窄屏键盘用户拿不到。 */
+  .brand > span, .workspace-switcher, .nav-label { display: none; }
+  .streak-wrap { display: flex; flex-direction: column; align-items: center; }
+  .streak-more { position: static; display: grid; place-items: center; width: var(--tap-min); height: var(--tap-min); }
+  .checkin-calendar { position: fixed; left: 70px; right: 8px; bottom: 80px; width: auto; max-width: 300px; }
+  /* 图标化导航保留可访问名称：视觉隐藏文字但不从无障碍树移除。
+     编号与计数徽标不在这份清单里：编号在窄屏让位给图标（信息已在顶栏面包屑里），
+     徽标则保留为图标上的小数字点（下方 .nav-badge 规则就是为它写的）。 */
+  .nav-item > span:not(.nav-badge):not(.nav-item__index) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: var(--ds-space-seam, -1px);
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .nav-item { justify-content: center; padding: 0; }
+  .nav-badge { position: absolute; margin-left: 0; transform: translate(14px, -10px); }
+  .main-nav { gap: var(--ds-space-6, 6px); }
+  .sidebar-bottom { display: flex; flex-direction: column; align-items: center; gap: var(--ds-space-10, 10px); }
+  /* 打卡与账户保留为图标入口，只隐藏文字。streak-more（日历入口）在本档由上方
+     `.checkin-calendar, .skip-link, .streak-more { display: none }` 一并隐藏，
+     所以卡片右侧不再需要为它的 44px 命中区留白。 */
+  .streak-card { padding: var(--ds-space-10, 10px); border-top: 0; border-bottom: 0; }
+  .streak-card > div:nth-child(2) { display: none; }
+  /* M3 走查实测：折叠侧栏的账户按钮 42×31，不达 §5.4 的 44。折叠后它只剩 30px 圆环，
+     因此按钮本体按 44×44 收下（圆环视觉尺寸不动，命中区靠 padding 撑）。 */
+  .profile { margin: 0; padding: var(--ds-space-8, 8px); min-width: var(--tap-min); min-height: var(--tap-min); justify-content: center; border-top: 0; }
+  .profile > div:nth-child(2) { display: none; }
+  .topbar { height: 56px; padding: 0 var(--ds-space-16, 16px); }
+  /* 窄屏面包屑只留「编号 + 当前入口」： trail（站点名 / 分类 / 课程名）在 320px 下
+     会把 44px 控件挤到换行。隐藏的是重复信息——当前入口与侧栏导航同名同编号。 */
+  .breadcrumbs__trail, .breadcrumbs__trail + .breadcrumbs__sep { display: none; }
+  .breadcrumbs { gap: var(--ds-space-6, 6px); }
+  .content-wrap { padding: var(--ds-space-20, 20px) var(--ds-space-16, 16px) var(--ds-space-32, 32px); }
+  .welcome-row { align-items: flex-start; flex-direction: column; gap: var(--ds-space-14, 14px); }
+  .module-heading { align-items: flex-start; flex-direction: column; }
+  .challenge-overview-stats { width: 100%; }
+  
+  .lesson-list { grid-template-columns: 1fr; }
+  
+  .challenge-grid { grid-template-columns: minmax(0, 1fr); }
+  /* 顶部导航触控目标 ≥44px；搜索折叠为图标宽度，点击展开 */
+  .topbar { padding: 0 var(--ds-space-12, 12px); }
+  .topbar { gap: var(--ds-space-4); }
+  .topbar-actions { flex: 0 0 auto; gap: var(--ds-space-4); }
+  .breadcrumbs { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .topbar .icon-button, .topbar-avatar { width: 44px; height: 44px; }
+  .global-search { flex: 0 0 44px; }

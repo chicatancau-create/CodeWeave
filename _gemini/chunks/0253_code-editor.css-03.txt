@@ -1,0 +1,102 @@
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+}
+span.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+}
+span.editor-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-4, 4px);
+  min-height: 32px; /* 次级文字按钮：不到主操作 44px 档（§5.4），但不能是 19px 的行内小字 */
+  position: relative; /* 命中区外扩的锚：下面 ::before 要贴着本按钮 */
+  padding: 0 var(--ds-space-8, 8px);
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  background: transparent;
+  border: 0;
+  box-shadow: var(--ds-shadow-panel, none);
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  transition: color var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L153 / L147 */
+}
+/* §5.4 触控目标 ≥44px：视觉 32 不动，命中区按本库通用写法用伪元素外扩到 44
+   （同 .streak-more、控制台页脚动作）；量的一直是命中区而不是可见盒。 */
+span.editor-actions button::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+span.editor-actions button:hover {
+  color: var(--ds-text-primary, #f4f1ee);
+}
+
+/* ── §5.3 第 3 条：两条降级路径都真停（不是放慢） ─────────────────────────
+   本文件不含 @keyframes、不含 infinite 动画，保留的只有悬停/焦点的一次颜色过渡；
+   系统偏好与应用内「减少动效」各自成文，停成**可读的静态终态**（geometry.md §3）。
+   这是本文件唯一允许 !important 的两处。 */
+@media (prefers-reduced-motion: reduce) {
+  div.code-editor,
+  div.code-editor *,
+  div.code-editor *::before,
+  div.code-editor *::after,
+  div.code-footer,
+  div.code-footer *,
+  div.code-footer *::before,
+  div.code-footer *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.reduce-motion div.code-editor,
+.reduce-motion div.code-editor *,
+.reduce-motion div.code-editor *::before,
+.reduce-motion div.code-editor *::after,
+.reduce-motion div.code-footer,
+.reduce-motion div.code-footer *,
+.reduce-motion div.code-footer *::before,
+.reduce-motion div.code-footer *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── 强制颜色模式（EDIT-01 第 5 条：不能因为透明 textarea 让文字消失） ──────
+   基座的做法是「输入层文字涂透明、由它下面那层高亮层负责看得见」。而强制颜色模式会把
+   系统调色板直接套到 `color` 上——`transparent` 不再透明，同一个字符于是被画两遍并逐列
+   错位成重影；反过来只保高亮层，输入层又可能整片看不见。
+   这里不再玩叠层：文字只由真实 textarea 承担（CanvasText），高亮层整层隐掉。
+   代价如实写清：强制颜色下**没有语法着色**——该模式下系统本就覆盖自定义色，
+   留着叠层只会重影，不会多出信息量。 */
+@media (forced-colors: active) {
+  div.code-editor textarea { color: CanvasText; background: Canvas; }
+  pre.code-tokens { visibility: hidden; }
+  /* 当前行不靠颜色与遮光带表达：左侧一道系统色实线 + 行号加粗（字重本就是 700）。 */
+  div.code-highlight { background: transparent; border-left: 2px solid CanvasText; }
+  div.line-numbers span.active { color: CanvasText; }
+  div.line-numbers { border-right-color: CanvasText; }
+  div.code-editor { border-color: CanvasText; }
+  div.code-footer { border-top-color: CanvasText; }
+}
+
+/* ── 自动换行（EDIT-01 第 2 条的设置项） ────────────────────────────────
+   默认**不开**：§5.4 的「长代码行」取证形态量的就是不开时的横向滚动。
+   开了要两层一起改，否则高亮层折行、输入层不折，逐行立刻错位。 */
+div.code-editor--wrap pre.code-tokens,
+div.code-editor--wrap textarea {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+div.code-editor--wrap pre.code-tokens { overflow-x: hidden; }
+
+/* 页脚那句键盘模式与复制结果是必读信息：用次级文字色 + 12px，不降到装饰档。 */
+span.editor-keyhint { color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); }
+span.editor-copy-ok { color: var(--ds-status-success, #3fd3a4); }
+span.editor-copy-fail { color: var(--ds-status-danger, #ff6b6b); font-weight: 600; }

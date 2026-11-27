@@ -1,0 +1,118 @@
+                onDelete={projects.handleDeleteProject}
+                onDuplicate={projects.handleDuplicateProject}
+                onUpdate={projects.handleUpdateProject}
+                onSaveCheckpoint={projects.handleSaveCheckpoint}
+                onRestoreCheckpoint={projects.handleRestoreCheckpoint}
+                persistFailure={projects.persistFailure}
+                onRetryPersist={projects.retryPersist}
+              />
+            )}
+            {view === 'analytics' && (
+              <AnalyticsView
+                stats={computeWeeklyStats({
+                  masteryRecords: Object.values(mastery.records),
+                  challengeRecords: challengeProgress.progress,
+                  todayKey: checkin.todayKey,
+                })}
+                streak={checkin.streak}
+                checkedInToday={checkin.checkedIn}
+              />
+            )}
+            {view === 'data' && (
+              <DataPrivacyView
+                user={user}
+                onExportData={() => exportLocalData(scope)}
+                onClearLocalData={clearLocalLearningData}
+              />
+            )}
+            {view === 'reviews' && (
+              <ReviewCenterView
+                groups={groupReviews(Object.values(mastery.records), checkin.todayKey)}
+                titles={titles}
+                lessonIds={content.lessons.map((item) => item.id)}
+                todayKey={checkin.todayKey}
+                onReview={handleReview}
+                onSnooze={mastery.snooze}
+                onOpenLesson={(lessonId) => {
+                  const lesson = content.lessons.find((item) => item.id === lessonId)
+                  if (lesson) handleLessonChange(lesson)
+                }}
+              />
+            )}
+            {view === 'security' && (
+              <AccountSecurityView user={user} onLogout={onLogout} />
+            )}
+            {view === 'profile' && (
+              <ProfileView
+                user={user}
+                onUpdateUser={onUpdateUser}
+                onLogout={onLogout}
+                onNavigateReviews={() => setView('reviews')}
+                stageMastery={stageMastery}
+                completedLessons={completedLessonCount}
+                completedChallenges={completedCount}
+                dueCount={mastery.dueReviews.length}
+                onExportData={() => exportLocalData(scope)}
+                onClearLocalData={clearLocalLearningData}
+                onNavigateSecurity={() => setView('security')}
+              />
+            )}
+            </Suspense>
+          </ErrorBoundary>
+          </>}
+        </main>
+      </div>
+
+      {settingsOpen && (
+        <SettingsModal
+          settings={settings}
+          onChange={(updates) => setSettings((current) => ({ ...current, ...updates }))}
+          onClose={() => {
+            setSettingsOpen(false)
+            settingsTriggerRef.current?.focus()
+          }}
+          onRestoreDefaults={() =>
+            setSettings({
+              notifications: true,
+              autosave: true,
+              compactMode: false,
+              editorFontSize: 13,
+              reduceMotion: false,
+              editorTabSize: 2,
+              editorWordWrap: false,
+              editorLineNumbers: true,
+            })
+          }
+          onExport={() => exportLocalData(scope)}
+        />
+      )}
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+    </div>
+  )
+}
+
+type SidebarProps = {
+  user: AuthUser
+  view: ViewId
+  onNavigate: (view: ViewId) => void
+  dueReviewsCount: number
+  checkin: ReturnType<typeof useCheckin>
+  calendarOpen: boolean
+  onToggleCalendar: () => void
+  remainingChallenges: number
+  totalStages: number
+}
+
+function Sidebar({
+  user,
+  view,
+  onNavigate,
+  dueReviewsCount,
+  checkin,
+  calendarOpen,
+  onToggleCalendar,
+  remainingChallenges,
+  totalStages,
+}: SidebarProps) {
+  const calendarDialogRef = useModalFocusTrap<HTMLDivElement>(calendarOpen)
+  useEscapeToClose(onToggleCalendar, calendarOpen)

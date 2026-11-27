@@ -1,0 +1,103 @@
+        '403': { description: visibility_failed / forbidden }
+
+  /api/learning/vault-progress:
+    get:
+      tags: [learning]
+      summary: 正式学习进度只读投影
+      description: >-
+        投影来自资料库的「进度追踪」。未绑定拥有者是 409 `owner_unbound`、非拥有者 403 `forbidden`、
+        读不出 503 `progress_unavailable` —— 三者都必须与「没有数据」的空态分开展示。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页（整份投影一次返回）
+      x-timeout: 读 10s
+      x-sensitive-fields: 投影含学习结论，只对拥有者开放
+      responses:
+        '200': { description: 进度投影, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '403': { description: forbidden }
+        '409': { description: owner_unbound }
+        '503': { description: progress_unavailable / vault_unavailable }
+
+  /api/learning/evidence:
+    post:
+      tags: [learning]
+      summary: 暂存一条学习证据
+      description: 不接受客户端传路径；目标文件由服务端按日期与主题推导。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等——同内容重复提交会产生两条暂存记录；重复提交前必须先 GET 队列
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 证据正文属个人学习内容，不入服务端日志、不进构建产物与截图
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic]
+              properties:
+                topic: { type: string, maxLength: 60 }
+                stage: { type: [string, 'null'], maxLength: 16 }
+                date: { type: string }
+                body: { type: string }
+                artifacts: { type: array, items: { type: string } }
+              additionalProperties: true
+      responses:
+        '201': { description: 已暂存, content: { application/json: { schema: { $ref: '#/components/schemas/EvidenceRecord' } } } }
+        '400': { description: invalid_evidence }
+        '401': { description: unauthorized }
+        '403': { description: forbidden（只有拥有者可提交） }
+        '409': { description: owner_unbound }
+    get:
+      tags: [learning]
+      summary: 读取暂存证据队列
+      description: 队列读不出（暂存文件损坏等）一律 503 + 稳定码，绝不压成 400——否则界面会把它看成「请求不合法」而不是「服务端这次没读到」。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；条数由服务端存储决定
+      x-timeout: 读 10s，可重试
+      x-sensitive-fields: 只回给拥有者本人
+      responses:
+        '200': { description: 队列, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/EvidenceRecord' } } } } }
+        '503': { description: evidence_store_unreadable }
+
+  /api/learning/evidence/remove:
+    post:
+      tags: [learning]
+      summary: 删除一条尚未同步的暂存证据
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等（第二次删除同一 id 返回 evidence_not_found）
+      x-pagination: 不适用
+      x-timeout: 写 10s
+      x-sensitive-fields: 不动已同步记录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [evidenceId], properties: { evidenceId: { type: string } } }
+      responses:
+        '200': { description: '{ removed: true }' }
+        '400': { description: evidence_not_found / already_synced }
+
+  /api/learning/evidence-preview:
+    post:
+      tags: [learning]
+      summary: 预览将写入资料库的内容（不落盘）
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等；但预览结果带哈希，目标文件变了就必须重新预览
+      x-pagination: 不适用
+      x-timeout: 写 15s（要读三处目标文件）
+      x-sensitive-fields: 预览含私密正文，只对拥有者开放
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                evidenceIds: { type: array, items: { type: string } }
+                masteryUpdates: { type: array, items: { type: object, additionalProperties: true } }
+      responses:
+        '200': { description: 预览体, content: { application/json: { schema: { $ref: '#/components/schemas/WritebackOutcome' } } } }
+        '400': { description: preview_failed }
+        '403': { description: forbidden }
+        '404': { description: source_not_found }

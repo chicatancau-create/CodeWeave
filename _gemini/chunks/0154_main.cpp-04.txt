@@ -1,0 +1,99 @@
+  for (const auto byte : hash) { result += digits[byte >> 4]; result += digits[byte & 15]; }
+  return result;
+}
+
+bool persist_draft() {
+  if (!g_draft_dirty) return true;
+  if (g_draft_read_failed) { set_status(L"原草稿读取失败，已阻止覆盖。请从数据菜单备份并检查文件。"); return false; }
+  if (!g_personal_core.is_open()) {
+    set_status(L"请先登录以保存个人草稿");
+    return false;
+  }
+  const auto result = g_personal_core.save_draft(draft_id(), control_text(g_draft_edit));
+  if (!result.ok) { set_status(wide_from_utf8(result.message)); return false; }
+  g_draft_dirty = false;
+  return true;
+}
+
+void load_personal_draft() {
+  std::string draft = g_starter;
+  g_draft_read_failed = false;
+  g_hint_viewed = false;
+  g_hint_read_failed = false;
+  if (g_personal_core.is_open()) {
+    const auto id = draft_id();
+    std::error_code error;
+    const auto draft_path = g_personal_core.data_root() / "drafts" / (id + ".txt");
+    const auto draft_status = std::filesystem::symlink_status(draft_path, error);
+    const bool missing = draft_status.type() == std::filesystem::file_type::not_found &&
+        (!error || error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+         error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND);
+    if (error && !missing) {
+      g_draft_read_failed = true;
+      draft.clear();
+      set_status(L"原草稿状态读取失败，已阻止覆盖。请检查数据目录。");
+    } else if (!missing && !g_personal_core.load_draft(id, draft).ok) {
+      g_draft_read_failed = true;
+      draft.clear();
+      set_status(L"原草稿读取失败，已阻止覆盖。请检查数据目录。");
+    }
+    error.clear();
+    const auto hint_path = g_personal_core.data_root() / "drafts" / (id + "-hint.txt");
+    const auto hint_status = std::filesystem::symlink_status(hint_path, error);
+    const bool hint_missing = hint_status.type() == std::filesystem::file_type::not_found &&
+        (!error || error == std::make_error_code(std::errc::no_such_file_or_directory) ||
+         error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND);
+    if (error && !hint_missing) {
+      // A metadata lookup error must never silently turn an attempt into an
+      // independent one. Fail closed and surface the condition to the user.
+      g_hint_read_failed = true;
+      g_hint_viewed = true;
+      set_status(L"提示记录读取失败，本次按辅助练习处理；请检查数据目录。");
+    } else if (!hint_missing) {
+      std::string marker;
+      const auto read_hint = g_personal_core.load_draft(id + "-hint", marker);
+      if (!read_hint.ok || marker != "assisted") {
+        g_hint_read_failed = true;
+        g_hint_viewed = true;
+        set_status(L"提示记录损坏，本次按辅助练习处理；请检查数据目录。");
+      } else {
+        g_hint_viewed = true;
+      }
+    }
+  }
+  g_loading_draft = true;
+  set_multiline(g_draft_edit, draft);
+  SendMessageW(g_draft_edit, EM_SETREADONLY, g_draft_read_failed ? TRUE : FALSE, 0);
+  g_loading_draft = false;
+  g_draft_dirty = false;
+}
+
+void refresh_progress_status();
+void refresh_review_summary();
+
+bool account_change_allowed() {
+  if (g_execution_running.load()) {
+    set_account_status(L"请等待运行结束或先取消，再切换账户");
+    return false;
+  }
+  if (g_execution_thread.joinable()) g_execution_thread.join();
+  return !g_personal_core.is_open() || persist_draft();
+}
+
+void refresh_account_stores() {
+  ++g_execution_generation;
+  { std::lock_guard lock(g_result_mutex); g_result_queue.clear(); }
+  if (g_independent_check) SendMessageW(g_independent_check, BM_SETCHECK, BST_UNCHECKED, 0);
+  g_personal_core.close_workspace();
+  g_challenge_service.reset();
+  g_trace_store.reset();
+  g_progress_store.reset();
+  g_evidence_store.reset();
+  if (g_output) SetWindowTextW(g_output, L"尚无本账户的运行输出");
+  if (g_trace_status) SetWindowTextW(g_trace_status, L"尚无本账户的执行轨迹");
+  // Clear all previous-account views before resolving the new root. A failed
+  // open must not leave the old draft or progress visible under the new login.
+  g_loading_draft = true;
+  if (g_draft_edit) {
+    SetWindowTextW(g_draft_edit, L"");
+    SendMessageW(g_draft_edit, EM_SETREADONLY, TRUE, 0);

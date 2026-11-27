@@ -1,0 +1,141 @@
+/**
+ * 本地数据作用域与导出协议（R2-C / DATA-01）。
+ *
+ * 类别、隔离范围、展示名与导出策略全部来自 `storage-registry.ts` 的唯一注册表，
+ * 本文件不再维护第二份手写类别列表（这是 DATA-01 的根因）。
+ *
+ * 清除入口统一调用 clearLocalData(scope)，界面必须显示同一范围说明。
+ * 导出使用显式 schema + 导出版本 + 账户范围 + 数据类别，默认排除设备级与通知数据。
+ *
+ * 诚实性边界：浏览器中的账户隔离是**应用级分区**，
+ * 不是对本机管理员或开发者工具的加密保护。
+ */
+
+import {
+  baseOf,
+  belongsToScope,
+  classifyKey,
+  descriptorOf,
+  exportableDescriptors,
+  labelOf,
+  scopeOf,
+  STORAGE_PREFIX,
+  type StorageScope,
+} from './storage-registry'
+
+export type { StorageScope as DataCategory } from './storage-registry'
+export { classifyKey }
+
+export type ClearScope = 'account' | 'device' | 'all'
+
+/** 单个键的删除失败记录。 */
+export type ClearFailure = { key: string; reason: string }
+
+/** 清理结果：成功键、失败键与整体是否成功（失败时不宣称成功）。 */
+export type ClearResult = {
+  removed: boolean
+  keys: string[]
+  failedKeys: string[]
+  failures: ClearFailure[]
+  /** 本次涉及的类别数量，供界面提示影响范围。 */
+  categories: number
+}
+
+/** 导出协议标识与版本：消费方据此判断兼容性。 */
+export const EXPORT_SCHEMA = 'codeweave.learning-data'
+export const EXPORT_VERSION = 1
+
+/** 导出时排除的敏感字段名（尽力而为的兜底，正常数据不应包含）。 */
+const SENSITIVE_FIELD_NAMES = ['password', 'passwordHash', 'token', 'cookie', 'secret', 'apiKey', 'authorization']
+
+/** 枚举当前 localStorage 中所有 CodeWeave 键（前缀匹配）。 */
+function collectKeys(): string[] {
+  const keys: string[] = []
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(STORAGE_PREFIX)) keys.push(key)
+  }
+  return keys
+}
+
+/**
+ * 逐个删除并如实记录结果。
+ * 失败不会被吞掉：failedKeys 与 failures 都返回给调用方，removed 仅在全部成功时为 true。
+ */
+function removeKeys(keys: string[]): ClearResult {
+  const removedKeys: string[] = []
+  const failures: ClearFailure[] = []
+  const categories = new Set<string>()
+
+  for (const key of keys) {
+    const descriptor = descriptorOf(key)
+    if (descriptor) categories.add(descriptor.baseKey)
+    try {
+      localStorage.removeItem(key)
+      removedKeys.push(key)
+    } catch (error) {
+      failures.push({ key, reason: error instanceof Error ? error.message : String(error) })
+      console.warn(`[code-canvas] 本地数据 ${key} 删除失败。`, error)
+    }
+  }
+
+  return {
+    removed: failures.length === 0,
+    keys: removedKeys,
+    failedKeys: failures.map((entry) => entry.key),
+    failures,
+    categories: categories.size,
+  }
+}
+
+/**
+ * 统一清除入口。
+ * @param scope     'account' 仅当前账户学习数据 / 'device' 仅设备设置 / 'all' 全部 CodeWeave 本地数据
+ * @param accountId scope='account' 时必填；其他作用域忽略
+ */
+export function clearLocalData(scope: ClearScope, accountId?: string): ClearResult {
+  const all = collectKeys()
+  if (scope === 'all') return removeKeys(all)
+  if (scope === 'device') {
+    return removeKeys(all.filter((key) => classifyKey(key) === 'device'))
+  }
+  // scope === 'account'：只删当前账户的账户级与会话级数据（两者都带账户 scope）。
+  // 未带 scope 的旧键归属未知，不自动划给当前账户（DATA-01 第 3 条）。
+  const target = accountId ?? 'guest'
+  return removeKeys(all.filter((key) => belongsToScope(key, target)))
+}
+
+/** 递归剔除敏感字段，兜底防止凭据进入导出文件。 */
+function stripSensitive(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripSensitive)
+  if (typeof value !== 'object' || value === null) return value
+  const source = value as Record<string, unknown>
+  const result: Record<string, unknown> = {}
+  for (const [key, entry] of Object.entries(source)) {
+    if (SENSITIVE_FIELD_NAMES.some((name) => key.toLowerCase() === name.toLowerCase())) continue
+    result[key] = stripSensitive(entry)
+  }
+  return result
+}
+
+export type ExportCategory = { base: string; category: string; label: string }
+
+export type ExportPayload = {
+  schema: string
+  version: number
+  exportedAt: string
+  scope: string
+  categories: ExportCategory[]
+  data: Record<string, unknown>
+}
+
+/**
+ * 构造导出负载：只含指定账户的账户级学习数据，
+ * 默认排除设备级设置与通知类会话数据（E.3 第 5 条 / DATA-01 第 5 条）。
+ *
+ * 字段名过滤**不是**代码文本中的密钥检测：用户自己写进代码、笔记或证据里的
+ * 敏感内容不会被识别，因此界面不得声称导出文件"绝对无凭据"。
+ */
+export function buildExportPayload(accountId?: string): ExportPayload {
+  const scope = accountId ?? 'guest'
+  const data: Record<string, unknown> = {}

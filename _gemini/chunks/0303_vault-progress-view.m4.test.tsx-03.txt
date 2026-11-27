@@ -1,0 +1,91 @@
+      learningStatus: null,
+      loading: false,
+      error: '内容服务返回 503：进度与绑定接口都不可用',
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    const box = container.querySelector('[data-vp-panel="error"]')
+    expect(box).toBeTruthy()
+    expect(container.textContent).toContain('读不到资料库绑定状态')
+    const notice = box?.querySelector('.vault-progress-empty')
+    expect(notice?.getAttribute('role')).toBe('status')
+    expect(notice?.textContent).toContain('内容服务返回 503')
+    expect(notice?.textContent).toContain('没读到和没有是两件事')
+    expect(container.textContent).not.toContain('资料库拥有者尚未绑定')
+    fireEvent.click(screen.getByRole('button', { name: /重试读取绑定状态/ }))
+    expect(content.refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('未绑定：正式进度不对任何账户开放，绑定必须显式点击', () => {
+    const content = makeContent({ learningStatus: UNBOUND_STATUS })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    expect(container.textContent).toContain('资料库拥有者尚未绑定')
+    expect(container.textContent).toContain('正式进度（当前阶段、掌握矩阵、下一步）不对任何账户开放')
+    expect(content.bindOwner).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '将当前账户设为资料库拥有者' }))
+    expect(content.bindOwner).toHaveBeenCalledTimes(1)
+    expect(fields(container).map((item) => item.key)).toEqual(FIVE_ZONES)
+    expect(fields(container)[4]?.value).toBe('正式进度不对任何账户开放（含本账户）')
+  })
+
+  it('非拥有者：显示「看不到正式进度」，且没有放开/收紧与解除绑定的入口', () => {
+    const content = makeContent({ learningStatus: OTHER_STATUS })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    expect(container.querySelector('.tag-verification')?.textContent).toBe('看不到正式进度')
+    expect(container.textContent).toContain(OTHER_STATUS.notice)
+    expect(screen.queryByRole('button', { name: /解除绑定/ })).toBeNull()
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull()
+    expect(fields(container)[4]?.value).toBe('非拥有者：正式进度与学习日志不可读')
+  })
+
+  it('拥有者：教材可见范围开关与解除绑定都走既有接口', async () => {
+    const content = makeContent({ learningStatus: OWNER_STATUS })
+    render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    expect(screen.getByText('你是本资料库的拥有者')).toBeTruthy()
+    const box = screen.getByRole('checkbox') as HTMLInputElement
+    fireEvent.click(box)
+    expect(content.setVisibility).toHaveBeenCalledWith(true)
+    // 上一次操作结束后控件才解禁（忙态语义保留），再点解除绑定
+    await waitFor(() => expect(box.disabled).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: /解除绑定/ }))
+    expect(content.unbindOwner).toHaveBeenCalledTimes(1)
+    await screen.findByText('已解除绑定')
+  })
+
+  it('换过资料库时如实告警，不宣称跨库进度可用', () => {
+    const content = makeContent({ learningStatus: { ...OWNER_STATUS, vaultMatches: false } })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    expect(container.textContent).toContain('当前连接的资料库与绑定记录不是同一个（换过资料库）')
+    expect(container.textContent).toContain('正式进度不会跨库串用')
+    expect(fields(container)[2]?.value).toContain('不一致')
+    expect(container.querySelector('.vp-mark')?.getAttribute('data-vp-mark')).toBe('warn')
+  })
+
+  /**
+   * §4 disabled 行：改版前这三个控件在忙态只被共享层 `.primary-action:disabled{opacity:.5}`
+   * 压淡，界面完全没说「为什么按不了」。现在保留 disabled（真的不能点）同时补
+   * `aria-disabled` + 一句渲染出来的条件说明，并用 aria-describedby 指过去。
+   */
+  it('§4 disabled：忙态的复选框与解除绑定都带 aria-disabled 和一句可见的条件说明', async () => {
+    let release: (value: { ok: boolean; message: string }) => void = () => {}
+    const content = makeContent({
+      setVisibility: vi.fn(

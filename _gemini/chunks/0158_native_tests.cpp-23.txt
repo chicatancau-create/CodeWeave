@@ -1,0 +1,90 @@
+  assert(codeweave::execution::build_process_plan(
+      {long_session, "cpp", "int main() { return 0; }", 1000, 4096},
+      std::filesystem::path("C:/CodeWeave/tools/cl.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"), plan).ok);
+  assert(plan.process.arguments.size() == 5);
+  for (const auto& argument : plan.process.arguments) assert(argument.size() <= 4096);
+  assert(!codeweave::execution::build_process_plan(
+      {"session-02", "shell", "x", 1000, 4096},
+      std::filesystem::path("C:/CodeWeave/tools/node.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"), plan).ok);
+  assert(!codeweave::execution::build_process_plan(
+      {"会话-01", "cpp", "int main() { return 0; }", 1000, 4096},
+      std::filesystem::path("C:/CodeWeave/tools/g++.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"), plan).ok);
+}
+
+void test_process_runner_rejects_unvalidated_plan_without_starting() {
+  codeweave::execution::ProcessRunner runner;
+  const auto result = runner.run({
+      {{}, {}, {}, "javascript"}, "source", 1000, 4096});
+  assert(!result.started);
+  assert(result.error_code == "invalid_process_plan" || result.error_code == "windows_only_runner");
+}
+
+void test_execution_service_keeps_validation_before_process_start() {
+  codeweave::execution::ExecutionService service;
+  const auto invalid = service.run(
+      {"session-01", "shell", "echo unsafe", 1000, 4096},
+      std::filesystem::path("C:/Windows/System32/cmd.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"));
+  assert(!invalid.validation.ok);
+  assert(!invalid.process.has_value());
+  assert(!invalid.trace.has_value());
+
+  const auto checked = service.validate(
+      {"session-02", "javascript", "console.log(1)", 1000, 4096},
+      std::filesystem::path("C:/CodeWeave/tools/node.exe"),
+      std::filesystem::path("C:/CodeWeave/runtime"));
+  assert(checked.validation.ok);
+  assert(!checked.process.has_value());
+  assert(!checked.trace.has_value());
+}
+
+void test_process_runner_executes_and_enforces_limits(const std::filesystem::path& tool) {
+#ifdef _WIN32
+  if (tool.empty()) return;
+  codeweave::execution::ProcessRunner runner;
+  const auto working_directory = tool.parent_path();
+  codeweave::execution::ProcessPlan output_plan{
+      {tool, {L"--text", L"runner-ok\n"}, working_directory, "cpp"}, "source", 1000, 4096};
+  const auto output = runner.run(output_plan);
+  if (!output.started) {
+    std::cerr << "process output test failed: " << output.error_code << "\n";
+  }
+  assert(output.started);
+  assert(output.exit_code == 0);
+  assert(output.output == "runner-ok\r\n");
+  assert(output.error_code.empty());
+
+  codeweave::execution::ProcessPlan limited_plan{
+      {tool, {L"--emit-bytes", L"65536"}, working_directory, "cpp"}, "source", 3000, 256};
+  const auto limited = runner.run(limited_plan);
+  assert(limited.started);
+  assert(limited.output_truncated);
+  assert(limited.output.size() == 256);
+  assert(limited.error_code == "output_limit_exceeded");
+
+  codeweave::execution::ProcessPlan timeout_plan{
+      {tool, {L"--sleep-ms", L"1000"}, working_directory, "cpp"}, "source", 100, 4096};
+  const auto timeout = runner.run(timeout_plan);
+  assert(timeout.started);
+  assert(timeout.timed_out);
+  assert(timeout.error_code == "execution_timeout");
+
+  std::atomic_bool cancellation{false};
+  codeweave::execution::ProcessPlan cancel_plan{
+      {tool, {L"--sleep-ms", L"1000"}, working_directory, "cpp"}, "source", 3000, 4096};
+  std::thread cancel_thread([&cancellation] { std::this_thread::sleep_for(std::chrono::milliseconds(120)); cancellation.store(true); });
+  const auto cancelled = runner.run(cancel_plan, &cancellation);
+  cancel_thread.join();
+  assert(cancelled.started && cancelled.cancelled && cancelled.error_code == "execution_cancelled");
+#else
+  (void)tool;
+#endif
+}
+
+void test_process_runner_control_contract(const std::filesystem::path& tool) {
+#ifdef _WIN32
+  if (tool.empty()) return;
+  codeweave::execution::ProcessRunner runner;

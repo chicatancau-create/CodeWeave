@@ -1,0 +1,148 @@
+            "name": "workspace-save-error-screenshot",
+            "passed": true
+        },
+        {
+            "name": "workspace-dismiss-preserves-edit",
+            "passed": true
+        },
+        {
+            "name": "workspace-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "workspace-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "workspace-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "detail": "草稿已保存",
+            "name": "review-normal-content-hides-error",
+            "passed": true
+        },
+        {
+            "name": "analytics-isolated-account-created",
+            "passed": true
+        },
+        {
+            "name": "analytics-empty-ledgers-show-zero-and-insufficient-sample",
+            "passed": true
+        },
+        {
+            "name": "analytics-window-fixture-created",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-完成课程单元",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-课程练习次数",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-挑战通过记录",
+            "passed": true
+        },
+        {
+            "detail": "actual=1 expected=1",
+            "name": "analytics-visible-复测通过",
+            "passed": true
+        },
+        {
+            "detail": "actual=2 expected=2",
+            "name": "analytics-visible-复测未通过",
+            "passed": true
+        },
+        {
+            "detail": "actual=33% expected=33%",
+            "name": "analytics-visible-近 7 天复测通过率",
+            "passed": true
+        },
+        {
+            "name": "analytics-window-dates-from-facade",
+            "passed": true
+        },
+        {
+            "name": "analytics-values-screenshot",
+            "passed": true
+        },
+        {
+            "name": "sidebar-review-eligible-fixture",
+            "passed": true
+        },
+        {
+            "name": "sidebar-review-due-badge",
+            "passed": true
+        },
+        {
+            "name": "checkin-authenticated-empty",
+            "passed": true
+        },
+        {
+            "name": "checkin-keyboard-write-and-disable",
+            "passed": true
+        },
+        {
+            "name": "checkin-calendar-focus-and-recorded-day",
+            "passed": true
+        },
+        {
+            "name": "checkin-calendar-end-focus",
+            "passed": true
+        },
+        {
+            "name": "checkin-calendar-next-month",
+            "passed": true
+        },
+        {
+            "name": "checkin-calendar-escape-return-focus",
+            "passed": true
+        },
+        {
+            "name": "checkin-calendar-outside-dismiss",
+            "passed": true
+        },
+        {
+            "name": "checkin-isolated-corruption-fixture",
+            "passed": true
+        },
+        {
+            "name": "checkin-corruption-visible-preserved-retry",
+            "passed": true
+        },
+        {
+            "name": "checkin-isolated-fixture-repair",
+            "passed": true
+        },
+        {
+            "name": "checkin-retry-reloads-record",
+            "passed": true
+        },
+        {
+            "name": "checkin-narrow-calendar-framed",
+            "passed": true
+        },
+        {
+            "name": "vault-fixture-created-outside-workspace",
+            "passed": true
+        },
+        {
+            "name": "vault-binding-requires-confirmation",
+            "passed": true
+        },
+        {
+            "name": "vault-bind-confirmed-action",
+            "passed": true
+        },
+        {
+            "name": "vault-connected-name-visible-after-binding",
+            "passed": true
+        },
+        {
+            "name": "vault-owner-progress-and-pending-evidence",

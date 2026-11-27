@@ -1,0 +1,78 @@
+  const auto unsafe_result = codeweave::content::inspect_manifest(unsafe);
+  assert(unsafe_result.status == codeweave::content::DryRunStatus::Blocked);
+  assert(unsafe_result.conflict_count == 1);
+
+  unsafe.topics[0].path = "/private/course.md";
+  const auto unix_absolute = codeweave::content::inspect_manifest(unsafe);
+  assert(unix_absolute.status == codeweave::content::DryRunStatus::Blocked);
+}
+
+void test_migration_preflight_rejects_symlink_root() {
+  const auto parent = std::filesystem::temp_directory_path() /
+      ("codeweave-native-preflight-link-" + std::to_string(std::random_device{}()));
+  std::error_code error;
+  std::filesystem::create_directories(parent / "real", error);
+  assert(!error);
+  std::ofstream(parent / "real" / "fixture.txt") << "fixture\n";
+  const auto alias = parent / "alias";
+  std::filesystem::create_directory_symlink(parent / "real", alias, error);
+  if (!error) {
+    codeweave::migration::Report report;
+    assert(!codeweave::migration::inspect_read_only(alias, report).ok);
+    std::filesystem::remove(alias, error);
+  }
+  std::filesystem::remove_all(parent, error);
+}
+void test_migration_preflight_is_metadata_only() {
+  Fixture fixture;
+  std::ofstream(fixture.root / "profile.json") << "sensitive fixture body\n";
+  std::filesystem::create_directories(fixture.root / "nested");
+  std::ofstream(fixture.root / "nested" / "progress.md") << "progress fixture\n";
+  codeweave::migration::Report report;
+  assert(codeweave::migration::inspect_read_only(fixture.root, report).ok);
+  assert(!report.content_read && !report.writes_performed && !report.migration_committed);
+  assert(report.file_count >= 3);
+  assert(std::any_of(report.entries.begin(), report.entries.end(), [](const auto& entry) {
+    return entry.relative_path == "profile.json" && entry.regular;
+  }));
+  assert(!codeweave::migration::inspect_read_only(std::filesystem::path("relative"), report).ok);
+}
+
+void test_migration_and_backup_reject_incomplete_symlink_sources() {
+  Fixture fixture;
+  const auto source = fixture.root / "incomplete-source";
+  const auto target = fixture.root / "incomplete-target";
+  const auto backup = fixture.root / "incomplete-backup";
+  std::filesystem::create_directories(source);
+  std::ofstream(source / "codeweave.migration-fixture") << "fixture\n";
+  std::ofstream(fixture.root / "outside.txt") << "non-sensitive outside fixture\n";
+  std::error_code error;
+  std::filesystem::create_symlink(fixture.root / "outside.txt", source / "alias.txt", error);
+  if (error) {
+    std::cout << "symlink-source test unavailable: " << error.message() << '\n';
+    return;
+  }
+  codeweave::migration::Report scan;
+  assert(!codeweave::migration::inspect_read_only(source, scan).ok);
+  assert(!scan.issues.empty());
+  codeweave::migration::StagingReport staged;
+  assert(!codeweave::migration::stage_fixture_copy(source, target, staged).ok);
+  assert(!staged.committed && !std::filesystem::exists(target));
+  codeweave::backup::Report saved;
+  assert(!codeweave::backup::create_fixture_backup(source, backup, saved).ok);
+  assert(!saved.committed && !std::filesystem::exists(backup));
+}
+
+void test_migration_contract_is_field_level_and_fail_closed() {
+  codeweave::migration::Snapshot snapshot;
+  snapshot.schema_version = 1;
+  snapshot.source_app_version = "legacy-fixture-1";
+  snapshot.accounts.push_back({"account-01", "fixture@example.test", "", "Fixture",
+      "scrypt$v1$0123456789abcdef0123456789abcdef:d17d0629e32ad3ac88ab78b388a13cb98d41fa6ed2e104e81b80e25bc66af3008a31dd0a0a9fa8bef5b167c25ca65cb0c9278b211bd5ab1270f7104cadd89486"});
+  snapshot.drafts.push_back({"draft-01", "中文草稿"});
+  snapshot.progress.push_back({"fact-01", "lesson-01", "exercise-01", "2026-10-05", "completed", "op-migrate-0123ab"});
+  const auto ready = codeweave::migration::inspect_snapshot(snapshot);
+  assert(ready.status == codeweave::migration::Status::Ready);
+  assert(ready.source_read && !ready.writes_performed && !ready.committed);
+
+  auto invalid = snapshot;

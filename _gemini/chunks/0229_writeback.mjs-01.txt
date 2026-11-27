@@ -1,0 +1,111 @@
+/**
+ * 确认式写回（LINK-09，02 号方案 §7 写回 + 03 号方案 §5 质量和恢复门禁）。
+ *
+ * 这是本项目**第一次写资料库文件**，因此每一步都按方案执行：
+ * 1. 证据先在应用侧暂存并标 pending（见 evidence.mjs）；
+ * 2. 预览：返回将写入的日志小节、进度差异、冲突与目标范围，**不修改 Markdown**；
+ * 3. 提交：重新读取目标文件比对 expectedHash，其他人改过就报冲突并展示逐字段差异，
+ *    **不按 mtime 决胜**；
+ * 4. 顺序固定：先写日志 → 再更新进度追踪 → 最后更新总计划日志索引；
+ * 5. 幂等：operationId 作为标记写进日志小节，断线重试不重复追加；
+ * 6. 多文件不是数据库事务：事务清单 + 备份记录每步，中断后按**实际文件**恢复；
+ * 7. 恢复/回滚前再次校验 hash；出现第三方新改动则停止覆盖，转人工合并；
+ * 8. 全部成功才标 synced；日志成功而进度失败显示「日志已保存，进度待合并」。
+ *
+ * 本模块绝不自动声称「已独立掌握」：等级变更需在预览里显式提出，且仅当证据确实是
+ * 学习者独立完成、提示等级不高于 L2 时才写入。
+ */
+import { existsSync } from 'node:fs'
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { randomBytes } from 'node:crypto'
+import { ContentError, normalizeText, sha256 } from '../content/markdown.mjs'
+import { readVaultText, resolveVaultRoot, resolveWritablePath } from '../content/vault-paths.mjs'
+import { EVIDENCE_STATE, hasOperationMarker, logPathOf, mergeEvidenceIntoLog, renderExportMarkdown } from './evidence.mjs'
+import { PROGRESS_PATH, plainText } from './progress.mjs'
+
+export const PLAN_PATH = '全栈工程师学习计划/全栈竞赛长期冲刺总计划.md'
+export const PROGRESS_BOARD_PATH = '03-执行计划/进度看板.md'
+export const WRITEBACK_SCHEMA_VERSION = 1
+
+export const WRITEBACK_STATE = {
+  PREVIEW: 'preview',
+  WRITING: 'writing',
+  SYNCED: 'synced',
+  PARTIAL: 'partial',
+  FAILED: 'failed',
+  ROLLED_BACK: 'rolled_back',
+}
+
+/** 写回服务在出错时抛出带 code 的错误；路由层据此映射 HTTP 状态。 */
+export class WritebackError extends Error {
+  constructor(code, message, details) {
+    super(message)
+    this.name = 'WritebackError'
+    this.code = code
+    this.details = details
+  }
+}
+
+const OPERATION_ID = /^op-[a-z0-9]{6,20}-[0-9a-f]{6}$/
+
+/**
+ * 事务账本一次返回的条数上限。
+ *
+ * 为什么是 20：
+ * - 与门面 `listEvidence()` 里「已同步记录只给最近 20 条」（learning/index.mjs:169）同一口径，
+ *   界面并排看两个列表时数量级一致，不会出现一边全量一边截断的错觉；
+ * - 本机是单人工具，一次写回固定 3 个目标文件，20 条足够核对最近十几次的逐步事实；
+ * - 再早的历史并没有丢：每条事务都能按 operationId 单独读回
+ *   （`GET /api/learning/evidence-transaction/:operationId`），账本只是入口不是归档。
+ *   因此界面必须写明「还有更早的事务」，不能把这一列当成全部。
+ */
+export const TRANSACTION_LIST_CAP = 20
+
+/** 提交与展示共用的写入顺序（日志 → 进度追踪 → 总计划日志索引）。 */
+const WRITE_ORDER = ['log', 'progress', 'index']
+
+function evidenceBoardPatch(text, entries) {
+  const lines = text.split('\n')
+  const heading = lines.findIndex((line) => line.trim() === '## 本周记录')
+  const header = lines.findIndex((line, index) => index > heading && line.trim() !== '')
+  if (heading < 0 || header < 0 || lines[header].trim() !== '| 日期 | 投入时间 | 主要产出 | 验证证据 | 明日最小步骤 |' ||
+      !/^\|(?:\s*:?-+:?\s*\|){5}\s*$/.test(lines[header + 1] ?? '')) {
+    throw new WritebackError('structure_unsupported', '进度看板的本周记录表结构已变化')
+  }
+  let end = header + 2
+  while (lines[end]?.startsWith('|')) end += 1
+  const existing = lines.slice(header + 2, end).join('\n')
+  const rows = entries.filter(({ link }) => !existing.includes(link))
+    .map(({ date, link }) => `| ${date} |  | 学习证据 | ${link} |  |`)
+  lines.splice(end, 0, ...rows)
+  return { text: lines.join('\n'), rows }
+}
+
+function boardLogPath(at, topic) {
+  return logPathOf(at, topic).replace(/^全栈工程师学习计划\//, '03-执行计划/')
+}
+
+function boardLogLink(path) {
+  const encode = (part) => encodeURIComponent(part).replaceAll('(', '%28').replaceAll(')', '%29')
+  return '[学习日志](' + path.split('/').slice(1).map(encode).join('/') + ')'
+}
+
+/** 按真实写入顺序排一遍（不改动传入数组）；未知 kind 留在最前，与提交时的排序口径一致。 */
+function stepsInWriteOrder(targets) {
+  return [...(targets ?? [])].sort((a, b) => WRITE_ORDER.indexOf(a.kind) - WRITE_ORDER.indexOf(b.kind))
+}
+
+/** 证据条数：账本只报数量，正文与 evidenceId 都不出网关。 */
+function evidenceCountOf(transaction) {
+  return Array.isArray(transaction?.evidenceIds) ? transaction.evidenceIds.length : 0
+}
+
+/**
+ * 事务记录 → 账本一行（浏览器可见视图）。
+ *
+ * `path` 再过一遍 scrubLocalPaths 属于兜底：日志文件名已剥掉 `\\ / :` 等保留字符
+ * （evidence.mjs 的 logFileName），写入路径也只接受库内相对路径（vault-paths.mjs），
+ * 合法记录里不可能出现盘符或 POSIX 根目录；真出现了就是数据被改过，那时更不能让它出门。
+ * 也正因为这一步对合法路径是恒等变换，界面把 `path` 当作指纹表的键才安全。
+ */

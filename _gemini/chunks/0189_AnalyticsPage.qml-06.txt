@@ -1,0 +1,60 @@
+                                                color: ds.ink
+                                                font.family: ds.ui
+                                                font.pixelSize: 14
+                                                lineHeight: 1.55
+                                                wrapMode: Text.WordWrap
+                                            }
+                                            Text {   // .an-cell-value — not dimmed for 样本不足
+                                                objectName: "analyticsValue-" + modelData.n
+                                                Layout.preferredWidth: analyticsPage.colValue
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.v
+                                                color: ds.ink
+                                                opacity: 0.82
+                                                font.family: ds.ui
+                                                font.pixelSize: 14
+                                                lineHeight: 1.55
+                                                wrapMode: Text.WordWrap
+                                            }
+                                            ColumnLayout {   // .an-cell-basis (+ action)
+                                                Layout.preferredWidth: analyticsPage.colRest
+                                                Layout.alignment: Qt.AlignTop
+                                                spacing: ds.s6
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: modelData.b
+                                                    color: ds.muted
+                                                    font.family: ds.ui
+                                                    font.pixelSize: 13
+                                                    lineHeight: 1.6
+                                                    wrapMode: Text.WordWrap
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    visible: modelData.a !== undefined
+                                                    text: modelData.a !== undefined ? modelData.a : ""
+                                                    color: ds.muted
+                                                    font.family: ds.ui
+                                                    font.pixelSize: 13
+                                                    lineHeight: 1.6
+                                                    wrapMode: Text.WordWrap
+                                                }
+                                            }
+                                            Text {   // .an-cell-den
+                                                Layout.preferredWidth: analyticsPage.colRest
+                                                Layout.alignment: Qt.AlignTop
+                                                text: modelData.d
+                                                color: modelData.d.indexOf("无分母") === 0 ? ds.ink : ds.muted
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                lineHeight: 1.6
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // .an-honest — flat hairline strip, not a card
+                            Text {
+                                Layout.fillWidth: true

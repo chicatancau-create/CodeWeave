@@ -1,0 +1,65 @@
+      std::vector<codeweave::content::Exercise> exercises;
+      const auto loaded = repository.list_exercises(document, exercises);
+      if (!loaded.ok) return loaded;
+      if (!exercises.empty()) {
+        const auto& exercise = exercises.front();
+        codeweave::learning::EvidenceStore evidence(root);
+        codeweave::learning::ProgressStore progress(root);
+        const auto unique = QUuid::createUuid().toString(QUuid::Id128).toStdString();
+        const auto suffix = unique.substr(unique.size() - 6);
+        const codeweave::learning::ChallengeRequest challenge{
+            "qt-evidence-" + unique, document, exercise.exercise_id,
+            QDate::currentDate().toString(Qt::ISODate).toStdString(), exercise.expected_output,
+            "op-" + unique.substr(0, 20) + "-" + suffix,
+            independent, hints_viewed ? "L3" : exercise.hint_level};
+        const auto recorded = codeweave::learning::ChallengeService(evidence, progress)
+            .record_course_execution(challenge, *result.process);
+        if (!recorded.validation.ok) return recorded.validation;
+        *challenge_status = QString::fromUtf8(recorded.validation.message);
+      }
+    }
+    if (result.process->started && result.process->exit_code == 0 &&
+        result.process->error_code.empty() && !result.process->cancelled &&
+        !result.process->timed_out && result.process->execution_output_valid) {
+      if (!document.starts_with("free-")) {
+        const auto practiced = recordLessonFact(root, QString::fromStdString(document), "practice",
+            QStringLiteral("学习信号：已练习 · 课程「%1」：本机真实运行完成一次，不构成完成证明，不推进掌握等级")
+                .arg(QString::fromStdString(document)), false, false, hints_viewed);
+        if (!practiced.ok) return practiced;
+      }
+      return codeweave::app::Result::success(normalized_output(result.process->output).toUtf8().toStdString());
+    }
+    if (result.process->cancelled) return codeweave::app::Result::failure("执行已取消");
+    if (result.process->timed_out) return codeweave::app::Result::failure("执行超时");
+    if (result.process->output_truncated) return codeweave::app::Result::failure("执行输出超过上限");
+    if (!result.process->error_code.empty()) {
+      return codeweave::app::Result::failure(result.process->error_code);
+    }
+    return codeweave::app::Result::failure(
+        "执行失败，退出码 " + std::to_string(result.process->exit_code));
+  };
+  execution_task_id_ = task_name;
+  execution_trace_ = {{"sessionId", QString::fromStdString(request_data.session_id)},
+      {"documentId", QString::fromStdString(document)},
+      {"sourceRevision", QVariant::fromValue<qulonglong>(revision)}, {"events", QVariantList{}}};
+  live_timer->start(50);
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, revision, document, request_data, trace, challenge_status, task_name, live_timer](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, revision, document, request_data, trace, challenge_status,
+            task_name, live_timer, result = std::move(result)]() mutable {
+          live_timer->stop();
+          live_timer->deleteLater();
+          if (task_name != execution_task_id_) return;
+          execution_task_id_.clear();
+          execution_busy_ = false;
+          emit executionBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          if (*trace) {
+            execution_trace_ = {{"sessionId", QString::fromStdString(request_data.session_id)},
+                {"documentId", QString::fromStdString(document)},
+                {"sourceRevision", QVariant::fromValue<qulonglong>(revision)},
+                {"events", trace_events((**trace).events())}};
+            emit executionTraceChanged();
+          }
+          execution_output_ = QString::fromUtf8(result.result.message);
+          execution_output_error_ = !result.result.ok;

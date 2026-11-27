@@ -1,0 +1,12 @@
+  line-height: var(--ds-leading-body, 1.7);
+  overflow-wrap: anywhere;
+}
+
+.projects-view .projects-persist-error-note {
+  color: var(--faint);
+}
+
+.projects-view .projects-persist-retry {
+  margin-top: var(--ds-space-10, 10px);
+  min-height: var(--ds-tap-min, 44px);
+}

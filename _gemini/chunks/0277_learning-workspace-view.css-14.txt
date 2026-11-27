@@ -1,0 +1,127 @@
+    flex-direction: column;
+    /* 地板：窗口太矮时（笔记本横屏 + 浏览器工具栏）不硬挤，退回普通滚动。 */
+    min-height: 480px;
+    max-height: calc(100vh - var(--cw-chrome-h));
+    max-height: calc(100svh - var(--cw-chrome-h));
+    /* 一屏化的闸门：工作台自己不许把页面撑长。高度到此为止，多出来的内容由内部
+       那几个 `overflow: auto` 的窗格（编辑器 / 控制台 / 变量 / 轨道）各自消化。
+       没有这一行，`max-height` 只是个建议——子项撑开就把整页顶下去，学习页照旧要滑。 */
+    overflow: hidden;
+  }
+  /* 页头与指南/洞察是定高附件，中间那两列吃掉剩余高度。 */
+  .cw-workspace .learning-header,
+  .cw-workspace .lesson-guide,
+  .cw-workspace .lesson-insight {
+    flex: 0 0 auto;
+  }
+  .cw-workspace .learning-view {
+    flex: 1 1 auto;
+    /* 没有它，grid/flex 子项的最小内容尺寸会让两列撑破外层 max-height。 */
+    min-height: 0;
+    align-items: stretch;
+  }
+  /* 每列一个滚动条：列内子块不再各自套内层滚动容器（否则一屏里两三个滚动条）。 */
+  .cw-workspace .workspace,
+  .cw-workspace .right-panels {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cw-workspace .workspace > *,
+  .cw-workspace .right-panels > * {
+    flex: 0 0 auto;
+  }
+  /* 放掉列内这些块的自身高度上限：滚动的职责上移到列容器，避免嵌套滚动。 */
+  .cw-workspace .reading-pane,
+  .cw-workspace .rs-stage,
+  .cw-workspace .code-editor,
+  .cw-workspace .variable-list {
+    max-height: none;
+  }
+  .cw-workspace .reading-pane {
+    overflow: visible;
+  }
+  /* 指南比一屏还长时给个上限自己滚，别把整页顶下去。这里要再从视口里扣掉
+     页头与上面那两列占的地（约 320），否则指南会跟列抢高度、把外层 max-height
+     撑破——外层一旦溢出，页面又会长出文档滚动条，等于没做单屏化。 */
+  .cw-workspace .lesson-guide {
+    max-height: calc(100vh - var(--cw-chrome-h) - 320px);
+    max-height: calc(100svh - var(--cw-chrome-h) - 320px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ── 代码模式：左边写代码，右边看画布（本页「换一种摆法」） ──────────────
+   入口是页头那枚 `.cw-mode-toggle`，开合状态挂在根节点的 `.is-code-mode` 上
+   （组件见 `learning-workspace-view.tsx` 的 `codeMode`）。**只切呈现，不切 DOM**：
+   四个分区锚点与导航 href 表是契约测试逐条钉死的，另起一棵树就要维护两份可达性，
+   所以这里一个元素不增不减，靠 CSS 决定此刻谁在场上、摆在哪。
+
+   留场的是「写代码 → 看运行」这条链上的东西：左栏的代码编辑器与运行条，右栏的
+   画布、变量、控制台。其余（主题原文、证据/完成、来源明细、课程指南、洞察）整体
+   `display: none` 离场——连子树一起离开 tab 顺序与读屏顺序，不留「看不见但 Tab 能到」
+   的暗门（`visibility: hidden` 与 `opacity: 0` 都会留下这种暗门）。 */
+.cw-workspace.is-code-mode .learning-view {
+  /* 与宽屏档同一个两列骨架，只把配比换成画布占多半：参考实现里
+     控制栏是窄侧栏、画布是主列，这里反过来让编辑器做窄侧、画布做主场。 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+}
+
+/* 离场的五块。逐条列名而不是写一条否定式选择器（`:not()` 串起来没人看得懂
+   到底藏了什么，也挡不住以后新加的块悄悄留在场上）。 */
+.cw-workspace.is-code-mode #cw-pane-reading,
+.cw-workspace.is-code-mode .lesson-complete-row,
+.cw-workspace.is-code-mode .external-evidence-form,
+.cw-workspace.is-code-mode .cw-verify-cases,
+.cw-workspace.is-code-mode .lesson-source,
+.cw-workspace.is-code-mode .lesson-guide,
+.cw-workspace.is-code-mode .lesson-insight {
+  display: none;
+}
+
+/* 代码模式下两列各自吃满一屏：整页不再往下长，滚动只发生在列内。
+   与宽屏档同一套体积口径（`--cw-chrome-h` 从视口里扣外壳），但**不设上限**——
+   离场那几块腾出的高度全部归编辑器与画布，这正是「一屏装下」的来处。 */
+.cw-workspace.is-code-mode {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+  max-height: calc(100vh - var(--cw-chrome-h));
+  max-height: calc(100svh - var(--cw-chrome-h));
+}
+.cw-workspace.is-code-mode .learning-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+.cw-workspace.is-code-mode .workspace,
+.cw-workspace.is-code-mode .right-panels {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cw-workspace.is-code-mode .workspace > *,
+.cw-workspace.is-code-mode .right-panels > * {
+  flex: 0 0 auto;
+}
+/* 放掉列内这几块的自身高度上限：滚动的职责在列容器，别套内层滚动条。 */
+.cw-workspace.is-code-mode .rs-stage,
+.cw-workspace.is-code-mode .code-editor,
+.cw-workspace.is-code-mode .variable-list {
+  max-height: none;
+}
+
+/* 窄屏：两列并排会两边都窄到没法用，退回单列（编辑器在上、画布在下）。
+   这不算「没做」，是本页一贯的移动优先取舍——320px 下并排等于两块都废。 */
+@media (max-width: 1080px) {
+  .cw-workspace.is-code-mode .learning-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── 代码模式吃满视口宽度：撤掉正文页的 1280px 阅读宽度上限 ─────────────────
+   实测（1440×900）：`.content-wrap` 的 `max-width: 1280px` + `margin: 0 auto`
+   把工作区夹成 1073px 并从 x=303 起排，右边空出约 370px——那是给长文本行的
+   阅读宽度上限（一行的字太多，眼睛回扫会丢行），对「左边代码右边画布」没有意义，
+   反而正好从画布身上扣掉。所以代码模式下把这个上限撤掉，让工作区用满

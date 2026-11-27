@@ -1,0 +1,102 @@
+  .detail-tabpanel--lab { grid-column: 2; grid-row: 1; }
+  .detail-tabpanel--evidence { grid-column: 1 / -1; grid-row: 2; }
+}
+.detail-block { display: flex; flex-direction: column; gap: var(--ds-space-8, 8px); }
+.detail-block-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: var(--ds-weight-body);
+  letter-spacing: var(--ds-track-meta);
+  text-transform: uppercase;
+}
+.detail-evidence-list { display: flex; flex-direction: column; gap: var(--ds-space-6, 6px); margin: 0; padding-left: var(--ds-space-16, 16px); color: var(--muted); font-size: var(--ds-size-control, 13px); line-height: 1.6; }
+.detail-evidence-list li::marker { color: var(--accent-hover); }
+
+.challenge-external-note {
+  margin-top: var(--ds-space-14, 14px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--hair) solid rgba(255, 196, 87, 0.24);
+  border-left: 3px solid var(--c-yellow);
+  border-radius: var(--radius);
+  background: rgba(255, 196, 87, 0.06);
+  color: var(--c-yellow);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.challenge-external-note p { margin: 0; }
+.challenge-external-note p + p { margin-top: var(--ds-space-8, 8px); }
+
+/* R4：执行等级徽标与待人工确认提示 */
+.execution-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  margin-top: var(--ds-space-6, 6px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+/* 执行等级同样要「形状 + 文字」双通道：真实执行=实心方、教学模拟=圆、外部=菱 */
+.execution-tier::before { content: ''; width: 7px; height: 7px; border: var(--hair) solid currentColor; }
+.execution-tier.tier-worker { color: var(--c-green); border: var(--hair) solid var(--ds-status-success-edge, rgba(63, 211, 164, 0.45)); background: var(--ok-wash); }
+.execution-tier.tier-worker::before { background: currentColor; }
+.execution-tier.tier-teaching { color: var(--c-cyan); border: var(--hair) solid var(--ds-scene-tides-edge, rgba(63, 240, 200, 0.45)); background: var(--accent-2-soft); }
+.execution-tier.tier-teaching::before { border-radius: var(--radius-circle); }
+.execution-tier.tier-external { color: var(--c-yellow); border: var(--hair) solid var(--ds-status-warning-edge, rgba(255, 196, 87, 0.45)); background: var(--warn-wash); }
+.execution-tier.tier-external::before { transform: rotate(45deg); }
+
+.challenge-result.unsupported { border-color: var(--ds-status-danger-edge, rgba(255, 131, 113, 0.45)); color: var(--c-coral); }
+
+.challenge-pending-note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  color: var(--c-purple);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+}
+
+/* R4：外部证据结构化表单 */
+.external-evidence-form {
+  display: grid;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-14, 14px);
+}
+.external-evidence-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--hair) solid rgba(255, 95, 210, 0.4);
+  border-left: 2px solid var(--c-purple);
+  border-radius: var(--radius);
+  background: rgba(255, 95, 210, 0.08);
+  color: var(--c-purple);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.external-evidence-field { display: grid; gap: var(--ds-space-6, 6px); }
+.external-evidence-required {
+  margin-left: var(--ds-space-6, 6px);
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  border-radius: var(--radius);
+  background: var(--bad-wash);
+  color: var(--c-coral);
+  font-size: var(--ds-size-body);
+  font-weight: 700;
+}
+.external-evidence-input {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--hair) solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--inset);
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-family: inherit;
+}

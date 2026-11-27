@@ -1,0 +1,6 @@
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    expect(screen.queryByText(/判定口径/)).toBeNull()
+    expect(screen.getByText(/执行等级：/)).toBeTruthy()
+  })
+})

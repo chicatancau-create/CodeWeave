@@ -1,0 +1,59 @@
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { sha256, stableStringify } from '../content/markdown.mjs'
+
+const SYNC_VERSION = 1
+const KINDS = new Set([
+  'learning.evidence.recorded', 'learning.completion.recorded', 'learning.checkin.recorded',
+  'learning.challenge.recorded', 'learning.review.recorded', 'learning.workspace.selected',
+  'learning.position.updated', 'learning.bookmark.updated', 'learning.bookmark.deleted',
+  'learning.draft.updated', 'learning.draft.deleted',
+])
+const MUTABLE = /\.(updated|deleted|selected)$/
+const ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/
+
+function failure(message, code, status = 400) {
+  return Object.assign(new Error(message), { code, status })
+}
+
+function validate(change) {
+  if (change?.schemaVersion !== SYNC_VERSION) throw failure('不支持该同步事件版本', 'unsupported_sync_schema', 409)
+  if (!ID.test(change.changeId ?? '') || !ID.test(change.deviceId ?? '') || !KINDS.has(change.kind) ||
+      !/^\d{4}-\d{2}-\d{2}T.*Z$/.test(change.occurredAt ?? '') || !Number.isFinite(Date.parse(change.occurredAt)) ||
+      !change.payload || typeof change.payload !== 'object' || Array.isArray(change.payload)) {
+    throw failure('同步事件格式无效', 'invalid_sync_event')
+  }
+  if (change.kind === 'learning.checkin.recorded') {
+    const date = change.localDate
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || !Number.isFinite(Date.parse(date)) ||
+        new Date(date).toISOString().slice(0, 10) !== date || typeof change.timeZone !== 'string') {
+      throw failure('打卡日期和时区无效', 'invalid_sync_event')
+    }
+    try { new Intl.DateTimeFormat('en', { timeZone: change.timeZone }) } catch {
+      throw failure('打卡日期和时区无效', 'invalid_sync_event')
+    }
+  }
+  const mutable = MUTABLE.test(change.kind)
+  const base = change.baseRevision ?? null
+  if (mutable && (!ID.test(change.payload.entityId ?? '') || (base !== null && (!Number.isSafeInteger(base) || base < 1)))) {
+    throw failure('可编辑事件须指定对象及有效基准版本', 'invalid_sync_event')
+  }
+  const allowed = new Set(['schemaVersion', 'changeId', 'deviceId', 'kind', 'occurredAt', 'localDate', 'timeZone', 'contentRef', 'baseRevision', 'payload'])
+  if (Object.keys(change).some((key) => !allowed.has(key))) throw failure('同步事件包含未支持字段', 'unsupported_sync_fields', 409)
+  return change
+}
+
+export function createLearningSync(db, { serviceInstance, resolveContent }) {
+  const setting = db.prepare('SELECT value FROM runtime_metadata WHERE name = ?')
+  const saveSetting = db.prepare('INSERT INTO runtime_metadata VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value')
+  if (!setting.get('syncSecret')) saveSetting.run('syncSecret', randomBytes(32).toString('hex'))
+  if (!setting.get('syncEpoch')) saveSetting.run('syncEpoch', randomUUID())
+  const secret = setting.get('syncSecret').value
+  const epoch = () => setting.get('syncEpoch').value
+  const previousRequest = db.prepare('SELECT request_hash, result_json FROM learning_idempotency WHERE account_id = ? AND change_id = ?')
+  const recordRequest = db.prepare('INSERT INTO learning_idempotency VALUES (?, ?, ?, ?)')
+  const append = db.prepare('INSERT INTO learning_events (account_id, vault_id, change_id, event_json) VALUES (?, ?, ?, ?)')
+  const getCheckin = db.prepare('SELECT sequence FROM learning_checkins WHERE account_id = ? AND vault_id = ? AND local_date = ? AND time_zone = ?')
+  const recordCheckin = db.prepare('INSERT INTO learning_checkins VALUES (?, ?, ?, ?, ?)')
+  const newest = db.prepare('SELECT COALESCE(max(sequence), 0) AS sequence FROM learning_events WHERE account_id = ? AND vault_id = ?')
+  const list = db.prepare('SELECT sequence, event_json FROM learning_events WHERE account_id = ? AND vault_id = ? AND sequence > ? ORDER BY sequence LIMIT ?')
+  const getRevision = db.prepare('SELECT sequence, event_json FROM learning_revisions JOIN learning_events USING (sequence) WHERE learning_revisions.account_id = ? AND learning_revisions.vault_id = ? AND entity_key = ?')

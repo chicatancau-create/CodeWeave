@@ -1,0 +1,82 @@
+app::Result load_or_rebuild(const std::filesystem::path& index_dir,
+    const std::filesystem::path& ledger_path, const std::filesystem::path& data_root,
+    std::uintmax_t max_ledger_bytes, std::size_t max_line_bytes,
+    std::size_t max_records, const ParseOperation& parse_operation, Snapshot& snapshot) {
+  std::uintmax_t ledger_size = 0;
+  bool exists = false;
+  const auto sized = read_ledger_size(ledger_path, ledger_size, exists);
+  if (!sized.ok) return sized;
+  if (ledger_size > max_ledger_bytes) return app::Result::failure("operation 索引账本超过大小上限");
+  {
+    std::lock_guard lock(cache_mutex);
+    const auto cached = cache.find(cache_key(index_dir));
+    if (cached != cache.end() && exists && cached->second.snapshot.ledger_size == ledger_size &&
+        cached->second.snapshot.record_count <= max_records) {
+      std::error_code ledger_time_error;
+      std::error_code metadata_time_error;
+      const auto ledger_time = std::filesystem::last_write_time(ledger_path, ledger_time_error);
+      const auto metadata_time = std::filesystem::last_write_time(
+          metadata_path(index_dir), metadata_time_error);
+      if (!ledger_time_error && !metadata_time_error &&
+          cached->second.ledger_time == ledger_time &&
+          cached->second.metadata_time == metadata_time) {
+        snapshot = cached->second.snapshot;
+        return app::Result::success("operation 索引已从进程缓存读取");
+      }
+    }
+  }
+  if (!exists || ledger_size == 0) {
+    snapshot = {};
+    return clear(index_dir, data_root);
+  }
+  std::uint64_t ledger_fingerprint = 0;
+  const auto fingerprinted = fingerprint_ledger(ledger_path, ledger_size, ledger_fingerprint);
+  if (!fingerprinted.ok) return fingerprinted;
+  std::size_t count = 0;
+  const auto metadata = parse_metadata(index_dir, ledger_size, ledger_fingerprint, count);
+  const auto shards = metadata.ok ? validate_shards(index_dir, ledger_size, count) :
+      app::Result::failure("operation 索引元数据无效");
+  if (metadata.ok && shards.ok) {
+    snapshot = {ledger_size, count, ledger_fingerprint};
+    CachedIndex loaded;
+    std::error_code error;
+    loaded.snapshot = snapshot;
+    loaded.ledger_time = std::filesystem::last_write_time(ledger_path, error);
+    if (error) return app::Result::failure("读取 operation 索引账本时间失败");
+    loaded.metadata_time = std::filesystem::last_write_time(metadata_path(index_dir), error);
+    if (error) return app::Result::failure("读取 operation 索引元数据时间失败");
+    for (std::size_t shard = 0; shard < kShardCount; ++shard) {
+      std::ifstream input(shard_path(index_dir, shard), std::ios::binary);
+      if (!input) continue;
+      std::string line;
+      while (std::getline(input, line)) {
+        const auto fields = split(line);
+        std::string operation_id;
+        std::uintmax_t offset = 0;
+        std::uintmax_t length = 0;
+        if (fields.size() != 3 || !hex_decode(fields[0], operation_id) ||
+            !parse_uint(fields[1], offset) || !parse_uint(fields[2], length)) {
+          return app::Result::failure("operation 索引分片重载失败");
+        }
+        loaded.entries.emplace(operation_id, Entry{operation_id, offset, length});
+      }
+      if (!input.eof()) return app::Result::failure("operation 索引分片重载失败");
+    }
+    {
+      std::lock_guard lock(cache_mutex);
+      cache[cache_key(index_dir)] = std::move(loaded);
+    }
+    return app::Result::success("operation 索引已读取");
+  }
+  return rebuild(index_dir, ledger_path, data_root, max_ledger_bytes, max_line_bytes,
+      max_records, parse_operation, snapshot);
+}
+
+app::Result rebuild(const std::filesystem::path& index_dir,
+    const std::filesystem::path& ledger_path, const std::filesystem::path& data_root,
+    std::uintmax_t max_ledger_bytes, std::size_t max_line_bytes,
+    std::size_t max_records, const ParseOperation& parse_operation, Snapshot& snapshot) {
+  std::uintmax_t ledger_size = 0;
+  bool exists = false;
+  const auto sized = read_ledger_size(ledger_path, ledger_size, exists);
+  if (!sized.ok) return sized;

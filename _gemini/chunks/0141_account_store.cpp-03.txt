@@ -1,0 +1,58 @@
+  const auto valid = validate(record); if (!valid.ok) return valid; std::vector<Record> records; const auto loaded = list_accounts_unlocked(path(), data_root_, records); if (!loaded.ok) return loaded;
+  if (std::any_of(records.begin(), records.end(), [&record](const Record& existing) { return existing.id == record.id || (!record.email.empty() && existing.email == record.email) || (!record.phone.empty() && normalized_phone(existing.phone) == normalized_phone(record.phone)); })) return app::Result::failure("账户 ID 或联系方式已存在");
+  records.push_back(record); if (has_symlink_component(path().parent_path())) return app::Result::failure("账户目录路径不能经过符号链接"); std::error_code error; std::filesystem::create_directories(path().parent_path(), error); if (error) return app::Result::failure("创建账户目录失败");
+  std::string serialized; for (const auto& item : records) serialized += encode_hex(item.id) + '\t' + encode_hex(item.email) + '\t' + encode_hex(item.phone) + '\t' + encode_hex(item.name) + '\t' + encode_hex(item.password_hash) + '\n';
+  return write_atomically(path(), serialized);
+}
+
+app::Result AccountStore::register_with_password(std::string id, std::string email, std::string phone,
+    std::string name, std::string_view password, Record& created) {
+  std::string password_hash;
+  const auto hashed = hash_password(password, password_hash);
+  if (!hashed.ok) return hashed;
+  created = {std::move(id), std::move(email), std::move(phone), std::move(name), std::move(password_hash)};
+  return register_account(created);
+}
+
+app::Result AccountStore::authenticate_hash(std::string_view identifier, std::string_view password_hash, Record& record) const {
+  std::lock_guard lock(mutex_);
+  if (identifier.empty() || password_hash.empty()) return app::Result::failure("登录凭据无效"); std::vector<Record> records; const auto loaded = list_accounts_unlocked(path(), data_root_, records); if (!loaded.ok) return loaded;
+  const auto found = std::find_if(records.begin(), records.end(), [identifier](const Record& item) { return same_identifier(item, identifier); });
+  if (found == records.end() || !constant_time_equal(found->password_hash, password_hash)) return app::Result::failure("账户或凭据无效");
+  record = *found; return app::Result::success("登录凭据有效");
+}
+
+app::Result AccountStore::authenticate_password(std::string_view identifier, std::string_view password,
+    Record& record) const {
+  std::lock_guard lock(mutex_);
+  if (password.empty() || password.size() > 128) return app::Result::failure("账户或凭据无效");
+  std::vector<Record> records;
+  const auto loaded = list_accounts_unlocked(path(), data_root_, records);
+  if (!loaded.ok) return loaded;
+  const auto found = std::find_if(records.begin(), records.end(), [identifier](const Record& item) {
+    return same_identifier(item, identifier);
+  });
+  if (found == records.end()) return app::Result::failure("账户或凭据无效");
+  bool matches = false;
+  const auto verified = verify_password(password, found->password_hash, matches);
+  if (!verified.ok || !matches) return app::Result::failure("账户或凭据无效");
+  record = *found;
+  return app::Result::success("登录凭据有效");
+}
+
+app::Result AccountStore::change_password(std::string_view identifier, std::string_view current_password,
+    std::string_view new_password) {
+  std::lock_guard lock(mutex_);
+  if (new_password.empty() || new_password.size() > 128) return app::Result::failure("新密码长度无效");
+  Record current;
+  std::vector<Record> records;
+  const auto loaded = list_accounts_unlocked(path(), data_root_, records);
+  if (!loaded.ok) return loaded;
+  const auto found_current = std::find_if(records.begin(), records.end(), [identifier](const Record& item) {
+    return same_identifier(item, identifier);
+  });
+  if (found_current == records.end()) return app::Result::failure("账户或凭据无效");
+  bool matches = false;
+  const auto verified = verify_password(current_password, found_current->password_hash, matches);
+  if (!verified.ok || !matches) return app::Result::failure("账户或凭据无效");
+  current = *found_current;

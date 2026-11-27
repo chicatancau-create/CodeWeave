@@ -1,0 +1,77 @@
+                                        return "行 " + lines.length + "，列 "
+                                            + (lines[lines.length - 1].length + 1);
+                                    }
+                                    color: ds.muted
+                                    font.family: ds.mono
+                                    font.pixelSize: 12
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: uiShell.starterLanguage || "—"
+                                    color: ds.faint
+                                    font.family: ds.mono
+                                    font.pixelSize: 12
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                            Rectangle {
+                                anchors { left: parent.left; right: parent.right; top: parent.top }
+                                height: 1
+                                color: ds.line
+                            }
+                        }
+                    }
+                }
+
+                // RIGHT — run stage + output
+                ColumnLayout {
+                    objectName: "workspaceRuntimePane"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.horizontalStretchFactor: 5
+                    spacing: ds.s12
+
+                    // div.rs-stage
+                    Rectangle {
+                        id: stagePanel
+                        focus: true
+                        Accessible.name: "程序状态图区域"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        implicitHeight: stageContent.implicitHeight + ds.s14 * 2
+                        Layout.minimumHeight: implicitHeight
+                        radius: ds.radius
+                        color: ds.page
+                        border.color: ds.line
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: stageContent
+                            anchors.fill: parent
+                            anchors.margins: ds.s14
+                            spacing: ds.s10
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: ds.s8
+                                TabBar {
+                                    id: traceTabs
+                                    background: null
+                                    currentIndex: editorPage.showExecutionTrace ? 1 : 0
+                                    onCurrentIndexChanged: editorPage.showExecutionTrace = currentIndex === 1
+                                    Repeater {
+                                        model: ["课程结构", "执行事件"]
+                                        TabButton {
+                                            id: traceTab
+                                            required property string modelData
+                                            text: modelData
+                                            implicitHeight: 32
+                                            implicitWidth: 76
+                                            background: Rectangle {
+                                                radius: ds.radiusSm
+                                                color: traceTab.checked ? ds.accentSoft : traceTab.hovered ? ds.hoverWash : ds.page
+                                                border.color: traceTab.checked || traceTab.activeFocus ? ds.accent : ds.line
+                                            }
+                                            contentItem: Text {
+                                                text: traceTab.text

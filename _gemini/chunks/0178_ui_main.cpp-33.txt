@@ -1,0 +1,57 @@
+                diagram->property("nodeCount").toInt() == 1 && diagram->property("edgeCount").toInt() == 0 &&
+                diagram->property("currentNodeId").toString() == QStringLiteral("event:1") &&
+                variable_table->property("variableCount").toInt() == 0);
+            int output_event_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              if (trace_events.at(index).toMap().value(QStringLiteral("kind")).toString() == "output") {
+                output_event_index = static_cast<int>(index);
+                break;
+              }
+            }
+            bool next_invoked = previous_invoked && next && output_event_index >= 0;
+            for (int index = 0; next_invoked && index < output_event_index; ++index) {
+              next_invoked = QMetaObject::invokeMethod(next, "clicked", Qt::DirectConnection);
+            }
+            next_invoked = next_invoked && events->property("currentIndex").toInt() == output_event_index;
+            u3_record(*context, QStringLiteral("execution-trace-next-restores-output"), next_invoked &&
+                trace_output->property("text").toString() == QStringLiteral("15\n"));
+            if (events) events->forceActiveFocus();
+            send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+            const bool home = events && events->property("currentIndex").toInt() == 0;
+            send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+            u3_record(*context, QStringLiteral("execution-trace-keyboard-home-end"), home &&
+                events->property("currentIndex").toInt() == final_event_index);
+            u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-completed"));
+          }
+          {
+            auto* copy_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("copyOutputButton"));
+            auto* clear_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("clearOutputButton"));
+            auto* output_area = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("outputArea"));
+            const bool copy_invoked = copy_button && copy_button->property("enabled").toBool() &&
+                QMetaObject::invokeMethod(copy_button, "clicked", Qt::DirectConnection);
+            const bool copied = copy_invoked && QGuiApplication::clipboard()->text() == shell.executionOutput();
+            u3_record(*context, QStringLiteral("console-copy-output"), copied);
+            const bool clear_invoked = clear_button && output_area &&
+                clear_button->property("enabled").toBool() &&
+                QMetaObject::invokeMethod(clear_button, "clicked", Qt::DirectConnection);
+            u3_record(*context, QStringLiteral("console-clear-display-preserves-result"),
+                clear_invoked && output_area->property("text").toString().isEmpty() &&
+                shell.executionOutput() == QStringLiteral("15\n"));
+          }
+          view.resize(1100, 720);
+          context->step = 600;
+          return;
+        case 600: {
+          auto* editor = u3_find_item(view.rootObject(), QStringLiteral("editorPageRoot"));
+          if (editor) QMetaObject::invokeMethod(editor, "revealExecutionTrace", Qt::DirectConnection);
+          context->step = 602;
+          return;
+        }
+        case 602: {
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("executionTracePanel"));
+          auto* output = u3_find_item(view.rootObject(), QStringLiteral("executionTraceOutput"));
+          const auto point = output ? output->mapToScene(QPointF()) : QPointF(-1, -1);
+          u3_record(*context, QStringLiteral("execution-trace-narrow-framed"), panel && panel->height() >= 150 &&
+              output && point.x() >= 0 && point.y() >= 0 && point.x() + output->width() <= view.width() &&
+              point.y() + output->height() <= view.height() &&
+              u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-narrow"), QSize(1100, 720)));

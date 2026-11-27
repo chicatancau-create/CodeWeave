@@ -1,0 +1,17 @@
+        return this.props.fallback(this.state.error, this.handleReset)
+      }
+
+      return (
+        <DefaultErrorScreen
+          error={this.state.error}
+          componentStack={this.state.componentStack}
+          occurredAt={this.state.occurredAt}
+          onReset={this.handleReset}
+          scope={this.props.scope ?? 'view'}
+        />
+      )
+    }
+
+    return this.props.children
+  }
+}

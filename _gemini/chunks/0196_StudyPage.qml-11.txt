@@ -1,0 +1,66 @@
+                                            }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.title || ""
+                                            color: ds.ink
+                                            font.family: ds.ui
+                                            font.pixelSize: 14
+                                            font.weight: Font.DemiBold
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: ds.s8
+                                            Layout.preferredHeight: 40
+                                            text: modelData.description || "打开课程查看内容、练习与来源。"
+                                            color: ds.muted
+                                            font.family: ds.ui
+                                            font.pixelSize: 12
+                                            wrapMode: Text.WordWrap
+                                            maximumLineCount: 2
+                                            elide: Text.ElideRight
+                                            verticalAlignment: Text.AlignTop
+                                        }
+
+                                        Item { Layout.fillHeight: true }
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: ds.s14
+                                            height: 1
+                                            color: ds.line
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: ds.s12
+                                            spacing: ds.s8
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: (modelData.level || "") + " · "
+                                                      + (modelData.languageLabel || "")
+                                                color: ds.faint
+                                                font.family: ds.ui
+                                                font.pixelSize: 11
+                                                elide: Text.ElideRight
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                            Text {
+                                                text: "→"
+                                                color: ds.accent
+                                                font.family: ds.ui
+                                                font.pixelSize: 15
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                        }
+                                    }
+
+                                    HoverHandler { id: unitHover; cursorShape: Qt.PointingHandCursor }
+                                    activeFocusOnTab: true
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: modelData.title
+                                    Keys.onReturnPressed: studyPage.selectCourse(modelData.originalIndex)
+                                    Keys.onSpacePressed: studyPage.selectCourse(modelData.originalIndex)
+                                    TapHandler {

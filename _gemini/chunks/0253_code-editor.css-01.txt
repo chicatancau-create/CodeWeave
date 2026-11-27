@@ -1,0 +1,98 @@
+/* ============================================================================
+   CodeWeave · M4 全站统一 · 代码编辑器基座（src/components/code-editor.tsx）
+   ----------------------------------------------------------------------------
+   为什么有本文件：M3 做学习工作台时，为了让四区黑场分栏成立，把外观全部限定在
+   页面容器作用域内（learning-workspace-view.css 的 169 条规则全部以 `.cw-workspace`
+   起头、全局裸选择器 0 条，见 docs/01-应用前端与交互重构方案.md §3），编辑器**自身的
+   基座**仍散落在 styles.css 的 `.code-editor` 一族里。编辑器一旦被挑战页 / 项目页 /
+   壳外复用，就会露出基座旧形态。本文件把基座本身切到 --ds-* 令牌。
+
+   取值出处（行号 = app/src/design/tokens.css）：
+   - 黑场实底 #000 → L25/L26；暖白文字 L27；次级文字 0.56 L28；点缀只用于主操作 L50
+   - 发丝线 0.14 / 1px → L37/L40；抬起档 0.16 → L38；输入与焦点边界 → L73-L77
+   - 圆角只有三档：0 → L118/L121、50% → L119、100px → L120；零投影 → L123
+   - 等宽字栈（含 Windows 中文回退）→ L88；语义状态恒定不插值 → L60-L63
+   - 缓动 cubic-bezier(0.22,1,0.36,1) → L147；普通交互 150ms → L153
+   规格依据：docs/00-CodeWeave三合一总工程方案.md §5.1（黑场 + 发丝线，移除玻璃卡/渐变/泛光）、
+   §5.3 第 1 条（**编辑器默认静态或低动态**）、§5.4（编辑器保留用户字号、长代码行）；
+   形态裁定：src/design/geometry.md §2（学习工作台行：禁任何装饰性持续动画）。
+   页面侧的同名形态已在 M3 验收：learning-workspace-view.css L345-L468。
+
+   层叠约定（改本文件前必读 —— 这是这里每条选择器都带类型名前缀的唯一原因）：
+   1) styles.css 由 main.tsx 引入，实测在产物里排在组件样式**之后**
+    （dist/assets/index-*.css：组件样式占 0–95k，styles.css 的 `:root` 起于 94879），
+    所以同特异度时 styles.css 赢，只写 `.code-editor` 压不住它。
+   2) 本文件只在 (c) 档（类型选择器）上抬一位、(b) 档（类）与 styles.css 保持相等，
+    于是：styles.css `.code-editor`(0,1,0) < 本文件 `div.code-editor`(0,1,1)
+    < 页面覆写 `.cw-workspace .code-editor`(0,2,0)。页面作用域覆写永远赢，
+    **基座改动不会把工作台的观感带偏**（工作台那 39 条用例是这一条的证据）。
+   3) 本文件不写任何全局裸选择器，不碰 :root / html / body / *，不新增任何赋值给
+    `--editor-font-size` / `--line-height-editor`（§5.4：字号是用户设置，只读取）。
+   ========================================================================== */
+
+/* ── 编辑器整体：黑场内凹 + 一圈 1px 发丝线（§5.1 形态） ─────────────────── */
+div.code-editor {
+  position: relative;
+  display: flex;
+  min-height: 300px;
+  max-height: 62vh;
+  padding: var(--ds-space-12, 12px) 0;
+  color: var(--ds-text-primary, #f4f1ee); /* tokens L27 */
+  background: var(--ds-canvas, #000); /* tokens L25：黑场分区，不铺玻璃底 */
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14)); /* L40 / L37 */
+  border-radius: var(--ds-radius-panel, 0); /* L121：面板直角 */
+  box-shadow: var(--ds-shadow-panel, none); /* L123：零投影（原 16px 泛光已停用） */
+  backdrop-filter: none; /* §5.1：移除玻璃拟态 */
+  -webkit-backdrop-filter: none;
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace); /* L88 */
+  /* §5.4：编辑器**保留用户字号设置**。下面三处（容器 / 行号层 / 输入层 / 高亮层）
+     必须读同一个变量，这是行号与代码逐行对齐的前提；本文件不给它赋值。 */
+  font-size: var(--editor-font-size, 13px);
+  line-height: var(--line-height-editor, 1.55);
+}
+
+/* ── 行号层：与输入层同字号同行高，滚动位移由组件行内 transform 驱动 ─────── */
+div.line-numbers {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 44px;
+  flex: 0 0 44px;
+  padding-right: var(--ds-space-10, 10px);
+  overflow: hidden;
+  color: var(--ds-text-secondary, rgba(220, 233, 251, 0.56)); /* L28，5.86:1 可读 */
+  background: transparent; /* 黑场分区靠右边界那条发丝线，不靠底色 */
+  border-right: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  font-family: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  font-size: var(--editor-font-size, 13px); /* 只读取（§5.4） */
+  line-height: var(--line-height-editor, 1.55); /* 只读取：与 textarea 同一行高 = 逐行对齐 */
+  user-select: none;
+}
+div.line-numbers-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+div.line-numbers span {
+  white-space: pre; /* 行号不折行：折一行就把下面所有行号推歪 */
+}
+div.line-numbers span.active {
+  color: var(--ds-scene-active, rgb(34, 211, 238)); /* L50：当前行 = 固定场景档，工作台内不逐帧变色 */
+  font-weight: 700; /* 颜色不是唯一载体（§5.1 末段） */
+}
+
+/* ── 代码面：overflow hidden + 行内 translate 跟随，textarea 才是滚动主体 ── */
+div.code-surface {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 高亮叠层（纯展示）：字号/行高/左内边距必须与输入层逐项相同，否则逐行错位 */
+pre.code-tokens {
+  position: absolute;
+  inset: 0;
+  z-index: 0;

@@ -1,0 +1,45 @@
+[30/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\trace_contract.cpp.obj
+[31/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\process_runner.cpp.obj
+[32/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\execution_service.cpp.obj
+[33/147] Building CXX object CMakeFiles\codeweave-test-process-tool.dir\src\test_process_tool.cpp.obj
+[34/147] Building CXX object ui-qt\CMakeFiles\codeweave-content-qt.dir\__\src\trace_store.cpp.obj
+[35/147] Linking CXX static library ui-qt\codeweave-content-qt.lib
+[36/147] Building CXX object CMakeFiles\codeweave-core.dir\src\account.cpp.obj
+[37/147] Building CXX object CMakeFiles\codeweave-core.dir\src\app_core.cpp.obj
+[38/147] Automatic MOC and UIC for target codeweave-qt
+[39/147] Running AUTOMOC file extraction for target codeweave-qt
+[40/147] Building CXX object CMakeFiles\codeweave-core.dir\src\account_service.cpp.obj
+[41/147] Building CXX object CMakeFiles\codeweave-core.dir\src\content_contract.cpp.obj
+[42/147] Running moc --collect-json for target codeweave-qt
+[43/147] Building CXX object CMakeFiles\codeweave-core.dir\src\account_store.cpp.obj
+[44/147] Building CXX object CMakeFiles\codeweave-core.dir\src\password_crypto.cpp.obj
+[45/147] Automatic QML type registration for target codeweave-qt
+[46/147] Building CXX object CMakeFiles\codeweave-core.dir\src\content_repository.cpp.obj
+[47/147] Building CXX object CMakeFiles\codeweave-core.dir\src\mastery_contract.cpp.obj
+[48/147] Building CXX object CMakeFiles\codeweave-core.dir\src\content_access.cpp.obj
+[49/147] Building CXX object CMakeFiles\codeweave-core.dir\src\mastery_service.cpp.obj
+[50/147] Building CXX object CMakeFiles\codeweave-core.dir\src\learning_contract.cpp.obj
+[51/147] Building CXX object CMakeFiles\codeweave-core.dir\src\review_scheduler.cpp.obj
+[52/147] Building CXX object CMakeFiles\codeweave-core.dir\src\mastery_store.cpp.obj
+[53/147] Building CXX object CMakeFiles\codeweave-core.dir\src\operation_index.cpp.obj
+[54/147] Building CXX object CMakeFiles\codeweave-core.dir\src\challenge_service.cpp.obj
+[55/147] Building CXX object CMakeFiles\codeweave-core.dir\src\progress_projection.cpp.obj
+[56/147] Building CXX object CMakeFiles\codeweave-core.dir\src\review_service.cpp.obj
+[57/147] Building CXX object CMakeFiles\codeweave-core.dir\src\evidence_store.cpp.obj
+[58/147] Building CXX object CMakeFiles\codeweave-core.dir\src\external_evidence_service.cpp.obj
+[59/147] Building CXX object CMakeFiles\codeweave-core.dir\src\progress_store.cpp.obj
+[60/147] Building CXX object CMakeFiles\codeweave-core.dir\src\manifest_dry_run.cpp.obj
+[61/147] Building CXX object CMakeFiles\codeweave-core.dir\src\migration_dry_run.cpp.obj
+[62/147] Building CXX object CMakeFiles\codeweave-core.dir\src\migration_staging.cpp.obj
+[63/147] Building CXX object CMakeFiles\codeweave-core.dir\src\execution_contract.cpp.obj
+[64/147] Building CXX object CMakeFiles\codeweave-core.dir\src\backend_task_service.cpp.obj
+[65/147] Building CXX object CMakeFiles\codeweave-core.dir\src\migration_contract.cpp.obj
+[66/147] Building CXX object CMakeFiles\codeweave-core.dir\src\process_contract.cpp.obj
+[67/147] Building CXX object CMakeFiles\codeweave-core.dir\src\legacy_import.cpp.obj
+[68/147] Running rcc for resource qmake_CodeWeave_Ui
+[69/147] Linking CXX executable codeweave-cpp-runner.exe
+[70/147] Generating .rcc/qmlcache/codeweave-qt_qmlcache_loader.cpp
+[71/147] Building CXX object CMakeFiles\codeweave-core.dir\src\execution_plan.cpp.obj
+[72/147] Building CXX object CMakeFiles\codeweave-core.dir\src\backup_service.cpp.obj
+[73/147] Generating .rcc/qmlcache/codeweave-qt_qml/DesignSystem_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/DesignSystem_qml.cpp.aotstats
+[74/147] Generating .rcc/qmlcache/codeweave-qt_qml/components/NavItem_qml.cpp, .rcc/qmlcache/codeweave-qt_qml/components/NavItem_qml.cpp.aotstats

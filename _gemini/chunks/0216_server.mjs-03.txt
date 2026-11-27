@@ -1,0 +1,91 @@
+    throw new Error('本机初始化需要明确的本机配置、已备份的旧账户文件和关闭注册的服务配置')
+  }
+  const legacyUsers = JSON.parse((await readFile(legacyUsersPath, 'utf8')).replace(/^\uFEFF/, ''))
+  if (!validateUsers(legacyUsers).valid) throw new Error('旧账户备份结构无效')
+  if (!acquireLock().ok) throw new Error('该运行根正在使用，无法离线初始化')
+  try {
+    await initialize()
+    const vaultId = await contentService.vaultId()
+    const binding = await learningService.ownerStore.read()
+    if (binding.corrupt || (binding.ownerUserId && binding.vaultId !== vaultId)) {
+      throw new Error('拥有者绑定无法用于当前资料库')
+    }
+    const existing = accounts.imported() ? accounts.users() : legacyUsers
+    const owner = binding.ownerUserId
+      ? existing.find((entry) => entry.id === binding.ownerUserId)
+      : existing.length === 1 ? existing[0] : null
+    if (!owner) throw new Error('无法唯一确认既有本机拥有者')
+
+    const scope = { vaultId, accountId: owner.id, isOwner: true }
+    const active = await contentService.catalog()
+    if (active.ok) {
+      if (active.data.vaultId !== vaultId || binding.ownerUserId !== owner.id) {
+        throw new Error('生效快照与本机拥有者绑定不一致')
+      }
+      return { ...active.data, initialized: false, accountCount: accounts.users().length }
+    }
+
+    const run = async (key, dryRun, requestHash, fingerprint) => {
+      const reservation = publicationJobs.reserve({ ...scope, key, dryRun, requestHash })
+      if (reservation.code) throw new Error(reservation.code)
+      if (!reservation.reused) await executePublication(reservation, fingerprint)
+      return publicationJobs.get(reservation.job.jobId, scope)
+    }
+    const operation = randomBytes(16).toString('hex')
+    const dryRun = await run('local-check-' + operation, true, sha256(operation + ':validate'))
+    if (dryRun?.status !== 'ready' || dryRun.summary?.blockingCount !== 0 || !dryRun.approvalFingerprint) {
+      throw new Error('本机候选校验未通过：' + (dryRun?.error?.code ?? 'missing_result'))
+    }
+    if (!accounts.imported()) accounts.importLegacy([owner])
+    await learningService.bind(owner.id)
+    const published = await run('local-publish-' + operation, false, sha256(operation + ':publish'), dryRun.approvalFingerprint)
+    if (published?.status !== 'ready' || !published.published || published.summary?.bundleId !== dryRun.summary.bundleId) {
+      throw new Error('本机候选未激活：' + (published?.error?.code ?? 'missing_result'))
+    }
+    const current = await contentService.catalog()
+    if (!current.ok || current.data.bundleId !== published.summary.bundleId) throw new Error('本机激活结果无法对账')
+    return {
+      initialized: true, accountCount: accounts.users().length, vaultId, bundleId: current.data.bundleId,
+      manifestHash: current.data.manifestHash, lessonCount: current.data.lessons.length,
+      approvalJobId: dryRun.jobId, publishJobId: published.jobId,
+    }
+  } finally {
+    publicationJobs?.close()
+    releaseLock()
+  }
+}
+
+/** 进程退出时释放单实例锁（仅当锁归属当前进程）。 */
+/** 首次启动只读导入已验证的本机旧账户。随后 SQLite 是唯一账户权威。 */
+async function readUsers() {
+  if (accounts.imported()) return accounts.users()
+  let users = []
+  try {
+    const raw = await readFile(usersPath, 'utf8')
+    users = JSON.parse(raw.replace(/^\uFEFF/, ''))
+    if (!validateUsers(users).valid) throw new Error('账户结构无效')
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      dataState = 'corrupt'
+      dataStateReason = '旧账户数据不可读或结构无效'
+      return []
+    }
+  }
+  accounts.importLegacy(users)
+  dataState = 'ok'
+  dataStateReason = ''
+  return accounts.users()
+}
+
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex')
+  const derived = await scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS)
+  // 带算法/版本前缀：未来更换算法时按前缀分流校验，实现平滑迁移。
+  return `${HASH_PREFIX}${salt}:${Buffer.from(derived).toString('hex')}`
+}
+
+async function verifyPassword(password, stored) {
+  const raw = String(stored ?? '')
+  const body = raw.startsWith(HASH_PREFIX) ? raw.slice(HASH_PREFIX.length) : raw
+  const [salt, expectedHex] = body.split(':')
+  if (!salt || !expectedHex) return false

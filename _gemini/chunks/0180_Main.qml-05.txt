@@ -1,0 +1,76 @@
+                       : uiShell.documentId) : root.breadcrumbEntry.label
+                readonly property string text: "Code Canvas / " + root.breadcrumbEntry.section
+                    + (indexLabel.length > 0
+                       ? " / " + indexLabel + " " + entryLabel
+                       : " / " + entryLabel)
+                visible: root.width <= 1200
+                Layout.minimumWidth: 0
+                Layout.maximumWidth: Math.max(160, root.width * 0.35)
+                spacing: ds.s8
+                Accessible.role: Accessible.StaticText
+                Accessible.name: "当前位置：" + text
+                Text { objectName: "breadcrumbRoot"; text: "Code Canvas"; color: ds.faint; font.family: ds.shellUi; font.pixelSize: 14; font.weight: Font.DemiBold; Accessible.ignored: true }
+                Text { text: "/"; color: ds.faint; font.family: ds.shellUi; font.pixelSize: 14; Accessible.ignored: true }
+                Text { objectName: "breadcrumbSection"; text: root.breadcrumbEntry.section; color: ds.muted; font.family: ds.ui; font.pixelSize: 14; Accessible.ignored: true }
+                Text { text: "/"; color: ds.faint; font.family: ds.shellUi; font.pixelSize: 14; Accessible.ignored: true }
+                Text { objectName: "breadcrumbIndex"; visible: breadcrumbs.indexLabel.length > 0; text: breadcrumbs.indexLabel; color: ds.accent; font.family: ds.mono; font.pixelSize: 14; Accessible.ignored: true }
+                Text {
+                    objectName: "breadcrumbEntryLabel"
+                    Layout.fillWidth: true
+                    text: breadcrumbs.entryLabel
+                    elide: Text.ElideRight
+                    color: ds.ink; font.family: ds.ui; font.pixelSize: 14; font.weight: Font.Bold
+                    Accessible.ignored: true
+                }
+            }
+
+            // .global-search
+            Rectangle {
+                id: searchBox
+                Layout.alignment: Qt.AlignVCenter
+                objectName: "globalSearchBox"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 100
+                Layout.leftMargin: ds.s8
+                Layout.rightMargin: ds.s2
+                implicitHeight: 41
+                radius: ds.radius
+                color: ds.inset
+                border.color: searchField.activeFocus ? ds.accent : ds.lineStrong
+                border.width: 1
+                Rectangle {
+                    objectName: "globalSearchFocusRing"
+                    anchors.fill: parent
+                    anchors.margins: -ds.s4
+                    visible: searchField.activeFocus
+                    color: "transparent"
+                    radius: parent.radius + ds.s4
+                    border.width: ds.s2
+                    border.color: ds.accent
+                    Accessible.ignored: true
+                }
+                RowLayout {
+                    anchors { fill: parent; leftMargin: ds.s12; rightMargin: ds.s12 }
+                    spacing: ds.s8
+                    LucideIcon {
+                        name: "Search"
+                        size: 14
+                        color: ds.muted
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+                    TextField {
+                        id: searchField
+                        objectName: "globalSearchField"
+                        Layout.fillWidth: true
+                        placeholderText: "搜索课程 / 挑战 / 项目"
+                        placeholderTextColor: ds.muted
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 14
+                        background: null
+                        onTextChanged: {
+                            if (text.trim()) {
+                                root.closeTopbarPopups(false);
+                                searchResultsView.currentIndex = 0;
+                                searchPopup.open();
+                            }

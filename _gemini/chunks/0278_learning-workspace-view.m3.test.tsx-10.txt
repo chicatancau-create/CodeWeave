@@ -1,0 +1,84 @@
+    const total = pageFiles.reduce((sum, file) => sum + ((sourceOf(file).match(/requestAnimationFrame/g) ?? []).length), 0)
+    expect(total).toBe(2)
+    const editor = sourceOf('./code-editor.tsx')
+    expect(editor).toMatch(/window\.requestAnimationFrame\(\(\)\s*=>/)
+    expect(editor).not.toMatch(/requestAnimationFrame\(\s*(frame|loop|tick)/)
+    expect(editor).not.toMatch(/\bloop\b\s*\(/)
+    expect(editor).toContain('window.cancelAnimationFrame(scrollFrame.current)')
+    expect(editor).toContain('if (scrollFrame.current !== null) return')
+  })
+
+  it('本页无 XSS 出口：不用 dangerouslySetInnerHTML / innerHTML', () => {
+    expect(sourceOf('./learning-workspace-view.tsx')).not.toMatch(/dangerouslySetInnerHTML|innerHTML/)
+  })
+
+  it('挂载—运行—单步—改代码—展开原文—卸载：探针看不到任何持续资源，监听器回到基线', () => {
+    const raf = vi.spyOn(window, 'requestAnimationFrame')
+    const interval = vi.spyOn(window, 'setInterval')
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+    const windowProbe = trackNativeListeners(window)
+    const documentProbe = trackNativeListeners(document)
+
+    const { container, props } = renderWorkspace({ runStatus: 'idle' })
+    expect(windowProbe.live()).toBeGreaterThanOrEqual(1) // 编辑器的全局 keydown（Tab 缩进）
+    // document 上可能挂着 React 19 为受控 textarea 注册的 selectionchange 追踪器：
+    // 那是框架自身的资源，不属于本页，因此只要求「卸载后回到基线」，见下面的断言。
+
+    fireEvent.click(screen.getByRole('button', { name: /单步执行/ }))
+    fireEvent.click(screen.getByRole('button', { name: /开始运行/ }))
+    fireEvent.change(container.querySelector('textarea') as HTMLTextAreaElement, { target: { value: 'x = 1' } })
+    fireEvent.click(screen.getByRole('button', { name: '查看主题原文' }))
+    fireEvent.click(screen.getByRole('button', { name: '课程指南' }))
+    expect(props.onStep).toHaveBeenCalledTimes(1)
+
+    expect(container.querySelectorAll('canvas')).toHaveLength(0)
+    expect(raf).not.toHaveBeenCalled()
+    expect(interval).not.toHaveBeenCalled()
+    expect(getContext).not.toHaveBeenCalled()
+
+    cleanup()
+    // 卸载后回到基线：本页与子组件都没有留下监听器、帧回调或定时器
+    expect(windowProbe.live()).toBe(0)
+    expect(documentProbe.live()).toBe(0)
+    expect(raf).not.toHaveBeenCalled()
+
+    windowProbe.restore()
+    documentProbe.restore()
+  })
+})
+
+/* ─────────────── 4. CSS 不变式：§5.1 形态 / §5.3 / §5.4 ─────────────── */
+
+describe('M3 学习工作台 · CSS 源码不变式', () => {
+  it('解析器确实读到了规则（防止下面的断言在空集上假通过）', () => {
+    expect(styleRules.length).toBeGreaterThan(60)
+    expect(blockOf('.cw-workspace')).not.toBe('')
+  })
+
+  it('全局裸选择器数量 = 0：每条选择器都限定在 .cw-workspace 之下', () => {
+    const bare = styleRules
+      .flatMap((rule) => rule.selector.split(',').map((part) => part.trim()))
+      .filter((selector) => selector !== '' && !selector.includes('.cw-workspace'))
+    expect(bare).toEqual([])
+  })
+
+  it('#77 换标签没洗掉排版：h2 标题条必须与同头 span 吃同一份 label 规则', () => {
+    const parts = (rule: CssRule) => rule.selector.split(',').map((part) => part.trim())
+    const spanRule = styleRules.find((rule) => parts(rule).includes('.cw-workspace .reading-head span'))
+    expect(spanRule, 'label 组规则找不到了').toBeTruthy()
+    expect(
+      parts(spanRule as CssRule).includes('.cw-workspace .reading-head .cw-pane-title'),
+      'cw-pane-title 没在 label 组里：下面那条独立规则是三个 class，会盖过这组的字号/字重/字距/颜色',
+    ).toBe(true)
+    const own = styleRules.find((rule) => parts(rule).length === 1 && parts(rule)[0] === '.cw-workspace .reading-head .cw-pane-title')
+    expect(own, '归零 UA 边距的独立规则找不到了').toBeTruthy()
+    expect(
+      (own as CssRule).block,
+      '独立规则里只许写 margin：这里的 font / color / letter-spacing 会赢过 label 组，等于悄悄改视觉档',
+    ).not.toMatch(/(^|[^-\w])(font|color|letter-spacing)\s*:/)
+  })
+
+  it('不声明 :root / html / body，也不覆写别人页面的类（只在容器内生效）', () => {
+    const selectors = styleRules.map((rule) => rule.selector)
+    expect(selectors.some((selector) => /(^|,)\s*(:root|html|body|\*)\b/.test(selector))).toBe(false)
+    // 复用的子组件类名（挑战页/项目页也在用）一律带容器前缀

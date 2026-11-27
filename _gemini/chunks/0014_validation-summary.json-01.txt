@@ -1,0 +1,169 @@
+{
+  "date": "2026-11-15",
+  "scope": "Original repair stages 0-7, 37 numbered tasks",
+  "qt": {
+    "checks": 226,
+    "screenshots": 60,
+    "platform": "windows",
+    "backend": "software",
+    "ctest": {
+      "passed": 11,
+      "total": 11,
+      "seconds": 124.78
+    },
+    "warningsScope": "QQmlEngine creation/load warnings only, not a global runtime warning collector"
+  },
+  "web": {
+    "testFiles": 88,
+    "tests": 1323,
+    "coverage": [
+      89.83,
+      83.07,
+      87.49,
+      92.83
+    ],
+    "viewports": [
+      375,
+      768,
+      1280,
+      1440
+    ],
+    "keyboardChecks": 12,
+    "pageScreenshots": 4,
+    "browserErrors": []
+  },
+  "historical": {
+    "status": "passed",
+    "manifestEntries": 65,
+    "matchingStates": true,
+    "checksPerReport": 8,
+    "pages": [
+      {
+        "page": "learning",
+        "differentPixels": 2649,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "review",
+        "differentPixels": 1820,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "challenge",
+        "differentPixels": 3658,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "editor",
+        "differentPixels": 1155,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "drafts",
+        "differentPixels": 1446,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "analytics",
+        "differentPixels": 3265,
+        "maxChannelDifference": 1
+      },
+      {
+        "page": "account",
+        "differentPixels": 1127,
+        "maxChannelDifference": 1
+      }
+    ],
+    "scope": "controlled historical split only; no claim of pixel identity or all states"
+  },
+  "attempts": [
+    {
+      "directory": "qt-matrix",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": [
+        {
+          "name": "execution-stage-cancelled-terminal-visible-without-success",
+          "passed": false
+        },
+        {
+          "name": "challenge-detail-escape-restores-list-and-focus",
+          "passed": false
+        },
+        {
+          "name": "checkin-calendar-end-focus",
+          "passed": false
+        },
+        {
+          "name": "checkin-calendar-next-month",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-diagnostic",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 60,
+      "failures": [
+        {
+          "detail": "events=218 index=0 count=218 follow=1 sequence=187 active=1",
+          "name": "execution-stage-cancelled-terminal-visible-without-success",
+          "passed": false
+        },
+        {
+          "detail": "found=1 focused=0 active=0 focus=checkinPreviousMonth",
+          "name": "checkin-calendar-end-focus",
+          "passed": false
+        },
+        {
+          "name": "checkin-calendar-next-month",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-final",
+      "passed": false,
+      "checks": 50,
+      "screenshots": 13,
+      "failures": [
+        {
+          "detail": "验收步骤超过 50 秒",
+          "name": "matrix-timeout",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "directory": "qt-matrix-hidden-failure",
+      "passed": false,
+      "checks": 226,
+      "screenshots": 0,
+      "failures": [
+        {
+          "name": "selected-course-breadcrumb-narrow-screenshot",
+          "passed": false
+        },
+        {
+          "name": "execution-stage-current-node-and-pointer-fit-viewport",
+          "passed": false
+        },
+        {
+          "name": "execution-trace-narrow-framed",
+          "passed": false
+        },
+        {
+          "name": "java-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-source-snapshot-screenshot",
+          "passed": false
+        },
+        {
+          "name": "javascript-module-source-snapshot-screenshot",
+          "passed": false
+        },
+        {

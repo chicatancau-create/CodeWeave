@@ -1,0 +1,88 @@
+    title: '一次构建与一次报错修复', description: '故意制造并修复一次构建错误，留下排错记录', duration: '60 min', level: '入门', progress: 0,
+    code: '# 构建排错记录模板\n# 命令：mvn compile\n# 报错原文：（粘贴第一行错误）\n# 原因分析：\n# 修复步骤：\n# 复验结果：BUILD SUCCESS',
+    flow: sumFlow('开始', '执行构建', '构建通过？', '阅读首行报错', '记录修复'),
+    insight: '排错能力 = 完整复制报错 + 定位首个错误 + 记录修复，三者缺一不可。', fileName: 'build-trouble-log.txt', runtime: '外部环境 · Maven',
+    content: unit(
+      '完成一次成功构建，并故意制造一次构建错误后修复它，形成排错记录。',
+      {
+        prerequisites: ['java-env-a1'],
+        explanation: [
+          '读报错只看第一行：它通常直接指出缺失的类、符号或版本。',
+          '构建错误分为依赖类（下载失败、版本冲突）与代码类（语法、符号缺失）。',
+          '排错记录的价值随项目增长：下次遇到同样报错直接查表。',
+        ],
+        examples: [
+          { good: '记录报错原文 + 原因 + 修复三段', bad: '只写“改好了”', why: '复现与教学价值都在原文里' },
+        ],
+        guidedSteps: ['用模板创建 build-trouble-log.txt。', '删掉一个分号触发编译错误，按模板填写并修复。', '再制造一次依赖版本错误（如不存在的依赖）观察差异。'],
+        exercise: '独立完成“成功构建 + 报错修复 + 记录”完整闭环。',
+        variant: '把一次运行时异常（如数组越界）也按模板记录，比较与编译错误的差异。',
+        projectTask: '排错记录模板沉淀为项目的 docs/trouble-shooting.md。',
+        mistakes: ['只截图不复制文本，无法检索', '同时改多处导致无法定位真正原因'],
+        runCommand: 'mvn compile（真实 Maven 环境）',
+        completion: '排错记录含报错原文、原因、修复步骤与复验结果。',
+        runEnvironment: 'external',
+        estimatedMinutes: 60,
+        acceptanceCriteria: ['至少一次 BUILD SUCCESS 复验', '排错记录四要素齐全'],
+        evidenceChecklist: ['构建日志片段', '排错记录文件'],
+      },
+      'A',
+    ),
+  },
+  {
+    id: 'java-env-a3', language: 'java', languageLabel: 'Java', label: 'A3',
+    title: 'Git 分支与提交纪律', description: '用分支完成一次功能提交并回看历史', duration: '45 min', level: '入门', progress: 0,
+    code: '# Git 操作清单\n# git switch -c feature/env-notes\n# git add README.md\n# git commit -m "docs: 记录环境清单"\n# git log --oneline',
+    flow: sumFlow('开始', '创建分支', '改动完成？', '提交并写信息', '回看历史'),
+    insight: '小步提交 + 规范信息，是可回溯开发的最小纪律。', fileName: 'git-checklist.txt', runtime: '外部环境 · Git',
+    content: unit(
+      '在独立分支上完成一次提交，并用 git log 解释提交历史。',
+      {
+        prerequisites: ['java-env-a1'],
+        explanation: [
+          '分支让实验性改动不污染主干；合并前可以随时丢弃。',
+          '提交信息用“类型: 描述”格式（docs:/fix:/feat:），便于生成变更记录。',
+          'git log --oneline 是回看历史最快的方式。',
+        ],
+        examples: [
+          { good: 'feat: 增加联系人添加功能', bad: 'update / 修改 / 111', why: '无意义信息让回溯失效' },
+        ],
+        guidedSteps: ['创建 feature 分支并提交一项改动。', '切回主分支确认改动不在，再合并回来。', '用 git log --oneline 解释最近三条提交。'],
+        exercise: '独立完成“分支 → 提交 → 合并 → 回看”全流程。',
+        variant: '制造一次冲突（两个分支改同一行），手动解决并提交。',
+        projectTask: '后续每阶段的项目都在分支上开发，主干保持可运行。',
+        mistakes: ['在 main 上直接做大改动', '一次提交混入多个不相关改动'],
+        runCommand: 'git 命令行（真实仓库）',
+        completion: '仓库里有一条 feature 分支的合并记录，能口述每条提交内容。',
+        runEnvironment: 'external',
+        estimatedMinutes: 45,
+        acceptanceCriteria: ['完成分支创建与合并', '提交信息符合类型前缀规范'],
+        evidenceChecklist: ['git log 输出', '分支合并记录'],
+      },
+      'A',
+    ),
+  },
+]
+
+/** 阶段 C：数据结构与算法第一批（Java 子集，教学运行器可执行） */
+const stageCUnits: Lesson[] = [
+  {
+    id: 'java-algo-c1', language: 'java', languageLabel: 'Java', label: 'C1',
+    title: '找出较大值：比较与边界', description: '用分支比较两个数，讨论相等与负数边界', duration: '30 min', level: '基础', progress: 0,
+    code: 'int a = 4;\nint b = 8;\nif (a > b) {\n    System.out.println(a);\n} else {\n    System.out.println(b);\n}',
+    flow: sumFlow('开始', '读入 a、b', 'a > b ?', '取较大值', '输出结果'),
+    insight: '比较逻辑是所有选择结构的基础；相等分支是边界思维的第一课。', fileName: 'MaxTwo.java', runtime: '教学运行器 · Java 子集',
+    content: unit(
+      '独立完成两数取大，并解释相等、负数两组边界的行为。',
+      {
+        prerequisites: ['B 阶段变量与流程基础'],
+        explanation: [
+          'if / else 二选一：条件为真走上面，否则走下面。',
+          'a > b 在 a == b 时为假 → 返回 b；max 语义下等价，但要能说出为什么。',
+          '竞赛题先想边界（相等、负数、极大值）再写实现。',
+        ],
+        examples: [
+          { good: 'a=4, b=8 → 输出 8', bad: '条件写成 a >= b 后说不清相等时返回谁', why: '边界行为必须是推导出来的，不是碰对的' },
+        ],
+        guidedSteps: ['运行示例确认输出 8。', '把 a、b 都改成 5，预测输出并验证。', '改成负数 -4 与 -8 再验证。'],
+        exercise: '独立完成三数取大（两次比较），输出最大值。',

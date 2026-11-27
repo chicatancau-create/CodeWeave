@@ -1,0 +1,120 @@
+  color: var(--cw-err);
+}
+.cw-workspace .cw-flow-head {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .flow-chart {
+  min-height: 120px;
+  padding: var(--ds-space-20, 20px) var(--ds-space-14, 14px);
+  border: 0;
+  overflow-x: auto;
+  /* 与画布同一张纸：参考站 `#0b1220` 的深蓝黑 + 20px 双向网格 `#182438`
+     （`algorithm-visualization-replica/web/style.css`）。流程图和右边的 RunStage
+     画的是同一件事的两面，用两张不同的底色会让人以为它们是两个东西。
+     写实值不写令牌：页面 CSS 棘轮禁 `background-image` 之外的形态，但网格是
+     参考站身份的一部分，令牌表里没有对应档，硬套一个近似的会让两边对不上。 */
+  background-color: var(--ds-canvas-stage, #0b1220);
+  background-image: linear-gradient(var(--ds-canvas-grid, #182438) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ds-canvas-grid, #182438) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+/* 节点：基座 flow-chart.css 定的是「竖向步进器的一张卡片」——本页只改配色与字体，
+   不收回布局。2026-09-29 重做前这里是横向一排小方块（min-width 54px / grid 居中 /
+   31px 圆形起止节点），那些都与新形状冲突，已随基座一并换成竖排卡片。 */
+.cw-workspace .flow-node {
+  color: var(--cw-fg);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--cw-mono);
+  /* 字号不在这里重申：基座 flow-chart.css 的 13px 是按 §5.4「节点标签是必读文字」定的，
+     这里曾把它压回 11px（低于本文件自设的 --cw-label 12px 地板），M4 记为死规则第 2 条。 */
+  letter-spacing: 0.06em;
+  transition: none; /* 回放时节点会反复跳变：静态表达，不做位移 */
+}
+/* 语气标签：四档语义色（§5.1 末段：标识不跟场景色）。
+   选择器与基座逐字对齐（含 span 类型名）：基座是 `span.flow-node-kind.tone-blue`，
+   页面若只写 `.cw-workspace .flow-node-kind.tone-blue` 类档相同、类型档反而更低。 */
+.cw-workspace span.flow-node-kind {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+.cw-workspace span.flow-node-kind.tone-blue {
+  color: var(--cw-info);
+}
+.cw-workspace span.flow-node-kind.tone-yellow {
+  color: var(--cw-warn);
+}
+.cw-workspace span.flow-node-kind.tone-coral {
+  color: var(--cw-err);
+}
+.cw-workspace span.flow-node-kind.tone-green {
+  color: var(--cw-ok);
+}
+.cw-workspace span.flow-node-kind.tone-purple {
+  color: var(--cw-fg-dim);
+}
+
+/* ── 竖向步进器的其余条目：基座定形状，本页只把配色钉到 --cw-* 一族。
+   基座的选择器带类型名前缀，而测试的归一化只剥掉 div/span/p 这一类，**不剥 ol/li/ul**
+   （见 subcomponents-base.m4.test.tsx 的 normalizeSelector）。所以凡是基座写
+   `ol.flow-track` / `li.flow-step…` / `ul.flow-data-list`，本页镜像必须把同一个类型名
+   写在同一个位置，否则 key 对不上，会被判成「既无覆写也不在白名单里」。 */
+.cw-workspace ol.flow-track {
+  list-style: none;
+  min-width: 0;
+}
+.cw-workspace ol.flow-track li.flow-step {
+  min-width: 0;
+}
+.cw-workspace ol.flow-track li.flow-step:first-child .flow-rail {
+  margin-top: var(--ds-space-20, 20px);
+}
+/* 基座把收尾那半截做到 `:last-child::after` 上（横向主干收口），本页给同一条收口的配色。 */
+.cw-workspace ol.flow-track li.flow-step:last-child::after {
+  border-block-start-color: var(--cw-line);
+}
+
+/* ── 主干与行 ─────────────────────────────────────────────────────────────── */
+.cw-workspace .flow-rail {
+  border-inline-start-color: var(--cw-line);
+}
+.cw-workspace .flow-rail::before {
+  border-color: var(--cw-line-raised);
+  background: var(--cw-canvas);
+}
+.cw-workspace li.flow-step.is-done .flow-rail,
+.cw-workspace li.flow-step.is-now .flow-rail {
+  border-inline-start-color: var(--cw-scene);
+}
+.cw-workspace li.flow-step.is-now .flow-rail::before {
+  border-color: var(--cw-scene);
+  background: var(--cw-scene);
+}
+.cw-workspace li.flow-step.is-done .flow-rail::before {
+  border-color: var(--cw-scene);
+}
+/* 展开拍的数据栏与节点同宽同色，边框跟节点一个档（基座给的是 raised 档）。 */
+.cw-workspace div.flow-data.is-shown {
+  border-color: var(--cw-line-raised);
+}
+
+/* ── 节点卡片 ─────────────────────────────────────────────────────────────── */
+.cw-workspace .flow-node-head {
+  gap: var(--ds-space-10, 10px);
+}
+.cw-workspace span.flow-node-no {
+  color: var(--cw-fg-dim);
+  border-color: var(--cw-line-raised);
+}
+.cw-workspace .flow-node-label {
+  color: var(--cw-fg);
+}
+.cw-workspace .flow-node-line {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .flow-node-line code {
+  color: var(--cw-fg);
+}
+/* 详情段与行号：基座是 `p.flow-node-detail` / `span.flow-node-line-no`，

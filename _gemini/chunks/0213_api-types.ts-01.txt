@@ -1,0 +1,152 @@
+/**
+ * 由 `node scripts/contract-types.mjs` 从 contracts/openapi.yaml + contracts/errors.yaml 生成，不要手改。
+ * 契约版本：1.0.0 · OpenAPI 3.1.0
+ * 源文件哈希见 contracts/generated/sync-manifest.json。
+ */
+
+/** 服务端可能返回的 HTTP 错误码（不含内容管线校验码，那份在 validation-codes.yaml）。 */
+export type ApiErrorCode =
+  | 'already_synced'
+  | 'asset_not_found'
+  | 'asset_rate_limited'
+  | 'asset_too_large'
+  | 'asset_type_forbidden'
+  | 'bind_failed'
+  | 'body_too_large'
+  | 'commit_failed'
+  | 'confirmation_required'
+  | 'cross_site_rejected'
+  | 'email_taken'
+  | 'evidence_not_found'
+  | 'evidence_store_unreadable'
+  | 'export_failed'
+  | 'forbidden'
+  | 'internal_error'
+  | 'invalid_bio'
+  | 'invalid_content_id'
+  | 'invalid_credentials'
+  | 'invalid_credentials_format'
+  | 'invalid_email'
+  | 'invalid_evidence'
+  | 'invalid_json'
+  | 'invalid_manifest'
+  | 'invalid_name'
+  | 'invalid_password'
+  | 'invalid_path_encoding'
+  | 'invalid_phone'
+  | 'invalid_relative_path'
+  | 'job_not_found'
+  | 'not_found'
+  | 'operation_rolled_back'
+  | 'owner_record_corrupt'
+  | 'owner_taken'
+  | 'owner_unbound'
+  | 'password_unchanged'
+  | 'path_escape'
+  | 'phone_taken'
+  | 'preview_failed'
+  | 'progress_pending'
+  | 'progress_unavailable'
+  | 'publish_failed'
+  | 'rollback_blocked'
+  | 'rollback_failed'
+  | 'source_changed'
+  | 'source_not_found'
+  | 'stale_preview'
+  | 'storage_corrupt'
+  | 'storage_error'
+  | 'structure_unsupported'
+  | 'sync_conflict'
+  | 'sync_rate_limited'
+  | 'too_many_attempts'
+  | 'transaction_corrupt'
+  | 'transactions_unreadable'
+  | 'unauthorized'
+  | 'unbind_failed'
+  | 'unsupported_media_type'
+  | 'vault_private'
+  | 'vault_unavailable'
+  | 'visibility_failed'
+  | 'wrong_current_password'
+
+/** 错误码 -> 默认 HTTP 状态码，与 contracts/errors.yaml 同一来源。 */
+export const ERROR_STATUS: Record<ApiErrorCode, number> = {
+  'unauthorized': 401,
+  'forbidden': 403,
+  'vault_private': 403,
+  'owner_record_corrupt': 403,
+  'storage_corrupt': 503,
+  'invalid_path_encoding': 400,
+  'internal_error': 500,
+  'not_found': 404,
+  'cross_site_rejected': 403,
+  'unsupported_media_type': 415,
+  'invalid_json': 400,
+  'body_too_large': 413,
+  'invalid_name': 400,
+  'invalid_email': 400,
+  'invalid_phone': 400,
+  'invalid_password': 400,
+  'password_unchanged': 400,
+  'wrong_current_password': 400,
+  'email_taken': 409,
+  'phone_taken': 409,
+  'invalid_credentials_format': 400,
+  'invalid_credentials': 401,
+  'too_many_attempts': 429,
+  'storage_error': 500,
+  'invalid_bio': 400,
+  'invalid_content_id': 400,
+  'invalid_relative_path': 400,
+  'path_escape': 403,
+  'asset_type_forbidden': 403,
+  'asset_too_large': 413,
+  'invalid_manifest': 409,
+  'source_changed': 409,
+  'publish_failed': 409,
+  'sync_rate_limited': 429,
+  'vault_unavailable': 503,
+  'job_not_found': 404,
+  'asset_not_found': 404,
+  'asset_rate_limited': 429,
+  'confirmation_required': 400,
+  'owner_unbound': 409,
+  'owner_taken': 409,
+  'bind_failed': 400,
+  'unbind_failed': 403,
+  'visibility_failed': 403,
+  'progress_unavailable': 503,
+  'evidence_not_found': 400,
+  'invalid_evidence': 400,
+  'already_synced': 400,
+  'evidence_store_unreadable': 503,
+  'transactions_unreadable': 503,
+  'preview_failed': 400,
+  'commit_failed': 400,
+  'rollback_failed': 400,
+  'export_failed': 400,
+  'sync_conflict': 409,
+  'stale_preview': 409,
+  'structure_unsupported': 409,
+  'rollback_blocked': 409,
+  'operation_rolled_back': 409,
+  'transaction_corrupt': 409,
+  'progress_pending': 409,
+  'source_not_found': 404,
+} as const
+
+/** 客户端做分支用：可重试性不靠猜 HTTP 状态。 */
+export const ERROR_RETRYABLE: Record<ApiErrorCode, string> = {
+  'unauthorized': 'never',
+  'forbidden': 'never',
+  'vault_private': 'never',
+  'owner_record_corrupt': 'afterRepair',
+  'storage_corrupt': 'afterRepair',
+  'invalid_path_encoding': 'never',
+  'internal_error': 'retry',
+  'not_found': 'never',
+  'cross_site_rejected': 'never',
+  'unsupported_media_type': 'never',
+  'invalid_json': 'never',
+  'body_too_large': 'never',
+  'invalid_name': 'never',

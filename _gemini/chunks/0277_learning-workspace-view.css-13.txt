@@ -1,0 +1,147 @@
+.cw-workspace .lesson-insight {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  margin-top: var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-left: 2px solid var(--cw-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+}
+.cw-workspace .insight-icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+.cw-workspace .lesson-insight > div {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px);
+}
+.cw-workspace .lesson-insight strong {
+  flex: 0 0 auto;
+  color: var(--cw-warn);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.16em;
+}
+.cw-workspace .lesson-insight p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+
+/* 紧凑模式（应用内既有设置）：本页自己承担这一档，不依赖 styles.css 的裸类名规则
+   （那条规则优先级与本文件的容器前缀规则相同，会被下面的作用域覆写挡掉）。 */
+.compact-mode .cw-workspace .learning-view,
+.compact-mode .cw-workspace .workspace,
+.compact-mode .cw-workspace .right-panels {
+  gap: var(--ds-space-12, 12px);
+}
+.compact-mode .cw-workspace .guide-block,
+.compact-mode .cw-workspace .reading-pane .md-view {
+  padding-top: var(--ds-space-10, 10px);
+  padding-bottom: var(--ds-space-10, 10px);
+}
+
+/* ── 焦点与关键边界（模板 0.14 细线在黑底只有 1.32:1，不能承担焦点） ────── */
+.cw-workspace :focus-visible {
+  outline: var(--cw-focus-w) solid var(--cw-focus);
+  outline-offset: var(--cw-focus-off);
+  box-shadow: none;
+}
+.cw-workspace .code-editor textarea:focus-visible {
+  outline: var(--cw-focus-w) solid var(--cw-focus);
+  outline-offset: -2px;
+}
+
+/* ── 窄屏：四区堆叠、入口与返回可见、触控目标 ≥44px（§5.2 / §5.4） ─────── */
+@media (max-width: 760px) {
+  .cw-workspace .learning-view,
+  .cw-workspace .workspace,
+  .cw-workspace .right-panels {
+    gap: var(--ds-space-14, 14px);
+  }
+  .cw-workspace .back-button,
+  .cw-workspace .icon-button,
+  .cw-workspace .cw-pane-nav a,
+  .cw-workspace .reset-button,
+  .cw-workspace .step-button,
+  .cw-workspace .run-button,
+  .cw-workspace .subtle-button,
+  .cw-workspace .editor-actions button {
+    min-height: var(--cw-tap);
+  }
+  .cw-workspace .icon-button {
+    width: var(--cw-tap);
+  }
+  .cw-workspace .editor-actions button {
+    padding: 0 var(--ds-space-8, 8px);
+  }
+  /* 本档上面的 min-height 已经把按钮本体收到 44，伪元素再外扩就会叠成 60 高、
+     越到相邻行上去。收回 inset:0 = 伪元素与按钮盒子重合，不再额外扩张命中区。 */
+  .cw-workspace .editor-actions button::before {
+    inset: 0;
+  }
+  .cw-workspace .run-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .cw-workspace .run-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .cw-workspace .run-actions button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cw-workspace .code-editor {
+    min-height: 240px;
+    max-height: 70vh;
+  }
+  .cw-workspace .line-numbers {
+    width: 36px;
+    flex: 0 0 36px;
+    padding-right: var(--ds-space-8, 8px);
+  }
+  .cw-workspace .reading-pane {
+    max-height: none; /* 窄屏阅读区随文档流动，不套内层滚动容器 */
+  }
+}
+
+/* 320px 最小宽度：导航换行、控制条不溢出，代码行仍靠横向滚动而不是挤压 */
+@media (max-width: 380px) {
+  .cw-workspace .cw-pane-nav a {
+    gap: var(--ds-space-6, 6px);
+    padding: var(--ds-space-10, 10px) var(--ds-space-10, 10px);
+  }
+  .cw-workspace .learning-header-actions {
+    margin-left: auto;
+  }
+  .cw-workspace .code-footer {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--ds-space-6, 6px);
+  }
+}
+
+/* ── 宽屏单屏化（用户要求：全在一个画面里，不要上下滑动） ──────────────────
+   宽屏把整页钉进一屏：外壳高度用 --cw-chrome-h 估一个上限，把剩下的高度交给
+   两列各自滚，而不是让文档一直往下长。窄屏保持文档流（上面的 760px 档已经
+   把 .reading-pane 的 max-height 放开了，同一原则）。
+
+   为什么用 max-height 而不是 height：估高了只会让页面比一屏矮一点（下面是
+   普通文档流），估矮了才截内容。max-height + 外层 min-height 地板，两头都不会
+   把内容裁掉。svh 先写、vh 后写，不认识 svh 的浏览器落到后一行。 */
+@media (min-width: 1081px) {
+  .cw-workspace {
+    display: flex;

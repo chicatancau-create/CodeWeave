@@ -1,0 +1,92 @@
+        skill, level, reason: '进度看板的能力评估由学习者填写',
+      }))
+      targets.push({
+        path: PROGRESS_BOARD_PATH, kind: 'progress', exists: true, expectedHash: board.hash,
+        before: { edits: [], masteryEdits: [], boardEntries },
+        preview: { edits: patch.rows.map((row) => ({ field: '本周记录', before: '', after: row })), masteryBlocked },
+      })
+      return { targets, masteryBlocked, at: maxDate(...records.map((record) => record.at)), topic: records[0].topic }
+    }
+
+    // 进度追踪：只做列出的定向编辑。
+    const progressCurrent = await readTarget(root, PROGRESS_PATH)
+    const progressEdits = []
+    if (progressCurrent.text !== null) {
+      const text = progressCurrent.text
+      const at = maxDate(...records.map((record) => record.at))
+      const first = records[0]
+      const stagePrefix = first.stage ? `${first.stage} ` : ''
+
+      const evidenceDate = latestEvidenceDate(text)
+      if (at && evidenceDate && at > evidenceDate) {
+        progressEdits.push({ field: '最近学习证据', kind: 'evidence-date', before: evidenceDate, after: at })
+      }
+
+      const logField = '最近正式日志'
+      const logBefore = handoffValue(text, logField)
+      if (logBefore !== null) {
+        const after = logLink(first.at, first.topic)
+        if (logBefore !== after) progressEdits.push({ field: logField, kind: 'handoff', before: logBefore, after })
+      }
+
+      const topicBefore = handoffValue(text, '当前主题')
+      if (topicBefore !== null) {
+        const after = `${stagePrefix}${first.topic}`
+        if (topicBefore !== after) progressEdits.push({ field: '当前主题', kind: 'handoff', before: topicBefore, after })
+      }
+
+      const pendingBefore = handoffValue(text, '当前需提交的证据')
+      if (pendingBefore !== null) {
+        const after = records.flatMap((record) => record.unfinished).length > 0
+          ? records.flatMap((record) => record.unfinished).join('；')
+          : `${first.at} 已提交证据，待复核`
+        if (pendingBefore !== after) progressEdits.push({ field: '当前需提交的证据', kind: 'handoff', before: pendingBefore, after })
+      }
+    }
+
+    const masteryBlocked = []
+    const masteryEdits = []
+    for (const update of masteryUpdates ?? []) {
+      const skill = String(update?.skill ?? '').trim()
+      const level = String(update?.level ?? '').trim()
+      if (!skill || !/^\d+\s*级$/.test(level)) {
+        masteryBlocked.push({ skill, level, reason: '技能名缺失或等级写法不是 `N 级`' })
+        continue
+      }
+      if (!promotionCleared) {
+        const why = notPromotable.length === 0
+          ? '本次没有可支撑晋级的证据'
+          : `本次证据中有 ${notPromotable.length} 条不是学习者独立产出（AI 运行、仅阅读、未写实际输出，或使用了 L3/L4 对照答案）：${notPromotable.map((record) => record.evidenceId).join('、')}`
+        masteryBlocked.push({ skill, level, reason: `${why}，不提升等级` })
+        continue
+      }
+      if (progressCurrent.text === null) {
+        masteryBlocked.push({ skill, level, reason: '进度追踪不可读' })
+        continue
+      }
+      const before = masteryValue(progressCurrent.text, skill)
+      if (before === null) {
+        masteryBlocked.push({ skill, level, reason: '进度追踪里没有这个技能行，需人工新增（不自动猜测归属）' })
+        continue
+      }
+      if (before === level) continue
+      masteryEdits.push({ field: skill, kind: 'mastery', before, after: level })
+    }
+
+    targets.push({
+      path: PROGRESS_PATH,
+      kind: 'progress',
+      exists: progressCurrent.hash !== null,
+      expectedHash: progressCurrent.hash,
+      before: { edits: progressEdits, masteryEdits },
+      preview: { edits: progressEdits, masteryBlocked },
+    })
+
+    // 总计划日志索引。
+    const at = maxDate(...records.map((record) => record.at))
+    const first = records[0]
+    const indexCurrent = await readTarget(root, PLAN_PATH)
+    const indexPreview = (() => {
+      if (indexCurrent.text === null || !at) return { changed: false, reason: '总计划不可读' }
+      const link = logLink(at, first.topic)
+      if (indexCurrent.text.includes(link)) return { changed: false, reason: '索引里已存在当天日志链接' }

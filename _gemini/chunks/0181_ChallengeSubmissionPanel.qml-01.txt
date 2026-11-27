@@ -1,0 +1,87 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: panel
+    objectName: "challengeSubmissionPanel"
+    required property QtObject ds
+    readonly property string challengeId: uiShell.selectedChallenge.id || ""
+    readonly property bool external: uiShell.selectedChallenge.runner === "external"
+    readonly property bool busy: uiShell.challengeHistoryBusy || uiShell.accountBusy
+    spacing: ds.s12
+
+    function statusLabel(status) {
+        if (status === "passed") return "自动判定通过";
+        if (status === "verified") return "人工确认通过";
+        if (status === "rejected") return "人工标记不通过";
+        return "待人工确认";
+    }
+
+    onChallengeIdChanged: {
+        evidence.text = "";
+        environment.text = "";
+        command.text = "";
+        summary.text = "";
+        artifact.text = "";
+        date.text = Qt.formatDate(new Date(), "yyyy-MM-dd");
+    }
+    Rectangle { Layout.fillWidth: true; height: 1; color: panel.ds.line }
+    Text {
+        text: "01  本地草稿与证据"
+        color: panel.ds.accent; font.family: panel.ds.ui; font.pixelSize: 13
+    }
+    Text {
+        Layout.fillWidth: true
+        visible: panel.external
+        text: "外部证据待人工确认，提交时不计入已通过。"
+        color: panel.ds.warning; font.family: panel.ds.ui; font.pixelSize: 13
+        wrapMode: Text.WordWrap
+    }
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: panel.external
+        spacing: panel.ds.s8
+        Text { text: "执行环境"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13 }
+        ShellField { id: environment; objectName: "challengeExternalEnvironment"; ds: panel.ds; Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 600 }
+        Text { text: "执行命令"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13 }
+        ShellField { id: command; objectName: "challengeExternalCommand"; ds: panel.ds; Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 600 }
+        Text { text: "结果摘要"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13 }
+        TextArea {
+            id: summary
+            objectName: "challengeExternalSummary"
+            Layout.fillWidth: true; Layout.preferredHeight: 96
+            enabled: !panel.busy; wrapMode: TextEdit.WrapAnywhere; selectByMouse: true
+            color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13
+            background: Rectangle { color: panel.ds.inset; border.color: panel.ds.lineStrong }
+        }
+        Text { text: "日志 / 截图引用（可选）"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13 }
+        ShellField { id: artifact; objectName: "challengeExternalArtifact"; ds: panel.ds; Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 300 }
+        Text { text: "复现日期"; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13 }
+        ShellField {
+            id: date; objectName: "challengeExternalDate"; ds: panel.ds
+            Layout.fillWidth: true; enabled: !panel.busy; maximumLength: 10
+            text: Qt.formatDate(new Date(), "yyyy-MM-dd")
+        }
+    }
+    Text {
+        visible: !panel.external
+        text: "完成证据说明"
+        color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13
+    }
+    TextArea {
+        id: evidence
+        objectName: "challengeEvidenceNote"
+        visible: !panel.external
+        Layout.fillWidth: true; Layout.preferredHeight: 96
+        enabled: !panel.busy; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
+        color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 13
+        background: Rectangle { color: panel.ds.inset; border.color: panel.ds.lineStrong }
+    }
+    QuietButton {
+        objectName: "challengeSubmit"
+        ds: panel.ds
+        Layout.alignment: Qt.AlignRight
+        label: panel.external ? "提交证据（待人工确认）" : "提交答案"
+        enabled: uiShell.hasActiveAccount && !panel.busy && !uiShell.challengeRunBusy
+                 && !uiShell.operationBusy && !uiShell.executionBusy

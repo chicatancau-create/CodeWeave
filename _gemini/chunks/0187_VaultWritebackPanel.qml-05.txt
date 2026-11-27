@@ -1,0 +1,7 @@
+                    QuietButton { ds: panel.ds; label: "取消"; visible: panel.rollbackId === modelData.operationId; onClicked: panel.rollbackId = "" }
+                }
+                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: panel.ds.line }
+            }
+        }
+    }
+}

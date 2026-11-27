@@ -1,0 +1,70 @@
+    assert(shell.accountStatus().contains(QStringLiteral("密码已修改")));
+    shell.logout();
+    shell.login(QStringLiteral("b@example.test"), QStringLiteral("Changed-Password-456!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(shell.hasActiveAccount());
+    shell.openFreeProgram(QStringLiteral("invalid"));
+    assert(shell.starterLanguage().isEmpty());
+    shell.openFreeProgram(QStringLiteral("python"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.documentId() == "free-python" && shell.starterLanguage() == "python");
+    shell.updateDraftCode(QStringLiteral("print('free program')"));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(!shell.draftDirty());
+    shell.openFreeProgram(QStringLiteral("cpp"));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.openFreeProgram(QStringLiteral("python"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.draftCode() == QStringLiteral("print('free program')"));
+    assert(shell.performDataAction(QStringLiteral("backup"), {}, workspace / "qt-backup"));
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(std::filesystem::exists(workspace / "qt-backup"));
+    assert(shell.performDataAction(QStringLiteral("restore"), workspace / "qt-backup", workspace / "qt-restored"));
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(std::filesystem::exists(workspace / "qt-restored"));
+    std::ofstream(workspace / "invalid-import.json") << "not json";
+    assert(shell.performDataAction(QStringLiteral("import-users"), workspace / "invalid-import.json", workspace / "invalid-target"));
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(!std::filesystem::exists(workspace / "invalid-target"));
+  }
+  // A new facade restores a successfully saved document after shutdown.
+  {
+    UiShell shell;
+    assert(shell.setAccountContext(second, workspace, data));
+    shell.saveDraft();
+    assert(!std::filesystem::exists(second_root / ".native.lock"));
+    shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.openPublishedContent(0);
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.loadStarterCode();
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.documentId() == saved_document);
+    assert(shell.draftCode() == QStringLiteral("cannot commit") && !shell.draftDirty());
+  }
+  assert(!std::filesystem::exists(second_root / ".native.lock"));
+  {
+    UiShell shell;
+    shell.loadPublishedContent(QString::fromLocal8Bit(argv[1]));
+    // Destruction while a read is queued/active must reclaim the worker.
+  }
+  {
+    codeweave::account::AccountService learning_account(store);
+    assert(learning_account.register_account("Learning fixture", "learning@example.test", "Test-Password-123!").ok);
+    std::filesystem::path learning_root;
+    assert(learning_account.learning_data_root(data, learning_root).ok);
+    codeweave::learning::MasteryStore mastery(learning_root);
+    const auto append = [&](const std::string& id, const std::string& ref,
+        codeweave::learning::MasteryEvidenceKind kind, bool passed,
+        codeweave::learning::CompletionVerification verification, const std::string& note) {
+      codeweave::learning::MasteryEvidence record{id, kind, ref, note, "2025-01-01T00:00:00Z", passed,
+          verification, codeweave::learning::RanBy::Learner, true, "L1", "op-learning-" +
+              QCryptographicHash::hash(QByteArray::fromStdString(id), QCryptographicHash::Sha256).toHex().left(6).toStdString()};
+      bool duplicate = false;
+      assert(mastery.append_idempotent(record, duplicate).ok && !duplicate);
+    };
+    using Kind = codeweave::learning::MasteryEvidenceKind;
+    using Verification = codeweave::learning::CompletionVerification;
+    append("read-only", "python-loop-sum", Kind::Lesson, false, Verification::SelfDeclared,
+        "学习信号：已阅读 · 课程正文已阅读");

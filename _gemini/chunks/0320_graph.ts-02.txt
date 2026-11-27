@@ -1,0 +1,76 @@
+  const nonCanonicalStageRefs: GraphIssue[] = []
+  const lessonPrerequisiteProse: GraphIssue[] = []
+  const teachingClaimsUnrecognized: GraphIssue[] = []
+  const stageLanguageMismatch: GraphIssue[] = []
+  const add = (kind: string, entity: string, detail: string) => errors.push({ kind, entity, detail })
+
+  /* ── 阶段：唯一、A—M 齐、能力点与验收非空、前置引用有效且无环 ───────────── */
+  const stageIds = new Set<string>()
+  for (const stage of stages) {
+    if (stageIds.has(stage.id)) add('stage-duplicate', stage.id, '阶段 id 重复')
+    stageIds.add(stage.id)
+    if (!stage.title.trim()) add('stage-empty-title', stage.id, '阶段没有标题')
+    if (stage.topics.length === 0) add('stage-no-topics', stage.id, '能力点（topics）为空：这条阶段无法说明自己要覆盖什么')
+    if (!stage.checkpoint.trim()) add('stage-no-checkpoint', stage.id, '阶段验收（checkpoint）为空')
+  }
+  const expected = [...STAGE_LETTERS]
+  for (const letter of expected) {
+    if (!stageIds.has(letter)) add('stage-missing', letter, `大纲要求 A—M 十三阶段，缺少 ${letter}`)
+  }
+  const edges = new Map<string, string[]>(stages.map((stage) => [stage.id, stage.prerequisites]))
+  for (const stage of stages) {
+    for (const pre of stage.prerequisites) {
+      if (pre === stage.id) add('stage-self-prerequisite', stage.id, '前置里写了自己')
+      else if (!stageIds.has(pre)) add('stage-dangling-prerequisite', stage.id, `前置阶段 ${pre} 不存在`)
+    }
+    const cycle = cyclePath(stage.id, edges, new Set(), [])
+    if (cycle && cycle[0] === cycle[cycle.length - 1] && cycle[0] === stage.id) {
+      add('stage-prerequisite-cycle', stage.id, `前置成环：${cycle.join(' → ')}`)
+    }
+  }
+
+  /* ── 挑战：每关一题、引用有效、runner 与语言及真实执行环境相配 ───────────── */
+  const byStage = new Map<string, Challenge[]>()
+  for (const challenge of challenges) {
+    if (!stageIds.has(challenge.stageId)) add('challenge-dangling-stage', challenge.id, `stageId ${challenge.stageId} 不在大纲里`)
+    byStage.set(challenge.stageId, [...(byStage.get(challenge.stageId) ?? []), challenge])
+    for (const pre of challenge.prerequisites) {
+      const canonical = normalizeStageRef(pre)
+      if (!stageIds.has(canonical)) add('challenge-dangling-prerequisite', challenge.id, `前置 ${pre} 归一化成 ${canonical} 之后仍不是存在的阶段`)
+      else if (!isCanonicalStageRef(pre)) {
+        nonCanonicalStageRefs.push({ kind: 'non-canonical-stage-ref', entity: challenge.id, detail: `前置写成 ${pre}，规范 id 是 ${canonical}` })
+      }
+    }
+    switch (challenge.runner) {
+      case 'javascript-sandbox':
+        if (challenge.language !== 'javascript') {
+          add('challenge-runner-language', challenge.id, `runner=javascript-sandbox 但语言是 ${challenge.language}：浏览器沙箱只跑 JS`)
+        } else if (validateJavaScriptSandbox(challenge.starterCode)) {
+          add('challenge-starter-blocked', challenge.id, '起始代码被沙箱自己的提示性检查拦下，这关一点就报错')
+        }
+        break
+      case 'teaching': {
+        const template = detectTemplate(challenge.starterCode, challenge.language)
+        if (!template) add('challenge-starter-unrecognized', challenge.id, '教学运行器认不出起始代码结构：这关永远只会报「未识别代码结构」')
+        else {
+          const lesson = lessons.find((item) => item.id === 'challenge-runner')
+          const result = simulateProgram(challenge.starterCode, challenge.language, lesson ?? lessons[0]!)
+          if (result.unsupported) add('challenge-starter-unsupported', challenge.id, `模板 ${template.id} 认出了结构但整段跑不出来`)
+          if (result.error) add('challenge-starter-error', challenge.id, `起始代码自带运行错误：第 ${result.error.line} 行 ${result.error.message}`)
+        }
+        break
+      }
+      case 'external':
+        // 外部关卡的「真实环境」声明不可校验，但**不得**同时声称可自动执行。
+        if (challenge.targetOutput.length === 0) add('challenge-no-target', challenge.id, '外部关卡没有验收点')
+        break
+    }
+  }
+  for (const stageId of stageIds) {
+    const count = byStage.get(stageId)?.length ?? 0
+    if (count !== 1) add('challenge-per-stage', stageId, `该阶段有 ${count} 关（大纲要求每阶段恰好一关）`)
+  }
+
+  /* ── 课程：id 唯一、先修引用有效、runEnvironment 的声称与真实执行能力相配 ── */
+  // 先一次扫完再判引用：先修项可以指向列表里靠后的课程，边收集边判会把
+  // 「m1 依赖 j3」这种正常写法误报成悬空（第一版就踩在这里）。

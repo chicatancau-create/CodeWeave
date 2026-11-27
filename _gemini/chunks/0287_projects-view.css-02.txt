@@ -1,0 +1,139 @@
+}
+
+.projects-view :is(h1, h2, h3, h4, p, ol, ul, li, dl, dt, dd, header, label) {
+  margin: 0;
+  padding: 0;
+}
+
+.projects-view :is(ul, ol) {
+  list-style: none;                                                /* 编号是真实文本 */
+}
+
+/* 长中文项目名 / 长代码行都不许撑破 320px（§5.4） */
+.projects-view :is(h1, h2, h3, p, span, li, label, strong, small, code, button) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.projects-view :focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ============================================================================
+   1. 页眉与新建区
+   ========================================================================== */
+
+.projects-view .module-heading.project-overview {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(var(--ds-space-16, 16px), 3vw, var(--ds-space-40, 40px));
+  flex-wrap: wrap;
+  margin-bottom: 0;
+  padding-bottom: var(--pv-pad);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .project-overview h1 {
+  margin: var(--ds-space-6, 6px) 0 var(--ds-space-8, 8px);
+  color: var(--pv-ink);
+  font-size: clamp(1.7rem, 3.6vw, 3.4rem);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.projects-view .project-overview > div > p:not(.eyebrow) {
+  max-width: 60ch;
+  color: var(--pv-dim);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .project-overview .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);
+  text-transform: uppercase;
+}
+
+.projects-view .project-overview .eyebrow-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--pv-hair-width) solid var(--pv-scene);
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;
+}
+
+.projects-view .project-create {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+}
+
+.projects-view .project-create-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  color: var(--pv-dim);
+  font-size: var(--pv-meta);
+  letter-spacing: 0.06em;
+}
+
+.projects-view .setting-select,
+.projects-view .field-label input,
+.projects-view .field-label textarea {
+  min-height: var(--pv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--pv-ink);
+  border: var(--pv-hair-width) solid var(--pv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ds-canvas-solid, #000);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  line-height: var(--pv-leading);
+}
+
+.projects-view .setting-select:focus-visible,
+.projects-view .field-label input:focus-visible,
+.projects-view .field-label textarea:focus-visible {
+  border-color: var(--pv-edge-active);
+}
+
+/* 主操作：细线药丸（geometry.md §2 允许的 100px 唯一圆角），无渐变无投影 */
+.projects-view .project-create .primary-action {
+  min-height: var(--pv-tap);
+  padding: var(--ds-space-10, 10px) var(--ds-space-20, 20px);
+  color: var(--pv-ink);
+  border: var(--pv-hair-width) solid var(--pv-edge-active);
+  border-radius: var(--ds-shape-pill, 100px);
+  background: none;
+  box-shadow: var(--pv-glow-inset);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.projects-view .project-create .primary-action:hover:not(:disabled) {
+  border-color: var(--pv-scene);
+  background: var(--pv-scrim-raised);
+  color: var(--pv-ink);
+}
+
+.projects-view .project-create .primary-action:active:not(:disabled) {
+  border-color: var(--pv-ink);
+  background: var(--pv-scrim-raised);
+  color: var(--pv-ink);
+}
+
+/* ============================================================================
+   2. 布局 + 编号清单

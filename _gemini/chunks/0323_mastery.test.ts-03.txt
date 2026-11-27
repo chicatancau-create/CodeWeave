@@ -1,0 +1,59 @@
+    applyEvidence(record, { id: `e-${at}`, kind: 'review', refId: record.refId, note: '复测通过', at, passed: true }, STANDARD.length)
+
+  it('第 0 档是「学习当天」：刚学完就有一条今天要回顾，而不是 1 天后', () => {
+    const first = scheduleFirstReview(baseRecord(), '2026-09-10', STANDARD)
+    expect(first.reviewDueKey).toBe('2026-09-10')
+    expect(first.reviewStep).toBe(0)
+  })
+
+  it('六个节点依次 0/1/3/7/14/30 天，第七次通过后才宣布计划走完', () => {
+    let record = scheduleFirstReview(baseRecord(), '2026-09-10', STANDARD)
+    const dates: (string | undefined)[] = []
+    for (let step = 0; step < STANDARD.length; step += 1) {
+      dates.push(record.reviewDueKey)
+      expect(record.reviewStep).toBe(step)
+      record = scheduleNextReview(pass(record, '2026-09-10'), '2026-09-10', STANDARD)
+    }
+    expect(dates).toEqual(['2026-09-10', '2026-09-11', '2026-09-13', '2026-09-17', '2026-09-24', '2026-10-10'])
+    expect(record.reviewStep).toBe(STANDARD.length)
+    expect(record.reviewDueKey).toBeUndefined()
+  })
+
+  it('封顶跟着计划走：6 档计划不会在第 5 档就推不动（旧写法会永远重排最后一个节点）', () => {
+    const atLast = pass({ ...baseRecord(), reviewStep: 5, level: 4 }, '2026-10-10')
+    expect(atLast.reviewStep).toBe(6)
+    expect(scheduleNextReview(atLast, '2026-10-10', STANDARD).reviewDueKey).toBeUndefined()
+    // 同一份记录若按兜底常量（5 档）封顶，就会被压在 5，说明计划长度必须显式传入
+    expect(applyEvidence({ ...baseRecord(), reviewStep: 5 }, {
+      id: 'e-x', kind: 'review', refId: 'lesson-1', note: '', at: '2026-10-10T00:00:00.000Z', passed: true,
+    }).reviewStep).toBe(5)
+  })
+
+  it('失败重排第 0 档仍落在当天：当天那档没过就当天再来一次，要挪日子用 snooze', () => {
+    const first = scheduleFirstReview(baseRecord(), '2026-09-10', STANDARD)
+    const failed = rescheduleReview({ ...first, reviewStep: 0 }, '2026-09-10', STANDARD)
+    expect(failed.reviewDueKey).toBe('2026-09-10')
+    expect(failed.reviewStep).toBe(0)
+  })
+})
+
+describe('计划文案（界面不许再自己抄一份节点）', () => {
+  it('6 档标准：说出「学习当天」并给真实节点数，不把 0 写成「第 0 天」', () => {
+    const plan = effectiveReviewPlan(null, STANDARD)
+    expect(reviewPlanCadence(plan)).toBe('当天与 1/3/7/14/30 天')
+    expect(describeReviewPlan(plan)).toBe(
+      '按资料库发布规则：学习当天 + 学完后第 1、3、7、14、30 天各一次，共 6 个节点',
+    )
+  })
+
+  it('5 档兜底：节奏串与本机排期字样保持原样，但节点数照样如实给', () => {
+    const plan = effectiveReviewPlan(null, null)
+    expect(reviewPlanCadence(plan)).toBe('1/3/7/14/30 天')
+    expect(describeReviewPlan(plan)).toBe('按本机排期：学完后第 1、3、7、14、30 天各一次，共 5 个节点')
+  })
+
+  it('单元覆盖那一档要写明是覆盖，不能混读成默认', () => {
+    const plan = effectiveReviewPlan([1, 3], STANDARD)
+    expect(describeReviewPlan(plan)).toBe('按本单元自己写了的覆盖：学完后第 1、3 天各一次，共 2 个节点')
+  })
+})

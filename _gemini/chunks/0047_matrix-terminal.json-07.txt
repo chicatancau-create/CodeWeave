@@ -1,0 +1,58 @@
+            "name": "vault-preview-readonly-and-confirmation-disabled",
+            "passed": true
+        },
+        {
+            "name": "vault-commit-explicit-confirmed-action",
+            "passed": true
+        },
+        {
+            "name": "vault-committed-refresh-and-reload",
+            "passed": true
+        },
+        {
+            "name": "vault-narrow-ledger-screenshot",
+            "passed": true
+        },
+        {
+            "name": "vault-rollback-restores-pending-state",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "57",
+            "name": "page-challenge-lesson-evidence-execution-trace-and-vault-screenshots",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-execution-trace-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-execution-trace-narrow.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-execution-trace-stale.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-java-source-snapshot.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-javascript-source-snapshot.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-javascript-module-source-snapshot.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-cpp-source-snapshot.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-execution-trace-live.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-execution-trace-cancelled.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-execution-trace-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-challenge-detail.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-challenge-detail-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-challenge-judgement-passed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-challenge-judgement-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-Stage-Terminal-20261108-2b739da21e6e4fccba216657b2196b3d/evidence/u3-challenge-submitted.png",

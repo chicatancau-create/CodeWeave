@@ -1,0 +1,136 @@
+/* ── 分区导航：1px 发丝线上排，编号沿用模板 ledger 口径 ────────────────── */
+.cw-workspace .cw-pane-nav ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0 0 var(--ds-space-16, 16px);
+  padding: 0;
+  list-style: none;
+  border-top: var(--cw-line-width) solid var(--cw-line);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .cw-pane-nav li {
+  border-right: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .cw-pane-nav a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  /* §5.4 触控目标 ≥44px：44 由**内边距**给出（上下各 12px + 20px 行盒），
+     这里不用 min-height 单撑——本条是 align-items: baseline，靠 min-height 撑出的
+     余量要按 align-content 规则重排基线，文字位置会飘；加内边距则与原来一样居中。
+     下面的 min-height 只是兜底：≤380px 档把内边距降回 9px（见本文件末），
+     那一档仍要 44 高，就由它守住。 */
+  min-height: var(--cw-tap);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  transition: color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .cw-pane-nav a:hover {
+  color: var(--cw-fg);
+}
+.cw-workspace .cw-pane-no {
+  color: var(--cw-fg-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+/* ── 分栏骨架（§5.2 黑场分栏）：窄屏单列、宽屏两列，永不挤压 ───────────── */
+.cw-workspace .learning-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 移动优先：320px 也只有单列，四区靠锚点到达 */
+  gap: var(--ds-space-20, 20px);
+  align-items: start;
+}
+@media (min-width: 1081px) {
+  .cw-workspace .learning-view {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--ds-space-20, 20px);
+  }
+}
+.cw-workspace .workspace,
+.cw-workspace .right-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-16, 16px);
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--cw-glow-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 分区通用形态：黑底 + 发丝线；内凹面才用遮光层 ────────────────────── */
+.cw-workspace .cw-zone {
+  /* 变量 / 控制台两区的锚点包装：两者自带 .panel 发丝线，不再套第二层边框 */
+  min-width: 0;
+}
+.cw-workspace .cw-pane,
+.cw-workspace .reading-pane,
+.cw-workspace .flow-chart {
+  min-width: 0;
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cw-workspace .reading-head,
+.cw-workspace .workspace-header,
+.cw-workspace .cw-flow-head,
+.cw-workspace .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  height: auto;
+  margin: 0; /* styles.css 给 workspace-header 的 14px 下边距会把色带与编辑器拉开 */
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+/* #77：`主题原文` 从 span 升成 h2 只为补上标题序列，视觉一档不动——
+   UA 给 h2 的 1.5em 与上下边距由「下面的 label 组认领它 + margin: 0」两条一起还原。
+   label 那组选择器写的是 class+type（0,2,1），本条是三个 class（0,3,0）：
+   在这里再写 `font: inherit` 会**赢过**那组并真的把字号字重字距全洗掉，故只留 margin。 */
+.cw-workspace .reading-head .cw-pane-title {
+  margin: 0;
+}
+.cw-workspace .reading-head span,
+.cw-workspace .reading-head .cw-pane-title,
+.cw-workspace .cw-flow-head span,
+.cw-workspace .workspace-header span,
+.cw-workspace .panel-title {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  font-weight: 400;
+  letter-spacing: 0.16em;
+}
+.cw-workspace .reading-head strong,
+.cw-workspace .workspace-header strong {
+  min-width: 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+.cw-workspace .workspace-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+}
+.cw-workspace .reading-head em {
+  font-style: normal;

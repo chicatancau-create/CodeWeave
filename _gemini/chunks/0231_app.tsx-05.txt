@@ -1,0 +1,113 @@
+  const checkin = useCheckin(scope, now, content.capabilities?.includes('learningSync') &&
+    content.learningStatus?.isOwner && content.serviceInstance && content.vaultId
+    ? { accountId: scope, serviceInstance: content.serviceInstance, vaultId: content.vaultId }
+    : null)
+
+  const debouncedCode = useDebounce(code, 600)
+  /**
+   * SAVE-01：保存快照在「编辑发生的瞬间」创建，绑定账户、课程、语言、代码与版本号。
+   * 此前只对 code 防抖、延迟触发时再读当前 activeLesson，导致「A 改动后立即切到 B」
+   * 会把 A 的代码写进 B 的槽位。
+   */
+  const saveSnapshotRef = useRef<SaveSnapshot | null>(null)
+  /** 快照版本号：每次编辑自增，用于判断"当前这份是否已保存"。 */
+  const revisionRef = useRef(0)
+  /**
+   * 界面可见的脏标记。refs 不能参与渲染，因此单独用 state 承载：
+   * - currentRevision 随编辑推进
+   * - savedRevision 只在写入成功后推进；失败时不推进，界面持续显示"未保存"
+   */
+  const [currentRevision, setCurrentRevision] = useState(0)
+  /** Ctrl/Cmd+S 的真实结果，随下一次编辑清空（SAVE-01 第 4 条要求「给出结果」）。 */
+  const [saveFeedback, setSaveFeedback] = useState('')
+  const [savedRevision, setSavedRevision] = useState<number | null>(null)
+
+  // 编辑缓冲变化时立即生成新快照（不等待防抖），延迟回调只消费快照。
+  /**
+   * SAVE-01 第 4 条：`isDirty` 必须对比「最后一次成功保存」——而**打开一课时从存储里读出来的内容
+   * 本来就是已保存状态**。改版前每次进课都 `setSavedRevision(null)`，revision 却继续自增，
+   * 于是进课那一瞬间恒显「未保存的修改」；自动保存关着时这个假脏标记还永远不会自己消。
+   * 这里用一次性标记记下「下一次 revision 来自装载，不是用户敲的」，让成功快照直接对齐它。
+   */
+  const loadedRevisionPending = useRef(false)
+  /** 用户改动编辑器内容：上一条手动保存的结果就过期了，清空它（留着会让人以为还在说这一次）。 */
+  const handleCodeChange = (value: string) => {
+    setSaveFeedback('')
+    setCode(value)
+  }
+
+  const setCodeFromStorage = useCallback(
+    (value: string | ((current: string) => string)) => {
+      loadedRevisionPending.current = true
+      setCode(value)
+    },
+    [setCode],
+  )
+
+  useEffect(() => {
+    if (!activeLesson) return
+    // #94：详情还在路上、代码仍是目录占位的空串——这一刻的「空」不是用户写的，不许存成草稿。
+    if (detailPendingLessonId.current === activeLesson.id && code === '') return
+    revisionRef.current += 1
+    setCurrentRevision(revisionRef.current)
+    if (loadedRevisionPending.current) {
+      loadedRevisionPending.current = false
+      setSavedRevision(revisionRef.current)
+    }
+    saveSnapshotRef.current = createSaveSnapshot({
+      accountScope: scope,
+      lessonId: activeLesson.id,
+      languageId,
+      code,
+      revision: revisionRef.current,
+    })
+  }, [code, activeLesson, languageId, scope])
+
+  useEffect(() => {
+    if (!(settings.autosave ?? true)) return
+    const snapshot = saveSnapshotRef.current
+    if (!snapshot) return
+    // 防抖触发时要求快照与当前防抖值一致，避免中间态写入。
+    if (snapshot.code !== debouncedCode) return
+    // 已成功保存过的同一份内容不重复写入。
+    if (savedRevision === snapshot.revision) return
+    const saved = commitSaveSnapshot(snapshot)
+    if (saved) {
+      setSavedRevision(snapshot.revision)
+    } else {
+      // F2：草稿保存失败进入通知中心（真实事件，按天去重）。
+      // 注意 savedRevision 不推进，因此同一内容在下次防抖触发时会重试。
+      // STAT-01：日期键一律走 `getLocalDateKey()`——`toISOString().slice(0, 10)` 是 UTC 日，
+      // 在 UTC+8 凌晨会整体偏一天；而且这里只取一次时钟，别让 id 与 dateKey 跨午夜分成两天。
+      const failedDay = getLocalDateKey()
+      recordTransientEvent({
+        id: `draft-save-failed:${snapshot.lessonId}:${failedDay}`,
+        kind: 'draft-save-failed',
+        title: `草稿保存失败：${activeLesson?.title ?? snapshot.lessonId}`,
+        dateKey: failedDay,
+      })
+    }
+  }, [debouncedCode, settings.autosave, recordTransientEvent, activeLesson, savedRevision])
+
+  // 手动保存：不论自动保存是否开启都应可用，并给出真实结果。
+  const saveNow = useCallback(
+    (notify = true): boolean => {
+      const snapshot = saveSnapshotRef.current
+      if (!snapshot) return false
+      const saved = commitSaveSnapshot(snapshot)
+      if (saved) {
+        setSavedRevision(snapshot.revision)
+      } else if (notify) {
+        const failedDay = getLocalDateKey()
+        recordTransientEvent({
+          id: `draft-save-failed:${snapshot.lessonId}:${failedDay}`,
+          kind: 'draft-save-failed',
+          title: `草稿保存失败：${activeLesson?.title ?? snapshot.lessonId}`,
+          dateKey: failedDay,
+        })
+      }
+      return saved
+    },
+    [activeLesson, recordTransientEvent],
+  )
+

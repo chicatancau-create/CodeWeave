@@ -1,0 +1,93 @@
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    editor({ code: '第一版' })
+    fireEvent.click(screen.getByRole('button', { name: '复制代码' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('第一版'))
+  })
+})
+
+describe('三项设置真的落到 DOM 上', () => {
+  it('连续滚动合并到一帧，使用最后位置同步高亮与行号；卸载取消未处理帧', () => {
+    let flush: FrameRequestCallback = () => {}
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      flush = callback
+      return 27
+    })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+    const el = editor({ code: 'let a = 1\nlet b = 2' })
+    fireEvent.scroll(el, { target: { scrollTop: 10, scrollLeft: 4 } })
+    fireEvent.scroll(el, { target: { scrollTop: 25, scrollLeft: 9 } })
+    expect(frame).toHaveBeenCalledTimes(1)
+    act(() => flush(0))
+    expect(document.querySelector<HTMLElement>('.code-tokens')?.style.transform).toBe('translate(-9px, -25px)')
+    expect(document.querySelector<HTMLElement>('.line-numbers-inner')?.style.transform).toBe('translateY(-25px)')
+    fireEvent.scroll(el, { target: { scrollTop: 30 } })
+    cleanup()
+    expect(cancel).toHaveBeenCalledWith(27)
+  })
+  it('行号可关：关掉后不画那一列，代码文本一字不变', () => {
+    editor({ code: 'a\nb\nc', lineNumbers: true })
+    expect(document.querySelectorAll('.line-numbers span')).toHaveLength(3)
+    cleanup()
+    editor({ code: 'a\nb\nc', lineNumbers: false })
+    expect(document.querySelector('.line-numbers')).toBeNull()
+    expect(document.querySelector<HTMLTextAreaElement>('.code-editor textarea')?.value).toBe('a\nb\nc')
+  })
+
+  it('Tab 宽度与自动换行同时驱动输入层与高亮层（两层不一致就会逐行错位）', () => {
+    editor({ code: 'a', tabSize: 4, wordWrap: true })
+    const area = document.querySelector<HTMLTextAreaElement>('.code-editor textarea')
+    const pre = document.querySelector('.code-tokens')
+    expect(area?.style.tabSize).toBe('4')
+    expect((pre as HTMLElement).style.tabSize).toBe('4')
+    expect(area?.style.whiteSpace).toBe('pre-wrap')
+    expect((pre as HTMLElement).style.whiteSpace).toBe('pre-wrap')
+    expect(document.querySelector('.code-editor')?.className).toContain('code-editor--wrap')
+  })
+
+  it('默认档位与改版前一致：Tab 两格、不折行、行号在', () => {
+    editor({ code: 'a' })
+    expect(document.querySelector('.code-editor')?.className).not.toContain('--wrap')
+    expect(document.querySelector('.line-numbers')).toBeTruthy()
+    expect(document.querySelector<HTMLTextAreaElement>('.code-editor textarea')?.style.tabSize).toBe('2')
+  })
+})
+
+describe('错误定位（EDIT-01 第 6 条：控制台的「定位到第 N 行」）', () => {
+  /** 'aa\nbb\ncc' 的行首偏移：1=0、2=3、3=6。 */
+  const code = 'aa\nbb\ncc'
+
+  it('reveal 一到：编辑器拿到焦点，光标落在该行行首', () => {
+    const el = editor({ code, reveal: { line: 3, token: 1 } })
+    expect(document.activeElement).toBe(el)
+    expect(el.selectionStart).toBe(6)
+    expect(el.selectionEnd).toBe(6)
+  })
+
+  it('行号超出代码长度时收在最后一行，不甩到文本末尾之外', () => {
+    const el = editor({ code, reveal: { line: 99, token: 1 } })
+    expect(el.selectionStart).toBe(6)
+  })
+
+  it('同一行连点两次也要真的再来一次：token 变了就重新定位', () => {
+    const { rerender } = render(<CodeEditor {...baseProps} code={code} reveal={{ line: 3, token: 1 }} />)
+    const el = document.querySelector<HTMLTextAreaElement>('.code-editor textarea')!
+    el.setSelectionRange(0, 0)
+    rerender(<CodeEditor {...baseProps} code={code} reveal={{ line: 3, token: 2 }} />)
+    expect(el.selectionStart).toBe(6)
+    // 只换代码不换 token 时不该抢焦点：用户正在别处打字，定位不是每敲一个字都发生的事
+    rerender(<CodeEditor {...baseProps} code={`${code}\ndd`} reveal={{ line: 3, token: 2 }} />)
+    expect(el.selectionStart).toBe(6)
+  })
+})
+
+/**
+ * EDIT-01 第 4 条里「撤销重做 / 多行粘贴」这两样。
+ *
+ * jsdom 没有浏览器的 undo 栈，所以**不假装测得动撤销**：能测的是两件事——
+ * ① 编辑器不抢 Ctrl+Z / Ctrl+Y（把按键交回浏览器，原生撤销栈才有机会工作）；
+ * ② 组件从不直接改 `textarea.value`（受控组件一旦绕过 onChange 直接写 value，
+ *    浏览器就把这次改动当成程序设定而非用户编辑，原生 undo 栈当场失效）。
+ * 多行粘贴走的是同一条 `input` 通道（值一次性变更多行），所以真测得动：
+ * 行数、行号层与高亮层必须一起跟上，否则粘进来就是错位。
+ */
+describe('撤销重做与多行粘贴（EDIT-01 第 4 条的两样）', () => {

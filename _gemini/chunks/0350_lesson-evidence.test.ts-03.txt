@@ -1,0 +1,64 @@
+      acceptance: { rubric: [], evidenceChecklist: [], testCases: [], hints: [] },
+    } as unknown as Parameters<typeof lessonAcceptancePoints>[0]
+    expect(lessonAcceptancePoints(lesson)).toEqual({ targetOutput: ['5'], evidence: ['截图位置', '输出 5'] })
+
+    const bare = { content: emptyLessonContent } as unknown as Parameters<typeof lessonAcceptancePoints>[0]
+    expect(lessonAcceptancePoints(bare)).toEqual({ targetOutput: [], evidence: [] })
+  })
+})
+
+describe('holdsCompletion（六态里算「完成」的是哪三态）', () => {
+  const six = (overrides: Partial<LessonEvidenceStates>): LessonEvidenceStates => ({
+    read: false,
+    practiced: false,
+    submittedEvidence: false,
+    selfDeclaredPassed: false,
+    autoVerifiedPassed: false,
+    reviewMastered: false,
+    ...overrides,
+  })
+
+  it('三态任一成立即为完成；阅读与练习痕迹单独成立都不算', () => {
+    expect(holdsCompletion(six({ selfDeclaredPassed: true }))).toBe(true)
+    expect(holdsCompletion(six({ autoVerifiedPassed: true }))).toBe(true)
+    expect(holdsCompletion(six({ reviewMastered: true }))).toBe(true)
+    expect(holdsCompletion(six({ read: true, practiced: true })), '点过「已阅读」跑过一次不等于掌握').toBe(false)
+    expect(holdsCompletion(six({ submittedEvidence: true })), '提交了证据 ≠ 通过').toBe(false)
+    expect(holdsCompletion(six({}))).toBe(false)
+    expect(holdsCompletion(undefined), '这一课还没有任何记录时按未完成读').toBe(false)
+  })
+
+  it('与读记录的那条口径同判据：折出来的六态不会和记录本身分家', () => {
+    const read = evidenceOf({ note: lessonSignalNote('read', '函数与返回值'), refId: 'vault-s0-1' })
+    const passed = evidenceOf({ note: '完成课程「函数与返回值」', refId: 'vault-s0-1', passed: true })
+    const record: MasteryRecord = {
+      refId: 'vault-s0-1',
+      kind: 'lesson',
+      level: 1,
+      reviewStep: 0,
+      updatedAt: '2026-09-20T00:00:00.000Z',
+      evidence: [read, passed],
+    }
+    expect(holdsCompletion(deriveLessonEvidenceStates(record))).toBe(true)
+    expect(hasCompletionEvidence(record)).toBe(true)
+
+    const onlySignal: MasteryRecord = { ...record, evidence: [read] }
+    expect(holdsCompletion(deriveLessonEvidenceStates(onlySignal))).toBe(false)
+    expect(hasCompletionEvidence(onlySignal)).toBe(false)
+  })
+})
+
+const emptyLessonContent = {
+  objective: '',
+  prerequisites: [],
+  explanation: [],
+  examples: [],
+  guidedSteps: [],
+  exercise: '',
+  variant: '',
+  projectTask: '',
+  mistakes: [],
+  runCommand: '',
+  completion: '',
+  reviewOffsetsDays: [],
+}

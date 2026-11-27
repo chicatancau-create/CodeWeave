@@ -1,0 +1,89 @@
+    expect(block?.getAttribute('role')).toBe('status')
+    expect(block?.getAttribute('aria-busy')).toBe('true')
+    expect(block?.textContent).toContain('正在读取资料库发布规则')
+    expect(block?.textContent).toContain('这一档是临时的')
+    expect(block?.querySelector('.view-skeleton__shape')?.getAttribute('aria-hidden')).toBe('true')
+    expect(container.querySelector('.rv-btn')).toBeNull()
+  })
+
+  it('error：读不到点名原因、说明不影响已排好的节点，并给真能用的重试', async () => {
+    const { container, stub } = renderWithContent({
+      loading: false,
+      error: '内容服务返回 503：目录读取失败',
+    })
+    const block = container.querySelector('[data-rv-async="error"]')
+    expect(block?.getAttribute('role')).toBe('alert')
+    expect(block?.textContent).toContain('读不到资料库发布规则：内容服务返回 503：目录读取失败')
+    expect(block?.textContent).toContain('已排好的复测节点不受影响')
+    expect(block?.classList.contains('rv-async--failed')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '重试读取发布规则' }))
+    await waitFor(() => expect(stub.refresh).toHaveBeenCalledTimes(1))
+  })
+
+  it('读取中不再同时宣布「读不到」，两档互斥', () => {
+    const { container } = renderWithContent({ loading: true, error: '上一轮的失败还在' })
+    expect(container.querySelector('[data-rv-async="loading"]')).toBeTruthy()
+    expect(container.querySelector('[data-rv-async="error"]')).toBeNull()
+  })
+})
+
+describe('M4 复习中心 · CSS 源码不变式', () => {
+  it('样式表原文确实读到（防止下面的断言在空串上假通过）', () => {
+    expect(cssText.length).toBeGreaterThan(3000)
+    expect(selectorParts(cssCode).length).toBeGreaterThan(40)
+  })
+
+  it('全局裸选择器数量 = 0：每条规则都限定在 .cw-review 之下（或从 .reduce-motion 压下来）', () => {
+    const bare = selectorParts(cssCode).filter(
+      (selector) => !selector.startsWith('.cw-review') && !selector.startsWith('.reduce-motion'),
+    )
+    expect(bare).toEqual([])
+  })
+
+  it('不覆写别人页面的类，也不声明 :root / html / body', () => {
+    const selectors = selectorParts(cssCode)
+    expect(selectors.some((selector) => /(^|[\s,])(:root|html|body)(\s|,|$)/.test(selector))).toBe(false)
+  })
+
+  it('零 !important：降级靠更高优先级选择器而不是强制覆写', () => {
+    expect(cssCode).not.toContain('!important')
+  })
+
+  it('形态：黑场 + 发丝线 + 冷色发光；无渐变、无玻璃、无第三种圆角', () => {
+    // 科技档反转（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+    // 约束不放松 —— box-shadow 仍不许出现裸字面量，每条只走 --rv-glow-* 别名。
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((m) => m[1]!.trim())
+    expect(shadows.length).toBeGreaterThan(0)
+    for (const value of shadows) {
+      expect(/^var\(--rv-glow-(near|panel|inset)\)$/.test(value), `未走发光令牌：${value}`).toBe(true)
+    }
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+    expect(declarationBlock('.cw-review')).toContain('background: var(--rv-canvas)')
+    expect(cssText).toContain('var(--ds-radius-panel, 0)')
+    expect(cssText).toContain('var(--ds-shape-none, 0)')
+    expect(cssText).not.toContain('var(--ds-shape-pill')
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('正文 16px、行高落在 §5.4 的 1.6–1.75，长中文换行不破版', () => {
+    const root = declarationBlock('.cw-review')
+    expect(root).toContain('--rv-body: var(--ds-size-body, 16px)')
+    const leading = Number(/--rv-leading:\s*var\(--ds-leading-body,\s*([\d.]+)\)/.exec(root)?.[1])
+    expect(leading).toBeGreaterThanOrEqual(1.6)
+    expect(leading).toBeLessThanOrEqual(1.75)
+    expect(declarationBlock('.cw-review :is(h1, h2, p, span, td, th, caption, button)')).toContain(
+      'overflow-wrap: anywhere',
+    )
+    expect(cssCode).not.toMatch(/white-space:\s*pre/)
+    // 唯一允许 nowrap 的位置是读屏专用 sr-only（视觉上不占位）；正文一律换行
+    expect(cssCode.match(/white-space:\s*nowrap/g)?.length ?? 0).toBeLessThanOrEqual(1)
+  })
+
+  it('触控目标 ≥44px 且焦点轮廓可见', () => {
+    const root = declarationBlock('.cw-review')
+    expect(root).toContain('--rv-tap: var(--ds-tap-min, 44px)')

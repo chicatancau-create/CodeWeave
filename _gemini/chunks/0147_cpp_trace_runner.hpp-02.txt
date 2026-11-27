@@ -1,0 +1,54 @@
+            process_handle = _winapi.OpenProcess(0x1000, False, event.inferior_thread.inferior.pid)
+        except OSError as error:
+            fail(error)
+
+def exited(event):
+    global process_handle, exit_code
+    code = getattr(event, "exit_code", 1)
+    if process_handle is not None:
+        try:
+            actual_code = _winapi.GetExitCodeProcess(process_handle)
+            if actual_code != 259:
+                code = actual_code
+        finally:
+            _winapi.CloseHandle(process_handle)
+            process_handle = None
+    if capture_error and code == 0:
+        code = 1
+    if code >= 2147483648:
+        code -= 4294967296
+    exit_code = code
+
+try:
+    import _winapi
+    for command in ("set pagination off", "set confirm off", "set auto-load off",
+                    "set print thread-events off", "set print inferior-events off",
+                    "set suppress-cli-notifications on",
+                    "set host-charset UTF-8", "set logging overwrite on",
+                    "set logging redirect on", "set logging debugredirect on"):
+        gdb.execute(command)
+    gdb.execute("set logging file " + (root / "gdb.log").as_posix())
+    gdb.execute("set logging enabled on")
+    gdb.execute("handle SIGSEGV SIGILL SIGFPE SIGABRT SIGBUS nostop noprint pass")
+    main = gdb.lookup_global_symbol("main")
+    if main is None or main.symtab is None:
+        raise RuntimeError("Source symbols unavailable")
+    source_path = os.path.normcase(main.symtab.fullname())
+    lines = sorted(set(entry.line for entry in main.symtab.linetable() if entry.line > 0))[:4096]
+    for line in lines:
+        breakpoint = SourceBreakpoint(source_path.replace("\\", "/") + ":" + str(line), internal=True)
+        breakpoint.silent = True
+        breakpoints.append(breakpoint)
+    gdb.events.new_thread.connect(thread_created)
+    gdb.events.exited.connect(exited)
+    output_path = (root / "program-output").as_posix()
+    gdb.execute('run > "' + output_path + '" 2>&1')
+    if exit_code is None:
+        raise RuntimeError("Debugged program did not exit")
+    gdb.execute("quit " + str(exit_code))
+except Exception as error:
+    fail(error)
+    gdb.execute("quit 1")
+)GDBPY";
+
+}  // namespace codeweave::execution

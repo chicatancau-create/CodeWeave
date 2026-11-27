@@ -1,0 +1,47 @@
+| **复习调度** | 自适应：`scheduler.py` 550 行，stability/retrievability/forgetting_risk/replay，**0 LLM** | **原生完全没有**；网页端有固定阶梯：`REVIEW_OFFSET_DAYS=[1,3,7,14,30]`、`scheduleNextReview` 按 `reviewStep` 推进（`mastery.ts:62,199-225`） | **两步走**：① 先移植你自己的 TS 阶梯（语义已被 #33 裁定冻结，且有测试可对照）② 之后才考虑换成它的保持度模型。`[移植-无LLM]` |
+| **复测节点来源优先级** | 无此概念 | **有，且更严**：`effectiveReviewPlan` 三级 `unit > published > fallback`，#33 裁定「运行时唯一标准 = 资料库发布投影」，且 `null/[]` 一律按「没写」向上继承（`mastery.ts:76-99`） | **这是你的原创优势，别被它带偏**。移植时三级来源与来源标注必须原样保留 |
+| **出题** | LLM 生成（`topic_generation.py` 601 行 8 处 LLM） | 13 道挑战随包发布 + `exercises.v1.tsv` 验收点 | `[禁]` 生成侧。改为「离线用外部工具产出题目写进 `content/`」，应用端仍只读 |
+| **判题** | `grading.py` 64 行 + `assessment.py` 558 行（多为规则） | `output_comparison.hpp` **整段 trim 相等** | **借它的判定粒度**：逐条验收点命中/未命中/多印（对应你 Phase 4 P2.3）。`[借设计]` |
+| **错题归因** | `ErrorType` 四分类 + `ErrorRecord{self_attribution, ai_confirmation, retry_history, status: active→retrying→review→graduated}` | 无。错题只有 `latest_result` 字符串 | `[移植-无LLM]` 分类与状态机是纯数据（`ai_confirmation` 字段留空位，不接模型） |
+| **作废题** | `QuizAttempt.voided + void_reason`：坏题保留审计但**不计入**掌握度/错题/间隔 | 无 | **高价值、零成本、纯规则**。`[移植-无LLM]` |
+| **证据语义** | `LearningEvidence` 可重算、`quality` 从结果推断非自评、`hints_used/attempt_count/response_time` | `EvidenceRecord` 11 字段 + **`ran_by` 三态 + 「AI 代跑/L3L4 提示不得算独立」的硬拒**（`learning_contract.cpp:138-144`） | **你的更硬**（它没有反作弊硬约束）。只补 `hints_used` 与「可重算」语义。`[借设计]` |
+| **证据台账** | L1 只追加 JSONL + ULID | 只追加 hex-TSV + 幂等 `operation_id` + 坏行 fail-closed | 同构，**不借** |
+| **事件溯源** | `MasteryEvent{path_id, revision, event_type}` + `replay()` | 无（台账是事实流，但没有 revision 与重放） | `[移植-无LLM]` 与 L2 缺陷同源，能顺手解掉「证据已提交而进度写失败」 |
+| **并发写保护** | `MasteryPathLease` 租约 | 仅进程内 mutex + `.native.lock` | `[借设计]` |
+| **执行/运行代码** | `exec_tool` + 沙箱靠外部 | **Job Object kill-on-close、受控白名单 4 语言、超时 100–120000 ms、输出 ≤1 MiB、暂停/继续/单步、轨迹落盘** | **你的更强且它没有单步**。不借 |
+| **账户与隔离** | `multi_user/` 4,253 行 + PocketBase | scrypt 本地账户 + **每账户独立数据根** + 符号链接逐段拒绝 | 不借（它依赖服务端） |
+| **备份/迁移** | `workspace/data_migration.py` 1,103 行 | 全树 FNV 校验 + 时点复验 + **四类 dry-run 预检**（合计 63 条断言） | **你的更严**。不借 |
+| **敏感信息** | `.secrets.baseline` 扫描仓库 | **运行时 6 条正则拒绝入库** | 你的更贴用户。不借 |
+| **AI 辅导/解题/深度研究** | `agents/` 20,036 + `runtime/` 11,685 + `tools/` 11,257 | 无 | **`[禁]`**，理由见 2.7 |
+| **界面规模** | `web/` 292,440 行 | 网页端 43,372 + QML 4,705 | 不可比，也不该比 |
+
+---
+
+## 4. 给后端执行 AI 的移植规格
+
+**优先级铁律：4.4 先于 4.1–4.3。** 现在门禁 8/8 全绿而四条主链是断的（1.6），在这种地基上加新功能只会把断点埋得更深。
+
+### 4.1 新增 `mastery_store` + 掌握度推进（对应 Phase 4 P2.1 前置）
+
+原生侧新建模块（现在**根本不存在**），语义**照抄网页端 `网页端/项目/src/data/mastery.ts`**，不要照抄 DeepTutor：
+
+- 等级：`0..6`，名称表照 `MASTERY_LEVEL_NAMES`（`mastery.ts:12`）
+- 推进：`课程完成 / 挑战通过 / 复测通过 / Bug 修复` 各 +1，上限 6；复测不过 −1，下限 0（`mastery.ts:5`）
+- 记录字段：`refId, kind, level, evidence[], updatedAt, reviewDueKey?, reviewStep, lastFailReason?`（`mastery.ts:37-49`）
+- **`CompletionVerification` 必须保留**：`auto-verified` vs `self-declared`，旧记录缺省一律按 `self-declared` 读、**不追认成验证过**（`mastery.ts:18-23`）——这条是反自欺的核心，DeepTutor 没有
+- 落盘沿用现有台账风格：`<data_root>/learning/mastery.v1.log`，hex-TSV、原子写、幂等 `operation_id`、坏行 fail-closed、符号链接逐段拒绝
+- 验收：与 TS 实现跑同一组输入做**逐字段对拍**（TS 侧已有 `tests/review.plan.discipline.test.mjs` 等可复用为期望值来源）
+
+### 4.2 新增 `review_scheduler`（先阶梯，后保持度）
+
+**第一步（必做）**：移植 TS 阶梯，语义原样：
+- `REVIEW_OFFSET_DAYS = [1,3,7,14,30]` 是**本机兜底，不是排期标准**（`mastery.ts:52`）
+- 生效计划三级优先 `unit > published > fallback`，来源必须能在界面上标注（`effectiveReviewPlan` / `reviewPlanSourceName` / `describeReviewPlan`，`mastery.ts:90-129`）
+- `usableOffsets` 归一：非数组/空表/全非法 → **返回 null 表示「没写」并向上继承**，不得折成 `[]`（`mastery.ts:76-80`，#33 要拆的就是这个）
+- 日期一律按**本地日期键** `YYYY-MM-DD` 归日，不用 UTC（`addDaysKey`，并与 `learning_contract.cpp:47-65` 的日期校验一致）
+
+**第二步（可选，结构复刻 ≥90% 后再谈）**：把阶梯升级为可插拔保持度模型，照 `scheduler.py` 的接口形状：
+- `RetentionScheduler` 抽象 + 默认「指数遗忘 + 按 `KnowledgeType` 冷启动先验」，**不许自称 FSRS**
+- `interval = stability · −ln(desired_retention)`，`desired_retention` 默认 0.9
+- 排序 `(-forgetting_risk, -overdue, priority)`
+- `replay(evidence_stream)` 全量重算 + `hydrate()` 向后兼容（旧记录无 stability 时从 `interval_index` 反推且**不改到期时间**）

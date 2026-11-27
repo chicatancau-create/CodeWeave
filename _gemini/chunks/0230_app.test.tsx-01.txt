@@ -1,0 +1,117 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import App from './app'
+import { SCHEMA_VERSION } from './utils/storage'
+
+type MockResponse = { ok: boolean; status?: number; json: () => Promise<unknown> }
+type FetchMock = (input: string, init?: RequestInit) => MockResponse | Promise<MockResponse>
+
+function stubFetch(handler: FetchMock) {
+  return vi.stubGlobal('fetch', vi.fn(handler as unknown as typeof fetch))
+}
+
+const testUser = {
+  id: 'user-test-1',
+  email: 'student@example.com',
+  name: '小明',
+  bio: '开始记录你的编程旅程。',
+  createdAt: '2026-09-01T00:00:00.000Z',
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => body }
+}
+
+beforeEach(() => {
+  localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('App 入口', () => {
+  it('打卡日历打开时移入焦点，Tab 双向圈定，Esc 关闭后归还触发按钮', async () => {
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+    render(<App />)
+    const trigger = await screen.findByRole('button', { name: '查看打卡日历' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    const previous = screen.getByRole('button', { name: '上一月' })
+    const next = screen.getByRole('button', { name: '下一月' })
+    expect(document.activeElement).toBe(previous)
+    expect(screen.getByRole('dialog', { name: '打卡日历' }).getAttribute('aria-modal')).toBe('true')
+    fireEvent.keyDown(previous, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(next)
+    fireEvent.keyDown(next, { key: 'Tab' })
+    expect(document.activeElement).toBe(previous)
+    fireEvent.keyDown(previous, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '打卡日历' })).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('教材接口未返回时保留顶栏侧栏和操作入口，仅主区域显示加载骨架', async () => {
+    stubFetch((input) => input === '/api/content/status'
+      ? new Promise<MockResponse>(() => {})
+      : jsonResponse({ data: testUser }))
+    const { unmount } = render(<App />)
+    expect(await screen.findByRole('button', { name: '账户菜单' })).toBeTruthy()
+    expect(screen.getByRole('complementary', { name: '主导航' })).toBeTruthy()
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true')
+    expect(screen.queryByRole('heading', { name: '你的学习路径' })).toBeNull()
+    unmount()
+  })
+
+  it('未登录时渲染登录页，且可切换到注册', async () => {
+    stubFetch((_input) => jsonResponse({ data: null }))
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+
+    expect(await screen.findByText('登录你的工作区')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '注册新账户' }))
+    expect(screen.getByText('创建学习账户')).toBeTruthy()
+  })
+
+  it('已登录时渲染工作台外壳与课程阶段数据', async () => {
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+
+    expect((await screen.findAllByText(/小明/)).length).toBeGreaterThan(0)
+    await screen.findByRole('heading', { name: '你的学习路径' })
+    // 学习路径视图：按**内容科目**选择（不是可执行语言）——HTML/CSS/Vue 等各自成组
+    expect(screen.getByRole('heading', { name: '你的学习路径' })).toBeTruthy()
+    // 13 个挑战阶段（A—M）体现在欢迎区文案
+    expect(screen.getByText(/学习计划共 13 个阶段/)).toBeTruthy()
+    const skipLink = screen.getByRole('link', { name: '跳到主内容' })
+    const main = document.querySelector('main#main-content')
+    expect(skipLink.getAttribute('href')).toBe('#main-content')
+    expect(main?.getAttribute('tabindex')).toBe('-1')
+    expect(document.querySelector('.main-content#main-content')).toBeNull()
+  })
+
+  it('认证接口失败时不白屏，回退到登录页', async () => {
+    stubFetch((_input) => Promise.reject(new Error('network down')))
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+
+    expect(await screen.findByText('登录你的工作区')).toBeTruthy()
+  })
+
+  it('进入挑战页显示全部 13 个关卡', async () => {

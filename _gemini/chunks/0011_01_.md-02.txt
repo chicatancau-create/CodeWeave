@@ -1,0 +1,111 @@
+### 4.3 移动端
+
+- Android/Kotlin、Compose、Gradle 8.9、AGP 8.7.3、Kotlin 2.0.21，minSdk 26、target/compileSdk 35。
+- `MainActivity.kt:21-39` 只显示项目名和“工程骨架已就绪”。
+- `mobile-core` 当前只提供 `health_message()` 级别的核心骨架。
+- 未发现网络客户端、认证、课程仓库、数据库、同步、错误或空态业务链。
+- 当前本机环境仍没有 Android SDK 的可用验证证据；本轮未进行 APK 编译。
+
+**结论：** 移动端可以从统一契约开始实施，但不存在可简单“打开开关”的现成数据入口。
+
+## 5. 数据来源与接入链现状
+
+### 5.1 数据权威和派生关系
+
+```text
+工作区/全栈工程师学习资料库
+  ├─ 原始课程、实验、题库与资料（权威正文，私有）
+  └─ CodeWeave/（薄发布适配层）
+       ├─ 发布正文/       仅发布投影，不直接手改
+       ├─ 教学单元/       CodeWeave 教学契约
+       ├─ 练习/           练习契约
+       ├─ 知识来源/       来源与原始哈希
+       ├─ rules/          阶段、复习与审核规则
+       ├─ mappings/       稳定 ID 与旧记录映射
+       └─ content-manifest.json / 主题定位索引.md
+                ↓ compile + validate + dry-run
+       应用数据根 content/snapshots/<bundleId>.json
+                ↓ 原子切换 current.json
+       /api/content/* → 网页端（将来复用到应用端、移动端）
+```
+
+`05-外部资料库` 和 `90-历史归档` 不在当前发布白名单内；不能把原库全目录直接暴露成产品 API。
+
+### 5.2 当前内容包抽查结果
+
+| 指标 | 当前结果 |
+| --- | --- |
+| dry-run 状态 | `ready` |
+| 阻断/警告 | 0 / 0 |
+| 分册 / 主题 / 教学单元 / 练习 | 1 / 11 / 1 / 1 |
+| 空主题 / 索引不对齐 | 0 / 0 |
+| 教学覆盖缺口 | 10 个主题未被教学单元覆盖，作为 gap 报告，不阻止试点发布 |
+| 旧记录映射 | `legacy-map.json` 与 `topic-id-map.json` 均为空 |
+| 当前正式发布 | 未发布；清单 `publishedContentIds=[]`，运行根无 current 指针 |
+| 当前本地网页服务 | `127.0.0.1:4173/api/health` 连接失败，未发现正在运行的实例；本轮未启动服务 |
+
+### 5.3 配置断点
+
+启动器 `网页端/项目/scripts/launch-web.cmd` 将 `CODEWEAVE_PROJECT_ROOT` 设为 `网页端/项目/server`。本轮未发现：
+
+- `网页端/项目/server/config/codeweave.local.json`
+- `工作区/config/codeweave.local.json`
+
+因此，除非外部环境另行注入变量，当前启动不会自动指向：
+
+- `G:/CodeWeave/工作区/全栈工程师学习资料库`
+- `G:/CodeWeave/工作区/data/runtime/desktop`
+
+而代码实际默认值为 `<server>/data/vault` 与 `<server>/data/runtime`；本轮对应默认 vault 目录不存在。
+
+另有文档漂移：`server/config/codeweave.config.example.json` 的 `_defaults` 文案及示例值使用 `data/knowledge/vault`、`data/runtime/data`，与 `server/service/server/config.mjs:151-163` 的实际默认 `data/vault`、`data/runtime` 不一致。接入前必须统一口径，不能用猜测路径启动真实数据。
+
+## 6. 主要发现与优先级
+
+| 编号 | 优先级 | 发现 | 影响与处理要求 |
+| --- | --- | --- | --- |
+| CW-01 | P0 | 新资料库未被当前启动配置引用，且无生效内容快照 | 网页端仍走旧内置回退；先显式配置隔离运行根并完成 dry-run/发布审批 |
+| CW-02 | P0 | 原始资料完整，但适配层仍是单单元试点 | 不得把全库直接当已接入；按批次扩展投影、规则、练习和索引 |
+| CW-03 | P0 | 三端没有统一学习事实层，Node/Qt 均可独立写资料库 | 在线模式只能保留一个写回协调者；先做只读，再做多端写入 |
+| CW-04 | P1 | 网页同步 UI 不等待异步任务终态 | 接入验收前补 job 轮询、失败/冲突展示和取消/重试边界 |
+| CW-05 | P1 | 当前服务是本机单进程设计 | 手机或远程访问前补 HTTPS、持久会话、可配置监听/反向代理和事务存储评估 |
+| CW-06 | P1 | 新旧 ID 映射为空 | 不得按标题猜测合并进度；旧课继续保留，映射经复核后逐项迁移 |
+| CW-07 | P1 | 新适配层与 dry-run 入口尚未提交 | 先确定两个仓库各自的提交边界，防止再次因工作区清理丢失接入资产 |
+| CW-08 | P2 | 配置默认文档漂移，主项目无 CI | 修正文档；后续将契约、内容 dry-run 和三端最小门禁纳入 CI |
+| CW-09 | 环境 | 文档中的 `corepack pnpm` 当前触发 12.5.1/12.4.1 版本检查失败 | 本轮以 `corepack pnpm@12.4.1` 复验通过；可更新启动/文档命令，但不通过放宽版本检查伪造通过 |
+
+## 7. 本轮实际验证记录
+
+| 检查 | 本轮结果 |
+| --- | --- |
+| `node 工程文件/工具/check-layout.mjs` | 通过 |
+| 资料库 `content-dry-run` | 通过：`ready`、0 阻断、0 警告、未发布 |
+| Web `audit:boundary` / `contract:check` | 通过，契约 1.0.0 |
+| Web `typecheck` / `lint` / `server:check` | 通过 |
+| Web `vitest run` | **88 个文件、1323 项全部通过** |
+| 应用端边界与 release 源码审计 | 通过；release 审计检查 77 个源码文件 |
+| 应用端 Node 测试 | **4/4 通过** |
+| 移动端 `boundary-check.mjs`、Unix Wrapper `bash -n` | 通过 |
+| 移动端 `launch-mobile.ps1 -Check` | 通过；工程入口可用，Android Studio 仍未检测到 |
+| `git diff --check` | 通过；仅有原 LF/CRLF 提示 |
+| 本地 4173 健康接口 | 无运行实例，连接失败；不是服务测试失败 |
+| Qt Release / CTest / 窗口验收 | **本轮未执行**；最近历史记录不能代替本轮 |
+| Android APK / Lint / 设备 | **本轮未执行** |
+| 正式账户、真实进度、真实写回 | **本轮未执行** |
+| Web 生产构建与正式 HTTP 内容 smoke | **本轮未执行** |
+
+测试输出中的 jsdom `scrollTo` 提示和损坏存储/配额错误来自预期负向用例，最终 1323 项均通过，不单独判为产品故障。
+
+## 8. 建议的下一步
+
+按以下顺序推进，详细设计见同目录 `02_三端数据连接方案.md`：
+
+1. 固化当前未提交的接入资产，明确主仓库与资料库仓库的版本边界。
+2. 用隔离运行根完成网页端“配置 → dry-run → 审批发布 → job 终态 → catalog/detail/asset”最小闭环。
+3. 抽取中立 OpenAPI/JSON 契约，应用端新增同步内容仓库并保留旧内容包回退。
+4. 移动端先完成登录、目录、详情和离线缓存，不在同一阶段承诺代码执行。
+5. 最后再迁移 localStorage/原生账本到统一同步协议，并把资料库写回收口到单一服务。
+
+## 9. 本次变更与回滚
+
+本次仅新增本报告及配套连接方案，没有修改业务代码、数据、配置或 Git 历史，因此没有业务回滚动作。若只需撤销本次文档交付，移除 `工程文件/数据接入审查-20261122/` 中的新增报告即可；不要触碰既有工作区、迁移回滚备份或当前未提交源码。

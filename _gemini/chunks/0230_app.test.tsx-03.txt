@@ -1,0 +1,96 @@
+    expect(source).toMatch(/if \(detailPendingLessonId\.current === lesson\.id\) \{\s*\n\s*detailPendingLessonId\.current = null/)
+    // ④ #105：那一秒必须传到界面（只有 ref 的话不会重画，占位分支就是死代码）
+    expect(source).toMatch(/setDetailPendingId\(lesson\.id\)/)
+    expect(source).toMatch(/detailPending=\{detailPendingId === activeLesson\.id\}/)
+  })
+})
+
+describe('首屏数据区加载门', () => {
+  it('首轮取数没结束时保留外壳与自救操作，数据区只挂骨架', async () => {
+    const hanging = new Promise(() => {})
+    stubFetch((input) => {
+      if (String(input).includes('/api/auth/me')) return jsonResponse({ data: testUser })
+      return { ok: true, status: 200, json: () => hanging } as MockResponse
+    })
+
+    render(<StrictMode><App /></StrictMode>)
+    await new Promise((r) => setTimeout(r, 80))
+
+    expect(document.querySelector('.app-shell')).toBeTruthy()
+    expect(document.querySelector('.nav-item')).toBeTruthy()
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true')
+    expect(screen.queryByRole('heading', { name: '你的学习路径' })).toBeNull()
+    const notice = document.querySelector('[role=status]')
+    expect(notice, '加载态必须存在且带 role=status（§5.4 要验证加载态）').toBeTruthy()
+    expect(notice?.textContent).toContain('正在载入学习路径')
+    vi.useRealTimers()
+  })
+
+  /** 预算的意义就在这：接口永不返回时也必须把界面还给用户，自救入口（登出/设置）都在壳里。 */
+  it('接口卡死时到预算点显示兜底内容，既有外壳不卸载', async () => {
+    const hanging = new Promise(() => {})
+    stubFetch((input) => {
+      if (String(input).includes('/api/auth/me')) return jsonResponse({ data: testUser })
+      return { ok: true, status: 200, json: () => hanging } as MockResponse
+    })
+
+    render(<StrictMode><App /></StrictMode>)
+    await new Promise((r) => setTimeout(r, 80))
+    const sidebar = document.querySelector('.sidebar')
+    expect(sidebar).toBeTruthy()
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true')
+
+    // BOOT_WAIT_BUDGET_MS = 2500，留出渲染余量再等一次
+    await new Promise((r) => setTimeout(r, 2700))
+    await screen.findByRole('heading', { name: '你的学习路径' })
+    expect(document.querySelector('.sidebar')).toBe(sidebar)
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('false')
+  }, 15000)
+})
+
+/**
+ * #77 的裁定（2026-09-25）：文档的 h1 归**页内标题**，壳层那句问候语不再是 h1。
+ * jsdom 这层守的是「别悄悄退回去」；真浏览器那层的逐页 h1 判据在取证工具的 axtree 段里
+ * （`tools/visual/visual-states.mjs`），两边各钉一次。
+ */
+describe('#77 每页恰好一个 h1，且它是页面自己的标题', () => {
+  async function boot() {
+    stubFetch((_input) => jsonResponse({ data: testUser }))
+    render(<StrictMode><App /></StrictMode>)
+    await screen.findAllByText(/小明/)
+    await screen.findByRole('heading', { name: '你的学习路径' })
+  }
+  const h1s = () => [...document.querySelectorAll('h1')]
+
+  it('学习路径：整页只有一个 h1 且是页级标题，问候语降成 <p>', async () => {
+    await boot()
+    expect(h1s()).toHaveLength(1)
+    expect(h1s()[0]?.className).toContain('desktop-page-title')
+    const greeting = document.querySelector('.welcome-row .welcome-greeting')
+    expect(greeting?.tagName).toBe('P')
+    expect(greeting?.textContent).toContain('小明')
+  })
+
+  it('工作台：h1 换成课名，标题序列不在 h1 与 h3 之间断档', async () => {
+    await boot()
+    const row = await waitFor(() => {
+      const el = document.querySelector<HTMLButtonElement>('.desktop-unit-card')
+      if (!el) throw new Error('学习路径里没有可点的课程行')
+      return el
+    })
+    fireEvent.click(row)
+    await waitFor(() => expect(document.querySelector('.cw-workspace')).toBeTruthy())
+    expect(h1s()).toHaveLength(1)
+    expect(document.querySelector('.learning-title h1')).toBeTruthy()
+    // 不写死「第 2 个必须是 h2」：阅读区要是有主题原文才会有 h2，本用例的桩数据里没有。
+    // 断的是 axe heading-order 那件事本身——标题层级不许比前一级跳超过一格。
+    const levels = [...document.querySelectorAll('h1, h2, h3, h4')].map((h) => Number(h.tagName[1]))
+    expect(levels.every((lv, i) => i === 0 || lv <= (levels[i - 1] ?? lv) + 1)).toBe(true)
+  })
+})
+
+/**
+ * LEARN-01 第 4 条的**接线**：`verifySubmission` / `rejectSubmission` 此前在全仓没有任何生产调用方
+ * （只有 hooks.test.tsx 直接调函数本身），状态机五值齐、界面缺牙。
+ * 这里刻意从界面点进去：证明 app.tsx 真把 hook 的两个函数递到了挑战页，
+ * 并且「确认通过」会补一条 passed 的掌握度证据——两条通过路径同口径，

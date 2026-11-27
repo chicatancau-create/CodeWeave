@@ -1,0 +1,26 @@
+    submission("shared", "submitted", 0, true);
+    submission("rejected", "passed", 0);
+    submission("rejected", "rejected", 0, true);
+    submission("pending", "submitted", 0, true);
+    submission("verified", "verified", -7, true);
+    submission("old", "passed", -7);
+    submission("future", "passed", 1);
+    refresh();
+    const auto snapshot = shell.analysisSnapshot();
+    assert(snapshot.value("completedUnits").toInt() == 2);
+    assert(snapshot.value("practiceCount").toInt() == 2);
+    assert(snapshot.value("verifiedPasses").toInt() == 3);
+    assert(snapshot.value("reviewPassed").toInt() == 1 && snapshot.value("reviewFailed").toInt() == 1);
+    assert(shell.clearAccountContext() && shell.analysisSnapshot().isEmpty());
+    assert(shell.setAccountContext(learner, workspace, data));
+    wait_for([&] { return !shell.contentBusy(); });
+    refresh();
+    assert(shell.analysisSnapshot() == snapshot);
+    const auto archive = root / "learning/challenge-submissions.v1.json";
+    std::ofstream(archive, std::ios::trunc | std::ios::binary) << "invalid isolated analytics fixture\n";
+    refresh();
+    assert(shell.analysisSnapshot().isEmpty() && !shell.lessonEvidenceReady());
+    assert(read_file(archive) == "invalid isolated analytics fixture\n");
+  }
+  std::cout << "Qt facade: account isolation, analytics windows, revisions, persistence, lesson evidence, failures and shutdown passed\n";
+}

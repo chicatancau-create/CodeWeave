@@ -1,0 +1,93 @@
+              code: 'sync_conflict',
+              files: [
+                {
+                  path: '全栈工程师学习计划/进度追踪.md',
+                  kind: 'progress',
+                  reason: 'third_party_change',
+                  fieldDiffs: [{ field: '最近学习证据', previewed: '2026-09-14', current: '2026-09-15' }],
+                },
+              ],
+              logSaved: false,
+            },
+          },
+          409,
+        ),
+    })
+    renderPanel()
+    await openPreview()
+    confirmWrite()
+    await screen.findByText('检测到第三方改动，未覆盖任何内容')
+
+    expect(screen.getByRole('columnheader', { name: '冲突字段' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '当前文件的值' })).toBeTruthy()
+    expect(screen.getByText('2026-09-15')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /重新预览/ })).toBeTruthy()
+    // 冲突块自己就带「旧 −」前缀。改前这条是 `toBeGreaterThan(1)`：多出来的那一个
+    // 正是**失效预览**留在页面上的差异表（挂账③）。预览撤下后计数落到 1，
+    // 同时补两条更强的断言：失效预览区与「确认写入」入口都不许再和冲突块并存。
+    expect(screen.getAllByText('旧 −').length).toBe(1)
+    expect(screen.getAllByText('冲突').length).toBeGreaterThan(0)
+    expect(screen.queryByText('预览（尚未写入任何文件）')).toBeNull()
+    expect(screen.queryByRole('button', { name: '确认写入' })).toBeNull()
+  })
+})
+
+describe('M3 §5.4 加载 / 空 / 失败三态', () => {
+  it('加载态：状态标识 + 文案 + 静态骨架行（骨架不承载信息）', async () => {
+    // 队列读取**保持在途**：加载态必须由「这一次还没读回来」触发，
+    // 不能再用读取失败来冒充加载态（挂账②修完后失败有自己的外观）。
+    const pendingRead = new Promise<never>(() => undefined)
+    stubFetch((input) => {
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence') return pendingRead
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    const { container } = renderPanel()
+    await screen.findByText(/正在读取暂存证据/)
+
+    expect(screen.getAllByText('加载中').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.ewb-skeleton-bar').length).toBeGreaterThan(0)
+    expect(container.querySelector('.ewb-skeleton')?.getAttribute('aria-hidden')).toBe('true')
+    // 在途时不给出失败外观，也不给出空态外观。
+    expect(screen.queryByText('失败')).toBeNull()
+    expect(screen.queryByText(/没有待写回证据/)).toBeNull()
+  })
+
+  it('读取失败不再借加载态的外观：失败标识 + 服务端原因 + 重试入口（挂账②）', async () => {
+    stubFetch((input) => {
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence') return json({ error: '暂存文件损坏', code: 'evidence_store_corrupt' }, 500)
+      return json({ error: 'x', code: 'x' }, 404)
+    })
+    const { container } = renderPanel()
+    const reason = await screen.findByText(/读取暂存证据失败：暂存文件损坏/)
+    expect(reason.closest('.ewb-state--failed')).not.toBeNull()
+    expect(container.querySelector('.ewb-state--failed .ewb-mark--failed')).not.toBeNull()
+    expect(screen.getByRole('button', { name: /重新读取队列/ })).toBeTruthy()
+    // 失败态与加载态、空态互斥：既不转圈也不谎称队列为空。
+    expect(screen.queryByText(/正在读取暂存证据/)).toBeNull()
+    expect(screen.queryByText(/没有待写回证据/)).toBeNull()
+    expect(container.querySelectorAll('.ewb-skeleton-bar').length).toBe(0)
+  })
+
+  it('空态：两个队列区各有「空」标识，并重申暂存不等于写回', async () => {
+    route()
+    renderPanel()
+    await screen.findByText(/没有待写回证据/)
+
+    // 待处理区与已同步区各自成区，因此各自给出空态标识（不共用一条提示）
+    expect(screen.getAllByText('空').length).toBe(2)
+    expect(screen.getByText(/还没有已同步的证据/)).toBeTruthy()
+  })
+
+  it('失败态：标识文字「失败」与服务端理由同处一条横幅，且不伪装成预览', async () => {
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      preview: () => json({ error: '这些证据已同步过；重复提交不会再次追加', code: 'already_synced' }, 409),
+    })
+    renderPanel()
+    await screen.findByText('Java Hello World')

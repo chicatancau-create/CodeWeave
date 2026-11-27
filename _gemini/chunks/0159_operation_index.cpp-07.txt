@@ -1,0 +1,66 @@
+    return metadata;
+  }
+  std::error_code cache_error;
+  {
+    std::lock_guard lock(cache_mutex);
+    auto& cached = cache[cache_key(index_dir)];
+    cached.snapshot = snapshot;
+    cached.entries[entry.operation_id] = entry;
+    cached.ledger_time = std::filesystem::last_write_time(ledger_path, cache_error);
+    if (cache_error) {
+      cache.erase(cache_key(index_dir));
+      return app::Result::failure("读取追加后账本时间失败");
+    }
+    cached.metadata_time = std::filesystem::last_write_time(metadata_path(index_dir), cache_error);
+    if (cache_error) {
+      cache.erase(cache_key(index_dir));
+      return app::Result::failure("读取追加后索引时间失败");
+    }
+  }
+  return app::Result::success();
+}
+
+app::Result clear(const std::filesystem::path& index_dir,
+    const std::filesystem::path& data_root) {
+  if (!index_dir.is_absolute() || data_root.empty() || !data_root.is_absolute() ||
+      has_symlink_component(data_root) || has_symlink_component(index_dir.parent_path())) {
+    return app::Result::failure("清理 operation 索引路径无效");
+  }
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(index_dir, error);
+  if (missing(error) || status.type() == std::filesystem::file_type::not_found) {
+    std::lock_guard lock(cache_mutex);
+    cache.erase(cache_key(index_dir));
+    return app::Result::success();
+  }
+  if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_directory(status)) {
+    return app::Result::failure("operation 索引目录类型无效");
+  }
+  std::filesystem::remove_all(index_dir, error);
+  if (!error) {
+    std::lock_guard lock(cache_mutex);
+    cache.erase(cache_key(index_dir));
+  }
+  return error ? app::Result::failure("清理 operation 索引失败") : app::Result::success();
+}
+
+app::Result read_entry(const std::filesystem::path& ledger_path, const Entry& entry,
+    std::string& line) {
+  if (entry.length == 0 || entry.length > 1024 * 1024) {
+    return app::Result::failure("operation 索引行长度无效");
+  }
+  std::ifstream input(ledger_path, std::ios::binary);
+  if (!input) return app::Result::failure("打开 operation 索引目标记录失败");
+  input.seekg(static_cast<std::streamoff>(entry.offset), std::ios::beg);
+  if (!input) return app::Result::failure("定位 operation 索引目标记录失败");
+  line.assign(static_cast<std::size_t>(entry.length), '\0');
+  input.read(line.data(), static_cast<std::streamsize>(line.size()));
+  if (input.gcount() != static_cast<std::streamsize>(line.size())) {
+    return app::Result::failure("读取 operation 索引目标记录失败");
+  }
+  if (!line.empty() && line.back() == '\n') line.pop_back();
+  if (!line.empty() && line.back() == '\r') line.pop_back();
+  return app::Result::success();
+}
+
+}  // namespace codeweave::learning::operation_index

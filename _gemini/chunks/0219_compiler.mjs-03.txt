@@ -1,0 +1,103 @@
+        message: `${topicKey(topic.path, topic.headingPath)} 有多个同标题链的候选 ID（${reusable.map((item) => item.topicId).join('、')}），必须由 topic-id-map.json 指定归属，不得靠相似标题继承`,
+      })
+      continue
+    }
+    // 同文件里消失了旧标题、出现了新标题 = 改名。改名必须留映射记录。
+    const vanishedHere = registry.filter(
+      (entry) => entry.path === topic.path && entry.status !== 'retired' && !liveKeys.has(topicKey(entry.path, entry.headingPath)),
+    )
+    if (vanishedHere.length > 0) {
+      plan.problems.push({
+        code: 'id_map_required',
+        path: topic.path,
+        message: `${topic.path} 内标题改名后出现新主题 ${topicKey(topic.path, topic.headingPath)}，但 ${vanishedHere.map((e) => `${e.topicId}(${e.headingPath.join(' > ')})`).join('、')} 没有显式映射。改名必须经 topic-id-map.json 记录，不自动继承。`,
+      })
+      continue
+    }
+    seq += 1
+    const entry = {
+      topicId: `topic-${String(seq).padStart(4, '0')}`,
+      path: topic.path,
+      headingPath: topic.headingPath,
+      title: topic.title,
+      level: topic.level,
+      line: topic.line,
+      topicKind: topic.topicKind,
+      sourceIds: topic.sourceIds,
+      verificationStatus: topic.verificationStatus,
+      contentHash: topic.contentHash,
+      fileHash: topic.fileHash,
+      isEmpty: topic.isEmpty,
+      status: 'active',
+    }
+    registry.push(entry)
+    byId.set(entry.topicId, entry)
+    byKey.set(topicKey(entry.path, entry.headingPath), entry)
+    added.push(entry.topicId)
+  }
+
+  for (const topic of registry) {
+    if (topic.status === 'retired') continue
+    if (!liveKeys.has(topicKey(topic.path, topic.headingPath))) {
+      topic.status = 'retired'
+      topic.movedFrom = undefined
+      topic.retiredReason = 'auto:来源标题消失或被移动，且没有显式迁移映射'
+      retired.push(topic.topicId)
+      autoRetired.push(topic.topicId)
+    }
+  }
+
+  registry.sort((a, b) => a.topicId.localeCompare(b.topicId))
+  return { registry, nextSeq: seq, added, moved, retired, autoRetired, problems: plan.problems }
+}
+
+// ---------------------------------------------------------------------------
+// 正文扫描
+// ---------------------------------------------------------------------------
+export async function scanVolumes(root, manifest) {
+  const wl = whitelistOf(manifest)
+  const files = await listMarkdownFiles(root, wl.contentRoot, { skipDirs: wl.excludedPathSegments })
+  const volumes = []
+  const topics = []
+  const problems = []
+  for (const path of files) {
+    const rel = path.slice(`${wl.contentRoot}/`.length)
+    if (wl.excludedPathSegments.some((seg) => rel.split('/').includes(seg))) continue
+    if (wl.excludedPathPrefixes.some((prefix) => path.startsWith(prefix))) continue
+    const text = await readVaultText(root, path)
+    const fileHash = sha256(text)
+    let front
+    try {
+      front = parseRestrictedFrontmatter(text, path)
+    } catch (error) {
+      problems.push({ code: error.code ?? 'frontmatter_error', path, message: error.message })
+      continue
+    }
+    const kind = front.fields.type
+    if (!front.present || !wl.contentTypes.includes(kind)) continue
+    const levels = parseLevels(front.fields.topic_levels, path)
+    const sourceIds = asList(front.fields.source_ids)
+    const verificationStatus = asList(front.fields.verification_status)[0]
+      ?? (manifest.sourceRegistry?.[sourceIds[0]]?.verificationStatus)
+      ?? '未核验'
+    const volume = {
+      path,
+      kind,
+      levels,
+      updated: front.fields.updated ?? null,
+      sourceIds,
+      verificationStatus,
+      fileHash,
+      title: null,
+      topicCount: 0,
+      duplicateTitles: [],
+    }
+    const sections = topicsFromVolume(text, levels)
+    const seen = new Map()
+    for (const section of sections) {
+      if (section.level === 1 && !volume.title) volume.title = section.title
+      const titleCount = (seen.get(section.title) ?? 0) + 1
+      seen.set(section.title, titleCount)
+      const headingPath = [...section.headingPath, section.title]
+      const contentHash = sha256(stableStringify({ headingPath, body: section.bodyText }))
+      topics.push({

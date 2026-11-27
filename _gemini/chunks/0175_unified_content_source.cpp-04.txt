@@ -1,0 +1,90 @@
+    const bool savedBundle = !data.isEmpty();
+    if (!savedBundle) data = responseData(bytes);
+    const auto lesson = data.value("lesson").toMap();
+    if ((status != 0 && (status != 200 || reply.rawHeader("X-Content-Bundle") != bundle.toUtf8())) || lesson.value("contentId").toString() != contentId) {
+      if (status == 401 || status == 403) clearAccount();
+      finish(QStringLiteral("课程不可用或快照版本不一致"));
+      return;
+    }
+    if (status == 200) saveCache(key, bytes);
+    page_ = std::move(data);
+    if (savedBundle) {
+      finish(QStringLiteral("离线只读"));
+      return;
+    }
+    page_["images"] = QVariantList{};
+    loadAttachments(page_.value("assets").toList(), 0, status == 0);
+  });
+}
+
+void UnifiedContentSource::loadAttachments(const QVariantList& assets, int index, bool offline) {
+  if (index >= assets.size()) {
+    finish(offline ? QStringLiteral("离线只读") : QStringLiteral("已连接"));
+    return;
+  }
+  const auto asset = assets[index].toMap();
+  const auto hash = asset.value("sha256").toByteArray();
+  const auto source = asset.value("path").toString();
+  const auto key = contextKey() + "/asset/" + QString::fromLatin1(hash);
+  const auto bundle = catalog_.value("bundleId").toString();
+  const auto retain = [this, key, hash, source](const QByteArray& bytes, bool cached) {
+    if (bytes.isEmpty() || digest(bytes) != hash || (!cached && !saveCache(key, bytes))) return;
+    auto attachments = page_.value("images").toList();
+    attachments.append(QVariantMap{{"title", QFileInfo(source).fileName()}, {"url", QUrl::fromLocalFile(cacheFile(key))}});
+    page_["images"] = attachments;
+  };
+  if (offline) {
+    retain(readCache(key), true);
+    loadAttachments(assets, index + 1, true);
+    return;
+  }
+  run(QStringLiteral("/api/content/asset?bundleId=") + parameter(bundle) + "&path=" + parameter(source), {},
+      [this, assets, index, bundle, key, retain](int status, const QByteArray& bytes, const QNetworkReply& reply) {
+        if (status == 200 && reply.rawHeader("X-Content-Bundle") == bundle.toUtf8()) retain(bytes, false);
+        if (status == 0) retain(readCache(key), true);
+        loadAttachments(assets, index + 1, status == 0);
+      });
+}
+
+void UnifiedContentSource::disconnectAccount() {
+  if (!connected()) return;
+  run(QStringLiteral("/api/auth/logout"), QByteArrayLiteral("{}"), [](int, const QByteArray&, const QNetworkReply&) {});
+  clearAccount();
+  finish(QStringLiteral("已退出统一服务"));
+}
+
+void UnifiedContentSource::refreshLearningFacts() {
+  if (!connected() || syncBusy_ ||
+      !catalog_.value("capabilities").toStringList().contains(QStringLiteral("learningSync"))) return;
+  syncBusy_ = true;
+  syncStatus_ = QStringLiteral("正在同步学习记录");
+  emit changed();
+  const auto scope = learningScope();
+  const auto outbox = checkinOutboxPath();
+  if (outbox.isEmpty() || !QFile::exists(outbox)) {
+    pullLearningFacts({}, {});
+    return;
+  }
+  run(QStringLiteral("/api/sync/state"), {}, [this, scope, outbox](int status, const QByteArray& bytes, const QNetworkReply&) {
+    const auto state = responseData(bytes);
+    const auto expected = QStringList{state.value("serviceInstance").toString(), state.value("vaultId").toString(),
+      state.value("accountId").toString()}.join(QChar::Null);
+    if (status != 200 || expected != scope || scope != learningScope()) {
+      syncBusy_ = false;
+      syncStatus_ = status == 0 ? QStringLiteral("待同步打卡已保留")
+        : QStringLiteral("待同步打卡已保留（同步账户 %1）").arg(status);
+      emit changed();
+      return;
+    }
+    flushCheckinOutbox(scope, outbox);
+  });
+}
+
+QString UnifiedContentSource::learningScope() const {
+  return QStringList{catalog_.value("serviceInstance").toString(), catalog_.value("vaultId").toString(), account_}
+    .join(QChar::Null);
+}
+
+QString UnifiedContentSource::checkinOutboxPath() const {
+  if (cacheDir_.isEmpty() || account_.isEmpty() || catalog_.value("vaultId").toString().isEmpty()) return {};
+  return QDir(cacheDir_).filePath(QStringLiteral("outbox-") +

@@ -1,0 +1,94 @@
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onVisibility = () => setHidden(document.visibilityState === 'hidden')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  const toggleUserPaused = useCallback(() => setUserPaused((current) => !current), [])
+
+  return {
+    still: systemReduce || classReduce || settingReduce || hidden || userPaused,
+    userPaused,
+    toggleUserPaused,
+  }
+}
+
+export function AuthView({ mode, error, busy, connectionError, onModeChange, onSubmit }: AuthViewProps) {
+  const [showPassword, setShowPassword] = useState(false)
+  // contactType 改为受控状态：选择“手机号”后联系方式输入需同步切换 type/inputMode，
+  // 仅靠 FormData 读取无法驱动渲染。
+  const [contactType, setContactType] = useState<ContactType>('email')
+  const passwordId = useId()
+  const contactId = useId()
+  /** 忙态禁用说明的锚点：提交按钮与模式切换按钮共用同一句原因（§4 disabled 行）。 */
+  const busyHintId = 'auth-busy-disabled-hint'
+  const formRef = useRef<HTMLFormElement>(null)
+  const { still, userPaused, toggleUserPaused } = useSceneMotion()
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    const password = data.get('password') as string
+
+    if (mode === 'register') {
+      const name = data.get('name') as string
+      const contactValue = data.get('contact') as string
+      onSubmit({
+        name,
+        [contactType]: contactValue,
+        contactType,
+        password,
+      })
+    } else {
+      const identifier = data.get('identifier') as string
+      onSubmit({ identifier, password })
+    }
+  }
+
+  /**
+   * Esc = 退出输入态：明文密码收回、焦点回到第一个输入框。
+   * 不清空已填凭据（用户可能只是要看一眼密码），不提交表单，也不向上冒泡，
+   * 免得外层弹层把它当成“关闭自己”的信号。
+   */
+  const handleKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    setShowPassword(false)
+    formRef.current?.querySelector<HTMLElement>('input, select')?.focus()
+  }
+
+  const isPhone = contactType === 'phone'
+  const connectionHint = !error && connectionError ? CONNECTION_HINTS[connectionError] : undefined
+  const noticeId = error ? 'auth-error' : connectionHint ? 'auth-connection' : undefined
+
+  return (
+    <div className="cv-auth" data-motion={still ? 'still' : 'live'}>
+      {/* 宇宙场景位：纯装饰。aria-hidden + pointer-events:none，
+          不进辅助技术阅读顺序、不截获鼠标与键盘（§5.3.6），也永不阻断表单（§5.3.2）。
+          2026-09-29：从右栏搬到**左栏**，与品牌/标题合成一整块「观测台」——
+          原来的排法是左栏只有三行字、星球孤零零挂在右栏表单背后，左右都空。
+          元素本身一个没动（2 个 ring / glow / horizon / orbit / tag 的钩子全在），
+          只换了它所在的轨道（CSS 里 `grid-column` / `grid-row`）。 */}
+      <div className="cv-auth__scene" aria-hidden="true">
+        <span className="cv-auth__scene-glow" />
+        <span className="cv-auth__scene-horizon" />
+        <span className="cv-auth__scene-ring" />
+        <span className="cv-auth__scene-ring cv-auth__scene-ring--far" />
+        <span className="cv-auth__scene-orbit" />
+        <svg className="cv-auth__orbits" viewBox="0 0 1000 900" fill="none">
+          <g transform="translate(450 460)">
+            <ellipse rx="430" ry="280" transform="rotate(-18)" />
+            <ellipse rx="330" ry="210" transform="rotate(28)" />
+            <ellipse rx="210" ry="140" transform="rotate(-8)" />
+            <ellipse rx="560" ry="360" transform="rotate(12)" strokeDasharray="4 9" />
+            <circle cx="-275" cy="-161" r="4" />
+            <circle cx="243" cy="137" r="3" />
+            <circle cx="-12" cy="-139" r="3" />
+          </g>
+          {[[70, 140], [215, 295], [670, 182], [800, 675], [130, 640], [582, 740], [405, 93], [754, 377]].map(([x, y]) => (

@@ -1,0 +1,97 @@
+/** 默认把所有写回端点路由到给定响应，并记录每次 POST 的路径与请求体。 */
+function route({
+  queue = { pending: [stagedRecord()], synced: [] as unknown[] },
+  queueFails = false,
+  preview = () => json({ data: PREVIEW }),
+  commit = () => json({ data: { synced: true, idempotent: false, operationId: 'op-test-abc123', targets: [] } }),
+  posts = [] as { path: string; body: Record<string, unknown> }[],
+}: {
+  queue?: { pending: unknown[]; synced: unknown[] }
+  queueFails?: boolean
+  preview?: () => Reply
+  commit?: () => Reply
+  posts?: { path: string; body: Record<string, unknown> }[]
+} = {}) {
+  stubFetch((input, init) => {
+    const method = init?.method ?? 'GET'
+    if (method !== 'GET') {
+      posts.push({ path: String(input), body: (init?.body ? JSON.parse(String(init.body)) : {}) as Record<string, unknown> })
+    }
+    if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+    if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+    if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+    if (input === '/api/learning/evidence' && method === 'GET') {
+      return queueFails ? json({ error: '暂存文件损坏', code: 'evidence_store_corrupt' }, 500) : json({ data: queue })
+    }
+    if (input === '/api/learning/evidence-preview') return preview()
+    if (input === '/api/learning/evidence-commit') return commit()
+    return json({ error: '未模拟的接口', code: 'not_mocked' }, 404)
+  })
+  return posts
+}
+
+function renderPanel() {
+  return render(
+    <ContentProvider enabled>
+      <EvidenceWritebackPanel />
+    </ContentProvider>,
+  )
+}
+
+/** 走到「已勾选确认、等待提交」的那一步。 */
+async function openPreviewAndConfirm(commit: () => Reply) {
+  route({ commit })
+  renderPanel()
+  await screen.findByText('Java Hello World')
+  fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+  await screen.findByText('预览（尚未写入任何文件）')
+  fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+  fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+}
+
+/** 取出提交请求体列表（下标访问一律给兜底，避免「没发出去」被读成断言通过）。 */
+function commitBodies(posts: { path: string; body: Record<string, unknown> }[]) {
+  const bodies = posts.filter((post) => post.path === '/api/learning/evidence-commit').map((post) => post.body)
+  return {
+    count: bodies.length,
+    at: (index: number) => bodies[index] ?? { __missing: index },
+  }
+}
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('挂账② 队列读取四态', () => {
+  it('读取失败：给出原因、错误码与重试入口，且不说成空态也不说成加载中', async () => {
+    route({ queueFails: true })
+    const { container } = renderPanel()
+
+    const reason = await screen.findByText(/读取暂存证据失败：暂存文件损坏/)
+    expect(reason.closest('.ewb-state--failed')).not.toBeNull()
+    expect(screen.getByText(/evidence_store_corrupt/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /重新读取队列/ })).toBeTruthy()
+    // 四态互斥：失败时既不在转圈，也不谎称空。
+    expect(screen.queryByText(/正在读取暂存证据/)).toBeNull()
+    expect(screen.queryByText(/没有待写回证据/)).toBeNull()
+    expect(container.querySelectorAll('.ewb-skeleton-bar').length).toBe(0)
+    // 总账在没读到数据时不给计数：不把「读不到」写成「0 条」。
+    expect(screen.getByText(/读取失败，计数不可用/)).toBeTruthy()
+    expect(screen.queryByText(/0 条暂存/)).toBeNull()
+  })
+
+  it('已经读到过数据后重读失败：保留上一次结果并标出这次失败，不清空成空队列', async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = []
+    let readAttempts = 0
+    stubFetch((input, init) => {
+      if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+      if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+      if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+      if (input === '/api/learning/evidence' && (init?.method ?? 'GET') === 'GET') {
+        readAttempts += 1
+        return readAttempts === 1
+          ? json({ data: { pending: [stagedRecord()], synced: [] } })
+          : json({ error: '暂存文件损坏', code: 'evidence_store_corrupt' }, 500)
+      }

@@ -1,0 +1,94 @@
+    // 原先把进度条那 0 0 8px 写成豁免字面量，它在 §7 色彩纪律里算「调用行上的裸色值」，
+    // 已收进令牌定义行，这里随之下线豁免。
+    const glowToken = /^var\(--cv-glow-(near|panel|inset|mark)\)$/
+    for (const value of shadows) {
+      const ok = glowToken.test(value)
+      expect(ok, `未走发光令牌的 box-shadow：${value}`).toBe(true)
+    }
+    // 渐变与玻璃仍不出现在本页：发光已经承担层级，再叠玻璃/渐变就是双重装饰。
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+  })
+
+  it('发光别名只落到 --ds-glow-*，且不参与语义状态（场景与状态仍分家）', () => {
+    const root = ruleBody('.challenges-view')
+    expect(root).toContain('--cv-glow-near: var(--ds-glow-near')
+    expect(root).toContain('--cv-glow-panel: var(--ds-glow-panel')
+    expect(root).toContain('--cv-glow-inset: var(--ds-glow-inset')
+    // 语义状态四档一律不消费发光别名：发光是装饰，状态必须靠颜色 + 文字 + 图形三重通道。
+    for (const state of ['--cv-ok', '--cv-warn', '--cv-bad', '--cv-info']) {
+      expect(root).toContain(`${state}: var(--ds-status-`)
+    }
+    expect(root).not.toMatch(/--cv-(ok|warn|bad|info)[^:]*:\s*var\(--cv-glow/)
+  })
+
+  it('圆角只有 0 / 50% / 100px 三档，且全部经令牌', () => {
+    const radii = [...cssCode.matchAll(/border-radius:\s*([^;]+)/g)].map((match) => match[1]!.trim())
+    const allowed = new Set([
+      'var(--ds-radius-panel, 0)',
+      'var(--ds-radius-control, 0)',
+      'var(--ds-shape-none, 0)',
+      'var(--ds-shape-circle, 50%)',
+      'var(--ds-shape-pill, 100px)',
+    ])
+    expect(radii.length).toBeGreaterThan(4)
+    expect(radii.filter((value) => !allowed.has(value))).toEqual([])
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值（令牌缺席时外观不回退到旧体系）', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('没有任何全局裸选择器：规则一律以页面根类或降级状态类起头', () => {
+    const unscoped = allSelectors().filter(
+      (selector) =>
+        !selector.startsWith('.challenges-view') &&
+        !selector.startsWith('.reduce-motion .challenges-view') &&
+        !selector.startsWith('.challenges-view.reduce-motion'),
+    )
+    expect(unscoped).toEqual([])
+  })
+})
+
+describe('M4 挑战页 · 语义状态恒定色 + 双通道（§5.1 末段）', () => {
+  const statuses = [
+    'status-not-started',
+    'status-external-pending',
+    'status-unsupported',
+    'status-ready-to-submit',
+    'status-pending-verify',
+    'status-passed',
+  ] as const
+
+  it('六档状态色全部指到恒定 --ds-status-* 或暖白档，无一跟随场景点缀色', () => {
+    const root = ruleBody('.challenges-view')
+    expect(root).toContain('--cv-ok: var(--ds-status-success')
+    expect(root).toContain('--cv-warn: var(--ds-status-warning')
+    expect(root).toContain('--cv-bad: var(--ds-status-danger')
+    expect(root).toContain('--cv-info: var(--ds-status-info')
+    for (const status of statuses) {
+      const body = ruleBody(`.challenges-view .stage-status.${status}`)
+      expect(body.length).toBeGreaterThan(0)
+      expect(body).not.toMatch(/--ds-scene|--cv-scene|--c-cyan|--c-purple|--c-orange|--accent/)
+    }
+    // 场景色在本文件只允许出现在编号/选中/进度，不得出现在状态块里
+    expect(ruleBody('.challenges-view .stage-status.status-ready-to-submit')).toContain('var(--cv-info)')
+    expect(ruleBody('.challenges-view .stage-status.status-pending-verify')).toContain('var(--cv-warn)')
+  })
+
+  it('执行等级徽标同样用恒定色（teaching 不再指场景青）', () => {
+    const teaching = ruleBody('.challenges-view .execution-tier.tier-teaching')
+    expect(teaching).toContain('var(--cv-info)')
+    expect(teaching).not.toMatch(/--c-cyan|--ds-scene|--cv-scene/)
+    expect(ruleBody('.challenges-view .execution-tier.tier-worker')).toContain('var(--cv-ok)')
+    expect(ruleBody('.challenges-view .execution-tier.tier-external')).toContain('var(--cv-warn)')
+  })
+
+  it('标识双通道：每档状态都有固定图形（::before 形状）+ 中文文字', () => {
+    const marker = ruleBody('.challenges-view .stage-status::before')
+    expect(marker).toContain('width: 7px')
+    expect(marker).toContain('border: var(--cv-hair-width) solid currentColor')
+    renderView({ progress: passedRecord })
+    const chip = screen
+      .getByRole('button', { name: /B 关：Java 核心编程，已通过/ })
+      .querySelector('.stage-status')!
+    expect(chip.textContent).toContain('已通过')

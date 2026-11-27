@@ -1,0 +1,71 @@
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/CMakeLists.txt" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/CMakeLists.txt"
+index afa5951..3190f4f 100644
+--- "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/CMakeLists.txt"
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/CMakeLists.txt"
+@@ -71,6 +71,10 @@ qt_add_qml_module(codeweave-qt
+   VERSION 1.0
+   QML_FILES
+     qml/Main.qml
++    qml/DesignSystem.qml
++    qml/components/NavItem.qml
++    qml/components/IconButton.qml
++    qml/components/ShellField.qml
+     qml/components/PrimaryButton.qml
+     qml/components/QuietButton.qml
+     qml/components/SubjectPill.qml
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/Main.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/Main.qml"
+index a2e2a62..1950dbd 100644
+--- "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/Main.qml"
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/Main.qml"
+@@ -3,6 +3,8 @@ import QtQuick.Controls.Basic
+ import QtQuick.Layouts
+ import QtQuick.Shapes
+ import QtQuick.Effects
++import "components"
++import "pages"
+ 
+ // ── CodeCanvas desktop shell ────────────────────────────────────────────────
+ // Visual replica of the web frontend (网页端). The language stays Qt Quick/QML
+@@ -48,528 +50,30 @@ Rectangle {
+     readonly property string page: uiShell.currentPage
+ 
+     // ── Design tokens ───────────────────────────────────────────────────────
+-    QtObject {
++    DesignSystem {
+         id: ds
+-
+-        // Surfaces
+-        readonly property color page:       "#0f131b"   // --page
+-        readonly property color chrome:     "#0b1018"   // --chrome (topbar)
+-        readonly property color sidebarBg:  "#0c1118"
+-        readonly property color panel:      "#181d25"   // --panel
+-        readonly property color railPanel:  "#151b24"
+-        readonly property color inset:      "#0a0e15"   // --inset
+-        readonly property color overlay:    "#141b25"   // --overlay
+-        readonly property color raised:     "#131a24"
+-        readonly property color snippetBg:  "#0b111a"
+-        readonly property color editorBg:   "#0e0e0f"
+-        readonly property color stageBg:    "#0b1220"
+-        readonly property color markBg:     "#182632"
+-        readonly property color subjectBg:  "#141a23"
+-        readonly property color subjectOn:  "#153044"
+-        readonly property color tabActive:  "#161a21"   // #ffffff08 over panel
+-        readonly property color cardHover:  "#1b2531"
+-        readonly property color hoverWash:  "#1b2531"
+-        readonly property bool useLayerEffects: true
+-
+-        // Lines — web values are translucent; these are the resolved composites
+-        readonly property color line:       "#20242b"   // #ffffff12
+-        readonly property color lineRaised: "#2b313a"   // #ffffff20
+-        readonly property color lineStrong: "#576578"
+-        readonly property color accentSoft: "#0f1e29"   // #38bdf814 (web: rgba(34,211,238,0.12))
+-        readonly property color accentRing: "#19455c"   // #38bdf84d
+-        readonly property color accentFill: "#10212d"   // #38bdf818
+-        readonly property color heroEdge:   "#1f3d4d"   // #38bdf838
+-        readonly property color heroBadge:  "#12222c"   // #38bdf810
+-        readonly property color heroBadgeEd:"#1a3542"   // #38bdf82b
+-        readonly property color unitBadge:  "#12222c"   // #38bdf810
+-        readonly property color unitBadgeEd:"#19313e"   // #38bdf822
+-        readonly property color scrim:      "#161c24"   // rgba(120,165,220,0.045) — web --scrim
+-        readonly property color scrimRaised:"#1d242f"   // rgba(120,175,235,0.085) — web --scrim-raised
+-        readonly property color pressWash:  "#1b222c"

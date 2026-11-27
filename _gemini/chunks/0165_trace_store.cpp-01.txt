@@ -1,0 +1,119 @@
+#include "trace_store.hpp"
+
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <chrono>
+#include <fstream>
+#include <random>
+#include <sstream>
+#include <system_error>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace codeweave::execution {
+namespace {
+
+constexpr std::uintmax_t kMaxTraceFileBytes = 64 * 1024 * 1024;
+constexpr std::size_t kMaxTraceLineBytes = 2 * 1024 * 1024;
+
+std::string encode(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(value.size() * 2);
+  for (const unsigned char c : value) {
+    out.push_back(digits[c >> 4]);
+    out.push_back(digits[c & 0x0f]);
+  }
+  return out;
+}
+
+bool decode(std::string_view value, std::string& out) {
+  if (value.size() % 2) return false;
+  out.clear();
+  out.reserve(value.size() / 2);
+  const auto digit = [](char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+  };
+  for (std::size_t i = 0; i < value.size(); i += 2) {
+    const auto hi = digit(value[i]); const auto lo = digit(value[i + 1]);
+    if (hi < 0 || lo < 0) return false;
+    out.push_back(static_cast<char>((hi << 4) | lo));
+  }
+  return true;
+}
+
+std::string kind(EventKind kind) {
+  switch (kind) {
+    case EventKind::Started: return "started";
+    case EventKind::SourceStep: return "source_step";
+    case EventKind::Output: return "output";
+    case EventKind::Paused: return "paused";
+    case EventKind::Resumed: return "resumed";
+    case EventKind::Completed: return "completed";
+    case EventKind::Failed: return "failed";
+    case EventKind::Cancelled: return "cancelled";
+  }
+  return {};
+}
+
+bool parse_kind(std::string_view value, EventKind& out) {
+  if (value == "started") out = EventKind::Started;
+  else if (value == "source_step") out = EventKind::SourceStep;
+  else if (value == "output") out = EventKind::Output;
+  else if (value == "paused") out = EventKind::Paused;
+  else if (value == "resumed") out = EventKind::Resumed;
+  else if (value == "completed") out = EventKind::Completed;
+  else if (value == "failed") out = EventKind::Failed;
+  else if (value == "cancelled") out = EventKind::Cancelled;
+  else return false;
+  return true;
+}
+
+bool parse_line(std::string_view line, TraceEvent& event) {
+  std::array<std::string_view, 4> fields{};
+  std::size_t start = 0;
+  for (std::size_t i = 0; i < fields.size(); ++i) {
+    const auto end = line.find('\t', start);
+    fields[i] = line.substr(start, end == std::string_view::npos ? line.size() - start : end - start);
+    if (end == std::string_view::npos) {
+      if (i + 1 != fields.size()) return false;
+      break;
+    }
+    if (i + 1 == fields.size()) return false;
+    start = end + 1;
+  }
+  std::string sequence;
+  std::string kind_text;
+  std::string session;
+  std::string payload;
+  if (!decode(fields[0], sequence) || !decode(fields[1], kind_text) ||
+      !decode(fields[2], session) || !decode(fields[3], payload)) return false;
+  std::uint64_t value = 0;
+  const auto parsed = std::from_chars(sequence.data(), sequence.data() + sequence.size(), value);
+  EventKind event_kind{};
+  if (parsed.ec != std::errc{} || parsed.ptr != sequence.data() + sequence.size() ||
+      !parse_kind(kind_text, event_kind) || session.empty()) return false;
+  event = {value, event_kind, std::move(session), std::move(payload)};
+  return true;
+}
+
+std::filesystem::path temporary_path(const std::filesystem::path& destination) {
+  auto result = destination;
+  result += ".tmp." +
+      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "." +
+      std::to_string(std::random_device{}());
+  return result;
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;

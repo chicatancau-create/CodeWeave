@@ -1,0 +1,50 @@
+                                            objectName: "detailEvidence-" + lessonButton.modelData.id
+                                            visible: Catalog.heldStateLabels(uiShell.lessonEvidenceStates[lessonButton.modelData.id]).length > 0
+                                            text: "证据：" + Catalog.heldStateLabels(uiShell.lessonEvidenceStates[lessonButton.modelData.id]).join(" · ")
+                                            color: ds.accent; font.family: ds.ui; font.pixelSize: 11; wrapMode: Text.WordWrap
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: Catalog.sourceLabel(lessonButton.modelData)
+                                                + (lessonButton.modelData.reading ? " · 阅读单元" : "")
+                                                + (lessonButton.modelData.executable === false ? " · 需外部环境" : "")
+                                            color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: Catalog.gapLabels(lessonButton.modelData).length > 0
+                                            text: Catalog.gapLabels(lessonButton.modelData).join(" · ")
+                                            color: ds.warning; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: !!lessonButton.modelData.source && !!lessonButton.modelData.source.path
+                                            text: lessonButton.modelData.source ? String(lessonButton.modelData.source.path || "")
+                                                + ((lessonButton.modelData.source.headingPath || []).length > 0 ? " › " + lessonButton.modelData.source.headingPath.join(" > ") : "")
+                                                + (lessonButton.modelData.source.verificationStatus ? " · 核验：" + lessonButton.modelData.source.verificationStatus : "") : ""
+                                            color: ds.faint; font.family: ds.mono; font.pixelSize: 11; wrapMode: Text.WrapAnywhere
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: (lessonButton.modelData.prerequisites || []).length > 0
+                                            text: "先备：" + (lessonButton.modelData.prerequisites || []).join("；")
+                                            color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                        }
+                                    }
+                                    Text {
+                                        Layout.alignment: Qt.AlignTop
+                                        Layout.preferredWidth: 104
+                                        text: !uiShell.lessonEvidenceReady ? "暂无状态数据"
+                                            : (Catalog.holdsCompletion(uiShell.lessonEvidenceStates[lessonButton.modelData.id]) ? "已有完成证据" : "待学习")
+                                        color: ds.muted; font.family: ds.ui; font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+                        }
+                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
+                    }
+                }
+            }
+            Text {
+                Layout.fillWidth: true

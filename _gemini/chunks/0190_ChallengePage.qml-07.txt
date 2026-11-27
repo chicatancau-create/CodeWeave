@@ -1,0 +1,61 @@
+                                            color: ds.ink
+                                            font.family: ds.mono
+                                            font.pixelSize: 13
+                                            font.weight: Font.DemiBold
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    // .stage-status
+                                    Rectangle {
+                                        implicitWidth: stRow.implicitWidth + ds.s20
+                                        implicitHeight: 22
+                                        radius: 0
+                                        color: chStatus(modelData) === "external-pending"
+                                               ? ds.challengePendingBg : "transparent"
+                                        border.color: chStatus(modelData) === "external-pending"
+                                                      ? ds.warning : ds.lineRaised
+                                        border.width: 1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        RowLayout {
+                                            id: stRow
+                                            anchors.centerIn: parent
+                                            spacing: ds.s6
+                                            Rectangle {
+                                                implicitWidth: 7
+                                                implicitHeight: 7
+                                                radius: 4
+                                                color: chStatus(modelData) === "external-pending"
+                                                       ? ds.warning : "transparent"
+                                                border.color: chStatus(modelData) === "external-pending"
+                                                              ? ds.warning : ds.lineRaised
+                                                border.width: 1
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                            Text {
+                                                text: challengePage.statusLabel(modelData)
+                                                color: challengePage.statusColor(modelData)
+                                                font.family: ds.ui
+                                                font.pixelSize: 13
+                                                font.weight: Font.DemiBold
+                                                font.letterSpacing: 0.8
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // .stage-card-meta — pinned to the bottom
+                                RowLayout {
+                                    id: cardMeta
+                                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                    spacing: ds.s10
+                                    Rectangle {   // .difficulty — neutral for all levels
+                                        implicitWidth: difLabel.implicitWidth + ds.s16
+                                        implicitHeight: 22
+                                        radius: 0
+                                        color: "transparent"
+                                        border.color: ds.lineRaised
+                                        border.width: 1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        Text {
+                                            id: difLabel

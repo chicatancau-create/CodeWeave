@@ -1,0 +1,137 @@
+   * 与 `handlePlay`（画布那枚「播放」）的分工：那个按钮的名字就叫播放，
+   * 它的语义是「放一遍」，所以第一下直接 `startRun('running')`。
+   * 两个按钮共用同一支函数的话，必有一个名不副实——这是把它们拆开的全部原因。
+   */
+  const handleRun = useCallback(async () => {
+    if (!enabled) return
+    // 已有结果时：继续/暂停切换，不重新执行。
+    if (runStatus === 'running') {
+      setRunStatus('paused')
+      return
+    }
+    if (runStatus === 'paused' && execution.events.length > 0) {
+      resumeRun()
+      return
+    }
+    // idle / completed / error：重新执行，落在第一拍并停住（等「继续运行」）。
+    await startRun('paused')
+  }, [enabled, execution.events.length, runStatus, startRun, resumeRun])
+
+  /**
+   * 画布那枚「播放 / 暂停」：与 `handleRun` 的差别只有一处——**第一次点击直接放到底**
+   * （`startRun('running')`）。按钮的字面意思就是「播放」，与运行条的「开始运行」不是
+   * 同一件事，所以不共用。
+   */
+  const handlePlay = useCallback(async () => {
+    if (!enabled) return
+    if (runStatus === 'running') {
+      setRunStatus('paused')
+      return
+    }
+    if (runStatus === 'paused' && execution.events.length > 0) {
+      resumeRun()
+      return
+    }
+    await startRun('running')
+  }, [enabled, execution.events.length, runStatus, startRun, resumeRun])
+
+  const handleStep = useCallback(async () => {
+    if (!enabled) return
+    if (execution.events.length === 0 || runStatus === 'completed' || runStatus === 'error') {
+      await startRun('paused')
+      return
+    }
+
+    if (eventIndex >= execution.events.length - 1) {
+      setRunStatus('completed')
+      return
+    }
+
+    setEventIndex((current) => current + 1)
+    setRunStatus('paused')
+  }, [enabled, eventIndex, execution.events.length, runStatus, startRun])
+
+  /**
+   * 把播放头**移到任意一拍**（画布的「上一步」，以及将来可能的跳转/拖动）。
+   *
+   * 这是 `handleStep` 做不到的事：那里只会 `+1`，或者从头重启，全项目没有任何地方
+   * 能把 `eventIndex` 设成一个给定的 N。没有它，「上一步」只能靠「重置再走 N-1 步」，
+   * 而那会把已经跑出来的结果丢掉。
+   *
+   * `runningRef.current = false` 必须写：自动回放的 `setTimeout` 链是按
+   * 「`eventIndex` 或 `runStatus` 变化」重排的，迟到的那一个 tick 仍然会在
+   * `runStatus` 变回 `running` 时把播放头再往前推一格。清了标志并落到 `paused`，
+   * 退回来的那一拍才是终局。
+   */
+  const handleSeek = useCallback(
+    (index: number) => {
+      if (!enabled) return
+      runningRef.current = false
+      setEventIndex(Math.max(0, Math.min(index, Math.max(0, execution.events.length - 1))))
+      setRunStatus('paused')
+    },
+    [enabled, execution.events.length],
+  )
+
+  const handleReset = useCallback(() => {
+    // 使进行中的运行失效：迟到结果将因 runId 不匹配而被丢弃。
+    runIdRef.current += 1
+    runningRef.current = false
+    setExecution({ events: [], output: [] })
+    setEventIndex(0)
+    setRunStatus('idle')
+  }, [])
+
+  // 代码或课程变化时使旧运行失效，避免"改完代码又被旧结果覆盖"。
+  useEffect(() => {
+    runIdRef.current += 1
+    runningRef.current = false
+  }, [code, lesson.id])
+
+  useEffect(() => {
+    if (runStatus !== 'running') return
+
+    const timer = window.setTimeout(() => {
+      if (eventIndex >= execution.events.length - 1) {
+        setRunStatus('completed')
+      } else {
+        setEventIndex((current) => current + 1)
+      }
+    }, EXECUTION_SETTINGS.STEP_DELAY_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [eventIndex, execution.events.length, runStatus])
+
+  useEffect(() => {
+    if (!enabled) return
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault()
+        handleRun()
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [enabled, handleRun])
+
+  const currentEvent = execution.events[eventIndex]
+  const visibleOutputCount = execution.events
+    .slice(0, eventIndex + 1)
+    .filter((item) => item.type === 'output').length
+  const visibleOutput = execution.output.slice(0, visibleOutputCount)
+  const variables = currentEvent?.variables ?? []
+
+  return {
+    runStatus,
+    runId,
+    execution,
+    eventIndex,
+    currentEvent,
+    visibleOutput,
+    variables,
+    handleRun,
+    /** 画布那枚「播放」：第一次点击直接放到底（见上面的分工说明）。 */
+    handlePlay,
+    handleStep,
+    /** 画布「上一步」唯一可用的跳转入口：把 `eventIndex` 设成任意拍（见上面的说明）。 */

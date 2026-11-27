@@ -1,0 +1,29 @@
+                "tone": "coral"
+            },
+            {
+                "id": "output",
+                "kind": "output",
+                "label": "输出 total",
+                "line": 0,
+                "tone": "green"
+            },
+            {
+                "id": "end",
+                "kind": "end",
+                "label": "结束",
+                "line": 0,
+                "tone": "purple"
+            }
+        ],
+        "id": "python-loop-sum",
+        "label": "01",
+        "language": "python",
+        "languageLabel": "Python",
+        "level": "入门",
+        "prerequisites": [
+            "知道什么是变量",
+            "会读写一行代码"
+        ],
+        "title": "循环是怎么工作的？"
+    }
+}

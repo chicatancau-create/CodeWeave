@@ -1,0 +1,101 @@
+.external-evidence-input:focus-visible { border-color: var(--field-line-active); }
+.external-evidence-input.invalid,
+.external-evidence-form .challenge-evidence.invalid { border-color: var(--c-coral); }
+.external-evidence-error { color: var(--c-coral); font-size: var(--ds-size-control, 13px); }
+.external-evidence-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+}
+.external-evidence-keywords code {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--inset);
+  color: var(--ink-strong);
+  font-size: var(--ds-size-control, 13px);
+}
+
+/* R4：学习工作台的执行等级提示 */
+.workspace-tier-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-10, 10px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--hair) solid rgba(255, 131, 113, 0.4);
+  border-left: 2px solid var(--c-coral);
+  border-radius: var(--radius);
+  background: var(--bad-wash);
+  color: var(--c-coral);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+
+/* 终端风格代码区：窗口灯 + 文件名栏（原内嵌 14px 阴影按「零投影」去掉，分区靠发丝线） */
+.challenge-editor-wrap {
+  margin-top: var(--ds-space-16, 16px);
+  overflow: hidden;
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--inset);
+}
+.terminal-chrome {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-bottom: var(--hair) solid var(--line);
+  background: var(--scrim);
+}
+.terminal-dots { display: inline-flex; gap: var(--ds-space-6, 6px); }
+.terminal-dots i { width: 9px; height: 9px; border-radius: var(--radius-circle); }
+/* 终端窗口的三个点：模板里唯一的圆形装饰是圆环，配色走场景四色而非红绿灯 */
+.terminal-dots i:nth-child(1) { background: var(--c-coral); }
+.terminal-dots i:nth-child(2) { background: var(--c-orange); }
+.terminal-dots i:nth-child(3) { background: var(--c-green); }
+.terminal-title { color: var(--faint); font-family: var(--font-mono); font-size: var(--ds-size-control, 13px); letter-spacing: var(--ds-track-hud); }
+.challenge-editor-wrap .field-label { gap: var(--ds-space-6, 6px); margin-top: 0; padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px) 0; color: var(--muted); font-size: var(--ds-size-control, 13px); letter-spacing: var(--ds-track-meta); }
+.challenge-editor-wrap .challenge-run-button { margin: var(--ds-space-10, 10px) var(--ds-space-12, 12px) var(--ds-space-12, 12px); }
+
+/* ── 表单与输入（§5.1「关键输入/焦点边界单独提高可辨识度」） ───────────────
+   静止态边界 α0.38 → 3.13:1（过非文本 3:1），聚焦态再抬到 α0.62 → 7.07:1；
+   文字 14px（旧 11.5px 在暖白小字上偏挤），标签走模板眉标档（字距而非字重）。 */
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-14, 14px);
+  color: var(--muted);
+  font-size: var(--ds-size-body);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.field-label input, .field-label textarea, .field-label select {
+  width: 100%;
+  min-height: var(--tap-min);   /* §5.4；输入框字号 <16px 还会触发移动端聚焦自动放大 */
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  color: var(--ink);
+  border: var(--hair) solid var(--field-line);
+  border-radius: var(--radius);
+  outline: 0;
+  background: var(--inset);
+  font-size: 14px;
+}
+.field-label input:focus, .field-label textarea:focus { border-color: var(--field-line-active); }
+.field-label textarea { min-height: 76px; resize: vertical; }
+.challenge-editor {
+  min-height: 190px !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-family: var(--font-mono);
+  font-size: calc(var(--editor-font-size) - 1px) !important;
+  line-height: 1.6;
+  white-space: pre;
+}
+.challenge-run-button { margin-top: var(--ds-space-10, 10px); align-self: flex-start; }

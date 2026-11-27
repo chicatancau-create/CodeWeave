@@ -1,0 +1,103 @@
+-                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-                    }
+-                }
+-
+-                Rectangle {
+-                    visible: nav.badge !== ""
+-                    Layout.alignment: Qt.AlignVCenter
+-                    implicitWidth: badgeLabel.implicitWidth + ds.s12
+-                    implicitHeight: 22
+-                    radius: 11  // pill
+-                    color: ds.accentSoft
+-                    border.color: ds.accentRing
+-                    border.width: 1
+-                    Text {
+-                        id: badgeLabel
+-                        anchors.centerIn: parent
+-                        text: nav.badge
+-                        color: ds.accent
+-                        font.family: ds.mono
+-                        font.pixelSize: 11
+-                        font.weight: Font.Bold
+-                    }
+-                }
+-
+-                Text {
+-                    text: nav.index
+-                    // 静止态: accent，选中态: accent-hover (冰蓝)
+-                    color: nav.active ? ds.accentHi : ds.accent
+-                    font.family: ds.mono
+-                    font.pixelSize: 13
+-                    font.letterSpacing: 2  // 0.2em at 13px ≈ 2.6px
+-                    font.weight: Font.Normal
+-                    Layout.alignment: Qt.AlignVCenter
+-
+-                    Behavior on color {
+-                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-                    }
+-                }
+-            }
+-        }
+-        HoverHandler { id: navHover; cursorShape: Qt.PointingHandCursor }
+-        TapHandler { onTapped: nav.activated() }
+-        Accessible.role: Accessible.PageTab
+-        Accessible.name: nav.label
+-        Accessible.selected: nav.active
+-    }
+ 
+     // web .icon-button — 36x36, radius 8
+-    component IconButton: Rectangle {
+-        id: ibtn
+-        property string glyph: ""
+-        property string tip: ""
+-        property bool active: false
+-        property bool enabled: true
+-        signal clicked
+-        implicitWidth: 36
+-        implicitHeight: 36
+-        radius: 8
+-        color: !ibtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)
+-                             : (ibtn.active || ibHover.hovered ? ds.accentSoft : "transparent")
+-        opacity: ibtn.enabled ? 1.0 : 0.5
+ 
+-        // Smooth transition
+-        Behavior on color {
+-            ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-        }
+-        Behavior on opacity {
+-            NumberAnimation { duration: ds.durQuick; easing.type: Easing.Linear }
+-        }
+-
+-        Text {
+-            anchors.centerIn: parent
+-            text: ibtn.glyph
+-            color: !ibtn.enabled ? Qt.rgba(141/255, 155/255, 172/255, 0.4)
+-                                 : (ibtn.active || ibHover.hovered ? ds.accentHi : ds.muted)
+-            font.family: ds.ui
+-            font.pixelSize: 15
+-
+-            Behavior on color {
+-                ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+-            }
+-        }
+-        HoverHandler {
+-            id: ibHover
+-            enabled: ibtn.enabled
+-            cursorShape: ibtn.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+-        }
+-        TapHandler { enabled: ibtn.enabled; onTapped: ibtn.clicked() }
+-        Accessible.role: Accessible.Button
+-        Accessible.name: ibtn.tip !== "" ? ibtn.tip : ibtn.glyph
+-    }
+ 
+     // web .app-shell .primary-action — 36px, radius 5, accent fill, dark ink
+-    component PrimaryButton: Rectangle {
+-        id: pbtn
+-        property string label: ""
+-        property bool enabled: true
+-        signal clicked
+-        implicitWidth: pLabel.implicitWidth + ds.s32
+-        implicitHeight: 36
+-        radius: ds.radiusSm
+-        // 禁用态: 遮光层一档 opacity 0.5，启用态正常
+-        color: !pbtn.enabled ? Qt.rgba(220/255, 233/255, 251/255, 0.014)

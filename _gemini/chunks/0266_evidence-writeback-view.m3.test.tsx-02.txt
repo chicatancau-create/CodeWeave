@@ -1,0 +1,102 @@
+function route({
+  queue = { pending: [] as unknown[], synced: [] as unknown[] },
+  commit,
+  preview,
+}: {
+  queue?: { pending: unknown[]; synced: unknown[] }
+  commit?: () => { ok: boolean; status?: number; json: () => Promise<unknown> }
+  preview?: () => { ok: boolean; status?: number; json: () => Promise<unknown> }
+} = {}) {
+  return stubFetch((input, init) => {
+    const method = init?.method ?? 'GET'
+    if (input === '/api/content/status') return json({ data: CONTENT_STATUS })
+    if (input === '/api/learning/status') return json({ data: LEARNING_STATUS_OWNER })
+    if (input === '/api/content/catalog') return json({ data: EMPTY_SNAPSHOT })
+    if (input === '/api/learning/evidence' && method === 'GET') return json({ data: queue })
+    if (input === '/api/learning/evidence-preview') return preview ? preview() : json({ data: PREVIEW })
+    if (input === '/api/learning/evidence-commit')
+      return commit ? commit() : json({ data: { synced: true, idempotent: false, operationId: 'op-test-abc123', targets: [] } })
+    if (input === '/api/learning/evidence-export') return json({ data: { markdown: '# 待保存\n', evidenceIds: ['ev-1'], logPath: 'x.md' } })
+    return json({ error: '未模拟的接口', code: 'not_mocked' }, 404)
+  })
+}
+
+function renderPanel() {
+  return render(
+    <ContentProvider enabled>
+      <EvidenceWritebackPanel />
+    </ContentProvider>,
+  )
+}
+
+/** 待处理区与已同步区可能各有一条同名主题，这里统一用 findAllByText。 */
+const openPreview = async () => {
+  await screen.findAllByText('Java Hello World')
+  fireEvent.click(screen.getByRole('button', { name: /③ 预览将写入的内容/ }))
+  await screen.findByText('预览（尚未写入任何文件）')
+}
+
+const confirmWrite = () => {
+  fireEvent.click(screen.getByLabelText(/我已核对以上将写入的内容/))
+  fireEvent.click(screen.getByRole('button', { name: '确认写入' }))
+}
+
+const progressPending = () =>
+  json(
+    { error: '日志已保存，进度待合并：写入失败（EPERM）', code: 'progress_pending', details: { logSaved: true, progressPending: true } },
+    409,
+  )
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('M3 §5.2 证据回写：三类状态明确分开', () => {
+  it('待处理 / 部分成功 / 已同步各自成区，区标题带不依赖颜色的说明文字', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [syncedRecord] }, commit: progressPending })
+    renderPanel()
+    await openPreview()
+    confirmWrite()
+    await screen.findByText(/日志已保存，进度待合并/)
+
+    expect(await screen.findByText('待处理 · 尚未写入资料库任何文件')).toBeTruthy()
+    expect(screen.getByText('部分成功 · 已写入的步骤不会重复追加')).toBeTruthy()
+    expect(screen.getByText('已同步 · 写入资料库并复核完成')).toBeTruthy()
+    expect(screen.getByText(/1 条暂存 \/ 1 条已同步/)).toBeTruthy()
+    // 同一主题在两个区各列一次，说明列表真的分开了
+    expect(screen.getAllByText('Java Hello World').length).toBe(2)
+  })
+
+  it('已同步条目不进待处理勾选，也不提供删除入口', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [syncedRecord] } })
+    renderPanel()
+    await screen.findByText(/op-done-1/)
+
+    // 勾选框只有表单的「独立完成」+ 一条待处理条目
+    expect(screen.getAllByRole('checkbox').length).toBe(2)
+    expect(screen.getAllByRole('button', { name: /删除/ }).length).toBe(1)
+  })
+
+  it('已同步逐条给出复核时间、日志落点与 operationId，不再只有计数', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [syncedRecord] } })
+    renderPanel()
+    await screen.findByText(/op-done-1/)
+
+    expect(screen.getByText(/2026-09-18T02:00:00\.000Z/)).toBeTruthy()
+    expect(screen.getByText(/2026-09-18-旧条目\.md/)).toBeTruthy()
+    expect(screen.getAllByText(/复核时间/).length).toBe(1)
+  })
+})
+
+describe('M3 §5.1 末段：语义状态双通道', () => {
+  it('每个状态标识都同时给出图形与文字，不存在只靠颜色的状态', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [syncedRecord] } })
+    const { container } = renderPanel()
+    await screen.findAllByText('Java Hello World')
+
+    const marks = Array.from(container.querySelectorAll<HTMLElement>('.ewb-mark'))
+    expect(marks.length).toBeGreaterThan(0)
+    for (const mark of marks) {
+      expect(mark.querySelector('svg')).not.toBeNull()

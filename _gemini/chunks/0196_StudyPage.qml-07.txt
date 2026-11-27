@@ -1,0 +1,74 @@
+                                    border.color: ds.heroBadgeEd
+                                    border.width: 1
+                                    Text {
+                                        id: heroTag2
+                                        anchors.centerIn: parent
+                                        text: "交互式课程"
+                                        color: ds.accent
+                                        font.family: ds.ui
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
+                            Text {
+                                objectName: "learningHeroTitle"
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s14
+                                text: hostRoot.selectedLesson ? (hostRoot.selectedLesson.title || "") : "当前筛选暂无课程"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 24
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.5
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s8
+                                text: hostRoot.selectedLesson
+                                      ? (hostRoot.selectedLesson.description || "课程说明暂无数据")
+                                      : "当前筛选没有课程，请调整科目筛选。"
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 2
+                                elide: Text.ElideRight
+                            }
+
+                            Item { Layout.fillHeight: true }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: ds.s16
+                                PrimaryButton {
+
+                                    ds: studyPage.ds
+                                    objectName: "learningContinue"
+                                    label: hostRoot.selectedLesson === null ? "选择课程"
+                                           : (uiShell.publishedIds.indexOf(hostRoot.selectedLesson.id) >= 0
+                                              ? "进入学习  →" : "课程尚未发布")
+                                    enabled: hostRoot.selectedLesson !== null
+                                             && !uiShell.contentBusy && !uiShell.operationBusy
+                                             && !uiShell.accountBusy && !uiShell.draftSaving && !uiShell.executionBusy
+                                             && uiShell.publishedIds.indexOf(hostRoot.selectedLesson.id) >= 0
+                                    onClicked: hostRoot.openLesson(hostRoot.safeSelectedLessonIndex)
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    objectName: "learningCompletionCount"
+                                    text: !uiShell.lessonEvidenceReady
+                                          ? "暂无完成证据数据"
+                                          : studyPage.completedLessonCount + " / " + studyPage.subjectLessons.length + " 个单元已有完成证据"
+                                    color: ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+                        }
+                    }
+

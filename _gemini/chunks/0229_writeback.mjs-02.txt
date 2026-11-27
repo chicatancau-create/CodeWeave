@@ -1,0 +1,127 @@
+function toLedgerRow(transaction) {
+  return {
+    operationId: transaction.operationId,
+    state: transaction.state,
+    topic: scrubLocalPaths(transaction.topic ?? ''),
+    at: transaction.at ?? null,
+    createdAt: transaction.createdAt ?? null,
+    syncedAt: transaction.syncedAt ?? null,
+    rolledBackAt: transaction.rolledBackAt ?? null,
+    message: scrubLocalPaths(transaction.result?.message ?? ''),
+    evidenceCount: evidenceCountOf(transaction),
+    targets: stepsInWriteOrder(transaction.targets).map((step) => ({
+      kind: step.kind,
+      path: scrubLocalPaths(step.path ?? ''),
+      applied: step.applied === true,
+    })),
+  }
+}
+
+
+function safeSegment(value) {
+  return String(value ?? '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64) || 'unknown'
+}
+
+/**
+ * 面向浏览器与事务日志的错误文本：抹掉**本机绝对路径**（盘符 / UNC / 常见 POSIX 根目录）。
+ *
+ * 文件系统错误的原文形如 `EPERM: operation not permitted, open 'E:\...\进度追踪.md'`，
+ * 直接拼进消息就会把用户的资料库与数据目录位置发到前端。库内相对路径
+ * （`全栈工程师学习计划/进度追踪.md`）是有效信息，不在抹除范围内；
+ * 备份文件的绝对路径只留在事务记录里供回滚使用，不进响应体。
+ */
+const LOCAL_PATH_PATTERNS = [
+  /[A-Za-z]:[\\/][^\s,;'"）)】]+/g,
+  /\\\\[A-Za-z0-9.$_-]+\\[^\s,;'"）)】]*/g,
+  /\/(?:Users|home|var|tmp|private|root|opt|usr|etc|srv|mnt)[\\/][^\s,;'"）)】]*/g,
+]
+
+export function scrubLocalPaths(text) {
+  let value = String(text ?? '')
+  for (const pattern of LOCAL_PATH_PATTERNS) value = value.replace(pattern, '（已隐去本机路径）')
+  return value
+}
+
+function newOperationId() {
+  return `op-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** 日期字符串（YYYY-MM-DD）可直接按字典序比较。 */
+function maxDate(...dates) {
+  const valid = dates.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(String(date ?? '')))
+  return valid.length > 0 ? valid.sort().at(-1) : null
+}
+
+/** 链接到日志的库内完整路径双链（不用无路径短链接，避免同名歧义）。 */
+function logLink(at, topic) {
+  const path = logPathOf(at, topic).replace(/\.md$/, '')
+  return `[[${path}]]`
+}
+
+// ---------------------------------------------------------------------------
+// 进度追踪的定向编辑：只改列出的字段，不重排、不清除历史。
+// ---------------------------------------------------------------------------
+
+/** 替换顶部说明行里的 `最近学习证据：<旧日期>`。 */
+function replaceLatestEvidenceDate(text, oldDate, newDate) {
+  const pattern = new RegExp(`(最近学习证据\\s*[：:]\\s*)${escapeRegExp(oldDate)}`)
+  if (!pattern.test(text)) return null
+  return text.replace(pattern, `$1${newDate}`)
+}
+
+/** 替换会话接续表里某一行的第二格。 */
+function replaceHandoffRow(text, field, value) {
+  const lines = text.split('\n')
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (!line.trim().startsWith('|')) continue
+    const cells = line.split('|')
+    // 拆分后 cells[0] 与 cells.at(-1) 是行首尾的空壳
+    if (cells.length < 4) continue
+    if (plainText(cells[1]) !== field) continue
+    const next = [...cells]
+    next[2] = ` ${value} `
+    lines[index] = next.join('|')
+    return lines.join('\n')
+  }
+  return null
+}
+
+/** 替换掌握矩阵里某个技能行的等级格。 */
+function replaceMasteryLevel(text, skill, level) {
+  const lines = text.split('\n')
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (!line.trim().startsWith('|')) continue
+    const cells = line.split('|')
+    if (cells.length < 5) continue
+    if (plainText(cells[1]) !== skill) continue
+    const next = [...cells]
+    next[2] = ` ${level} `
+    lines[index] = next.join('|')
+    return lines.join('\n')
+  }
+  return null
+}
+
+/** 读取会话接续表当前值（用于冲突时展示逐字段差异）。 */
+function handoffValue(text, field) {
+  for (const line of text.split('\n')) {
+    if (!line.trim().startsWith('|')) continue
+    const cells = line.split('|')
+    if (cells.length < 4) continue
+    if (plainText(cells[1]) === field) return plainText(cells[2])
+  }
+  return null
+}
+
+/** 读取掌握矩阵某技能的当前等级原文。 */
+function masteryValue(text, skill) {
+  for (const line of text.split('\n')) {
+    if (!line.trim().startsWith('|')) continue
+    const cells = line.split('|')
+    if (cells.length < 5) continue

@@ -1,0 +1,152 @@
+/* 字重取正文档而不是 --ds-weight-display(200)：§5.1 只让入口与概览沿用展示字重，
+   本页是正文区卡片标题；Windows 中文回退在 200 下笔画几乎消失。 */
+.evidence-writeback .security-card-title,
+.evidence-writeback .ewb-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-8, 8px);
+  color: var(--ewb-ink);
+  font-family: inherit;
+  font-size: clamp(1.24rem, 2.4vw, 1.6rem);
+  font-weight: var(--ds-weight-body, 400);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15); /* 多行中文标题不用 line-height:1（README §3 C2） */
+  text-transform: none;
+}
+
+.evidence-writeback .ewb-num,
+.evidence-writeback .ewb-td-num {
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  color: var(--ewb-ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.evidence-writeback .ewb-title-icon {
+  width: 1em;
+  height: 1em;
+  color: var(--ewb-ink-2);
+}
+
+.evidence-writeback .vault-progress-notice,
+.evidence-writeback .ewb-lede {
+  max-width: var(--ds-measure-lead, 60ch);
+  margin: 0;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+  word-break: normal;
+}
+
+.evidence-writeback .ewb-lede strong {
+  color: var(--ewb-ink);
+  font-weight: 600;
+}
+
+/* ── 2. 状态标识：图标 + 文字双通道（§5.1 末段） ─────────────────────────── */
+.evidence-writeback .ewb-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px) var(--ds-space-2, 2px) var(--ds-space-6, 6px);
+  border: var(--ds-line-width, 1px) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  line-height: 1.4;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  white-space: nowrap;
+  background: none;
+  box-shadow: var(--ewb-glow-inset);
+}
+
+.evidence-writeback .ewb-mark-icon {
+  flex: 0 0 auto;
+}
+
+.evidence-writeback summary .ewb-mark {
+  margin-inline-start: auto;
+}
+
+/* 每档状态固定一种图形 + 一种文字，颜色只是第三重提示（--ds-status-*，非场景点缀）。
+   conflict 与 failed 同用危险色：靠图形（盾牌 / 叉）与文字区分，不靠色相。 */
+.evidence-writeback .ewb-mark--pending {
+  color: var(--ewb-info);
+  background: var(--ewb-info-wash);
+}
+.evidence-writeback .ewb-mark--partial {
+  color: var(--ewb-warn);
+  background: var(--ewb-warn-wash);
+}
+.evidence-writeback .ewb-mark--synced {
+  color: var(--ewb-ok);
+  background: var(--ewb-ok-wash);
+}
+.evidence-writeback .ewb-mark--conflict {
+  color: var(--ewb-bad);
+  background: var(--ewb-bad-wash);
+}
+.evidence-writeback .ewb-mark--failed {
+  color: var(--ewb-bad);
+  background: var(--ewb-bad-wash);
+}
+.evidence-writeback .ewb-mark--loading {
+  color: var(--ewb-ink-2);
+  background: none;
+}
+.evidence-writeback .ewb-mark--empty {
+  color: var(--ewb-ink-3);
+  background: none;
+}
+.evidence-writeback .ewb-mark--notice {
+  color: var(--ewb-warn);
+  background: none;
+}
+.evidence-writeback .ewb-mark--result {
+  color: var(--ewb-info);
+  background: none;
+}
+
+/* ── 3. 表单步骤（发丝线分区，不再是卡片） ───────────────────────────────── */
+.evidence-writeback .ewb-step {
+  margin-top: var(--ds-space-14, 14px);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.evidence-writeback .evidence-form-block details {
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .evidence-form-block summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: var(--ewb-tap); /* §5.4 触控目标 ≥44px */
+  padding: var(--ds-space-10, 10px) var(--ds-space-2, 2px);
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.evidence-writeback .evidence-form-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.evidence-writeback .evidence-form-block summary::after {
+  content: '＋';
+  margin-inline-start: var(--ds-space-4, 4px);
+  color: var(--ewb-ink-2);
+}
+

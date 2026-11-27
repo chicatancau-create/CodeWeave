@@ -1,0 +1,97 @@
+      tags: [content]
+      summary: 单份练习
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页
+      x-timeout: 读 10s
+      x-sensitive-fields: 同上
+      parameters: [ { $ref: '#/components/parameters/contentId' }, { $ref: '#/components/parameters/bundleQuery' }, { $ref: '#/components/parameters/ifNoneMatch' } ]
+      responses:
+        '200':
+          headers: { X-Content-Bundle: { schema: { type: string } } }
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { description: invalid_content_id }
+        '404': { description: not_found }
+        '503': { description: vault_unavailable }
+
+  /api/content/asset:
+    get:
+      tags: [content]
+      summary: 按白名单读取发布包内的附件
+      description: >-
+        兼容读取已发布快照内登记的附件，支持 bundleId 固定。读取前校验授权和 CAS 字节。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页；单文件上限由 asset.mjs 的 ASSET_MAX_BYTES（5 MiB）决定
+      x-timeout: 读 30s（流式）
+      x-sensitive-fields: 只提供白名单内、已发布、非私人的文件；类型不在白名单一律 403
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/bundleQuery' }
+        - { name: If-None-Match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200': { description: 文件流，Content-Type 由白名单给出 }
+        '304': { description: 缓存命中 }
+        '400': { description: invalid_relative_path }
+        '403': { description: path_escape / asset_type_forbidden / vault_private }
+        '404': { description: asset_not_found }
+        '413': { description: asset_too_large }
+        '429': { description: asset_rate_limited }
+        '503': { description: vault_unavailable }
+
+  /api/content/assets/{assetId}:
+    get:
+      tags: [content]
+      summary: 通过不透明标识读取固定版本附件
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: assetId, in: path, required: true, schema: { type: string, pattern: '^asset-[a-f0-9]{32}$' } }
+        - { name: bundleId, in: query, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200': { description: 校验后的附件字节，含完整 SHA-256 ETag }
+        '304': { description: 授权通过且缓存仍有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_vault_mismatch }
+        '404': { description: asset_not_found }
+        '410': { description: content_bundle_retired }
+        '503': { description: asset_integrity_failed }
+
+  /api/content/bundles/{bundleId}/manifest:
+    get:
+      tags: [content]
+      summary: 固定快照的离线包清单与 SHA-256
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/bundlePath' }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200':
+          description: 含快照身份、content.json 和附件对象清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/BundleIdentity' }
+                      - { type: object, required: [schemaVersion, files, assets] }
+        '304': { description: 授权通过且缓存仍有效 }
+        '401': { description: unauthorized }
+        '403': { description: vault_private / owner_vault_mismatch }
+        '410': { description: content_bundle_retired }
+
+  /api/content/bundles/{bundleId}/payload:
+    get:
+      tags: [content]
+      summary: 固定快照原始 JSON 字节
+      description: 客户端按清单校验完整 SHA-256 后再激活本机离线包。
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/bundlePath' }
+        - { $ref: '#/components/parameters/ifNoneMatch' }
+      responses:
+        '200': { description: 原始 UTF-8 JSON 字节，SHA-256 与 manifestHash 一致 }
+        '304': { description: 授权通过且缓存仍有效 }

@@ -1,0 +1,77 @@
+      const button = container.querySelector('.lesson-complete-row .subtle-button') as HTMLButtonElement
+      // 没有判据可依时按钮不许自称「自动验证」——这一条是写探针时抓到自己写错的形状
+      expect(button.textContent).toContain('自行声明')
+      expect(button.textContent).not.toContain('自动验证')
+      fireEvent.click(button)
+      expect(props.onComplete).toHaveBeenCalledWith({ verification: 'self-declared', cases: null })
+    })
+
+    it('已完成那一格把三种来源分开显示，旧记录不带来源就不追认', () => {
+      const verified = renderWorkspace({ completed: true, completionSource: 'auto-verified' })
+      expect(verified.container.textContent).toContain('本单元已完成（该题验收点自动比对通过）')
+      const declared = renderWorkspace({ completed: true, completionSource: 'self-declared' })
+      expect(declared.container.textContent).toContain('学习者自行声明，系统未比对输出')
+      // §9 收口新增可见的一档：复测判过掌握、但本课没留下逐题验收记录。
+      // 这句不许升成「本机自动比对过」（02 号方案 §4：复测是掌握，不是机器验证过交付物）。
+      const reviewed = renderWorkspace({ completed: true, completionSource: 'review-mastered' })
+      expect(reviewed.container.textContent).toContain('本单元已完成（到期复测判为掌握')
+      expect(reviewed.container.textContent).not.toContain('自动比对通过')
+      const unknown = renderWorkspace({ completed: true })
+      expect(unknown.container.textContent).not.toContain('自动比对')
+      expect(unknown.container.textContent).toContain('本单元已完成，按复测计划回顾')
+    })
+
+    it('Ctrl/Cmd+S 的真实结果落在代码区头部那句话里（成功与失败说的是两句话）', () => {
+      const ok = renderWorkspace({ saveFeedback: '已保存到本机' })
+      const hint = ok.container.querySelector('.cw-save-hint')
+      expect(hint?.getAttribute('role')).toBe('status')
+      expect(hint?.textContent).toContain('已保存到本机')
+      const bad = renderWorkspace({ saveFeedback: '保存失败：草稿未写入（详见通知中心）' })
+      expect(bad.container.querySelector('.cw-save-hint')?.textContent).toContain('保存失败')
+      // 没有结果可说时那句话退回脏标记本身，不留着上一句的文案误导人
+      const idle = renderWorkspace({ saveFeedback: '', isDirty: true })
+      expect(idle.container.querySelector('.cw-save-hint')?.textContent).toContain('有未保存修改')
+    })
+
+    it('两个新块必须能折行：共享层那一行是 nowrap flex，子项不给 min-width:0 就顶破页面', () => {
+      // 真机量到过：长句子作 flex 子项不缩，320 档整页溢出 180px（#55 同一形状的第二例）
+      expect(cssCode).toMatch(/\.cw-workspace \.lesson-complete-row\s*\{[^}]*flex-wrap:\s*wrap/)
+      expect(cssCode).toMatch(
+        /\.cw-workspace \.cw-verify-cases,\s*\.cw-workspace \.cw-verify-none\s*\{[^}]*min-width:\s*0/,
+      )
+      expect(cssCode).toMatch(/\.cw-workspace \.cw-verify-cases code\s*\{[^}]*overflow-wrap:\s*anywhere/)
+      // 按钮带 UA 的 nowrap，文案一长照样顶破页面——这一条把「允许折行」钉住
+      expect(cssCode).toMatch(
+        /\.cw-workspace \.lesson-complete-row \.subtle-button\s*\{[^}]*white-space:\s*normal/,
+      )
+    })
+  })
+
+  it('来源查看：来源三态标签 + 展开后渲染主题原文（走受限 Markdown 管线）', () => {
+    const { container } = renderWorkspace()
+    const source = container.querySelector('.lesson-source')
+    expect(source?.textContent).toContain('外部未复核')
+    expect(source?.textContent).toContain('资料库')
+    expect(source?.querySelector('.md-view')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '查看主题原文' }))
+    const body = source?.querySelector('.md-view')
+    expect(body?.querySelector('h3')?.textContent).toBe('返回值')
+    expect(body?.textContent).toContain('把结果交回调用方')
+    expect(body?.querySelector('.md-code')?.textContent).toContain('def sub(a, b):')
+  })
+
+  it('课程指南：图标按钮切换，aria-expanded 与内容同步', () => {
+    const { container } = renderWorkspace()
+    const toggle = screen.getByRole('button', { name: '课程指南' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.lesson-guide')).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    const guide = container.querySelector('.lesson-guide')
+    expect(guide?.textContent).toContain('忘记 return')
+    expect(guide?.textContent).toContain('把计算器函数整理成模块')
+    fireEvent.click(toggle)
+    expect(container.querySelector('.lesson-guide')).toBeNull()
+  })
+
+  it('关键理解仍然呈现（不被分栏改版吃掉）', () => {

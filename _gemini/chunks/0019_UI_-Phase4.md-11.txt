@@ -1,0 +1,28 @@
+- [历史边界（截至 2026-11-09）] Qt 设置 8 行均为 72px，Web 逐行尺寸见 Web 参考 JSON；当前两侧设置外框同为 560×774px。当时 Qt 报告 `textTruncated` 只读取 ComboBox 文本，标题和说明由 1440×900 / 1100×720 截图人工复核；存储不可用时的附加状态文案尚未单独做文本边界断言。该缺口已由 2026-11-11 独立复测覆盖，见下方记录。
+- [未完成] 真实来源状态、通知数据、可用设置项和帮助正文按两端实际能力呈现，仍不等价；未做像素差分，也未联调正式账户/资料库。Phase 4.2 整体视觉验收保持未关闭。
+- 复测记录、几何表、审查边界与截图索引：`验收证据/Phase4-topbar-font-retest-20261109/README.md`。
+
+### 2026-11-11 设置标题与说明文本边界复测
+
+- [通过] 正常偏好存储状态和存储不可用状态分别覆盖 1440×900、1100×720 两个视口及全部 8 行设置；标题/说明边界断言各 16/16 通过，检查可见性、截断、绘制/内容尺寸及行内位置。
+- [通过] 存储不可用状态确认 `preferenceStorageReady=false`、不可用 smoke 标记为 true，并核对已接入偏好追加的“本机配置不可用”说明与控件状态；正常状态报告为 `diagnostic=passed`。两份通过报告 QML warnings 均为 0，截图分别为 11 张和 6 张。
+- [先失败，修复后通过] 首次隔离窗口报告因账户菜单联系方式与活动账户不匹配而退出；该报告未包含设置文本记录或截图。最终正常/不可用状态均重新通过，首次失败报告保留且不计入通过统计。
+- [未执行] 像素差分、正式账户/资料库联调、Android APK 构建；来源状态、通知数据、设置能力及帮助正文仍有差异，Phase 4.2 整体验收未关闭。
+- 证据及复现命令：`验收证据/Phase4-settings-text-bounds-retest-20261111/README.md`。
+
+### 2026-11-11 帮助执行说明边界收敛
+
+- [完成] 网页端与 Qt 帮助将可视化说明统一为：流程图和变量面板根据当前运行器实际提供的数据展示，未采集到的事件或变量不会补造；移除网页端“每一步”和“实时变化”的无条件承诺。
+- [通过] `corepack pnpm verify`：边界、契约、类型、Lint、87 个测试文件/1296 项、覆盖率、生产构建和服务语法检查通过；覆盖率为 89.77%/83%/87.44%/92.79%。
+- [通过] `cmd /c 工程文件\工具\构建当前Qt.cmd`：Release 构建和 CTest 11/11 通过，96.21 秒。可见窗口 smoke `diagnostic=passed`、QML warnings 0、11 张截图；1440×900 帮助截图人工检查无裁切或重叠。
+- [未执行] 像素差分、正式账户/资料库联调、Android APK 构建；来源状态、通知数据、偏好能力和其它帮助章节仍按平台实际能力分别说明，Phase 4.2 整体视觉验收仍未关闭。
+- 复测报告与截图：`验收证据/Phase4-help-copy-retest-20261111/`。
+
+### 2026-11-12 独立审查 A1/A2 与 B1-B4 复核
+
+- [通过] A1：侧栏窄窗上边距由未声明 `ds.s84` 改为 `ds.topbarH + ds.s16`；全量 QML/designSystem 引用扫描未声明令牌为 0。B1：业务 QML 颜色字面量扫描为 0；等值令牌化对照和截图证据见 `验收证据/Phase4-color-token-audit-20261112/README.md`。B2：Web `desktop-theme.css` 的原色 `#111923` 已改为等值 `--ds-content-source-surface`。
+- [通过，范围限于 A1 实例] A2：1100×720 真实窗口报告断言侧栏可见且 `contentY=84`、预期间距 84、几何通过；修复前原始失败 JSON 与其 8 张截图已保存于 `验收证据/Phase4-qml-responsive-audit-20261112/pre-fix-diagnostic/`。`QQmlEngine::warnings` 仅记录 QML 创建/加载期警告；报告中的 `qmlWarnings=[]` 不代表 resize 后所有动态警告已被全局采集。复核报告：`验收证据/Phase4-qml-responsive-audit-20261112/README.md`。
+- [通过] B3：阶段 2.8 的 Web 参考行号更新至 `app.tsx:1328-1364`，并列出角标与焦点 hook 位置。
+- [通过] B4：`catalog.v1.tsv` 74 条 published rows；Qt UI curriculum 与 Web runtime 各 61 门、ID 交集 61；两组 UI IDs 均在 catalog 中，另有 13 条 catalog-only rows。跨端比较器直接解码 TSV、检查成员关系并输出计数。运行命令：`node 应用端/项目/native/ui-qt/tests/compare_topbar_reference.mjs 应用端/工程文件/验收证据/Phase4-qml-responsive-audit-20261112/post-colors-retry/report.json 应用端/工程文件/验收证据/Phase4-topbar-final-20261108/web/web-topbar.json`。
+- [通过] 比较器本次输出：native published catalog 74、Qt UI curriculum 61、Web runtime 61、Qt/Web ID 交集 61、catalog 中不属于 Qt UI curriculum 的记录 13；Qt 与 Web UI 分别找到 catalog ID 61/61。
+- [未完成] 上述审查项关闭不等于 Phase 4 整体完成。四页整页视觉差异、正式账户/资料库联调和 Android APK 仍未执行；维持本计划已有边界，不将局部组件验收扩写为整页等价。

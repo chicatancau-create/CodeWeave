@@ -1,0 +1,82 @@
+                        }
+                    }
+                    Accessible.name: text + (node.selected ? "，当前事件" : "")
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: panel.ds.s6
+            QuietButton {
+                id: previousButton
+                objectName: "executionTracePrevious"
+                ds: panel.ds
+                label: "←"
+                enabled: eventList.currentIndex > 0
+                onClicked: panel.selectEvent(eventList.currentIndex - 1)
+                Accessible.name: "上一个执行事件"
+                ToolTip.visible: previousHover.hovered
+                ToolTip.text: "上一个执行事件"
+                HoverHandler { id: previousHover }
+            }
+            Text {
+                objectName: "executionTraceCounter"
+                text: panel.events.length > 0 ? (eventList.currentIndex + 1) + " / " + panel.events.length : "—"
+                color: panel.ds.muted
+                font.family: panel.ds.mono
+                font.pixelSize: 11
+            }
+            QuietButton {
+                objectName: "executionTraceNext"
+                ds: panel.ds
+                label: "→"
+                enabled: eventList.currentIndex >= 0 && eventList.currentIndex < panel.events.length - 1
+                onClicked: panel.selectEvent(eventList.currentIndex + 1)
+                Accessible.name: "下一个执行事件"
+                ToolTip.visible: nextHover.hovered
+                ToolTip.text: "下一个执行事件"
+                HoverHandler { id: nextHover }
+            }
+            Item { Layout.fillWidth: true }
+            Text {
+                text: "事件输出"
+                color: panel.ds.muted
+                font.family: panel.ds.ui
+                font.pixelSize: 11
+            }
+        }
+        ScrollView {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 64
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            TextArea {
+                objectName: "executionTraceOutput"
+                text: panel.outputText
+                textFormat: TextEdit.PlainText
+                placeholderText: "暂无输出"
+                placeholderTextColor: panel.ds.faint
+                readOnly: true
+                wrapMode: TextEdit.Wrap
+                color: panel.ds.ink
+                font.family: panel.ds.mono
+                font.pixelSize: 12
+                background: null
+                Accessible.name: "截至当前事件的输出"
+            }
+        }
+        Text {
+            objectName: "executionTraceError"
+            Layout.fillWidth: true
+            visible: panel.currentEvent !== null && panel.currentEvent.kind === "failed"
+            text: visible ? panel.currentEvent.payload : ""
+            textFormat: Text.PlainText
+            wrapMode: Text.WrapAnywhere
+            maximumLineCount: 2
+            elide: Text.ElideRight
+            color: panel.ds.danger
+            font.family: panel.ds.mono
+            font.pixelSize: 11
+        }
+    }
+}

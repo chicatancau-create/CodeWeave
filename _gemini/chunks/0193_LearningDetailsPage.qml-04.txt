@@ -1,0 +1,48 @@
+                            spacing: ds.s10
+                            visible: stageGroup.modelData.lessons.length > 0
+                            Text { Layout.preferredWidth: 26; text: "次"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            Text { Layout.fillWidth: true; text: "课程单元"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            Text { Layout.preferredWidth: 104; text: "状态"; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                        }
+                        Repeater {
+                            model: stageGroup.modelData.lessons
+                            delegate: Button {
+                                id: lessonButton
+                                required property var modelData
+                                required property int index
+                                objectName: "detailLesson-" + modelData.id
+                                Layout.fillWidth: true
+                                implicitHeight: lessonContent.implicitHeight + ds.s24
+                                leftPadding: ds.s12
+                                rightPadding: ds.s12
+                                text: modelData.title
+                                onClicked: hostRoot.selectedLessonIndex = modelData.originalIndex
+                                onActiveFocusChanged: details.reveal(lessonButton)
+                                Accessible.name: String(index + 1).padStart(2, "0") + " " + text
+                                background: Rectangle {
+                                    color: lessonButton.modelData.originalIndex === hostRoot.safeSelectedLessonIndex || lessonButton.hovered ? ds.accentSoft : "transparent"
+                                    border.color: lessonButton.activeFocus ? ds.accent : "transparent"
+                                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: ds.line }
+                                }
+                                contentItem: RowLayout {
+                                    id: lessonContent
+                                    spacing: ds.s10
+                                    Text { Layout.alignment: Qt.AlignTop; Layout.preferredWidth: 26; text: String(lessonButton.index + 1).padStart(2, "0"); color: ds.accent; font.family: ds.mono; font.pixelSize: 12 }
+                                    ColumnLayout {
+                                        objectName: "detailLessonBody-" + lessonButton.modelData.id
+                                        Layout.fillWidth: true
+                                        spacing: ds.s6
+                                        Text { Layout.fillWidth: true; text: lessonButton.modelData.title; color: ds.ink; font.family: ds.ui; font.pixelSize: 14; wrapMode: Text.WordWrap }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: text !== ""
+                                            text: lessonButton.modelData.description || ""
+                                            color: ds.muted; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: [lessonButton.modelData.label || "", lessonButton.modelData.level || "", lessonButton.modelData.duration || "", Catalog.subjectLabel(lessonButton.modelData)].filter(function(value) { return value !== ""; }).join(" · ")
+                                            color: ds.muted; font.family: ds.ui; font.pixelSize: 11; wrapMode: Text.WordWrap
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true

@@ -1,0 +1,91 @@
+                ds: root.designSystem
+                width: unifiedScroll.availableWidth
+            }
+        }
+    }
+
+    ShellDialog {
+        id: helpDialog
+        objectName: "helpDialog"
+        ds: root.designSystem
+        closeLabel: "知道了"
+        title: "如何学习"
+        eyebrow: "使用指南"
+        referenceStyle: true
+        primaryClose: true
+        anchors.centerIn: parent
+        width: Math.min(460, root.width - ds.s32)
+        height: Math.min(504, root.height - ds.s32)
+        onOpened: root.helpOpen = true
+        onClosed: { root.helpOpen = false; root.returnDialogFocus(); }
+        contentItem: ColumnLayout {
+            spacing: ds.s16
+            Repeater {
+                model: [
+                    { icon: "Lightbulb", title: "可视化执行", body: "运行后，流程图和变量面板会根据当前运行器实际提供的数据展示；未采集到的事件或变量不会补造。" },
+                    { icon: "Settings2", title: "按十步学习法推进", body: "按单元中的讲解、示例和练习循序推进；依据课程验收点显式标记掌握。系统安排复测，阅读和运行本身不代表掌握。" },
+                    { icon: "Lightbulb", title: "真实与模拟的边界", body: "本机执行需要对应语言工具。外部环境实验需在真实环境完成并提交证据；未采集的事件或变量不会用模拟数据填充。" }
+                ]
+                delegate: ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: ds.s4
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s12
+                        LucideIcon {
+                            Layout.alignment: Qt.AlignTop
+                            Layout.topMargin: ds.s6
+                            name: modelData.icon
+                            size: 16
+                            color: ds.muted
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: ds.s4
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.title
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                                wrapMode: Text.WrapAnywhere
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.body
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                wrapMode: Text.WrapAnywhere
+                                lineHeight: 1.6
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ShellDialog {
+        id: evidenceDialog
+        objectName: "lessonEvidenceDialog"
+        ds: root.designSystem
+        title: "课程证据与完成验收"
+        anchors.centerIn: parent
+        width: Math.min(620, root.width - ds.s32)
+        height: Math.min(720, root.height - ds.s32)
+        onClosed: root.returnDialogFocus()
+        contentItem: ScrollView {
+            id: evidenceScroll
+            objectName: "lessonEvidenceScroll"
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            LessonEvidencePanel {
+                width: evidenceScroll.availableWidth
+                ds: root.designSystem
+            }
+        }
+    }
+}

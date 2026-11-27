@@ -1,0 +1,94 @@
+# CodeWeave 后端数据服务 · 错误码与 HTTP 状态映射
+#
+# 分离方案 §5「唯一允许的跨边界共享内容」第 2 条：不含业务状态的错误码定义。
+# 两端只按 `code` 分支映射成用户可理解的提示，**不解析 message 文案**，也不得把服务端堆栈透给用户（§6.2）。
+#
+# 响应体统一形状（`server.mjs` 的 `sendJson` / `sendJsonWithDetails`）：
+#   { "error": "<code>", "message": "<给人看的中文说明>", ...?details }
+# 成功响应不带这层包装，直接是各接口 schema 的对象（`/api/auth/me` 未登录时是 `null`）。
+#
+# 来源核对（2026-10-02，逐条从代码取出，不是推测）：
+#   - `guardWriteRequest` → cross_site_rejected / unsupported_media_type
+#   - `requestBody`       → body_too_large / invalid_json
+#   - `contentErrorStatus` / `writebackErrorStatus` → 各自的状态码映射
+#   - `handleRegister` / `handleLogin` / `handleProfileUpdate` / change-password 分支
+#   - `handleContentRequest` / `handleLearningRequest` 的前置门禁与 404 兜底
+schemaVersion: 1
+owner: 【后端数据服务】_BACKEND_DATA
+
+# ---------------------------------------------------------------------------
+# 全局态：与具体接口无关，任何 /api/ 请求都可能先撞上
+# ---------------------------------------------------------------------------
+global:
+  - code: unauthorized
+    status: 401
+    meaning: 需要登录会话；内容与学习接口一律要求已登录
+    retryable: never
+    clientAction: 跳登录页并保留回跳地址；不要重试
+  - code: forbidden
+    status: 403
+    meaning: 已登录但不是资料库拥有者（写回、可见范围、正式进度只对拥有者开放）
+    retryable: never
+    clientAction: 显示「受限」而不是「没有数据」，绝不显示成空态
+  - code: vault_private
+    status: 403
+    meaning: 资料库默认私人，当前账户未被授权查看
+    retryable: never
+    clientAction: 同上——受限与空态必须分得开
+  - code: owner_record_corrupt
+    status: 403
+    meaning: 拥有者绑定记录损坏，教材访问已整体暂停
+    retryable: afterRepair
+    clientAction: 提示需要在服务端修复数据后重试，不要循环请求
+  - code: storage_corrupt
+    status: 503
+    meaning: 用户数据文件损坏，服务进入只读保护
+    retryable: afterRepair
+    clientAction: 停止乐观写，提示按 README 恢复后重启
+  - code: invalid_path_encoding
+    status: 400
+    meaning: 请求路径里出现无法解码的百分号序列
+    retryable: never
+    clientAction: 这是请求本身畸形，重试必须换正确的编码而不是原地重发
+  - code: internal_error
+    status: 500
+    meaning: 未归类的服务端异常（顶层兜底；堆栈只进日志，不进响应）
+    retryable: retry
+    clientAction: 可以有限次重试并保留 requestId；绝不把响应里的内容当堆栈展示给用户
+  - code: not_found
+    status: 404
+    meaning: 未匹配的 /api/ 路径（兜底路由）
+    retryable: never
+  - code: cross_site_rejected
+    status: 403
+    meaning: 写请求的 Origin/Host 不同源，或 Sec-Fetch-Site 为 cross-site
+    retryable: never
+    clientAction: 说明这是同源防线在起作用，不要改写请求重试；代理侧必须 Host 透传
+  - code: unsupported_media_type
+    status: 415
+    meaning: 写请求缺少 application/json
+    retryable: never
+  - code: invalid_json
+    status: 400
+    meaning: 请求体不是合法 JSON
+    retryable: never
+  - code: body_too_large
+    status: 413
+    meaning: 请求体超过 100,000 字节上限
+    retryable: never
+
+# ---------------------------------------------------------------------------
+# 认证与账户
+# ---------------------------------------------------------------------------
+auth:
+  - { code: invalid_name,               status: 400, meaning: "昵称需 2—40 字符",                retryable: never }
+  - { code: invalid_email,              status: 400, meaning: "邮箱格式非法",                     retryable: never }
+  - { code: invalid_phone,              status: 400, meaning: "手机号需 11 位",                   retryable: never }
+  - { code: invalid_password,           status: 400, meaning: "密码需 8—128 字符或超出长度上限",   retryable: never }
+  - { code: password_unchanged,         status: 400, meaning: "新密码与当前密码相同",             retryable: never }
+  - { code: wrong_current_password,     status: 400, meaning: "改密时当前密码不正确",             retryable: never }
+  - { code: email_taken,                status: 409, meaning: "该邮箱已注册",                     retryable: never }
+  - { code: phone_taken,                status: 409, meaning: "该手机号已注册",                   retryable: never }
+  - { code: invalid_credentials_format, status: 400, meaning: "账号或密码为空",                    retryable: never }
+  - { code: invalid_credentials,        status: 401, meaning: "账号与密码不匹配（不区分账号是否存在）", retryable: never }
+  - { code: too_many_attempts,          status: 429, meaning: "登录按账号与来源 IP 双维度限流（默认 10 次 / 15 分钟）", retryable: afterWindow }

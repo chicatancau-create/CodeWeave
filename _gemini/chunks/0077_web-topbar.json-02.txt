@@ -1,0 +1,137 @@
+      "i2-springboot-rest-actuator",
+      "i3-springboot-package-upload",
+      "j1-auth-session-flow",
+      "j2-xss-sanitize-sandbox",
+      "j3-csrf-cors-boundary",
+      "java-02",
+      "java-03",
+      "java-04",
+      "java-algo-c1",
+      "java-algo-c2",
+      "java-algo-c3",
+      "java-env-a1",
+      "java-env-a2",
+      "java-env-a3",
+      "java-loop-sum",
+      "javascript-02",
+      "javascript-03",
+      "javascript-04",
+      "javascript-loop-sum",
+      "k1-service-discovery",
+      "k2-gateway-config",
+      "k3-circuit-limit-trace",
+      "l1-linux-ops-basics",
+      "l2-docker-compose",
+      "l3-nginx-backup-rollback",
+      "m1-requirement-modeling",
+      "m2-timebox-mvp",
+      "m3-review-defense",
+      "python-condition",
+      "python-function",
+      "python-loop-sum",
+      "python-output",
+      "python-types",
+      "python-while"
+    ],
+    "subject": "Python",
+    "filteredLessonIds": [
+      "python-condition",
+      "python-function",
+      "python-loop-sum",
+      "python-output",
+      "python-types",
+      "python-while"
+    ],
+    "sourceCodeSha256": "62fa3f2df29a48ad64064b11903f988eb6735ae92309d9b7128fdbd00f70666f",
+    "sourceVerification": "running Vite module, rendered course cards and editor textarea",
+    "learningState": "not-run, no evidence, no notifications"
+  },
+  "topbar": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "shell": {
+        "text": "CodeCanvasWEB工作区个人中心Code Canvas/课程/01学习路径本机工作空间R",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 68
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgb(11, 16, 24)",
+          "borderWidth": "0px 0px 1px",
+          "borderStyle": "none none solid",
+          "borderColor": "rgb(226, 231, 239) rgb(226, 231, 239) rgba(255, 255, 255, 0.07)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "brand": {
+        "text": "CodeCanvasWEB",
+        "geometry": {
+          "x": 24,
+          "y": 16.703125,
+          "width": 196.53125,
+          "height": 33.59375
+        },
+        "computed": {
+          "fontSize": "21px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "650",
+          "lineHeight": "33.6px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areas": {
+        "text": "工作区个人中心",
+        "geometry": {
+          "x": 240.53125,
+          "y": 11.5,
+          "width": 203,
+          "height": 44
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgb(9, 13, 20)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgba(255, 255, 255, 0.07)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areaButtons": [
+        {
+          "text": "工作区",
+          "geometry": {
+            "x": 245.53125,
+            "y": 16.5,
+            "width": 88,
+            "height": 34
+          },
+          "computed": {
+            "fontSize": "13px",

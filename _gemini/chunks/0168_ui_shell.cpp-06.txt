@@ -1,0 +1,86 @@
+            for (const auto& item : judgement.cases) {
+              cases.append(QVariantMap{
+                  {QStringLiteral("expected"), QString::fromUtf8(item.expected)},
+                  {QStringLiteral("matched"), item.matched},
+                  {QStringLiteral("actual"), QString::fromUtf8(item.actual)},
+                  {QStringLiteral("reason"), QString::fromUtf8(item.reason)}});
+            }
+            QVariantList extras;
+            for (const auto& line : judgement.extra_lines) extras.append(QString::fromUtf8(line));
+            result.insert(QStringLiteral("passed"), judgement.passed);
+            result.insert(QStringLiteral("output"), output.toVariantList());
+            result.insert(QStringLiteral("cases"), cases);
+            result.insert(QStringLiteral("extraLines"), extras);
+            result.insert(QStringLiteral("tier"), raw.value(QStringLiteral("tier")).toString());
+          }
+          challenge_run_result_ = result;
+          emit challengeRunResultChanged();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    challenge_task_id_.clear();
+    challenge_run_busy_ = false;
+    emit challengeRunBusyChanged();
+    challenge_run_result_ = {{QStringLiteral("error"), QString::fromUtf8(submitted.message)}};
+    emit challengeRunResultChanged();
+  }
+}
+
+void UiShell::cancelChallenge() {
+  if (!challenge_run_busy_) return;
+  challenge_cancelled_.store(true, std::memory_order_release);
+}
+
+void UiShell::reloadPublishedContent() {
+  if (content_busy_ || draft_saving_ || content_root_.isEmpty() || !allowDocumentChange()) return;
+  content_busy_ = true;
+  content_status_ = QStringLiteral("正在读取课程内容…");
+  emit contentBusyChanged();
+  emit contentStatusChanged();
+
+  const auto root = std::filesystem::path(content_root_.toStdWString());
+  struct ListedContent { QString id; QString title; };
+  const auto listed = std::make_shared<std::vector<ListedContent>>();
+  const auto task_name = QStringLiteral("qt-content-%1").arg(next_task_id_++);
+  const auto task_id = task_name.toStdString();
+  content_task_id_ = task_name;
+  // 内容链此前不带代次：账户切换后，上一个账户排队的回调仍会无条件覆盖课程清单。
+  // 草稿链已有同款守卫（见 ui_shell_draft.cpp），这里补齐以统一口径。
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  codeweave::backend::TaskRequest request;
+  request.task_id = task_id;
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Read;
+  request.work = [root, listed](const codeweave::backend::CancellationToken& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
+    std::vector<codeweave::content::Unit> units;
+    codeweave::content::ContentRepository repository(root);
+    const auto result = repository.list_published(units);
+    if (!result.ok) return result;
+    listed->reserve(units.size());
+    for (const auto& unit : units) {
+      if (token.cancelled()) return codeweave::app::Result::failure("读取任务已取消");
+      listed->push_back({QString::fromUtf8(unit.content_id), QString::fromUtf8(unit.title)});
+    }
+    return result;
+  };
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, listed, account, generation, task_name](codeweave::backend::TaskResult result) mutable {
+        QMetaObject::invokeMethod(this,
+            [this, listed, account, generation, task_name, result = std::move(result)]() mutable {
+              if (task_name != content_task_id_) return;
+              content_task_id_.clear();
+              content_busy_ = false;
+              emit contentBusyChanged();
+              if (account != active_account_id_ || generation != account_generation_) {
+                return;
+              }
+              if (result.cancelled) {
+                content_status_ = QStringLiteral("课程读取已取消");
+                emit contentStatusChanged();
+                return;
+              }
+              if (result.result.ok) {
+                QStringList next_titles;

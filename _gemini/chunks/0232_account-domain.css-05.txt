@@ -1,0 +1,144 @@
+  place-items: center;
+  color: var(--ca-ink);
+  border: var(--ds-scene-glow-ring, 1.5px) solid var(--ca-edge);
+  border-radius: var(--ca-circle);       /* 50%：模板圆环档（L118/L431）；环本身不发光 */
+  background: transparent;
+  font-family: var(--ca-mono);
+  font-size: 20px;
+  font-weight: 600;
+}
+.cw-profile .profile-card h2 {
+  margin: 0 0 var(--ds-space-4, 4px);
+  color: var(--ca-ink);
+  font-size: var(--ca-body);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.cw-profile .profile-card-top p {
+  margin: 0;
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+}
+.cw-profile .profile-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+}
+.cw-profile .profile-meta strong {
+  color: var(--ca-ink);
+  font-size: var(--ca-body);
+  font-weight: 600;
+}
+.cw-profile .profile-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-16, 16px);
+}
+.cw-profile .overview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0;
+  margin-top: var(--ds-space-4, 4px);
+}
+.cw-profile .overview-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4, 4px);
+  min-width: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+  background: transparent;
+}
+.cw-profile .overview-stat strong {
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);
+  font-size: 22px;
+  font-weight: var(--ds-weight-display, 200);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.cw-profile .overview-stat span {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+  line-height: 1.5;
+}
+.cw-profile .mastery-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cw-profile .mastery-map li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 88px;
+  align-items: center;
+  gap: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  min-height: var(--ca-tap);
+  padding: var(--ds-space-8, 8px) 0;
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+}
+.cw-profile .mastery-map-stage {
+  color: var(--ca-ink-2);
+  font-family: var(--ca-mono);
+  font-size: var(--ca-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+.cw-profile .mastery-map-title {
+  color: var(--ca-ink);
+  font-size: var(--ca-body);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cw-profile .mastery-map .mastery-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: var(--ca-radius);       /* 直角进度轨：模板无圆角进度条 */
+  background: var(--ca-hair-raised);
+}
+.cw-profile .mastery-bar span {
+  border-radius: var(--ca-radius);
+  background: var(--ca-ink-2);           /* 掌握度不是语义状态，用中性暖白，不跟场景色 */
+}
+.cw-profile .mastery-map-level,
+.cw-profile .mastery-map-count {
+  color: var(--ca-ink-2);
+  font-size: var(--ca-meta);
+  text-align: right;
+}
+
+/* ── 账户安全：三张细线卡 + 改密表单 ────────────────────────────────────── */
+.cw-security .security-layout {
+  display: grid;
+  /* 最小轨道必须能缩到容器宽度以下：`minmax(260px, 1fr)` 在 320px 档（内容宽约 226px）
+     永远缩不回去，卡片被顶到 right=338、整页溢出 18px——全站补测（50 格）量出来的。
+     宽视口下 `min(260px, 100%)` 仍等于 260px，多列行为一字不变。 */
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: var(--ds-space-16, 16px);
+  align-items: start;
+}
+.cw-security .security-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-security .security-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  margin: var(--ds-space-20, 20px) 0 var(--ds-space-10, 10px);
+  color: var(--ca-ink);
+  font-family: var(--ca-mono);

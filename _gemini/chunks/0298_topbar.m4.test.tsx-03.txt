@@ -1,0 +1,101 @@
+  })
+
+  it('Esc 关闭后焦点回到触发按钮', () => {
+    setup()
+    const trigger = screen.getByRole('button', { name: '通知中心（2 条未读）' })
+    fireEvent.click(trigger)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it.each(['Escape', 'outside click'])('面板打开期间通知更新后，%s 按最新列表标记已读', (closeBy) => {
+    const onClose = vi.fn()
+    const onNavigateView = vi.fn()
+    const latestItems: NotificationItem[] = [
+      { id: 'n3', kind: 'review-due', title: '最新复习提醒', dateKey: '2026-09-21' },
+    ]
+    const { rerender } = render(<NotificationCenter items={items} onClose={onClose} onNavigateView={onNavigateView} />)
+    fireEvent.click(screen.getByRole('button', { name: '通知中心（2 条未读）' }))
+    rerender(<NotificationCenter items={latestItems} onClose={onClose} onNavigateView={onNavigateView} />)
+    if (closeBy === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
+    else fireEvent.mouseDown(document.body)
+    expect(onClose).toHaveBeenCalledWith(['n3'])
+  })
+
+  it('点击某条通知跳到对应视图并上报已读', () => {
+    const { onNavigateView, onMarkAllRead } = setup()
+    fireEvent.click(screen.getByRole('button', { name: '通知中心（2 条未读）' }))
+    fireEvent.click(screen.getByText('关卡验收：循环 已通过'))
+    expect(onNavigateView).toHaveBeenCalledWith('challenges')
+    expect(onMarkAllRead).toHaveBeenCalledWith(['n1', 'n2'])
+  })
+})
+
+describe('§5.2 保留行为 · 设置与账户', () => {
+  it('设置按钮可被壳层 ref 捕获（弹层关闭后焦点回得来）', () => {
+    const ref = { current: null as HTMLButtonElement | null }
+    const { onOpenSettings } = setup({ settingsTriggerRef: ref })
+    const button = screen.getByRole('button', { name: '打开设置' })
+    expect(ref.current).toBe(button)
+    fireEvent.click(button)
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
+    button.focus()
+    button.blur()
+    expect(document.activeElement).not.toBe(button)
+  })
+
+  it('账户菜单：menu/menuitem 语义齐备，退出登录走 onLogout', () => {
+    const { onLogout } = setup()
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
+    const menu = screen.getByRole('menu', { name: '账户操作' })
+    expect(menu).toBeTruthy()
+    expect(screen.getAllByRole('menuitem').length).toBe(5)
+    fireEvent.click(screen.getByRole('menuitem', { name: /退出登录/ }))
+    expect(onLogout).toHaveBeenCalledTimes(1)
+  })
+
+  it('账户菜单 Esc 关闭并把焦点还给头像按钮', () => {
+    setup()
+    const trigger = screen.getByRole('button', { name: '账户菜单' })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('账户菜单里只有文字入口，图标是装饰', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
+    const items = screen.getAllByRole('menuitem')
+    expect(items.every((item) => (item.textContent ?? '').trim().length > 0)).toBe(true)
+    expect([...document.querySelectorAll('.account-menu svg')].every((s) => s.getAttribute('aria-hidden') === 'true')).toBe(true)
+  })
+})
+
+describe('M4 样式层收口 · z 档 / 触控 / 字号', () => {
+  it('z 层只有五档：装饰 10、chrome 15、浮层 40、模态 50、系统 60', () => {
+    for (const [name, value] of [
+      ['--z-content', '1'],
+      ['--z-decor', '-1'],
+      ['--z-chrome', '15'],
+      ['--z-popover', '40'],
+      ['--z-modal', '50'],
+      ['--z-system', '60'],
+    ] as const) {
+      expect(css).toContain(`  ${name}: ${value};`)
+    }
+    // 侧栏与顶栏同一档，不再互相遮盖
+    expect(css).toMatch(/\.sidebar \{[\s\S]*?z-index: var\(--z-chrome\);/)
+    expect(css).toMatch(/\.topbar \{[\s\S]*?z-index: var\(--z-chrome\);/)
+    // 浮层家族不再出现 30 / 45 / 借用的 50
+    expect(css).not.toMatch(/z-index:\s*3[05];/)
+    expect(css).not.toMatch(/z-index:\s*45;/)
+  })
+
+  it('装饰层不截获指针（§5.3 第 6 条）', () => {
+    expect(css).toMatch(/\.shell-decor \{[\s\S]*?z-index: var\(--z-decor\);\r?\n {2}pointer-events: none;/)
+  })
+
+  it('顶栏与浮层的控件命中区按 §5.4 收在 44px 档', () => {
+    expect(css).toMatch(/\.icon-button \{\r?\n {2}width: var\(--tap-min\);\r?\n {2}height: var\(--tap-min\);/)

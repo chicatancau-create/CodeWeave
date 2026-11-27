@@ -1,0 +1,93 @@
+    const radii = [...cssCode.matchAll(/border-radius:\s*([^;]+)/g)].map((match) => match[1]!.trim())
+    const allowed = new Set([
+      'var(--ds-radius-panel, 0)',
+      'var(--ds-radius-control, 0)',
+      'var(--ds-shape-none, 0)',
+      'var(--ds-shape-circle, 50%)',
+      'var(--ds-shape-pill, 100px)',
+    ])
+    expect(radii.length).toBeGreaterThan(3)
+    expect(radii.filter((value) => !allowed.has(value))).toEqual([])
+  })
+
+  it('删除 = 恒定危险色，快照说明 = 恒定信息色，都不指场景点缀', () => {
+    const danger = ruleBody('.projects-view .detail-actions .danger-button')
+    expect(danger).toContain('var(--pv-bad)')
+    expect(danger).not.toMatch(/--ds-scene|--pv-scene|--c-|--accent/)
+    expect(ruleBody('.projects-view')).toContain('--pv-bad: var(--ds-status-danger')
+    expect(ruleBody('.projects-view')).toContain('--pv-info: var(--ds-status-info')
+    expect(ruleBody('.projects-view .checkpoint-note')).toContain('var(--pv-info)')
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值；没有任何全局裸选择器', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+    const unscoped = allSelectors().filter(
+      (selector) =>
+        !selector.startsWith('.projects-view') &&
+        !selector.startsWith('.reduce-motion .projects-view') &&
+        !selector.startsWith('.projects-view.reduce-motion'),
+    )
+    expect(unscoped).toEqual([])
+  })
+})
+
+describe('M4 项目页 · §5.4 可读性与降级', () => {
+  it('正文 16px / 行高 1.7，触控 44px，焦点可见且不取消 outline', () => {
+    const root = ruleBody('.projects-view')
+    expect(root).toContain('--pv-body: var(--ds-size-body, 16px)')
+    expect(root).toContain('--pv-leading: var(--ds-leading-body, 1.7)')
+    expect(root).toContain('--pv-tap: var(--ds-tap-min, 44px)')
+    for (const selector of [
+      '.projects-view .project-card',
+      '.projects-view .detail-actions .subtle-button',
+      '.projects-view .detail-actions .danger-button',
+      '.projects-view .checkpoint-row .subtle-button',
+      '.projects-view .project-create .primary-action',
+      '.projects-view .setting-select',
+    ]) {
+      expect(ruleBody(selector)).toContain('var(--pv-tap)')
+    }
+    expect(ruleBody('.projects-view :focus-visible')).toContain('var(--ds-focus-ring, rgba(220, 233, 251, 0.72))')
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)\b/)
+  })
+
+  it('长中文项目名折行不省略；长代码行横向滚动不挤压', () => {
+    expect(ruleBody('.projects-view .project-card strong')).toContain('white-space: normal')
+    expect(cssCode).not.toMatch(/text-overflow:\s*ellipsis/)
+    expect(cssCode).not.toMatch(/white-space:\s*nowrap/)
+    const code = ruleBody('.projects-view .project-code')
+    expect(code).toContain('overflow-x: auto')
+    expect(code).toContain('white-space: pre')
+    expect(code).toContain('var(--editor-font-size, 13px)')                    /* 编辑器保留用户字号 */
+    expect(ruleBody('.projects-view :is(h1, h2, h3, p, span, li, label, strong, small, code, button)')).toContain(
+      'overflow-wrap: anywhere',
+    )
+  })
+
+  it('320px 最小宽度有专门降级（检查点行改两列、留白收紧）', () => {
+    const block = mediaBlock('max-width: 360px')
+    expect(block).toContain('--pv-pad: 12px')
+    expect(block).toContain('grid-template-columns: auto minmax(0, 1fr)')
+  })
+
+  it('系统 prefers-reduced-motion 与根类 .reduce-motion 都真停', () => {
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('animation: none !important')
+    expect(system).toContain('transition: none !important')
+    const scoped = ruleBody('.reduce-motion .projects-view *')
+    expect(scoped).toContain('animation: none !important')
+    expect(cssCode).not.toMatch(/infinite/)
+    expect(cssCode.match(/@keyframes/g) ?? []).toEqual([])
+  })
+
+  it('!important 只出现在降级块内', () => {
+    const cut = cssCode.indexOf('@media (prefers-reduced-motion')
+    expect(cut).toBeGreaterThan(0)
+    expect(cssCode.slice(0, cut)).not.toContain('!important')
+  })
+})
+
+describe('M4 项目页 · 无障碍（axe-core）', () => {
+  const axeRules = {
+    'color-contrast': { enabled: false },
+    'target-size': { enabled: false },

@@ -1,0 +1,75 @@
+          shell.updateDraftCode(QStringLiteral("print(16)\n"));
+          context->step = 601;
+          return;
+        }
+        case 601: {
+          auto* version = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVersion"));
+          u3_record(*context, QStringLiteral("execution-trace-edit-marks-old-revision"), version &&
+              version->property("text").toString().contains(QStringLiteral("代码已修改")) &&
+              shell.executionTrace().value(QStringLiteral("sourceRevision")).toULongLong() != shell.draftRevision());
+          u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-stale"), QSize(1100, 720));
+          shell.discardDraftChanges();
+          view.resize(1440, 900);
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("java-loop-sum"));
+            if (index < 0) { u3_record(*context, QStringLiteral("java-execution"), false,
+                QStringLiteral("缺少 java-loop-sum 内容")); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step = 50;
+          return;
+        }
+        case 50:
+          if (shell.contentBusy()) return;
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 51:
+          if (shell.contentBusy()) return;
+          shell.runCode();
+          context->step++;
+          return;
+        case 52:
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("java-execution"), shell.executionOutput().contains(QStringLiteral("15")),
+              shell.executionOutput());
+          {
+            const auto trace_events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            int snapshot_index = -1;
+            for (qsizetype index = 0; index < trace_events.size(); ++index) {
+              const auto event = trace_events.at(index).toMap();
+              if (event.value(QStringLiteral("kind")).toString() == QStringLiteral("source_step") &&
+                  event.value(QStringLiteral("sourceLine")).toInt() == 7 &&
+                  event.value(QStringLiteral("variables")).toMap().value(QStringLiteral("total")).toString() == "15") {
+                snapshot_index = static_cast<int>(index);
+                break;
+              }
+            }
+            auto* events = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            u3_record(*context, QStringLiteral("java-source-snapshot-line-and-local-variable"),
+                events && line && variables && snapshot_index >= 0 &&
+                events->setProperty("currentIndex", snapshot_index) && line->property("visible").toBool() &&
+                line->property("text").toString() == QStringLiteral("源码第 7 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 15")));
+            u3_record(*context, QStringLiteral("java-source-snapshot-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-java-source-snapshot")));
+          }
+          {
+            const auto index = shell.publishedIds().indexOf(QStringLiteral("javascript-loop-sum"));
+            if (index < 0) { u3_record(*context, QStringLiteral("javascript-execution"), false,
+                QStringLiteral("缺少 javascript-loop-sum 内容")); context->step = 99; return; }
+            shell.openPublishedContent(index);
+          }
+          context->step = 53;
+          return;
+        case 53:
+          if (shell.contentBusy()) return;
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 54:
+          if (shell.contentBusy()) return;
+          shell.runCode();

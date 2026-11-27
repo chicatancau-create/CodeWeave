@@ -1,0 +1,13 @@
+      loadVaultProgress,
+      evidenceQueue,
+      loadEvidenceQueue,
+      stageEvidence,
+      removeEvidence,
+      previewEvidence,
+      commitEvidence,
+      exportEvidence,
+    ],
+  )
+
+  return <ContentContext.Provider value={value}>{children}</ContentContext.Provider>
+}

@@ -1,0 +1,121 @@
+        0.04559999704360962,
+        2.6290999948978424,
+        0.015499979257583618,
+        0.001100003719329834,
+        0.0009999871253967285,
+        2.779000014066696,
+        0.046000003814697266,
+        3.0810000002384186,
+        0.04679998755455017,
+        1.332500010728836,
+        2.6527000069618225,
+        0.01600000262260437,
+        2.3176999986171722,
+        2.7505000233650208,
+        2.9876999855041504,
+        0.04680001735687256,
+        2.8409999907016754,
+        3.170399993658066,
+        0.016699999570846558,
+        2.429399996995926,
+        0.04559999704360962,
+        2.9675999879837036,
+        0.04580000042915344,
+        0.001399993896484375,
+        2.4027999937534332,
+        0.046000003814697266,
+        1.9575999975204468,
+        2.462999999523163,
+        0.0382000207901001,
+        3.11149999499321,
+        0.0014000236988067627,
+        0.0009999871253967285,
+        0.04580000042915344,
+        2.542399972677231,
+        2.888599991798401,
+        3.007299989461899,
+        1.8596999943256378,
+        0.013600021600723267,
+        3.2098000049591064,
+        2.6232999861240387,
+        2.8055999875068665,
+        0.0028000175952911377,
+        2.8076000213623047,
+        1.9628999829292297,
+        0.01629999279975891,
+        2.4580000042915344,
+        2.9499000012874603,
+        0.06220000982284546,
+        0.0022999942302703857,
+        1.7883999943733215,
+        3.223699986934662
+      ],
+      "main_thread_scope": "outermost Qt event dispatch, includes workload callbacks; startup construction excluded",
+      "qt_version": "6.8.3",
+      "schemaVersion": 1,
+      "slow_events": [
+        {
+          "depth": 2,
+          "duration_ms": 268.8720000088215,
+          "event_type": 1,
+          "object_name": "",
+          "receiver_class": "QQuickWindowIncubationController",
+          "since_measurement_ms": 193.97279998660088,
+          "workload_stage": 4
+        },
+        {
+          "depth": 1,
+          "duration_ms": 268.8775999844074,
+          "event_type": 1,
+          "object_name": "QWindowsGuiEventDispatcher",
+          "receiver_class": "QWindowsGuiEventDispatcher",
+          "since_measurement_ms": 193.97249999642372,
+          "workload_stage": 4
+        }
+      ],
+      "startup_entry_to_ready_ms": 510.49699997901917,
+      "startup_scope": "process main entry to exposed window + loaded catalog + event loop tick; excludes OS loader"
+    }
+  ],
+  "limitations": [
+    "warm OS cache; synthetic workload",
+    "frameSwapped is not DWM presentation",
+    "startup from main entry excludes OS loader",
+    "not a Win32 parity comparison"
+  ],
+  "metrics": {
+    "main_thread_ms": {
+      "count": 3637,
+      "p50": 0.045499980449676514,
+      "p95": 2.9941000044345856,
+      "max": 268.8775999844074,
+      "budget": 16.7,
+      "passed": true
+    },
+    "frame_interval_ms": {
+      "count": 1057,
+      "p50": 3.333299994468689,
+      "p95": 3.562299996614456,
+      "max": 21.857899993658066,
+      "budget": 20,
+      "passed": true
+    },
+    "edit_ms": {
+      "count": 60,
+      "p50": 15.628899991512299,
+      "p95": 16.68810001015663,
+      "max": 17.872000008821487,
+      "budget": 50,
+      "passed": true
+    },
+    "cancel_ms": {
+      "count": 10,
+      "p50": 57.638799995183945,
+      "p95": 151.9254999756813,
+      "max": 151.9254999756813,
+      "budget": 100,
+      "passed": false
+    }
+  },
+  "status": "failed"
+}

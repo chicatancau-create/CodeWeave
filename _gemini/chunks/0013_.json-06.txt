@@ -1,0 +1,110 @@
+      "bytes": 54513256.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify3-build",
+      "files": 1548,
+      "bytes": 195348686.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\_analytics.qml.frag",
+      "files": 1,
+      "bytes": 23803.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\_challenge.qml.frag",
+      "files": 1,
+      "bytes": 21695.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\_drafts.qml.frag",
+      "files": 1,
+      "bytes": 19932.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\_fixcard.py",
+      "files": 1,
+      "bytes": 11307.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\_pages.qml.frag",
+      "files": 1,
+      "bytes": 31882.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\_review.qml.frag",
+      "files": 1,
+      "bytes": 13012.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-debug.log",
+      "files": 1,
+      "bytes": 23.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-final.log",
+      "files": 1,
+      "bytes": 134818.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-p0.log",
+      "files": 1,
+      "bytes": 47047.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-p0b.log",
+      "files": 1,
+      "bytes": 508674.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-p0c.log",
+      "files": 1,
+      "bytes": 90253.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-p0d.log",
+      "files": 1,
+      "bytes": 305920.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\build-msvc-race.log",
+      "files": 1,
+      "bytes": 90593.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\CodeWeaveQt-0.1.0-preview-setup.exe",
+      "files": 1,
+      "bytes": 68158936.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {

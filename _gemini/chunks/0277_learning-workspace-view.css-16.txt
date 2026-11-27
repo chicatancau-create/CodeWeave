@@ -1,0 +1,121 @@
+   （顶栏 + 页头 + 导航），而**工作区内部**的页头还占 117px：`.learning-header-actions`
+   三个 44px 控件在这一档换到第二行，同一块里又叠了标题的上下两行，于是 44+44+标题行
+   拼成三行。加上导航 62px，551 的视口里只剩约 104px 给正文——「点进学习还要滑」就是
+   这么来的，不是滚动条的事，是根本没剩下几像素。
+
+   所以这一档要动的是**页头自己的排版**，不是再往上加高度预算：
+     · 标题行与动作组强制同行（标题 flex:1 收窄，动作组不给换行的机会）；
+     · 动作组里的说明文字收进图标（`.cw-mode-toggle` 的「代码模式」四字在这一档
+       让位——按钮仍带 aria-label，读屏不受影响）；
+     · 导航 pill 的上下内边距从 12 收到 8，44 的触控底线由 min-height 继续守住。
+   收回来约 60px，正文那一块从 104 长到约 164——仍然要小框内滚，但至少能看见一段完整
+   的代码/阅读块，而不是一个字都挤不进来。 */
+@media (max-width: 640px) {
+  .cw-workspace {
+    /* 这一档**不降** chrome-h。曾试过按「页头收成两行」降到 240，结果实测
+       590×551 上工作台底边落到 573，比视口多出 22px——一根文档滚动条又回来了。
+       原因是 chrome-h 扣的是**工作台以上**的外壳（顶栏 + 面包屑 + 页头，实测 262），
+       而那个数字与本文件里页头收不收窄无关：页头在工作台**里面**。
+       所以这一档给 274，比 ≤1080px 档的 268 再宽 6px：实测 wsTop 262、视口 551，
+       上限取 551 − 274 = 277 时工作台底边落在 539，留 12px 余量。 */
+    --cw-chrome-h: 274px;
+  }
+  .cw-workspace .learning-header {
+    gap: var(--ds-space-8, 8px);
+    margin-bottom: var(--ds-space-10, 10px);
+    padding-bottom: var(--ds-space-10, 10px);
+    /* 这一档不再让动作组换行：宁可标题被压窄，也不让四个 44px 控件占掉整整一行。 */
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .cw-workspace .learning-title {
+    /* 同行布局里标题让出宽度；`min-width: 0` 是让 flex 子项能被压到内容宽度以下，
+       否则长课名会把动作组顶出行外（短文本补测 §4.12 那条的老毛病）。 */
+    min-width: 0;
+  }
+  .cw-workspace .learning-title h1 {
+    /* 字号跟着视口收一档，长中文标题在这一档更容易整行放下。 */
+    font-size: clamp(15px, 4.4vw, 19px);
+  }
+  .cw-workspace .learning-title span {
+    /* 副标题（「入门 · 8 min」）在同行布局里最不划算，让位给标题本体；
+       它在页头下方的元信息里仍有同值可读。 */
+    display: none;
+  }
+  .cw-workspace .learning-header-actions {
+    flex: 0 0 auto;
+    gap: var(--ds-space-6, 6px);
+  }
+  .cw-workspace .cw-mode-toggle {
+    /* 图标档：宽度回到与 icon-button 同宽（44），文字撤掉。按钮本身带
+       aria-label，读屏拿到的仍是「代码模式 / 退出代码模式」。 */
+    width: var(--cw-tap);
+    padding: 0;
+    justify-content: center;
+  }
+  .cw-workspace .cw-mode-toggle span {
+    display: none;
+  }
+  .cw-workspace .cw-pane-nav ol {
+    margin-bottom: var(--ds-space-10, 10px);
+  }
+  .cw-workspace .cw-pane-nav a {
+    padding: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  }
+}
+
+/* ── 外壳自身抗溢出：页头/导航/洞察条都长在**小框外面** ────────────────────
+   上面两档收的是「外壳有多高」，但页头是内容驱动的：课名一长，h1 就换行（这里
+   `overflow-wrap: anywhere` + `clamp()` 字号，任意宽度都可能多一行）；洞察条也跟着
+   文案长短变。它们都在 `.learning-view` 之外，所以一涨就直接把工作区顶出视口——
+   实测 590×551 上残留的 31px 文档滚动正是这么来的，而且**换一课就复现**。
+   靠调 `--cw-chrome-h` 追这个数追不上：它是常数，页头是变量。
+
+   所以让工作区自己吞掉这点涨落：页头与导航 `flex: 0 0 auto` 保住它们的自然高（标题
+   不裁切），把剩下的空间让给小框；小框 `flex: 1 1 auto` + `min-height: 0` 会被压到
+   只剩几十像素也不溢出。宁可小框矮，也不要一根文档滚动条——用户的原话是「外面的
+   总界面你总是滑动干嘛」。极小兜底：小框给 48px 地板，再矮就没有可读性可言了。 */
+.cw-workspace > .learning-header,
+.cw-workspace > .cw-pane-nav,
+.cw-workspace > .lesson-insight {
+  flex: 0 0 auto;
+}
+@media (max-width: 1080px) {
+  .cw-workspace .learning-view {
+    flex: 1 1 auto;
+    min-height: 48px;
+  }
+}
+
+/* ── 代码模式：页头与分区导航收成一条窄带（2026-10-04 用户要求「一体化」） ────────
+   用户看完成品后的两条原话：
+     · 「边框顶部有一个 Java 的第一个循环……我希望它全都是一体式的，不要出现明显的分层」；
+     · 「只要点进跟代码有关的内容，就直接占满整个页面，左上角留一个返回按键」。
+   沉浸式全屏那半在外壳侧已经做了（`styles.css` 里收起侧栏 / 顶栏 / 横幅）。这一条做的是
+   **页头自己不占那么多层**：原先「返回 + 课名」一行、四个动作按钮另起一行（窄视口下）、
+   分区导航再一行，三条带叠在画布正上方，看着就是分层。这里把它们压成一条：
+
+   - 页头只留一行，动作按钮收到 36px 的紧凑档（触控底线由 `min-height` 之外的
+     `aria-label` 与足够的点击区保住——36 是**视觉**高度，实际命中区由内边距撑到 44）；
+   - 课名与返回同排，副标题（等级 · 时长）在这一档让位——它已经在页头的元信息里出现过；
+   - 分区导航的上下内边距收到 6px，并把下外边距归零：它是页头与画布之间的最后一条
+     空隙，留着就又是一道缝。
+
+   取值仍然只用 `--ds-*`：本文件受页面 CSS 棘轮管（字号地板 12px、圆角只许 0/50%/100px、
+   `--ds-scene-active` 恰好一次），所以这里不写字号——只动间距与对齐。 */
+.cw-workspace.is-code-mode .learning-header {
+  margin-bottom: var(--ds-space-6, 6px);
+  padding-bottom: var(--ds-space-6, 6px);
+  gap: var(--ds-space-8, 8px);
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.cw-workspace.is-code-mode .learning-title {
+  /* 同行布局里标题让出宽度：`min-width: 0` 让长课名可以被压窄而不是把动作组顶出去
+     （短文本补测 §4.12 那条老毛病）。 */
+  min-width: 0;
+}
+.cw-workspace.is-code-mode .learning-title span {
+  /* 副标题让位：这一档要的是「一条窄带」，而它是这一行里最不承重的信息。 */
+  display: none;
+}

@@ -1,0 +1,138 @@
+      "fileName": "webpack.prod.js",
+      "runtime": "外部环境 · Node + Webpack",
+      "content": {
+        "objective": "完成一次动态导入分割与 Tree Shaking 前后的体积对比，并解释数据差异。",
+        "prerequisites": [
+          "f1-webpack-entry-loader",
+          "f2-webpack-plugin-devserver"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "F",
+        "explanation": [
+          "动态 import() 会生成独立 chunk，实现按需加载。",
+          "splitChunks 把公共依赖抽出，利用浏览器缓存。",
+          "Tree Shaking 靠 ESM 静态分析删除未引用导出；sideEffects 标记影响去留。"
+        ],
+        "examples": [
+          {
+            "good": "import(\"./chart\") 拆出图表库，首屏不加载",
+            "bad": "整库 import _ from \"lodash\" 只用一个函数，生产仍打进全量",
+            "why": "引包方式直接决定产物体积"
+          }
+        ],
+        "guidedSteps": [
+          "用 webpack-bundle-analyzer 生成构成报告。",
+          "把大工具库改为按需导入，对比前后体积。",
+          "加一个动态 import 的懒加载路由页。"
+        ],
+        "exercise": "独立完成一份“优化前/后体积对比”报告，附两个构建日志。",
+        "variant": "配置 splitChunks 把 react 系依赖稳定拆成 vendor chunk。",
+        "projectTask": "体积对比报告是 F 阶段验收的必交证据。",
+        "mistakes": [
+          "用 require 引入导致无法摇树",
+          "只看总大小不看 gzip 后与缓存策略"
+        ],
+        "runCommand": "npx webpack --config webpack.prod.js（本地工程）",
+        "completion": "有前后对比数据，能解释每一项体积变化的来源。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "至少一处动态导入生效",
+          "优化前后体积数据齐全",
+          "能解释 Tree Shaking 生效条件"
+        ],
+        "evidenceChecklist": [
+          "analyzer 报告截图",
+          "前后构建日志",
+          "对比结论"
+        ]
+      }
+    },
+    {
+      "id": "j1-auth-session-flow",
+      "language": "javascript",
+      "languageLabel": "安全",
+      "label": "J1",
+      "title": "认证与授权：Session、Token 与边界",
+      "description": "登录态如何在请求间维持",
+      "duration": "40 min",
+      "level": "进阶",
+      "code": "# 认证流程观察（真实服务或本项目的 /api/auth/*）：\n# 1. POST /api/auth/login（错误密码）→ 401\n# 2. POST /api/auth/login（正确密码）→ Set-Cookie: code_canvas_session=...\n# 3. GET /api/auth/me（带 Cookie）→ 用户数据\n# 4. GET /api/auth/me（不带 Cookie）→ {\"data\":null}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "提交凭据",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "校验通过？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "颁发会话凭证",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "后续请求携带凭证",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "认证回答“你是谁”，授权回答“你能做什么”；会话是两者的载体，过期与失效同样重要。",
+      "fileName": "auth-flow-notes.md",
+      "runtime": "外部环境 · curl + 本项目 API",
+      "content": {
+        "objective": "独立完成一次完整登录流程观察，并解释 Cookie 会话与 Token 方案的取舍。",
+        "prerequisites": [
+          "i2-springboot-rest-actuator"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "J",
+        "explanation": [
+          "登录成功后服务端颁发凭证：Cookie+Session 存服务端，JWT 把状态签名进令牌。",
+          "HttpOnly 阻止 JS 读 Cookie，SameSite 缓解 CSRF；Token 常放 Authorization 头。",
+          "会话必须有过期与登出失效：只颁发不回收等于门永不锁。"
+        ],
+        "examples": [
+          {
+            "good": "本项目登出后旧 Cookie 立即失效（服务端删除会话）",
+            "bad": "Token 永不过期且无法吊销，泄露即永久失控",
+            "why": "凭证生命周期是安全设计的一部分"
+          }
+        ],
+        "guidedSteps": [
+          "用 curl 走完本项目 4 步登录流程并记录状态码与 Cookie。",
+          "观察登录前后的差异：哪些接口开始返回数据。",
+          "画出 Session 方案与 JWT 方案的时序对比。"

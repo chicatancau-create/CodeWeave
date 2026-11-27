@@ -1,0 +1,70 @@
+                    // .desktop-course-toolbar
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        Layout.bottomMargin: ds.s12
+                        spacing: ds.s12
+                        RowLayout {
+                            spacing: ds.s8
+                            Text {
+                                text: "课程单元"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Text {
+                                text: "" + studyPage.filteredLessons.length
+                                color: ds.faint
+                                font.family: ds.mono
+                                font.pixelSize: 11
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
+                        RowLayout {
+                            spacing: ds.s4
+                            Repeater {
+                                model: ["全部", "待学习", "已完成"]
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    required property int index
+                                    objectName: "lessonStatusFilter-" + index
+                                    implicitWidth: fLabel.implicitWidth + ds.s20
+                                    implicitHeight: 21
+                                    radius: 4
+                                    property bool available: index === 0 || uiShell.lessonEvidenceReady
+                                    activeFocusOnTab: available
+                                    function choose() { if (available) hostRoot.lessonStatusFilter = index; }
+                                    Keys.onReturnPressed: choose()
+                                    Keys.onSpacePressed: choose()
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: modelData
+                                    Accessible.checkable: true
+                                    Accessible.checked: index === hostRoot.lessonStatusFilter
+                                    opacity: available ? 1 : 0.45
+                                    color: index === hostRoot.lessonStatusFilter ? ds.tabActive : "transparent"
+                                    border.color: activeFocus ? ds.accent : (index === hostRoot.lessonStatusFilter ? ds.line : "transparent")
+                                    border.width: 1
+                                    Text {
+                                        id: fLabel
+                                        anchors.centerIn: parent
+                                        text: modelData
+                                        color: index === hostRoot.lessonStatusFilter ? ds.ink : ds.muted
+                                        font.family: ds.ui
+                                        font.pixelSize: 11
+                                    }
+                                    HoverHandler { id: statusFilterHover }
+                                    ToolTip.visible: !available && statusFilterHover.hovered
+                                    ToolTip.text: "登录并读取完成证据后可筛选"
+                                    TapHandler {
+                                        enabled: parent.available
+                                        onTapped: parent.choose()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // .desktop-course-grid — the internal scroll box

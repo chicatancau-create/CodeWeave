@@ -1,0 +1,49 @@
+    expect(mediaBlock('prefers-reduced-motion: reduce')).toContain('transition: none !important')
+    expect(declarationBlock('.reduce-motion .modal-backdrop.cw-modal-backdrop :is(button, input, select, textarea)')).toContain(
+      'transition: none !important',
+    )
+    const total = (cssCode.match(/!important/g) ?? []).length
+    expect(total).toBeGreaterThan(0)
+    expect(total).toBe(reduceMotionImportantCount())
+  })
+
+  it('模态内不再写行内样式（§5.1：样式由令牌与类名承担）', () => {
+    // 只看渲染容器：body 上的 overflow 是焦点钩子运行时写的，不属于组件标记
+    const help = render(<HelpModal onClose={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '知道了' }).getAttribute('style')).toBeNull()
+    expect(help.container.querySelector('[style]')).toBeNull()
+    cleanup()
+    const settings = render(
+      <SettingsModal
+        settings={baseSettings}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onExport={vi.fn()}
+        onRestoreDefaults={vi.fn()}
+      />,
+    )
+    expect(settings.container.querySelector('[style]')).toBeNull()
+  })
+})
+
+describe('M4 弹层 · 无障碍结构（axe-core）', () => {
+  it('设置弹窗的 dialog / 表单 / 开关结构无 axe 违规', async () => {
+    const { container } = render(
+      <SettingsModal
+        settings={baseSettings}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onExport={vi.fn()}
+        onRestoreDefaults={vi.fn()}
+      />,
+    )
+    const results = await axe.run(container, {
+      rules: {
+        // jsdom 无布局：色彩对比与触控尺寸由上面的 CSS 源码不变式与浏览器复核承担
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([])
+  })
+})

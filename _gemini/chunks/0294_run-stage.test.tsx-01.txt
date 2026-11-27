@@ -1,0 +1,118 @@
+// @vitest-environment jsdom
+/**
+ * 画布组件契约测试（`components/run-stage.tsx`）。
+ *
+ * 断言风格与项目现有 jsdom 测试一致：**直接读 DOM 结构与文本，不依赖 jest-dom 匹配器**
+ * （那套匹配器本项目没有装，`toBeInTheDocument` 之类在这里不存在）。
+ *
+ * 这一份盯的是**画布上出现了什么、没出现什么**——不是帧模型算得对不对（那是
+ * `engine/run-stage-model.test.ts` 的事），而是这些算出来的东西有没有如实落到 DOM 上：
+ *
+ * - 没拍就不画控制条（不画一排永远禁用的按钮）；
+ * - 首帧 `上一步` 禁用、末帧 `下一步` 禁用，且这判断来自 props 而不是内部状态；
+ * - 计数器两位对齐 `03 / 07`；
+ * - 当前拍恰有一个 `aria-current="step"`（读屏用户靠它认「现在我在这儿」）；
+ * - **没走到的节点不填假值**——「尚未执行」四个字必须在，序号必须是 `--`，
+ *   这是 `flow-chart` 那条纪律在画布上的同一份。
+ */
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RunStage, type RunStageProps } from './run-stage'
+import type { StageFrame, StageNode } from '../engine/run-stage-model'
+
+afterEach(cleanup)
+
+const node = (over: Partial<StageNode> & { id: string }): StageNode => ({
+  label: `节点 ${over.id}`,
+  kind: 'process',
+  tone: 'blue',
+  ordinal: null,
+  state: 'todo',
+  line: null,
+  cells: [],
+  visit: 0,
+  ...over,
+})
+
+const frame = (over: Partial<StageFrame> & { nodes: StageNode[] }): StageFrame => ({
+  index: 0,
+  total: 1,
+  loopBackFrom: null,
+  loops: 0,
+  caption: '这一拍在做什么',
+  line: 1,
+  outputLines: [],
+  ...over,
+})
+
+const props = (over: Partial<RunStageProps> = {}): RunStageProps => ({
+  frame: null,
+  playing: false,
+  stepIndex: 0,
+  stepTotal: 0,
+  canStep: false,
+  onPrev: vi.fn(),
+  onNext: vi.fn(),
+  onTogglePlay: vi.fn(),
+  onReset: vi.fn(),
+  ...over,
+})
+
+/** 按文本找一条骨架节点（`<li>`）：`getAllByRole('listitem')` 里挑出含该字样的那条。 */
+const itemWith = (text: string): HTMLElement => {
+  const hit = screen.getAllByRole('listitem').find((li) => li.textContent?.includes(text))
+  if (!hit) throw new Error(`没有找到含「${text}」的列表项`)
+  return hit
+}
+
+describe('run-stage · 空态', () => {
+  it('frame 为 null 时整块不画（还没运行过，不拿空骨架画假节点）', () => {
+    const { container } = render(<RunStage {...props({ frame: null })} />)
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('canStep 为假时连控制条都不画，而不是画一排永远禁用的按钮', () => {
+    const f = frame({ nodes: [node({ id: 'n1' })], total: 0 })
+    render(<RunStage {...props({ frame: f, canStep: false, stepTotal: 0 })} />)
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    // 但骨架本身照画：没有拍 ≠ 没有程序。
+    expect(screen.getByRole('list', { name: /程序状态图/ })).toBeTruthy()
+  })
+})
+
+describe('run-stage · 步进按钮', () => {
+  const threeNodes = [
+    node({ id: 'n1', label: '开始', kind: 'start', ordinal: 1, state: 'done', line: 1 }),
+    node({ id: 'n2', label: '累加', kind: 'process', ordinal: 2, state: 'now', line: 2 }),
+    node({ id: 'n3', label: '结束', kind: 'end', ordinal: null, state: 'todo' }),
+  ]
+
+  it('首帧：上一步禁用，下一步可用', () => {
+    render(<RunStage {...props({ frame: frame({ nodes: threeNodes }), canStep: true, stepIndex: 0, stepTotal: 7 })} />)
+    const prev = screen.getByRole('button', { name: /上一步/ }) as HTMLButtonElement
+    const next = screen.getByRole('button', { name: /下一步/ }) as HTMLButtonElement
+    expect(prev.disabled).toBe(true)
+    expect(next.disabled).toBe(false)
+  })
+
+  it('末帧：下一步禁用，上一步可用', () => {
+    render(<RunStage {...props({ frame: frame({ nodes: threeNodes }), canStep: true, stepIndex: 6, stepTotal: 7 })} />)
+    const prev = screen.getByRole('button', { name: /上一步/ }) as HTMLButtonElement
+    const next = screen.getByRole('button', { name: /下一步/ }) as HTMLButtonElement
+    expect(next.disabled).toBe(true)
+    expect(prev.disabled).toBe(false)
+  })
+
+  it('三个按钮各带一个回调，点击只触发自己那一个', () => {
+    const onPrev = vi.fn()
+    const onNext = vi.fn()
+    const onTogglePlay = vi.fn()
+    const onReset = vi.fn()
+    render(
+      <RunStage
+        {...props({ frame: frame({ nodes: threeNodes }), canStep: true, stepIndex: 3, stepTotal: 7, onPrev, onNext, onTogglePlay, onReset })}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /上一步/ }))
+    fireEvent.click(screen.getByRole('button', { name: /下一步/ }))
+    fireEvent.click(screen.getByRole('button', { name: /播放/ }))

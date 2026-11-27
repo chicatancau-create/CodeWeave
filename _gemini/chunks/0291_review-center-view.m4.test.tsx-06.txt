@@ -1,0 +1,77 @@
+    expect(declarationBlock('.cw-review .rv-btn')).toContain('min-height: var(--rv-tap)')
+    expect(declarationBlock('.cw-review .rv-empty')).toContain('min-height: var(--rv-tap)')
+    expect(declarationBlock('.cw-review :is(button, a, summary, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring, rgba(220, 233, 251, 0.72))',
+    )
+  })
+
+  it('320px 最小宽度有专门降级规则', () => {
+    expect(mediaBlock('max-width: 399px')).toContain('padding-left: var(--ds-space-10, 10px)')
+    expect(cssCode).toContain('min-width: 0')
+    expect(mediaBlock('max-width: 679px')).toContain('table-layout: auto')
+  })
+
+  it('§4 loading / error 两档自带高度下限，失败档用虚线而不是颜色', () => {
+    expect(declarationBlock('.cw-review .rv-async')).toMatch(/min-height:\s*\d+(\.\d+)?em/)
+    const failed = declarationBlock('.cw-review .rv-async--failed')
+    expect(failed).toMatch(/border-bottom-style:\s*dashed/)
+    expect(failed).not.toMatch(/var\(--rv-accent\)|var\(--c-|var\(--ds-status-/)
+  })
+
+  it('语义状态不靠颜色：三档边框样式互不相同，且没有任何场景色参与状态表达', () => {
+    expect(declarationBlock('.cw-review .rv-mark--overdue')).toContain('border-style: dotted')
+    expect(declarationBlock('.cw-review .rv-mark--today')).toContain('border-style: solid')
+    expect(declarationBlock('.cw-review .rv-mark--upcoming')).toContain('border-style: dashed')
+    expect(declarationBlock('.cw-review .rv-mark--overdue .rv-mark-text')).toContain('text-decoration-style: dotted')
+    // 状态标识的边框/文字色全部取发丝线或暖白，不取 --rv-accent / --c-* 场景与状态色
+    for (const selector of [
+      '.cw-review .rv-mark--overdue',
+      '.cw-review .rv-mark--today',
+      '.cw-review .rv-mark--upcoming',
+    ]) {
+      expect(declarationBlock(selector)).not.toMatch(/var\(--rv-accent\)|var\(--c-|var\(--ds-status-/)
+    }
+  })
+
+  it('持续动效被系统偏好与根类 .reduce-motion 两道开关真正停止', () => {
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('.cw-review')
+    expect(system.match(/animation: none/g)?.length).toBeGreaterThanOrEqual(1)
+    expect(system).toContain('transition: none')
+    expect(declarationBlock('.reduce-motion .cw-review, .reduce-motion .cw-review *, .reduce-motion .cw-review *::before, .reduce-motion .cw-review *::after')).toContain(
+      'animation: none',
+    )
+    expect(cssCode).not.toMatch(/animation[^;]*\binfinite\b/)
+    expect(cssCode).not.toMatch(/@keyframes/)
+  })
+})
+
+describe('M4 复习中心 · 无障碍（axe-core）', () => {
+  it('三组表格 + 复测操作按钮无 axe 违规', async () => {
+    const upcoming = record({ refId: 'lesson-s2-3', reviewDueKey: '2026-09-24' })
+    const { container } = render(
+      <ReviewCenterView
+        groups={{
+          overdue: [record()],
+          today: [record({ refId: 'lesson-s1-2', reviewDueKey: '2026-09-20' })],
+          upcoming: [upcoming],
+          next: { dateKey: '2026-09-24', record: upcoming },
+        }}
+        titles={titles}
+        lessonIds={['lesson-s0-1', 'lesson-s1-2', 'lesson-s2-3']}
+        todayKey='2026-09-20'
+        onReview={vi.fn()}
+        onSnooze={vi.fn()}
+        onOpenLesson={vi.fn()}
+      />,
+    )
+    const results = await axe.run(container, {
+      rules: {
+        // jsdom 无真实布局：色彩对比与触控尺寸由 CSS 源码不变式与浏览器复核承担
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+  })
+})

@@ -1,0 +1,124 @@
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+}
+g.rs-node .rs-cell-value {
+  fill: var(--ds-text-primary, #e8eef7);
+  font-weight: 600;
+}
+/* 首次出现：值换成功色。刚被改写：值换信息色 —— 两个不同的通道，
+   因为「新冒出来的变量」和「同一个变量被改了」是两件事，不该长得一样。 */
+g.rs-node .rs-cell.is-born .rs-cell-value {
+  fill: var(--ds-status-success, #3fd3a4);
+}
+g.rs-node .rs-cell.is-changed .rs-cell-value {
+  fill: var(--ds-status-info, #5b86ff);
+}
+g.rs-node .rs-cell-more {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  font-size: 12px;
+}
+
+/* 只给读屏的那一段（类型名与「刚被改写」）：视觉上由颜色承担，所以在画面上收掉。
+   SVG 里没有 HTML 那套 sr-only 惯例（clip-path + 1px 盒子），用 font-size: 0 ——
+   它仍在无障碍树里，但不占画面。 */
+g.rs-node .rs-sr {
+  font-size: 0;
+}
+
+/* ── 边与箭头 ─────────────────────────────────────────────────────────────── */
+g.rs-edge .rs-edge-line {
+  fill: none;
+  /* 参考实现 `.edge { stroke-width: 2 }`——照抄。这一条同时是箭头 marker 的锚，
+     1.5 的线配 8×8 的箭头会显出「杆细头大」的错位。 */
+  stroke-width: 2;
+  transition: stroke var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+/* 还没走的路：虚线 + 发丝档。走过的路：实线 + 抬起档。刚走的这一步：强调色 + 加粗。
+   三态而不是两态——只分「亮/不亮」会把「已经走完的路」和「还没走的路」画成同一个样子。
+   2026-10-04 起 `is-idle` 整条不画：一步一步显现时，指向还没走到的格子的箭头
+   等于「指向空位」——目标格自己都不在场（`opacity: 0`），箭头画出来就是悬空的。
+   虚线那几条保留定义在下面，等这一格真的走到、边转成 `done`/`active` 时一并现形。 */
+g.rs-edge.is-idle .rs-edge-line {
+  stroke: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+  stroke-dasharray: 5 4;
+}
+g.rs-edge.is-idle {
+  opacity: 0;
+}
+/* 走过的路：实线 + 星云紫（参考站 `edge-active` 的 #a78bfa）。
+   它跟「此刻」的冷青是两个色相，一眼能分出「刚走的这一步」与「已经走完的路」。 */
+g.rs-edge.is-done .rs-edge-line {
+  stroke: var(--ds-scene-nebula, rgb(167, 139, 250));
+  stroke-opacity: 0.75;
+}
+g.rs-edge.is-active .rs-edge-line {
+  stroke: var(--ds-scene-active, rgb(34, 211, 238));
+  /* 参考实现 `.edge-active { stroke-width: 3 }`——照抄。相对下面的 2 只加一档，
+     再加 6px 的 drop-shadow，就是参考站里「刚走过的那条边」的观感。 */
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px var(--ds-line-accent, rgba(34, 211, 238, 0.38)));
+}
+/* 回边：用警告档，和顺序边区分开——「绕回去」跟「往下走」不是同一种动作。 */
+g.rs-edge.is-loop .rs-edge-line {
+  stroke: var(--ds-status-warning, #ffc457);
+}
+g.rs-edge.is-loop.is-idle .rs-edge-line {
+  stroke: var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+}
+g.rs-edge .rs-edge-label {
+  fill: var(--ds-status-warning, #ffc457);
+  font-family: inherit;
+  font-size: 12px;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 箭头三档。SVG 的 marker 不继承线条的 stroke，只能一档一个 fill。 */
+marker.rs-arrow > path {
+  stroke: none;
+}
+marker.rs-arrow.is-idle > path {
+  fill: var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+}
+marker.rs-arrow.is-done > path {
+  fill: var(--ds-scene-nebula, rgb(167, 139, 250));
+}
+marker.rs-arrow.is-active > path {
+  fill: var(--ds-scene-active, rgb(34, 211, 238));
+}
+
+/* ── 指针：指着播放头那一格 ───────────────────────────────────────────────── */
+g.rs-pointer .rs-pointer-label {
+  /* 与下面那条引线同色（见 `.rs-pointer-line` 的长注释）：指针是独立的一支笔，
+     不占用「此刻」那支冷青。 */
+  fill: var(--ds-pointer, #60a5fa);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-anchor: middle;
+}
+g.rs-pointer .rs-pointer-line {
+  fill: none;
+  /* 参考实现 `.pointer-line { stroke:#60a5fa; stroke-width:1.5; stroke-dasharray:4 3 }`。
+     这是本次唯一一处**刻意不照抄**：参考站把指针画成 #60a5fa（偏蓝的读者色），
+     与它自己的 `--ds-scene-active` 青是同一个色系但更冷。我们这边「此刻」的冷青
+     同时被节点描边、活动边、箭头三处占着——指针再用同一个青，就分不出
+     「正走到的这一格」和「指着它的那支笔」。所以留青给状态，指针换成 #60a5fa
+     这一支：色相只偏 20 度，观感是参考站那支笔，语义上不跟状态抢同一个通道。
+     虚线间距照抄（4 3）——实线会读成第四种边。 */
+  stroke: var(--ds-pointer, #60a5fa);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/* ── 输出区 ───────────────────────────────────────────────────────────────── */
+div.rs-out {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ds-line-hair, rgba(140, 175, 220, 0.16));
+  border-radius: var(--ds-radius-control, 6px);
+  font-size: 12px;
+}
+span.rs-out-title {

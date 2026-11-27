@@ -1,0 +1,60 @@
+    const auto challenge = shell.challengeMeta().first().toMap();
+    assert(!challenge.value(QStringLiteral("targetOutput")).toList().isEmpty());
+    assert(!challenge.value(QStringLiteral("evidence")).toList().isEmpty());
+    assert(!challenge.value(QStringLiteral("starterCode")).toString().isEmpty());
+    assert(!challenge.value(QStringLiteral("explanation")).toString().isEmpty());
+    assert(challenge.contains(QStringLiteral("prerequisites")));
+    shell.openChallenge(QStringLiteral("missing-challenge"));
+    assert(!shell.challengeDetailOpen());
+    shell.openChallenge(challenge.value(QStringLiteral("id")).toString());
+    assert(shell.challengeDetailOpen() && shell.selectedChallenge() == challenge);
+    shell.openChallenge(QStringLiteral("missing-challenge"));
+    assert(shell.selectedChallenge() == challenge);
+    shell.closeChallenge();
+    assert(!shell.challengeDetailOpen() && shell.selectedChallenge().isEmpty());
+    shell.configureAccountStorage(workspace, data);
+    shell.configureExecutionTool(QStringLiteral("cpp"), std::filesystem::path(argv[2]));
+    shell.configureExecutionTool(QStringLiteral("java"), std::filesystem::path(argv[3]));
+    shell.configureExecutionTool(QStringLiteral("python"), std::filesystem::path(argv[4]));
+    shell.configureExecutionTool(QStringLiteral("javascript"), std::filesystem::path(argv[5]));
+    assert(!shell.hasActiveAccount());
+    shell.registerAccount(QStringLiteral("Qt Fixture"), QStringLiteral("qt@example.test"),
+        QStringLiteral("Test-Password-123!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    if (!shell.hasActiveAccount()) std::cerr << "Registration failed: " << shell.accountStatus().toStdString() << '\n';
+    assert(shell.hasActiveAccount() && !shell.accountName().isEmpty());
+    assert(shell.accountContact() == QStringLiteral("qt@example.test"));
+    shell.logout();
+    assert(!shell.hasActiveAccount() && shell.accountContact().isEmpty());
+    shell.login(QStringLiteral("qt@example.test"), QStringLiteral("Test-Password-123!"));
+    wait_for([&] { return !shell.accountBusy(); });
+    assert(shell.hasActiveAccount());
+    assert(shell.accountContact() == QStringLiteral("qt@example.test"));
+    // Runs are challenge-scoped, never consume the selected lesson draft and
+    // do not create learning facts until a separate submission command.
+    const auto challenge_learning_root = data / "accounts" /
+        shell.activeAccountId().toStdString() / "learning";
+    const auto lesson_before_challenge = shell.documentId();
+    for (const auto& id : {QStringLiteral("stage-b"), QStringLiteral("stage-c"),
+                          QStringLiteral("stage-d"), QStringLiteral("stage-j")}) {
+      shell.openChallenge(id);
+      shell.runChallenge();
+      assert(shell.challengeRunBusy());
+      wait_for([&] { return !shell.challengeRunBusy(); });
+      const auto result = shell.challengeRunResult();
+      if (!result.value(QStringLiteral("passed")).toBool())
+        std::cerr << "Challenge run failed: " << id.toStdString() << " "
+                  << result.value(QStringLiteral("error")).toString().toStdString() << '\n';
+      assert(result.value(QStringLiteral("passed")).toBool());
+      assert(!result.value(QStringLiteral("cases")).toList().isEmpty());
+    }
+    assert(shell.documentId() == lesson_before_challenge);
+    assert(!std::filesystem::exists(challenge_learning_root / "evidence.v1.log"));
+    assert(!std::filesystem::exists(challenge_learning_root / "progress.v1.log"));
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    shell.submitChallenge(QStringLiteral("Executed the current challenge and retained its output."), {});
+    assert(shell.challengeHistoryBusy());
+    assert(!shell.setAccountContext(second, workspace, data));
+    shell.submitChallenge(QStringLiteral("Duplicate click while saving"), {});
+    wait_for([&] { return !shell.challengeHistoryBusy(); });
+    if (shell.challengeHistory().size() != 1)

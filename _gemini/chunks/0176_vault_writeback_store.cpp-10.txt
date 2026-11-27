@@ -1,0 +1,44 @@
+    if (!persist()) return Result::failure("回滚步骤已完成，事务状态保存失败；请继续回滚");
+  }
+  tx["state"] = "rolled_back"; tx["rolledBackAt"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+  QSaveFile save(qpath(tx_path)); save.setDirectWriteFallback(false); const auto bytes = QJsonDocument(tx).toJson(QJsonDocument::Compact);
+  if (!save.open(QIODevice::WriteOnly) || save.write(bytes) != bytes.size() || !save.commit()) return Result::failure("已恢复资料库文件，但回滚状态未保存");
+  result = {{"rolledBack", true}, {"idempotent", false}, {"operationId", operation_id}, {"targets", restored}};
+  return Result::success("资料库文件已按备份回滚");
+}
+
+Result VaultWritebackStore::transactions(QVariantList& result) const {
+  result.clear(); bool owner = false; auto status = ownerStatus(owner);
+  if (!status.ok || !owner) return status.ok ? Result::failure("仅资料库拥有者可查看写回事务") : status;
+  const auto directory = account_root_ / "learning" / "writeback";
+  std::error_code error;
+  if (!std::filesystem::exists(directory, error)) return Result::success("尚无写回事务");
+  if (error || !safe_path(directory)) return Result::failure("写回事务目录不可读");
+  for (const auto& entry : std::filesystem::directory_iterator(directory, error)) {
+    if (error) return Result::failure("写回事务目录枚举失败");
+    if (!entry.is_regular_file() || entry.path().extension() != ".json") continue;
+    QFile file(qpath(entry.path()));
+    if (!file.open(QIODevice::ReadOnly) || file.size() > kMaxTransactionBytes) return Result::failure("有写回事务不可读，未将其冒充为空记录");
+    QJsonParseError parse_error; const auto tx = QJsonDocument::fromJson(file.readAll(), &parse_error).object();
+    if (parse_error.error != QJsonParseError::NoError ||
+        !valid_transaction(tx, account_root_, vault_root_, account_id_, tx.value("operationId").toString()))
+      return Result::failure("有损坏的写回事务记录，已停止汇总");
+    if (tx.value("accountId").toString().toStdString() != account_id_) continue;
+    result.push_back(QVariantMap{{"operationId", tx.value("operationId").toString()},
+        {"state", tx.value("state").toString()}, {"at", tx.value("at").toString()},
+        {"topic", tx.value("topic").toString()}, {"createdAt", tx.value("createdAt").toString()},
+        {"evidenceIds", tx.value("evidenceIds").toVariant().toStringList()},
+        {"targets", [&] {
+          QVariantList list; for (const auto& value : tx.value("targets").toArray()) {
+            const auto step = value.toObject();
+            list.push_back(QVariantMap{{"path", step.value("path").toString()}, {"kind", step.value("kind").toString()},
+                {"expectedHash", step.value("expectedHash").toString()}, {"applied", step.value("applied").toBool()},
+                {"prepared", step.value("prepared").toBool()}, {"restored", step.value("restored").toBool()}});
+          } return list;
+        }()}, {"evidenceCount", tx.value("evidenceIds").toArray().size()}});
+  }
+  std::sort(result.begin(), result.end(), [](const QVariant& left, const QVariant& right) {
+    return left.toMap().value("createdAt").toString() > right.toMap().value("createdAt").toString();
+  });
+  return Result::success("写回事务已读取");
+}

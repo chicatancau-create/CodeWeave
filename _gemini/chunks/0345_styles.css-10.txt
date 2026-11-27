@@ -1,0 +1,83 @@
+/* #77：问候语从 h1 降为 .welcome-greeting —— 字号/字重/字距/行高原样搬过来，
+   margin: 0 也要带着：`<p>` 带 UA 的 1em 上下边距，不归零会把整行往下推。 */
+.welcome-row .welcome-greeting {
+  margin: 0;
+  font: inherit;
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: var(--ds-size-title);       /* clamp(1.7rem, 3.6vw, 3.4rem)（L270） */
+  font-weight: var(--weight-display);
+  letter-spacing: var(--track-title);    /* -0.02em（L272） */
+  line-height: var(--leading-title);
+}
+.wave { display: inline-block; margin-left: var(--ds-space-4, 4px); font-size: 22px; transform: rotate(-10deg); }
+.welcome-subtitle { margin: var(--ds-space-8, 8px) 0 0; color: var(--muted); font-size: var(--ds-size-lead); line-height: var(--ds-leading-lead); }
+
+.weekly-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+/* 圆环：模板「局部圆环」形态按 §5.1 保留 —— 只留 1.5px 描边（site.css L120），
+   去掉 14px 泛光。 */
+.progress-ring {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  border: var(--ds-scene-glow-ring) solid var(--line-raised);
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-radius: var(--radius-circle);
+}
+.progress-ring span { font-family: var(--font-mono); font-size: var(--ds-size-control, 13px); font-weight: 700; color: var(--ink-strong); }
+.weekly-progress > div:last-child { display: flex; flex-direction: column; gap: var(--ds-space-4, 4px); }
+.weekly-progress strong { color: var(--ink); font-size: var(--ds-size-control, 13px); }
+.weekly-progress span { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+
+/* .section-heading / .course-count 已删（M4 死规则核对：全仓 0 引用，学习路径页改版后
+   由 components/learning-path-view.css 的 .lp-* 承担）。见报告 §1。 */
+
+/* ── 按钮体系（§5.1 形态：细线主按钮；移除渐变按钮与泛光） ─────────────────
+   旧实现：实心深蓝底 + 白字 + 18px 彩色投影 + hover 上浮。
+   科技档实现：小圆角 + 冷色描边 + 内顶高光，hover 时描边升到场景色并点亮冷青泛光，
+   active 时压深。分层靠「发光」而不是黑投影——黑底上黑投影不可见（tokens §7 同口径）。
+   文字色一律 ≥4.5:1：冷白 17.27:1、次级 0.6 档 6.1:1、冷青 11.14:1。 */
+.primary-action, .danger-button, .subtle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--tap-min);            /* M4 §5.4：主/次/危险按钮一律 44，不再有 40 的中间档 */
+  padding: var(--ds-space-10, 10px) var(--ds-space-16, 16px);
+  color: var(--ink-strong);
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius-sm);       /* 科技档：小圆角 6px（--ds-radius-control） */
+  background: var(--scrim);
+  box-shadow: var(--ds-glow-inset);      /* 顶部内高光：给按钮一层「金属面」 */
+  font-family: var(--font-ui);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: border-color var(--ds-dur-quick) var(--ease), color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease), box-shadow var(--ds-dur-quick) var(--ease);
+}
+.primary-action {
+  min-height: var(--tap-min);            /* 44px：主操作 */
+  border-color: var(--field-line);       /* 0.46 → 3.29:1，静止即可辨 */
+}
+.primary-action:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--ds-glow-near); }
+.primary-action:active:not(:disabled) { background: var(--scrim-raised); box-shadow: var(--ds-glow-inset); }
+.danger-button {
+  color: var(--c-coral);                 /* 固定语义色，不跟随 --accent 场景 */
+  border-color: var(--ds-status-danger-edge, rgba(255, 131, 113, 0.45));
+  background: var(--bad-wash);
+}
+.danger-button:hover:not(:disabled) { border-color: var(--c-coral); background: rgba(255, 131, 113, 0.24); box-shadow: 0 0 16px rgba(255, 131, 113, 0.28); }
+.danger-button:active:not(:disabled) { background: var(--scrim-raised); box-shadow: var(--ds-glow-inset); }

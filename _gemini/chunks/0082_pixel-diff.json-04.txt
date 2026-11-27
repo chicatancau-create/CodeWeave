@@ -1,0 +1,38 @@
+      "webSha256": "a17305a6f927d768be67741f25176c09efc5fcfb96817deb302fcf1fd4a41d94"
+    },
+    {
+      "name": "workbench-help",
+      "qt": "qt-workspace/qt-workbench-help.png",
+      "web": "web-workspace/web-workbench-help.png",
+      "status": "measured",
+      "width": 1440,
+      "height": 900,
+      "pixels": 1296000,
+      "differentPixels": 1280797,
+      "differentPixelPercent": 98.8269,
+      "maxChannelDiffGreaterThanPercent": {
+        "8": 84.6731,
+        "16": 24.634,
+        "32": 6.1147
+      },
+      "meanAbsoluteChannelDifferenceRGB": [
+        10.4778,
+        13.2083,
+        17.5567
+      ],
+      "differentPixelBounds": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "qtSha256": "f69724d1591b36a7a64ac65323456a30fe0ee584e52bf59d48253e12f6eb58b0",
+      "webSha256": "5ed7d49cea1141f61746ab81b1941e4373aba25eba09b7cc14abbdde52906595"
+    }
+  ],
+  "limitations": [
+    "Metrics describe RGB pixel difference only and are not a visual acceptance threshold.",
+    "Font rasterization, platform-native controls, data-source status, and independently rendered content affect results.",
+    "Only same-viewport pairs are compared; the full viewport screenshot includes surrounding content and modal backdrop."
+  ]
+}

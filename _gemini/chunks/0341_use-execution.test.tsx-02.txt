@@ -1,0 +1,137 @@
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+    const first = pendingRuns[0]!
+
+    // 重置后再次运行
+    await act(async () => {
+      ref.current!.handleReset()
+    })
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+    const second = pendingRuns[1]!
+
+    // 旧结果先返回
+    await act(async () => {
+      first(result(['旧结果']))
+    })
+    // 新结果后返回
+    await act(async () => {
+      second(result(['新结果']))
+    })
+
+    expect(ref.current!.execution.output).toEqual(['新结果'])
+  })
+})
+
+describe('RUN-01 快捷键作用域', () => {
+  it('enabled=false（工作台不可见）时 Ctrl+Enter 不触发运行', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} enabled={false} />)
+
+    const event = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true })
+    await act(async () => {
+      window.dispatchEvent(event)
+    })
+
+    expect(ref.current!.runStatus).toBe('idle')
+    expect(pendingRuns).toHaveLength(0)
+  })
+
+  it('enabled=true 时 Ctrl+Enter 触发运行', async () => {
+    const { onReady } = harnessRef()
+    render(<Harness onReady={onReady} enabled />)
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }))
+    })
+
+    expect(pendingRuns.length).toBeGreaterThan(0)
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(result(['1'])))
+    })
+  })
+
+  it('运行中按 Ctrl+Enter 不重复发起新运行', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+    const countAfterFirst = pendingRuns.length
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }))
+    })
+
+    expect(pendingRuns.length).toBe(countAfterFirst)
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(result(['1'])))
+    })
+  })
+})
+
+/**
+ * §5.3 第 3 条：「原模板 reduced-motion 仅减慢时间，需要适配为**真正停止**持续动画；
+ * 尊重系统偏好及现有『减少动效』设置」。播放头是 `setTimeout` 链，CSS 的两道开关管不到它，
+ * 所以这里验的是 JS 半边。判据是**「一个中间帧都没出现过」**：结果落地即末态、输出一条不少。
+ * 不拿「有没有排 setTimeout」当判据——进入异步执行前那段 `running` 本来就会排一次定时器
+ * 并在结果落地时被 cleanup 摘掉（RUN-01 的防呆设计），它不属于逐帧动画。
+ */
+describe('§5.3 减少动效下的运行播放头', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  /** 只数步长恰为 STEP_DELAY_MS 的定时器：React 与 testing-library 自己也会用 setTimeout。 */
+  const timedSpy = () => vi.spyOn(window, 'setTimeout')
+  type TimedSpy = ReturnType<typeof timedSpy>
+  function countStepTimers(spy: TimedSpy) {
+    return spy.mock.calls.filter((call) => call[1] === EXECUTION_SETTINGS.STEP_DELAY_MS).length
+  }
+
+  function stubMatchMedia(matches: boolean) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+  }
+
+  it('未命中减少动效：结果返回后播放头仍从首帧起步，850ms 定时器照排', async () => {
+    const timerSpy = timedSpy()
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+
+    await act(async () => {
+      void ref.current!.handlePlay()
+    })
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(multiResult(3)))
+    })
+
+    expect(ref.current!.runStatus).toBe('running')
+    expect(ref.current!.eventIndex).toBe(0)
+    // 停在首帧：三条输出此刻只该看得见第一条
+    expect(ref.current!.visibleOutput).toEqual(['1'])
+    expect(countStepTimers(timerSpy)).toBeGreaterThan(0)
+  })
+
+  it('命中应用「减少动效」设置：结果落地即末态，一个中间帧都没出现过', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} reducedMotion />)
+
+    await act(async () => {
+      void ref.current!.handlePlay()
+    })
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(multiResult(3)))
+    })
+
+    // 落地这一刻就在末态：逐帧回放的话此刻 eventIndex 只会是 0

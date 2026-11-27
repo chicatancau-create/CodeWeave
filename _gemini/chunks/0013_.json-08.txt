@@ -1,0 +1,111 @@
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\Main.qml.bak-native-style",
+      "files": 1,
+      "bytes": 55933.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\mycheck.log",
+      "files": 1,
+      "bytes": 10883.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\qt-build.log",
+      "files": 1,
+      "bytes": 252209.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\qt-config.log",
+      "files": 1,
+      "bytes": 251.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\shell-err.txt",
+      "files": 1,
+      "bytes": 79.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\shots.cmd",
+      "files": 1,
+      "bytes": 516.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\smoke.cmd",
+      "files": 1,
+      "bytes": 618.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\ui-check.png",
+      "files": 1,
+      "bytes": 322851.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify_output.log",
+      "files": 1,
+      "bytes": 103.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify.cmd",
+      "files": 1,
+      "bytes": 873.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify.log",
+      "files": 1,
+      "bytes": 1858.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify2.log",
+      "files": 1,
+      "bytes": 9595.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\构建产物\\qt\\verify3.cmd",
+      "files": 1,
+      "bytes": 953.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\_venv-aqt",
+      "files": 2015,
+      "bytes": 28261465.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\ref-deeptutor",
+      "files": 3793,
+      "bytes": 96944095.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\smoke-qtquick",
+      "files": 136,

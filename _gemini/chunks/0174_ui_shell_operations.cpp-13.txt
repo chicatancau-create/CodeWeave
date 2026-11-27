@@ -1,0 +1,43 @@
+  return submitted.ok;
+}
+
+bool UiShell::restoreBackup(const std::filesystem::path& backup,
+    const std::filesystem::path& target) {
+  if (closing_ || operation_busy_ || backend_tasks_.busy() || !hasActiveAccount()) return false;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-restore-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Backup;
+  request.work = [backup, target](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("恢复已取消");
+    codeweave::backup::Report report;
+    return codeweave::backup::restore_native_backup(backup, target, report);
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, task_name,
+            result = std::move(result)]() mutable {
+          if (task_name != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          setOperationStatus(result.cancelled ? QStringLiteral("恢复已取消")
+                                              : QString::fromUtf8(result.result.message));
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+  return submitted.ok;
+}

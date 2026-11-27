@@ -1,0 +1,60 @@
+            auto* breadcrumb_label = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbEntryLabel"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            const auto selected = view.rootObject()->property("selectedLesson").toMap();
+            const auto lesson_index = view.rootObject()->property("safeSelectedLessonIndex").toInt();
+            const auto expected_breadcrumb = QStringLiteral("Code Canvas / 课程 / %1 %2")
+                .arg(QString::number(lesson_index + 1).rightJustified(2, QLatin1Char('0')),
+                    selected.value(QStringLiteral("title")).toString());
+            u3_record(*context, QStringLiteral("selected-course-breadcrumb-visible-and-accessible"),
+                code_mode_initial && !view.rootObject()->property("workspaceCodeMode").toBool() &&
+                shell.documentId() == QStringLiteral("python-loop-sum") &&
+                selected.value(QStringLiteral("id")).toString() == shell.documentId() &&
+                breadcrumb && breadcrumb->isVisible() && breadcrumb->property("text").toString() == expected_breadcrumb &&
+                accessible_breadcrumb && accessible_breadcrumb->text(QAccessible::Name) ==
+                    QStringLiteral("当前位置：") + expected_breadcrumb &&
+                breadcrumb_index && breadcrumb_index->isVisible() &&
+                breadcrumb_index->property("text").toString() ==
+                    QString::number(lesson_index + 1).rightJustified(2, QLatin1Char('0')) &&
+                breadcrumb_label && breadcrumb_label->isVisible() &&
+                breadcrumb_label->property("text").toString() == selected.value(QStringLiteral("title")).toString());
+            u3_record(*context, QStringLiteral("selected-course-breadcrumb-narrow-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-workspace-breadcrumb-narrow"), QSize(1100, 720)));
+            if (code_mode_initial) {
+              mode_toggle->forceActiveFocus();
+              send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+              QCoreApplication::processEvents();
+            }
+            view.resize(original_size);
+            QCoreApplication::processEvents();
+          }
+          shell.registerAccount(QStringLiteral("Qt U3 Fixture"), QStringLiteral("qt-u3@example.test"),
+              QStringLiteral("Qt-U3-Test-Password-123!"));
+          context->step++;
+          return;
+        case 4:
+          if (shell.accountBusy() || shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("account-registration"), shell.hasActiveAccount());
+          if (!shell.hasActiveAccount()) { context->step = 99; return; }
+          shell.updateDraftCode(QStringLiteral("total = 7\nprint(15)\n"));
+          shell.saveDraft();
+          context->step++;
+          return;
+        case 5:
+          if (shell.draftSaving()) return;
+          u3_record(*context, QStringLiteral("draft-save"), !shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("total = 7\nprint(15)\n") &&
+              shell.contentStatus() == QStringLiteral("草稿已保存"),
+              shell.contentStatus());
+          shell.runCode();
+          context->step++;
+          return;
+        case 6:
+          if (shell.executionBusy() || shell.operationBusy()) return;
+          u3_record(*context, QStringLiteral("python-execution"), shell.executionOutput().contains(QStringLiteral("15")),
+              shell.executionOutput());
+          {
+            auto* panel = u3_find_item(view.rootObject(), QStringLiteral("executionTracePanel"));
+            auto* events = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* previous = u3_find_item(view.rootObject(), QStringLiteral("executionTracePrevious"));
+            auto* next = u3_find_item(view.rootObject(), QStringLiteral("executionTraceNext"));

@@ -1,0 +1,72 @@
+bool parse_unit(std::string_view line, Unit& unit) {
+  if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+  std::vector<std::string_view> fields; if (!split_line(line, fields)) return false;
+  std::vector<std::string> values(6); for (size_t i = 0; i < values.size(); ++i) if (!decode_hex(fields[i], values[i])) return false;
+  unit.schema_version = 0;
+  const auto parsed = std::from_chars(values[5].data(), values[5].data() + values[5].size(), unit.schema_version);
+  if (parsed.ec != std::errc{} || parsed.ptr != values[5].data() + values[5].size()) return false;
+  unit.content_id = std::move(values[0]); unit.title = std::move(values[1]); unit.status = std::move(values[2]); unit.language = std::move(values[3]); unit.content_hash = std::move(values[4]);
+  const auto valid = validate(unit);
+  return valid.ok;
+}
+
+bool parse_exercise(std::string_view line, Exercise& exercise) {
+  if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+  std::vector<std::string_view> fields;
+  size_t start = 0;
+  while (start <= line.size()) {
+    const auto end = line.find('\t', start);
+    fields.push_back(line.substr(start, end == std::string_view::npos ? line.size() - start : end - start));
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  if (fields.size() != 4) return false;
+  std::string values[4];
+  for (size_t index = 0; index < 4; ++index) if (!decode_hex(fields[index], values[index])) return false;
+  exercise = {std::move(values[0]), std::move(values[1]), std::move(values[2]), std::move(values[3])};
+  return validate(exercise).ok;
+}
+
+}  // namespace
+
+ContentRepository::ContentRepository(std::filesystem::path content_root) : content_root_(std::move(content_root)) {}
+
+app::Result ContentRepository::list_published(std::vector<Unit>& units) const {
+  units.clear();
+  if (content_root_.empty() || !content_root_.is_absolute()) return app::Result::failure("内容根目录必须是绝对路径");
+  std::error_code root_error;
+  const auto root_status = std::filesystem::symlink_status(content_root_, root_error);
+  if (root_error || std::filesystem::is_symlink(root_status) ||
+      !std::filesystem::is_directory(root_status)) {
+    return app::Result::failure("内容根目录类型无效");
+  }
+  std::error_code catalog_status_error;
+  const auto catalog_status = std::filesystem::symlink_status(content_root_ / "catalog.v1.tsv",
+      catalog_status_error);
+  if (catalog_status_error || std::filesystem::is_symlink(catalog_status) ||
+      !std::filesystem::is_regular_file(catalog_status)) {
+    return app::Result::failure("内容清单文件类型无效");
+  }
+  std::ifstream input(content_root_ / "catalog.v1.tsv", std::ios::binary);
+  if (!input) return app::Result::failure("内容清单不存在");
+  std::error_code size_error;
+  const auto catalog_size = std::filesystem::file_size(content_root_ / "catalog.v1.tsv", size_error);
+  if (size_error || catalog_size > kMaxCatalogBytes) return app::Result::failure("内容清单超过大小上限");
+  std::unordered_set<std::string> ids;
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty()) continue;
+    if (line.size() > kMaxCatalogLineBytes) return app::Result::failure("内容清单记录超过大小上限");
+    Unit unit; if (!parse_unit(line, unit)) return app::Result::failure("内容清单存在无效记录");
+    if (unit.status != "published") continue;
+    if (!ids.insert(unit.content_id).second) return app::Result::failure("内容 ID 重复");
+    units.push_back(std::move(unit));
+  }
+  return input.eof() ? app::Result::success("已读取已发布内容清单") : app::Result::failure("读取内容清单失败");
+}
+
+app::Result ContentRepository::read_published(std::string_view content_id, LoadedUnit& unit) const {
+  if (!safe_content_id(content_id)) return app::Result::failure("内容 ID 格式无效");
+  std::vector<Unit> units; const auto listed = list_published(units); if (!listed.ok) return listed;
+  const auto found = std::find_if(units.begin(), units.end(), [content_id](const auto& item) { return item.content_id == content_id; });
+  if (found == units.end()) return app::Result::failure("未找到已发布内容");

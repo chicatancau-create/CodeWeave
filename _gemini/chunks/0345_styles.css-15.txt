@@ -1,0 +1,105 @@
+.guide-exercise strong { color: var(--c-yellow); }
+.guide-project strong { color: var(--c-cyan); }
+
+/* ---------------------------------------------------------------------------
+   挑战视图
+   ------------------------------------------------------------------------- */
+.module-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--ds-space-20, 20px); margin-bottom: var(--ds-space-20, 20px); }
+.module-heading h1 {
+  margin: var(--ds-space-4, 4px) 0 var(--ds-space-8, 8px);
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: var(--ds-size-title);
+  font-weight: var(--weight-display);
+  letter-spacing: var(--track-title);
+  line-height: var(--leading-title);
+}
+.module-heading p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: var(--ds-size-lead); line-height: var(--ds-leading-lead); }
+
+/* 顶部概览：进度条带 aria 数值，附当前阶段摘要与筛选计数 */
+.challenge-overview { align-items: flex-start; }
+.challenge-overview-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-16, 16px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);            /* 原为「顶部玻璃高光渐变 + 面板底色」，§5.1 移除玻璃 */
+  box-shadow: var(--ds-shadow-panel);
+}
+.challenge-overview-text { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+
+/* 进度条：模板形态是 1px 底线 + 场景色实心（site.css L447-L453 .boot-bar/.boot-fill），
+   不用渐变、不用 8px 泛光。 */
+.challenge-progress { width: 180px; height: 4px; overflow: hidden; border-radius: var(--radius); background: var(--line-raised); }
+.challenge-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--ds-dur-base) var(--ease); }
+
+/* 筛选与排序栏 */
+.challenge-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  margin-bottom: var(--ds-space-16, 16px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);            /* 原为「顶部玻璃高光渐变 + 面板底色」，§5.1 移除玻璃 */
+  box-shadow: var(--ds-shadow-panel);
+}
+.challenge-filters-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: var(--ds-weight-body);
+  letter-spacing: var(--ds-track-meta);
+  text-transform: uppercase;
+}
+.challenge-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  color: var(--muted);
+  font-size: var(--ds-size-body);
+  font-weight: 600;
+}
+.challenge-filter select {
+  min-height: var(--tap-min);
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  color: var(--ink);
+  border: var(--hair) solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--inset);
+  font-size: var(--ds-size-body);
+}
+.challenge-filter select:focus-visible { border-color: var(--field-line-active); }
+
+/* CHAL-01：主筛选搜索框 */
+.challenge-filter-search { flex: 1 1 180px; min-width: 150px; }
+.challenge-filter-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap-min);
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  color: var(--ink);
+  border: var(--hair) solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--inset);
+  font-size: var(--ds-size-body);
+}
+.challenge-filter-search input:focus-visible { border-color: var(--field-line-active); }
+.challenge-more-toggle { flex-shrink: 0; }
+.challenge-more-toggle svg { transition: transform var(--ds-dur-quick) var(--ease); }
+.challenge-more-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+
+/* CHAL-01：更多筛选收纳区 */
+.challenge-more-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  width: 100%;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);

@@ -1,0 +1,99 @@
+    expect(readAloud.length).toBeGreaterThan(0)
+  })
+
+  it('顶栏图标一律带 aria-hidden（lucide 默认值 + 显式声明双保险）', () => {
+    setup()
+    const svgs = [...document.querySelectorAll('.topbar svg')]
+    expect(svgs.length).toBeGreaterThan(0)
+    expect(svgs.every((s) => s.getAttribute('aria-hidden') === 'true')).toBe(true)
+  })
+})
+
+describe('桌面主题断点', () => {
+  it('桌面布局令牌与派生定位只在 1201px 以上覆盖基础响应式规则', () => {
+    const desktopStart = desktopTheme.indexOf('@media (min-width: 1201px) {')
+    const reducedMotionStart = desktopTheme.indexOf('@media (prefers-reduced-motion: reduce)')
+    expect(desktopStart).toBeGreaterThan(-1)
+    expect(reducedMotionStart).toBeGreaterThan(desktopStart)
+    const desktopRules = desktopTheme.slice(desktopStart, reducedMotionStart)
+    expect(desktopTheme.slice(0, desktopStart)).not.toMatch(/--(?:sidebar-w|topbar-h|tap-min):/)
+    expect(desktopRules).toContain('--sidebar-w: 240px')
+    expect(desktopRules).toContain('--topbar-h: 68px')
+    expect(desktopRules).toContain('.app-shell .sidebar { top: var(--topbar-h)')
+    expect(desktopRules).not.toContain('@media (max-width: 1200px)')
+    expect(desktopRules).not.toContain('@media (max-width: 1000px)')
+  })
+})
+
+describe('§5.2 保留行为 · 全局搜索', () => {
+  it('按 `/` 聚焦搜索输入框', () => {
+    setup()
+    const input = screen.getByRole('combobox', { name: '全局搜索课程、挑战与项目' })
+    expect(document.activeElement).not.toBe(input)
+    fireEvent.keyDown(window, { key: '/' })
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('在输入框里打字不会触发 `/` 快捷键抢焦点', () => {
+    setup()
+    const input = screen.getByRole('combobox')
+    input.focus()
+    fireEvent.keyDown(input, { key: '/' })
+    // 在输入框里按 /：全局快捷键让位给输入，不 preventDefault，也不重开面板
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('结果行用 ↑↓ + Enter 选择，Enter 命中课程时走 onPickLesson', () => {
+    const { onPickLesson } = setup()
+    const input = screen.getByRole('combobox', { name: '全局搜索课程、挑战与项目' })
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '变量' } })
+    expect(screen.getByRole('listbox', { name: '搜索结果' })).toBeTruthy()
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onPickLesson).toHaveBeenCalledWith('lesson-1')
+  })
+
+  it('Esc 关闭结果面板并把焦点留在输入框（与通知面板、账户菜单同一口径）', () => {
+    setup()
+    const input = screen.getByRole('combobox', { name: '全局搜索课程、挑战与项目' })
+    fireEvent.focus(input)
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+    // 原先这里断言的是「焦点不在输入框」，实现写的是 blur() —— 浏览器实测焦点因此掉回 body，
+    // 而同一个顶栏里通知面板与账户菜单的 Esc 都把焦点还给触发控件（历史执行记录 docs/M6-整体验收-执行记录.md §14 escwalk 量出来的一条）。
+    // 本库对模态的契约本来就是「Esc 关闭 + 焦点回归」（见 modals.test.tsx 文件头），搜索框按同一口径改。
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('空结果显示提示，并可一键清除搜索词', () => {
+    setup()
+    const input = screen.getByRole('combobox', { name: '全局搜索课程、挑战与项目' })
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '不存在的东西' } })
+    expect(screen.getByText('没有匹配的结果')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '清除搜索' }))
+    expect((input as HTMLInputElement).value).toBe('')
+  })
+
+  it('未输入时展示最近访问，选择后走 onNavigateView', () => {
+    const { onNavigateView } = setup()
+    const input = screen.getByRole('combobox', { name: '全局搜索课程、挑战与项目' })
+    fireEvent.focus(input)
+    fireEvent.click(screen.getByText('复习中心'))
+    expect(onNavigateView).toHaveBeenCalledWith('reviews')
+  })
+})
+
+describe('§5.2 保留行为 · 通知中心', () => {
+  it('触发按钮的无障碍名称带真实未读数', () => {
+    setup()
+    expect(screen.getByRole('button', { name: '通知中心（2 条未读）' })).toBeTruthy()
+  })
+
+  it('打开面板可读通知列表；关闭时把可见项上报为已读', async () => {
+    const { onMarkAllRead } = setup()
+    fireEvent.click(screen.getByRole('button', { name: '通知中心（2 条未读）' }))
+    expect(screen.getByRole('region', { name: '通知列表' })).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(onMarkAllRead).toHaveBeenCalledWith(['n1', 'n2']))

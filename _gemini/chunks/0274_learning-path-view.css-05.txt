@@ -1,0 +1,164 @@
+   「缺口」用点线、「来源」用实线、「旧」用虚线，这一档另用抬高一级的实线边——
+   边框样式各档不同，所以任何一档都不靠颜色单传（§5.1 末段）。 */
+.lp-row-states {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--lp-meta);
+  line-height: 1.6;
+  color: var(--lp-dim);
+}
+
+.lp-row-states-key {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-ink);
+  padding-right: var(--ds-space-2, 2px);
+}
+
+.lp-marks--states {
+  margin-top: 0;
+}
+
+.lp-mark--signal {
+  border-style: solid;
+  border-color: var(--lp-hair-raised);
+  color: var(--lp-ink);
+}
+
+/* ── 来源定位与先备（长路径不撑破 fixed 表格） ───────────────────────────── */
+.lp-row-source,
+.lp-row-prereq {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-4, 4px);
+  font-size: var(--lp-meta);
+  line-height: 1.6;
+  color: var(--lp-dim);
+}
+
+.lp-row-source-key,
+.lp-row-prereq-key {
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  text-transform: uppercase;
+  color: var(--lp-ink);
+  padding-right: var(--ds-space-2, 2px);
+}
+
+.lp-row-source-path {
+  overflow-wrap: anywhere;
+}
+
+.lp-row-source-status {
+  color: var(--lp-ink);
+}
+
+/* ── 状态列：文字优先，进度条只是辅助（0/100 真实事实值） ────────────────── */
+.lp-cell-status {
+  text-align: right;
+  padding-right: 0;
+}
+
+.lp-status-text {
+  display: block;
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  color: var(--lp-ink);
+}
+
+.lp-status-bar {
+  display: block;
+  height: 2px;
+  margin: var(--ds-space-8, 8px) 0 var(--ds-space-6, 6px) auto;
+  max-width: 64px;
+  background: var(--lp-hair-raised);
+}
+
+.lp-status-fill {
+  display: block;
+  height: 100%;
+  background: var(--lp-accent);
+  transition: width var(--lp-base) var(--lp-ease);
+}
+
+.lp-status-percent {
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 阶段缺口 / 空内容 / 页脚说明 ───────────────────────────────────────── */
+.lp-stage-gap {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-14, 14px) 0 var(--ds-space-16, 16px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+  font-size: var(--lp-meta);
+  color: var(--lp-dim);
+}
+
+/* ── LEARN-01 第 3 条：阶段能力点（阶段验收 / 交付物 / 完成证据折算） ─────────
+   原料是资料库早就写好的 checkpoint 与 deliverables——它们在模型里躺了很久，
+   除校验器外零渲染点（`adapter.ts` 的 stageToCurriculum 搬进来没人看）。
+   字号走 --lp-body：这是要读的内容，不是装饰性元信息，不能压到 --lp-meta
+   （本文件自设的正文地板，#83 那类「低于地板」的教训不再犯）。 */
+.lp-stage-competence {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  margin: 0 0 var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px) 0 var(--ds-space-12, 12px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+}
+
+.lp-stage-competence-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  margin: 0;
+  font-size: var(--lp-body);
+  line-height: var(--lp-leading);
+  color: var(--lp-ink);
+  overflow-wrap: anywhere;
+}
+
+.lp-stage-competence-key {
+  flex: 0 0 6.5em;
+  color: var(--lp-dim);
+  font-size: var(--lp-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+}
+
+.lp-stage-deliverables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 交付物是并陈的条目，不是带勾的清单：逐条打勾要的是比对，本机没做过这件事。 */
+.lp-stage-deliverables li {
+  padding-left: var(--ds-space-12, 12px);
+  border-left: var(--ds-line-width, 1px) solid var(--lp-hair-raised);
+  overflow-wrap: anywhere;
+}
+
+.lp-empty {
+  padding: var(--ds-space-16, 16px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+  border-bottom: var(--ds-line-width, 1px) solid var(--lp-hair);
+  font-size: var(--lp-body);
+  line-height: var(--lp-leading);
+  color: var(--lp-dim);
+}
+
+.lp-footnote {
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--ds-line-width, 1px) solid var(--lp-hair);
+  font-size: var(--lp-meta);
+  line-height: var(--lp-leading);

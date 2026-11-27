@@ -1,0 +1,130 @@
+#include "process_runner.hpp"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#include <algorithm>
+#include <atomic>
+#include <cwctype>
+#include <cwchar>
+#include <thread>
+
+namespace codeweave::execution {
+
+app::Result ExecutionControl::request(ControlCommand command) {
+  std::lock_guard lock(mutex_);
+  if (!handler_) return app::Result::failure("执行进程尚未启动");
+  return handler_(command);
+}
+
+void ExecutionControl::attach(Handler handler) {
+  std::lock_guard lock(mutex_);
+  handler_ = std::move(handler);
+}
+
+void ExecutionControl::detach() {
+  std::lock_guard lock(mutex_);
+  handler_ = {};
+  paused_.store(false);
+}
+
+#ifdef _WIN32
+namespace {
+
+std::wstring quote_argument(std::wstring_view value) {
+  std::wstring result = L"\"";
+  unsigned backslashes = 0;
+  for (const wchar_t character : value) {
+    if (character == L'\\') {
+      ++backslashes;
+    } else if (character == L'\"') {
+      result.append(backslashes * 2 + 1, L'\\');
+      result.push_back(L'\"');
+      backslashes = 0;
+    } else {
+      result.append(backslashes, L'\\');
+      result.push_back(character);
+      backslashes = 0;
+    }
+  }
+  result.append(backslashes * 2, L'\\');
+  result.push_back(L'\"');
+  return result;
+}
+
+struct HandleGuard {
+  HANDLE value{nullptr};
+  explicit HandleGuard(HANDLE handle) : value(handle) {}
+  ~HandleGuard() {
+    if (value && value != INVALID_HANDLE_VALUE) CloseHandle(value);
+  }
+  HandleGuard(const HandleGuard&) = delete;
+  HandleGuard& operator=(const HandleGuard&) = delete;
+};
+
+std::vector<wchar_t> compiler_environment(const ProcessPlan& plan) {
+  const auto& request = plan.process;
+  const auto directory = request.language == "cpp" || request.language == "cpp-debugger"
+      ? request.executable.parent_path() : plan.environment_path_prefix;
+  if (directory.empty()) return {};
+  const auto inherited = GetEnvironmentStringsW();
+  if (!inherited) return {};
+  std::vector<wchar_t> environment;
+  bool path_found = false;
+  for (const wchar_t* entry = inherited; *entry; entry += std::wcslen(entry) + 1) {
+    const std::wstring_view value(entry);
+    if (value.size() >= 5 && _wcsnicmp(entry, L"PATH=", 5) == 0) {
+      const auto path = L"PATH=" + directory.wstring() + L";" + std::wstring(value.substr(5));
+      environment.insert(environment.end(), path.begin(), path.end());
+      path_found = true;
+    } else {
+      environment.insert(environment.end(), value.begin(), value.end());
+    }
+    environment.push_back(L'\0');
+  }
+  FreeEnvironmentStringsW(inherited);
+  if (!path_found) {
+    const auto path = L"PATH=" + directory.wstring();
+    environment.insert(environment.end(), path.begin(), path.end());
+    environment.push_back(L'\0');
+  }
+  environment.push_back(L'\0');
+  return environment;
+}
+
+}  // namespace
+#endif
+
+ProcessResult ProcessRunner::run(const ProcessPlan& plan, const std::atomic_bool* cancellation,
+    ExecutionControl* control, const Observer& observer) const {
+  ProcessResult result;
+#ifndef _WIN32
+  result.error_code = "windows_only_runner";
+  return result;
+#else
+  if (const auto valid = validate_process_request(plan.process); !valid.ok) {
+    result.error_code = "invalid_process_plan";
+    return result;
+  }
+  if (!plan.environment_path_prefix.empty() && !plan.environment_path_prefix.is_absolute()) {
+    result.error_code = "invalid_process_plan";
+    return result;
+  }
+
+  SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+  HANDLE raw_read = nullptr;
+  HANDLE raw_write = nullptr;
+  HANDLE input_read = nullptr;
+  HANDLE input_write = nullptr;
+  if (!CreatePipe(&raw_read, &raw_write, &security, 0) ||
+      !CreatePipe(&input_read, &input_write, &security, 0)) {
+    if (raw_read) CloseHandle(raw_read);
+    if (raw_write) CloseHandle(raw_write);
+    if (input_read) CloseHandle(input_read);
+    if (input_write) CloseHandle(input_write);
+    result.error_code = "pipe_create_failed";
+    return result;
+  }
+  HandleGuard read_guard{raw_read};
+  HandleGuard write_guard{raw_write};

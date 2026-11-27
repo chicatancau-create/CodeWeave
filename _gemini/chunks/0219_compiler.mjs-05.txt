@@ -1,0 +1,91 @@
+      reviewOffsetsDays: asList(front.fields.reviewOffsetsDays).map(Number),
+      verificationStatus: front.fields.verificationStatus ?? '未核验',
+      sourceIds: asList(front.fields.sourceIds),
+      status: front.fields.status ?? 'draft',
+      legacyRefs: asList(front.fields.legacyRefs),
+      notes: body,
+    })
+  }
+  return { units, problems }
+}
+
+function requireField(fields, key, path) {
+  const value = fields[key]
+  if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) {
+    throw new ContentError('invalid_unit', `${path}: 缺少必填字段 ${key}`)
+  }
+  return value
+}
+
+function validateUnitFields(fields, path) {
+  if (String(fields.schemaVersion) !== String(BUNDLE_SCHEMA_VERSION)) {
+    throw new ContentError('invalid_unit', `${path}: schemaVersion 必须为 ${BUNDLE_SCHEMA_VERSION}`)
+  }
+  for (const key of ['contentId', 'primaryTopicId', 'primaryTopicRef', 'stageIds', 'titleRef', 'objective', 'lessonKind', 'status', 'subject', 'language']) {
+    requireField(fields, key, path)
+  }
+  if (!/^[A-Za-z0-9+#. -]+$/.test(fields.subject)) {
+    throw new ContentError('invalid_unit', `${path}: subject 只接受简短科目名`)
+  }
+  if (!/^[a-z+#.-]+$/i.test(fields.language)) {
+    throw new ContentError('invalid_unit', `${path}: language 只接受简短标识（无可执行语言时写 none）`)
+  }
+  if (!LESSON_KINDS.includes(fields.lessonKind)) {
+    throw new ContentError('invalid_unit', `${path}: lessonKind 必须是 ${LESSON_KINDS.join('/')}`)
+  }
+  if (!UNIT_STATUS.includes(fields.status)) {
+    throw new ContentError('invalid_unit', `${path}: status 必须是 ${UNIT_STATUS.join('/')}`)
+  }
+  if (!EXECUTION_POLICIES.includes(fields.executionPolicy ?? (fields.runEnvironment === 'teaching' ? 'teaching' : 'external'))) {
+    throw new ContentError('invalid_unit', `${path}: executionPolicy 必须是 ${EXECUTION_POLICIES.join('/')}`)
+  }
+  if (fields.verificationStatus && !VERIFICATION_STATUS.includes(fields.verificationStatus)) {
+    throw new ContentError('invalid_unit', `${path}: verificationStatus 必须是 ${VERIFICATION_STATUS.join('/')}`)
+  }
+  if (fields.reviewOffsetsDays !== undefined && !Array.isArray(fields.reviewOffsetsDays)) {
+    throw new ContentError('invalid_unit', `${path}: reviewOffsetsDays 需为行内列表 [0, 1, 3]`)
+  }
+}
+
+export async function loadExercises(root, manifest) {
+  const wl = whitelistOf(manifest)
+  const files = await listMarkdownFiles(root, wl.exerciseDir)
+  const exercises = []
+  const problems = []
+  for (const path of files) {
+    const text = await readVaultText(root, path)
+    const sourceHash = sha256(text)
+    let front
+    try {
+      front = parseRestrictedFrontmatter(text, path)
+    } catch (error) {
+      problems.push({ code: error.code ?? 'frontmatter_error', path, message: error.message })
+      continue
+    }
+    if (front.fields.type !== 'exercise') {
+      problems.push({ code: 'invalid_exercise', path, message: '练习文件必须声明 type: exercise' })
+      continue
+    }
+    try {
+      for (const key of ['exerciseId', 'primaryLessonId', 'title', 'prompt', 'executionPolicy', 'version']) {
+        requireField(front.fields, key, path)
+      }
+      if (!EXECUTION_POLICIES.includes(front.fields.executionPolicy)) {
+        throw new ContentError('invalid_exercise', `${path}: executionPolicy 必须是 ${EXECUTION_POLICIES.join('/')}`)
+      }
+      if (front.fields.language && !/^[a-z+#-]+$/i.test(front.fields.language)) {
+        throw new ContentError('invalid_exercise', `${path}: language 只接受简短标识`)
+      }
+    } catch (error) {
+      problems.push({ code: error.code ?? 'invalid_exercise', path, message: error.message })
+      continue
+    }
+    const body = text.split('\n').slice(front.bodyStartLine - 1).join('\n')
+    const starterMatch = /```([\w+#-]*)\n([\s\S]*?)```/.exec(body)
+    exercises.push({
+      path,
+      sourceHash,
+      exerciseId: front.fields.exerciseId,
+      primaryLessonId: front.fields.primaryLessonId,
+      supportingTopicIds: asList(front.fields.supportingTopicIds),
+      title: front.fields.title,

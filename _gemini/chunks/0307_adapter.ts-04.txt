@@ -1,0 +1,32 @@
+/** 详情响应 → 工作台使用的完整 Lesson（带原文与练习契约）。 */
+export function snapshotDetailToLesson(lesson: SnapshotLesson, exercises: SnapshotExercise[]): Lesson {
+  const exerciseIds = lesson.exerciseIds ?? []
+  const primary = exercises.find((item) => item.exerciseId === exerciseIds[0]) ?? exercises[0] ?? null
+  return buildLesson(lesson, primary)
+}
+
+/** 目录 + 旧内置课程 → 页面数据。字段做防御性兜底：快照缺字段时不能整页崩掉。 */
+export function adaptCatalog(snapshot: ContentSnapshot): AdaptedContent {
+  const lessons = Array.isArray(snapshot.lessons) ? snapshot.lessons : []
+  const stages = Array.isArray(snapshot.stages) ? snapshot.stages : []
+  // 顺手记下发布规则里的默认复测节点（排期标准的唯一读取口，见上面的注释）。
+  publishedReviewOffsetsDays = readPublishedOffsets(snapshot)
+  return {
+    lessons: [
+      ...lessons.map(snapshotSummaryToLesson),
+      ...legacyLessonsWithFlag().filter((lesson) => !Object.hasOwn(snapshot.legacyAliases ?? {}, lesson.id)),
+    ],
+    stages: stages.map(stageToCurriculum),
+    legacyStages: legacyStages,
+  }
+}
+
+/** 无快照（未连接/未登录/无发布内容）时的显式回退：只给旧内置课程，排期也就没有发布规则可读。 */
+export function adaptFallback(): AdaptedContent {
+  publishedReviewOffsetsDays = null
+  return {
+    lessons: legacyLessonsWithFlag(),
+    stages: [],
+    legacyStages: legacyStages,
+  }
+}

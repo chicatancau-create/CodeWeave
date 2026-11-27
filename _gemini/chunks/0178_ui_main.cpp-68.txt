@@ -1,0 +1,51 @@
+              QStringLiteral("# 总计划\n\n## 0. 学习日志索引\n\n> 每日记录统一存放在学习日志\n").toUtf8());
+          u3_record(*context, QStringLiteral("vault-fixture-created-outside-workspace"), created);
+          shell.configureVaultRoot(vault.toStdWString());
+          context->step++;
+          return;
+        }
+        case 701: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (panel && flick) flick->setProperty("contentY", std::max(0.0,
+              panel->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - 8));
+          auto* consent = u3_find_item(view.rootObject(), QStringLiteral("vaultBindConsent"));
+          auto* bind = u3_find_item(view.rootObject(), QStringLiteral("vaultBindOwner"));
+          u3_record(*context, QStringLiteral("vault-binding-requires-confirmation"), consent && bind && !bind->property("enabled").toBool() &&
+              !shell.vaultWriteback().value("isOwner").toBool());
+          if (consent) consent->setProperty("checked", true);
+          u3_record(*context, QStringLiteral("vault-bind-confirmed-action"), bind && bind->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(bind, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 702: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          const auto state = shell.vaultWriteback();
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          auto* name = u3_find_item(view.rootObject(), QStringLiteral("vaultConnectedName"));
+          u3_record(*context, QStringLiteral("vault-connected-name-visible-after-binding"),
+              name && name->isVisible() && name->property("text").toString() == QStringLiteral("isolated-vault"));
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("accountScrollView"));
+          auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+          if (panel && flick) flick->setProperty("contentY", std::max(0.0, panel->mapToItem(flick, QPointF()).y() + flick->property("contentY").toReal() - 8));
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-connected-name"));
+          u3_record(*context, QStringLiteral("vault-owner-progress-and-pending-evidence"), state.value("isOwner").toBool() &&
+              state.value("progressReady").toBool() && state.value("pending").toList().size() == 2 && panel);
+          if (panel) panel->setProperty("selectedIds", QVariantList{QStringLiteral("matrix-practice-0")});
+          auto* preview = u3_find_item(view.rootObject(), QStringLiteral("vaultPreview"));
+          u3_record(*context, QStringLiteral("vault-preview-selected-evidence-action"), preview && preview->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(preview, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 703: {
+          if (shell.vaultWriteback().value("busy").toBool()) return;
+          auto* commit = u3_find_item(view.rootObject(), QStringLiteral("vaultCommit"));
+          auto* panel = u3_find_item(view.rootObject(), QStringLiteral("vaultWritebackPanel"));
+          const auto preview = shell.vaultWriteback().value("preview").toMap();
+          u3_record(*context, QStringLiteral("vault-preview-readonly-and-confirmation-disabled"),
+              !preview.value("operationId").toString().isEmpty() && commit && !commit->property("enabled").toBool());
+          u3_screenshot(*context, view, QStringLiteral("u3-vault-evidence-preview"));

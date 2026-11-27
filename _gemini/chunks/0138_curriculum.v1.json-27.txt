@@ -1,0 +1,145 @@
+        "mistakes": [
+          "断言写错导致 404 却去查服务端",
+          "网关层透传了不该透传的内部头"
+        ],
+        "runCommand": "本地起网关（真实转发）",
+        "completion": "两条路由可用，鉴权过滤器生效，配置刷新演示成功。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "两条路由转发成功",
+          "网关鉴权过滤器生效",
+          "配置刷新不重启生效"
+        ],
+        "evidenceChecklist": [
+          "路由配置",
+          "转发与 401 截图"
+        ]
+      }
+    },
+    {
+      "id": "k3-circuit-limit-trace",
+      "language": "java",
+      "languageLabel": "Spring Cloud",
+      "label": "K3",
+      "title": "熔断、限流与调用链",
+      "description": "故障在这里停下，而不是扩散",
+      "duration": "45 min",
+      "level": "进阶",
+      "code": "@CircuitBreaker(name = \"serviceB\", fallbackMethod = \"fallback\")\npublic String call() {\n    return restClient.get().uri(\"/api/data\").body(String.class);\n}\npublic String fallback(Throwable t) {\n    return \"service-b 暂不可用，请稍后重试\";\n}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "调用下游",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "失败率超阈值？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "打开熔断器",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "走降级逻辑",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "熔断保护调用方，限流保护被调方，链路追踪把三次跳转串成一条可解释的路径。",
+      "fileName": "CallService.java",
+      "runtime": "外部环境 · Spring Cloud",
+      "content": {
+        "objective": "独立演示一次熔断降级与一次限流拒绝，并用日志把调用链串起来。",
+        "prerequisites": [
+          "k2-gateway-config"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "K",
+        "explanation": [
+          "熔断器三态：关闭（正常）→ 打开（直接走降级）→ 半开（试探恢复）。",
+          "限流在网关或服务端限制速率，保护下游不被突发流量打垮。",
+          "traceId 贯穿网关与各服务日志，是排错时唯一可靠的线索。"
+        ],
+        "examples": [
+          {
+            "good": "B 挂掉后 A 返回友好降级文案，恢复后自动闭合",
+            "bad": "B 挂掉后 A 的线程池被拖满，整个服务雪崩",
+            "why": "故障隔离防止雪崩扩散"
+          }
+        ],
+        "guidedSteps": [
+          "给 A→B 调用加熔断与降级方法。",
+          "停掉 B 连续调用，观察打开/半开/闭合三态日志。",
+          "网关配置限流，用压测脚本触发 429。"
+        ],
+        "exercise": "独立在网关与两个服务间传递 traceId，串出一条完整调用链日志。",
+        "variant": "调整熔断阈值（失败率/窗口），对比行为差异并记录。",
+        "projectTask": "熔断演示是 K 阶段验收的压轴证据；调用链日志是答辩的核心材料。",
+        "mistakes": [
+          "降级方法签名不匹配导致熔断不生效",
+          "只压测不看日志，结论全靠猜"
+        ],
+        "runCommand": "本地多服务 + 压测脚本（真实故障注入）",
+        "completion": "三态日志齐全，限流触发 429，调用链可按 traceId 串读。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "熔断三态可观察",
+          "限流触发并返回 429",
+          "traceId 串联至少两跳日志"
+        ],
+        "evidenceChecklist": [
+          "三态日志",
+          "429 响应记录",
+          "调用链示意"
+        ]
+      }
+    },
+    {
+      "id": "l1-linux-ops-basics",
+      "language": "java",
+      "languageLabel": "Linux",
+      "label": "L1",
+      "title": "Linux 交付基础：进程、端口与日志",
+      "description": "在服务器上找到并管住你的应用",
+      "duration": "40 min",
+      "level": "进阶",
+      "code": "# 在 Linux 服务器上执行：\n# ps -ef | grep java          # 找进程\n# ss -tlnp | grep 8080        # 谁在监听端口\n# tail -f app.log             # 跟踪日志\n# journalctl -u myapp -n 50   # 服务日志",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {

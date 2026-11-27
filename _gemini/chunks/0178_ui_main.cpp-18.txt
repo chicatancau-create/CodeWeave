@@ -1,0 +1,65 @@
+            send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+            font_size->setProperty("currentIndex", 4);
+            if (!QMetaObject::invokeMethod(font_size, "activated", Qt::DirectConnection, Q_ARG(int, 4))) {
+              diagnostic = QStringLiteral("Editor font size failure action could not be invoked");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            line_actions->doAction(QAccessibleActionInterface::toggleAction());
+            QCoreApplication::processEvents();
+            const bool write_failure_preserved_state = !shell.reducedMotion() &&
+                !toggle->property("checked").toBool() && design_system->property("durQuick").toInt() == 150 &&
+                shell.editorFontSize() == 13 && shell.editorLineNumbers() &&
+                font_size->property("currentIndex").toInt() == 1 && line_toggle->property("checked").toBool() &&
+                shell.draftCode() == preference_draft && shell.draftRevision() == preference_revision;
+            if (!QDir(preference_path).removeRecursively() || !write_failure_preserved_state) {
+              diagnostic = QStringLiteral("Failed preference write changed the visible or applied state");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            busy_indicator->setProperty("busy", false);
+          }
+          if (!capture_topbar(QStringLiteral("topbar-settings"))) { application.exit(1); return; }
+          smoke_expected_size = QSize(1100, 720);
+          view.setMinimumSize(QSize(1100, 720));
+          view.setMaximumSize(QSize(1100, 720));
+          view.setWindowState(Qt::WindowNoState);
+          view.resize(1100, 720);
+          break;
+        case 18:
+          {
+            const QPointF dialog_origin(settings->property("x").toReal(), settings->property("y").toReal());
+            const auto dialog_width = settings->property("width").toReal();
+            const auto dialog_height = settings->property("height").toReal();
+            const auto content_width = settings_scroll->property("contentWidth").toReal();
+            const auto content_height = settings_scroll->property("contentHeight").toReal();
+            const bool layout_valid = view.size() == QSize(1100, 720) &&
+                settings_scroll->height() > 0 && settings_scroll->width() > 0 && content_width > 0 &&
+                content_width <= settings_scroll->width() + 1 && content_height > 0 &&
+                dialog_origin.x() >= 0 && dialog_origin.y() >= 0 &&
+                dialog_width > 0 && dialog_height > 0 &&
+                dialog_origin.x() + dialog_width <= view.rootObject()->width() + 1 &&
+                dialog_origin.y() + dialog_height <= view.rootObject()->height() + 1;
+            if (!layout_valid) {
+              diagnostic = QStringLiteral("Settings layout is invalid at 1100x720: window=%1x%2 viewport=%3x%4 content=%5x%6 dialog=%7,%8 %9x%10")
+                  .arg(view.width()).arg(view.height())
+                  .arg(settings_scroll->width()).arg(settings_scroll->height())
+                  .arg(content_width).arg(content_height)
+                  .arg(dialog_origin.x()).arg(dialog_origin.y())
+                  .arg(dialog_width).arg(dialog_height);
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          if (!inspect_settings_text(QStringLiteral("1100x720"))) {
+            write_smoke_report();
+            application.exit(1);
+            return;
+          }
+          if (!capture_topbar(QStringLiteral("topbar-settings-small"))) { application.exit(1); return; }
+          if (smoke_preference_storage_unavailable) {
+            auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
+            const auto content_height = flick ? flick->property("contentHeight").toReal() : 0;

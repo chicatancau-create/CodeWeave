@@ -1,0 +1,140 @@
+.cw-workspace .tok-string {
+  color: var(--cw-ok);
+}
+.cw-workspace .tok-comment {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .tok-number {
+  color: var(--cw-warn);
+}
+.cw-workspace .tok-function {
+  color: var(--cw-scene);
+}
+/* 选中态：低饱和 wash，不整片霓虹 */
+.cw-workspace ::selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: inherit;
+}
+.cw-workspace .code-editor textarea::selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: transparent;
+}
+.cw-workspace .code-editor textarea::-moz-selection {
+  background: var(--ds-wash-thumb, rgba(220, 233, 251, 0.22));
+  color: transparent;
+}
+.cw-workspace .code-footer {
+  height: auto;
+  min-height: 34px;
+  margin-top: 0;
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim);
+  background: var(--cw-scrim);
+  border-top: var(--cw-line-width) solid var(--cw-line);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+}
+.cw-workspace .editor-actions button {
+  /* 「复制」是编辑器状态条上的次级文字按钮：把它的盒子撑到 44 会把整条
+     code-footer（min-height 34）顶到 60，压到编辑器最后一行的可视区上。
+     这里保留 28px 的视觉尺寸，用 ::before 把**命中区**外扩到 44×69 ——
+     与本库既有的写法同源（styles.css:441 .streak-more、styles.css:2330 设置开关）。
+     伪元素无底色、pointer-events 默认 auto，点击会归给宿主按钮（已实测）。 */
+  position: relative;
+  min-height: 28px;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+  transition: color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .editor-actions button::before {
+  content: '';
+  position: absolute;
+  /* 上下各 8px 补齐到 44 高；左右各 6px，落在 .editor-actions 的 10px gap 内，
+     不与相邻的「Ctrl + Enter 运行」说明文字抢点击。 */
+  inset: -8px -6px;
+}
+.cw-workspace .editor-actions button:hover {
+  color: var(--cw-scene);
+}
+
+.cw-workspace .editor-actions button {
+  transition: color var(--cw-dur) var(--cw-ease);
+}
+
+.cw-workspace .editor-actions button:active {
+  color: var(--cw-fg);
+}
+
+/* ── 运行控制条：细线药丸 + 恒定状态色，运行指示不做持续闪烁 ──────────── */
+.cw-workspace .run-bar {
+  gap: var(--ds-space-14, 14px);
+  margin-top: var(--ds-space-2, 2px);
+  padding: var(--ds-space-14, 14px) 0 0;
+  border-top: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .run-copy {
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+}
+.cw-workspace .run-indicator {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-circle, 50%); /* 圆环保留（§5.1 形态） */
+  box-shadow: var(--cw-glow-near);              /* 运行指示：冷色近档泛光 */
+}
+.cw-workspace .run-indicator span {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--ds-shape-circle, 50%);
+  background: var(--cw-fg-dim);
+}
+/* 原样式在这里跑 blink 无限动画；§5.3 第 1 条要求编辑器周边为静态环境，
+   状态由文字（“正在执行代码…”）与色点表达，不靠闪烁。 */
+.cw-workspace .run-indicator.running span {
+  background: var(--cw-info);
+  animation: none;
+}
+.cw-workspace .run-indicator.completed span,
+.cw-workspace .run-indicator.done span {
+  background: var(--cw-ok);
+}
+.cw-workspace .run-indicator.error span {
+  background: var(--cw-err);
+}
+.cw-workspace .run-copy strong {
+  color: var(--cw-fg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.cw-workspace .run-copy span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+}
+.cw-workspace .run-actions {
+  gap: var(--ds-space-8, 8px);
+}
+.cw-workspace .reset-button,
+.cw-workspace .step-button,
+.cw-workspace .run-button,
+.cw-workspace .subtle-button {
+  /* §5.4 触控目标 ≥44px。基座 runtime-controls.css L128 本来就写的是
+     var(--ds-tap-min, 44px)，是本页的覆写把它拉回 40；同时本文件末的 ≤760px
+     媒体查询又抬回 var(--cw-tap)。三处里两处是 44，40 是漏档，回到令牌。 */
+  min-height: var(--cw-tap);
+  padding: 0 var(--ds-space-16, 16px);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-shape-pill, 100px);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  font-weight: 400;
+  letter-spacing: 0.12em;

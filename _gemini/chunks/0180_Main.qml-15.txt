@@ -1,0 +1,103 @@
+            Loader {
+                id: editorLoader
+                objectName: "pageLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                property bool visited: false
+                active: root.page === "编辑器" || visited
+                onLoaded: {
+                    visited = true;
+                }
+                sourceComponent: EditorPage { hostRoot: root; ds: root.designSystem }
+            }
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // PAGES
+    // ═════════════════════════════════════════════════════════════════════════
+
+    // ── 02 代码草稿 ────────────────────────────────────────────────────────
+// ── 02 实战挑战 ────────────────────────────────────────────────────────
+    // ── 02 实战挑战 ────────────────────────────────────────────────────────
+
+    // ── 03 代码草稿 ────────────────────────────────────────────────────────
+    // ── 03 代码草稿 ────────────────────────────────────────────────────────
+
+
+    // ── Dialogs ─────────────────────────────────────────────────────────────
+    ShellPopup {
+        id: checkinDialog
+        objectName: "checkinCalendarDialog"
+        ds: root.designSystem
+        modal: true
+        returnFocusItem: checkinCalendarButton
+        menuItems: [checkinCalendar.previousButton, checkinCalendar.nextButton]
+        x: ds.s16
+        y: Math.max(ds.s16, Math.min(root.height - height - ds.s16,
+            checkinCalendarButton.mapToItem(root, 0, 0).y - height - ds.s8))
+        width: Math.min(320, root.width - ds.s32)
+        height: contentItem.implicitHeight + padding * 2
+        onAboutToShow: {
+            checkinCalendar.year = Number(uiShell.checkinSummary.todayKey.slice(0, 4));
+            checkinCalendar.month = Number(uiShell.checkinSummary.todayKey.slice(5, 7)) - 1;
+        }
+        onOpened: root.checkinCalendarOpen = true
+        onClosed: root.checkinCalendarOpen = false
+        contentItem: CheckinCalendar {
+            id: checkinCalendar
+            ds: root.designSystem
+            summary: uiShell.checkinSummary
+        }
+    }
+
+    ShellDialog {
+        id: settingsDialog
+        objectName: "settingsDialog"
+        ds: root.designSystem
+        title: "设置"
+        eyebrow: "工作台偏好"
+        referenceStyle: true
+        anchors.centerIn: parent
+        width: Math.min(560, root.width - ds.s32)
+        height: Math.min(root.height * 0.86, root.height - ds.s32)
+        // Match the Web settings rows without reserving a second full bottom inset.
+        bottomPadding: ds.s8
+        onOpened: root.settingsOpen = true
+        onClosed: { root.settingsOpen = false; root.returnDialogFocus(); }
+        contentItem: ScrollView {
+            id: settingsScroll
+            objectName: "settingsScroll"
+            clip: true
+            // Keep the settings controls aligned with the Web modal's trailing inset.
+            rightPadding: root.designSystem.s10 + 1
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ColumnLayout {
+                width: settingsScroll.availableWidth
+                SettingsContent {
+                    Layout.fillWidth: true
+                    ds: root.designSystem
+                    onOpenPrivacy: { settingsDialog.close(); uiShell.selectPage("数据与隐私"); }
+                }
+                Button {
+                    objectName: "unifiedContentButton"
+                    text: "本机统一课程"
+                    onClicked: { settingsDialog.close(); unifiedDialog.open(); }
+                }
+            }
+        }
+    }
+
+    ShellDialog {
+        id: unifiedDialog
+        objectName: "unifiedContentDialog"
+        ds: root.designSystem
+        closeLabel: "关闭"
+        title: "本机统一课程"
+        anchors.centerIn: parent
+        width: Math.min(880, root.width - 80)
+        height: Math.min(720, root.height - 80)
+        contentItem: ScrollView {
+            id: unifiedScroll
+            clip: true
+            UnifiedContentPanel {

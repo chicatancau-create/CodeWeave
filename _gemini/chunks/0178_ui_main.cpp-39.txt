@@ -1,0 +1,65 @@
+              shell.executionOutput().contains(QStringLiteral("超时")), shell.executionOutput());
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            u3_record(*context, QStringLiteral("execution-trace-failed-event"), !events.isEmpty() &&
+                events.last().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("failed"));
+            auto* error = u3_find_item(view.rootObject(), QStringLiteral("executionTraceError"));
+            u3_record(*context, QStringLiteral("execution-stage-failed-terminal-and-error-visible"),
+                !events.isEmpty() && u3_stage_terminal_visible(view.rootObject(), events.last().toMap(), true) &&
+                error && error->isVisible() && !error->property("text").toString().isEmpty() &&
+                error->property("text").toString() == events.last().toMap().value(QStringLiteral("payload")).toString());
+            u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-failed"));
+          }
+          {
+            auto* output_area = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("outputArea"));
+            auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+            const auto color = output_area ? output_area->property("color").value<QColor>() : QColor();
+            const auto danger = design_system ? design_system->property("danger").value<QColor>() : QColor();
+            u3_record(*context, QStringLiteral("console-error-row-style"),
+                shell.executionOutputError() && danger.isValid() && color == danger);
+          }
+          shell.setExecutionTimeout(5000);
+          shell.openFreeProgram(QStringLiteral("python"));
+          context->step = 65;
+          return;
+        case 65:
+          if (shell.contentBusy()) return;
+          shell.updateDraftCode(QStringLiteral("中文🙂 e\u0301\n第二行\t缩进\n") + QString(1024 * 1024, QChar('x')));
+          u3_record(*context, QStringLiteral("editor-long-unicode-input"),
+              shell.draftCode().startsWith(QStringLiteral("中文🙂 e\u0301\n第二行\t缩进\n")) &&
+              shell.draftCode().size() > 1024 * 1024);
+          shell.resetDraftCode();
+          u3_record(*context, QStringLiteral("editor-undo-reset"), !shell.draftDirty());
+          if (auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"))) {
+            editor->forceActiveFocus();
+            view.requestActivate();
+            context->step++;
+            return;
+          }
+          u3_record(*context, QStringLiteral("editor-focus"), false,
+              QStringLiteral("代码编辑器对象未找到"));
+          context->step = 99;
+          return;
+        case 66: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor || !editor->property("activeFocus").toBool()) return;
+          const QString marker = QStringLiteral("剪贴板🙂\n");
+          QGuiApplication::clipboard()->setText(marker);
+          send_editor_shortcut(view, Qt::Key_V, Qt::ControlModifier);
+          context->step++;
+          return;
+        }
+        case 67: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor) { context->step = 99; return; }
+          const auto text = editor->property("text").toString();
+          u3_record(*context, QStringLiteral("editor-clipboard-paste"), text.contains(QStringLiteral("剪贴板🙂")));
+          send_editor_shortcut(view, Qt::Key_Z, Qt::ControlModifier);
+          context->step++;
+          return;
+        }
+        case 68: {
+          auto* editor = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("codeEditor"));
+          if (!editor) { context->step = 99; return; }
+          u3_record(*context, QStringLiteral("editor-undo"),
+              !editor->property("text").toString().contains(QStringLiteral("剪贴板🙂")));

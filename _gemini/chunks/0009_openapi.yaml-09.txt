@@ -1,0 +1,99 @@
+        '409': { description: owner_unbound / sync_conflict / structure_unsupported }
+        '503': { description: vault_unavailable }
+
+  /api/learning/evidence-commit:
+    post:
+      tags: [learning]
+      summary: 确认写回（事务提交）
+      description: >-
+        必须带上预览返回的 operationId 与 expectedHashes；哈希不符即 409 stale_preview，
+        防止「预览了旧内容、写回时覆盖新改动」。部分成功时给 409 progress_pending，重试是幂等的。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 按 operationId 幂等；progress_pending 可安全重试
+      x-pagination: 不适用
+      x-timeout: 写 30s（多文件事务）；超时后必须先查事务账本，不得盲目重发
+      x-sensitive-fields: 写入的是学习日志与进度追踪，属用户主动确认的公开范围
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operationId]
+              properties:
+                operationId: { type: string }
+                expectedHashes: { type: object, additionalProperties: { type: string } }
+      responses:
+        '200': { description: 提交结果, content: { application/json: { schema: { $ref: '#/components/schemas/WritebackOutcome' } } } }
+        '400': { description: commit_failed }
+        '403': { description: forbidden }
+        '409': { description: stale_preview / sync_conflict / owner_unbound / operation_rolled_back / transaction_corrupt }
+        '503': { description: vault_unavailable }
+
+  /api/learning/evidence-rollback:
+    post:
+      tags: [learning]
+      summary: 回滚一次写回事务（用写入前的备份覆盖回来）
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 非幂等——已回滚的事务再操作返回 409 operation_rolled_back
+      x-pagination: 不适用
+      x-timeout: 写 30s
+      x-sensitive-fields: 只退这一笔事务涉及的文件，不整库回滚
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [operationId], properties: { operationId: { type: string } } }
+      responses:
+        '200': { description: 回滚结果, content: { application/json: { schema: { $ref: '#/components/schemas/WritebackOutcome' } } } }
+        '400': { description: rollback_failed }
+        '409': { description: rollback_blocked / operation_rolled_back / transaction_corrupt }
+        '503': { description: vault_unavailable }
+
+  /api/learning/evidence-export:
+    post:
+      tags: [learning]
+      summary: 把暂存证据导出为可核对的 Markdown
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 单次全量导出所选条目
+      x-timeout: 写 15s
+      x-sensitive-fields: 导出内容是个人学习记录，客户端不得自动落盘到公开目录
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { evidenceIds: { type: array, items: { type: string } } }
+      responses:
+        '200': { description: 导出体, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '400': { description: export_failed }
+
+  /api/learning/evidence-transactions:
+    get:
+      tags: [learning]
+      summary: 列出拥有者的写回事务账本（新→旧）
+      description: 界面刷新后靠它复原「部分成功」横幅与逐步明细，而不是只认前端状态里的 operationId。
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不分页，条数在服务端封顶
+      x-timeout: 读 10s
+      x-sensitive-fields: 只含事务元数据
+      responses:
+        '200': { description: 账本, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '403': { description: forbidden }
+        '503': { description: transactions_unreadable }
+
+  /api/learning/evidence-transaction/{operationId}:
+    get:
+      tags: [learning]
+      summary: 单个事务的状态与明细
+      security: [{ sessionCookie: [] }]
+      x-idempotency: 幂等
+      x-pagination: 不适用
+      x-timeout: 读 10s
+      x-sensitive-fields: 明细含目标文件相对名，不含绝对路径
+      parameters: [ { $ref: '#/components/parameters/operationId' } ]
+      responses:
+        '200': { description: 事务状态, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '404': { description: transaction_not_found }

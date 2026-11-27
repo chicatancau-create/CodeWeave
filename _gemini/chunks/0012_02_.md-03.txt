@@ -1,0 +1,68 @@
+4. 指定 bundle 已切换且服务端不允许继续读取时返回 409 `content_bundle_changed`；已确认退役返回 410 `content_bundle_retired`；bundle 内对象不存在返回 404。三者都不能隐式回退到实时资料库或另一 bundle。
+5. catalog 的 ETag 至少绑定 `vaultId + bundleId + manifestHash + 表示版本`；附件 ETag 使用完整内容 SHA-256。所有 304 都必须在认证、实例/资料库准入和资源权限通过之后返回。
+6. 正文中的附件链接由服务端按当前 bundle 重写为 assetId URL。离线 manifest 只含规范化包内相对路径，API、job、冲突、日志和客户端缓存元数据均不得暴露源绝对路径。
+
+#### 5.2.2 附件固化、校验与生命周期
+
+发布编译器必须从正式发布正文实际引用的附件生成稳定排序的 `core.assets`，每项至少包含：
+
+```json
+{
+  "assetId": "对外不透明且不含路径的ID",
+  "packagePath": "assets/包内相对路径",
+  "sha256": "64位小写十六进制",
+  "size": 12345,
+  "contentType": "image/png"
+}
+```
+
+- `assetId` 采用确定性不透明值：`asset-` + `SHA-256(规范化 packagePath + NUL + 内容 sha256)` 的前 32 个十六进制字符。它不包含源路径，也不依赖当前 bundleId，便于同内容跨版本复用；包内路径变化会生成新 ID。
+- 源路径只留在服务端暂存映射中，不进入公开 manifest。`core.assets`、映射版本和附件清单摘要必须参与 `bundleId`。发布前的完整二次复核必须覆盖正文、教学单元、练习、规则、附件、`legacy-map.json`、`topic-id-map.json` 以及其他影响候选的清单/编译配置；不能只在现有四类 `sourceHashes` 后追加附件（`compiler.mjs:1092-1097`）。
+- 发布时先对解析后的真实路径做根目录 containment、普通文件、类型和大小检查，再复制到本 attempt 的暂存区；对**已复制字节**计算 SHA-256。缺文件、越界、链接/junction 逃逸、类型/大小不符、哈希与审批不符均阻断。
+- 校验通过后写入 `content/assets/<sha256>` 内容寻址存储。临时对象验证后原子落位；复用既有对象前也要验证，不能因“同名文件已存在”直接信任。
+- 所有正文、练习和附件对象完整可读后，才允许进入唯一 current 切换点。任一步失败均保留旧 current、旧目录和旧附件。
+- asset GET 只从 CAS 读取；首次使用或读取时校验对象，损坏返回稳定的 `asset_corrupt` 并阻断坏字节，不回源补读。
+- GC 以 bundle 清单为引用根，至少 pin 住 current、可回滚包、正在发布/下载的包和明确支持的离线包。共享附件只有在所有引用根解除并经过可恢复标记—清理后才能删除；不得只按 mtime 或“最近三代”直接删。
+- 哈希用于完整性与损坏检测，不代替发布者认证、传输 TLS 或权限判断。
+
+#### 5.2.3 精确审批、发布幂等和持久 job
+
+真实发布采用“**dry-run 产生候选 → 审批精确候选 → 激活同一候选**”两段式：
+
+1. dry-run 请求带 `Idempotency-Key`，完成后得到 `candidateBundleId + manifestHash + approvalId`。审批绑定 `serviceInstance + vaultId + candidateBundleId + manifestHash + 来源/投影版本 + 附件清单哈希 + 两份映射哈希 + 编译配置指纹`，且只能消费一次。
+2. 真实发布请求带独立操作 ID、`approvalId`、`expectedBundleId` 和 `expectedCurrentBundleId`，并继续使用 `Idempotency-Key`。正文、附件、规则、两份映射或编译配置任一变化均返回 409 `approval_stale`，不得换一个候选继续沿用旧审批。激活前必须重新计算并比对完整审批输入指纹，或完整重编译后比对 `candidateBundleId + manifestHash`；只复核现有 volumes/units/exercises/rules 不足以证明候选未变。
+3. 在工作开始前持久化发布意图和规范化请求指纹；同一发布者重复提交同键同请求返回同一 job，同键不同请求返回 409 `idempotency_conflict`。响应丢失后的重试不得第二次消费审批。
+4. 单实例互斥不是崩溃恢复。每次执行带 `attempt/fencing` 代次；只有当前代次能更新 job、journal 和活动指针。current 切换使用 `expectedCurrentBundleId` 前置检查，旧 attempt 的迟到写入必须被拒绝。
+5. “候选已生成”“已审批”“已成为活动版本”分开记录。bundle 登记和操作日志 append-only；current/status/catalog 始终反映唯一 `activeBundleId`，回滚也产生新操作记录而不篡改历史。
+6. 修复既有 journal 的 candidate/pointer 崩溃窗：`stage='candidate'` 只能说明日志尚未进入 pointer，不能证明 current 未切换。对账必须先读取并校验 current 与候选 `payloadHash`；若 current 已指向候选，按 pointer 阶段前滚或显式恢复已验证旧指针，禁止直接 `discardCandidate()`。任何清理前都必须证明快照未被 current、回滚目标或恢复流程引用。
+7. 对账必须从 `status()`/真实 `sync()` 的懒触发改为服务接受内容、同步、进度或写回请求前的强制启动步骤；对账未完成或失败时 fail-closed，然后才能依据 journal 结果恢复持久 job 终态。
+
+持久 job 至少包含：
+
+```text
+schemaVersion, serviceInstance, vaultId, jobId, createdBy, dryRun,
+requestFingerprint, attempt, status, published,
+candidateBundleId, activeBundleId, manifestHash, approvalId,
+startedAt, finishedAt, error {code,message}, summary, recovered
+```
+
+- `scanning/validating` 为非终态；`ready/invalid/unavailable` 为终态。每次迁移原子持久化，内存 `activeJob` 只负责互斥，不再是查询数据源。
+- 重启先完成上述强制 publish journal 对账，再恢复持久 job：候选已完整激活则以 `ready + published=true + recovered=true` 结束；候选废弃或回滚则以 `unavailable + job_interrupted` 结束；dry-run 中断不得伪装成校验通过。不得仅凭 journal 的 `candidate` 阶段判定候选未激活。
+- 保留期内完成、失败和新任务之前的旧 job 都按原 ID 返回 200；未知 ID 返回 404，已确认清理的 ID 返回 410 `job_expired`。初版可采用“至少 30 天且最近 100 条”的有界保留，清理不能删除仍被恢复流程引用的 job。
+- job 查询仅 owner 或有权 publisher 可用，并按提交者范围限制；响应只给脱敏摘要。现有 OpenAPI 的 `error: string|null` 要与运行时统一为结构化 `{code,message}`。
+- 前端从 202 的 jobId 轮询同一任务：`ready + published=true` 才刷新一次 catalog；dry-run 的 `ready + published=false` 只显示校验结果；`invalid/unavailable` 保留旧目录、详情和草稿。轮询网络失败重试同一 job，不重新 POST；组件卸载只停止 UI 轮询，不谎称服务端任务已取消。
+
+#### 5.2.4 学习事实同步语义
+
+同步变更建议形状：
+
+```json
+{
+  "schemaVersion": 1,
+  "changeId": "客户端生成的全局唯一ID",
+  "deviceId": "稳定设备ID",
+  "kind": "learning.evidence.recorded",
+  "occurredAt": "UTC时间",
+  "localDate": "YYYY-MM-DD",
+  "timeZone": "IANA时区",
+  "contentRef": {

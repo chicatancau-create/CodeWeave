@@ -1,0 +1,87 @@
+numstat = subprocess.check_output(["git", "apply", "--numstat", "-z", str(patch_path)],
+                                 cwd=root).decode("utf-8")
+paths = [entry.split("\t", 2)[2] for entry in numstat.split("\0") if entry]
+assert len(paths) == len(sections) == 8
+patched = {}
+for path, section in zip(paths, sections):
+    old = show("e20590b", path).splitlines()
+    output = []
+    cursor = 0
+    for hunk in re.split(r"(?=^@@ )", section, flags=re.M)[1:]:
+        lines = hunk.splitlines()
+        match = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", lines[0])
+        start = max(0, int(match[1]) - 1)
+        assert start >= cursor
+        output.extend(old[cursor:start])
+        cursor = start
+        for line in lines[1:]:
+            if not line or line[0] == "\\":
+                continue
+            if line[0] in " -":
+                assert old[cursor] == line[1:], (path, cursor + 1)
+                cursor += 1
+            if line[0] in " +":
+                output.append(line[1:])
+    output.extend(old[cursor:])
+    text = "\n".join(output) + "\n"
+    patched[path] = text
+    target = re.search(r"^index (\w+)\.\.(\w+)", section, flags=re.M)[2]
+    actual = subprocess.check_output(["git", "hash-object", "--stdin"], cwd=root,
+                                     input=text.encode("utf-8")).decode().strip()
+    assert actual.startswith(target), path
+print("patch: 8/8 exact contexts and target blobs")
+
+prefix = "应用端/项目/native/ui-qt/"
+cmake = patched[prefix + "CMakeLists.txt"]
+registered = re.findall(r"^\s+(qml/[^\s]+)", cmake, flags=re.M)
+assert len(registered) == 15
+assert all(patched.get(prefix + path, show("e20590b", prefix + path))
+           for path in registered)
+assert not re.findall(r"component (\w+):", patched[prefix + "qml/Main.qml"])
+print("resources: 15/15 present; no inline component remains")
+
+before = json.loads((evidence / "before-fixed-results/report.json").read_text(encoding="utf-8"))
+after = json.loads((evidence / "isolated-fixed-results/report.json").read_text(encoding="utf-8"))
+assert before["passed"] and after["passed"]
+assert before["qmlWarnings"] == after["qmlWarnings"] == []
+assert len(before["checks"]) == len(after["checks"]) == 8
+assert before["states"] == after["states"]
+assert before["checks"] == after["checks"]
+assert before["screenshots"] == after["screenshots"]
+print("reports: passed; 8 checks, 7 screenshots, states identical")
+
+entries = json.loads((evidence / "sha256.json").read_text(encoding="utf-8"))
+mismatches = [entry["path"] for entry in entries
+              if hashlib.sha256((evidence / entry["path"]).read_bytes()).hexdigest()
+              != entry["sha256"]]
+print("sha256:", len(entries), "entries; mismatches", mismatches)
+
+for page in ["learning", "review", "challenge", "editor", "drafts", "analytics", "account"]:
+    first = Image.open(evidence / "before-fixed-results" / (page + ".png")).convert("RGB")
+    second = Image.open(evidence / "isolated-fixed-results" / (page + ".png")).convert("RGB")
+    assert first.size == second.size == (1440, 900)
+    difference = ImageChops.difference(first, second)
+    pixels = sum(1 for pixel in difference.getdata() if pixel != (0, 0, 0))
+    maximum = max(extreme[1] for extreme in difference.getextrema())
+    print(page, "different pixels", pixels, "max channel difference", maximum)
+'@ | python -
+```
+
+本次实测输出的像素结果：
+
+| 页面 | 不同 RGB 像素数 / 1,296,000 | 每通道最大绝对差 |
+| --- | ---: | ---: |
+| learning | 2649 | 1/255 |
+| review | 1820 | 1/255 |
+| challenge | 3658 | 1/255 |
+| editor | 1155 | 1/255 |
+| drafts | 1446 | 1/255 |
+| analytics | 3265 | 1/255 |
+| account | 1127 | 1/255 |
+
+## 验收边界与下一行动
+
+历史 harness 固定 Windows 真窗口 1440×900、DPR 1，隔离临时数据、无活动账户，选择 `python-loop-sum` 且未执行。报告的页面断言检查页面名、尺寸、账户和忙碌状态；逐页 `states` 另记录课程、源码/正文哈希、统计和复习数据。它不覆盖所有按钮或其他数据状态。
+
+历史 `qmlWarnings=[]` 采集自 `QQmlEngine::warnings` 的创建/加载期信号，不是全局 Qt 动态消息采集，不替代窄窗几何及动态绑定验证。原始 before/after 失败报告均保留；共同 id 修补后的通过报告没有改写原失败。
+

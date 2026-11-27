@@ -1,0 +1,120 @@
+    [mastery.records, displayStages, content.lessons],
+  )
+
+  /**
+   * LEARN-01 第 4 条：路径行、阶段折算、工作台那行「六种状态」与个人中心的计数，
+   * 都从这同一批掌握度记录折出来。只算一次、四处消费，界面上不许出现第二套
+   * 「这一课算什么状态」的判断（01 号方案 §9）。
+   */
+  const lessonStates = useMemo(() => {
+    const map: Record<string, LessonEvidenceStates> = {}
+    for (const [refId, record] of Object.entries(mastery.records)) {
+      map[refId] = deriveLessonEvidenceStates(record)
+    }
+    return map
+  }, [mastery.records])
+
+  /**
+   * 课程进度必须从**个人证据**派生：教材不允许自带 78% 之类的静态进度（方案 §7.2）。
+   * 口径：该单元按统一完成判据（`holdsCompletion`）成立即 100%，否则 0%——不做插值猜测。
+   *
+   * 改版前这一行写的是 `record?.evidence.some((e) => e.passed)`：任何一类 passed 证据都算数，
+   * 于是一条「复测通过」或「挑战通过」就能把路径行点亮成已完成，而同一课的工作台
+   * （走 `hasCompletionEvidence`）与阶段折算（走 `holdsCompletion`）都说没完成——
+   * 三个读数、两套口径，正是 §9 禁的那件事。现在四处共用同一个出口。
+   */
+  const pathLessons = useMemo(
+    () =>
+      lessons.map((lesson) => ({
+        ...lesson,
+        progress: holdsCompletion(lessonStates[lesson.id]) ? 100 : 0,
+      })),
+    [lessons, lessonStates],
+  )
+
+  /**
+   * 已完成单元数（个人中心）：分母是**现役课程**，判定与路径行、工作台同一处。
+   *
+   * 改版前这里数的是「留下过 lesson 类 passed 证据的去重 refId」，既不认「延迟复测掌握」
+   * 那一态，也会把已经不在现役清单里的旧 id 算进总数——同一句「已完成单元数」在两个页面
+   * 对不上。现在按现役课程收口：退休 id 的完成证据仍留在记录里，去向由资料库的
+   * legacy map 承接（02 号方案 §2），不靠把它计入现役数来掩盖。
+   */
+  const completedLessonCount = useMemo(() => {
+    let count = 0
+    for (const lesson of content.lessons) {
+      if (holdsCompletion(lessonStates[lesson.id])) count += 1
+    }
+    return count
+  }, [content.lessons, lessonStates])
+
+  /**
+   * 清除当前账户的本机学习数据（R2-C：统一入口，仅账户级 + 会话级，保留设备设置）。
+   * DATA-01 第 4 条：删除失败时不得刷新页面掩盖错误——只有全部成功才重载。
+   */
+  const clearLocalLearningData = (): ClearResult => {
+    const result = clearLocalData('account', scope)
+    if (result.removed) {
+      window.location.reload()
+    }
+    return result
+  }
+
+  /** 每个课程阶段对应的可访问单元（挑战页跳转用） */
+  const unitsByStage = useMemo(() => {
+    const map: Record<string, { id: string; title: string }[]> = {}
+    for (const lesson of content.lessons) {
+      const stageId = lesson.content.stageId
+      if (!stageId) continue
+      map[stageId] = [...(map[stageId] ?? []), { id: lesson.id, title: `${lesson.label} · ${lesson.title}` }]
+    }
+    return map
+  }, [content.lessons])
+
+  const openSettings = () => {
+    setSettingsOpen(true)
+  }
+
+  // 页面切换：最近访问在渲染期重置（避免 effect 级联渲染），标题在 effect 里更新
+  const [lastTrackedView, setLastTrackedView] = useState<ViewId>(view)
+  if (lastTrackedView !== view) {
+    setLastTrackedView(view)
+    setRecentViews((current) =>
+      [{ id: view, label: VIEW_META[view].label }, ...current.filter((item) => item.id !== view)].slice(0, 3),
+    )
+  }
+  useEffect(() => {
+    // 与顶栏面包屑用同一个闸门（GlobalTopbar 的 contextTitle：`view === 'path' && activeLesson`）。
+    // activeLesson 只在 closeWorkspace 里清空，切到别的视图它仍留着——以前无条件拿它做标题，
+    // 人已经站在个人中心/学习分析上，浏览器标签还写着上一节课的名字（审计卡 NAV-01）。
+    const lessonInView = view === 'path' && activeLesson
+    document.title = lessonInView
+      ? `${activeLesson.title} · Code Canvas`
+      : `Code Canvas · ${VIEW_META[view].label}`
+  }, [view, activeLesson])
+
+  // 全局搜索目标：课程 + 挑战 + 项目标题（仅本地学习数据）
+  const searchTargets = useMemo<SearchTarget[]>(() => {
+    const lessonTargets = content.lessons.map((lesson) => {
+      /**
+       * 资料库主题名与课程标题常常不同（如「条件分支：让程序做决定」对应主题
+       * 「流程控制语句」）。把来源标题链、末级主题名与旧课 id 作为别名，
+       * 用户按自己知道的名字也能搜到（方案 §8.2）。
+       */
+      const heading = lesson.source?.headingPath ?? []
+      const aliases = [
+        ...heading,
+        lesson.exercise?.title ?? '',
+        lesson.source?.path.split('/').pop()?.replace(/\.md$/, '') ?? '',
+      ].filter((value) => value !== '')
+      return {
+        id: lesson.id,
+        type: 'lesson' as const,
+        title: `${lesson.label} · ${lesson.title}`,
+        subtitle: lesson.legacy ? `${lesson.languageLabel} · 旧内置课程` : `${lesson.languageLabel} · 资料库`,
+        aliases,
+      }
+    })
+    const challengeTargets = challenges.map((challenge) => ({
+      id: challenge.id,
+      type: 'challenge' as const,

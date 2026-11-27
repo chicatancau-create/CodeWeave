@@ -1,0 +1,117 @@
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "代码自动换行开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "geometry": {
+              "x": 469,
+              "y": 680.8125,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "1px 0px 0px",
+              "borderStyle": "solid none none",
+              "borderColor": "rgba(255, 255, 255, 0.07) rgb(226, 231, 239) rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 910,
+              "y": 703.40625,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(87, 101, 120)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 7,
+          "title": "显示行号",
+          "label": {
+            "text": "显示行号",
+            "geometry": {
+              "x": 469,
+              "y": 766,
+              "width": 286,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "关掉只是不画左栏那一列，代码文本一个字都不变",
+            "geometry": {
+              "x": 469,
+              "y": 792.390625,
+              "width": 286,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "显示行号关掉只是不画左栏那一列，代码文本一个字都不变",
+            "geometry": {
+              "x": 469,
+              "y": 753,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",

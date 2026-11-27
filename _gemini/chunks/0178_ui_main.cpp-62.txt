@@ -1,0 +1,61 @@
+              QMetaObject::invokeMethod(complete, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 312: {
+          if (shell.operationBusy()) return;
+          const auto states = shell.lessonEvidenceStates().value(QStringLiteral("csharp-loop-sum")).toMap();
+          u3_record(*context, QStringLiteral("lesson-external-completion-is-self-declared"), states.value("selfDeclaredPassed").toBool() &&
+              !states.value("autoVerifiedPassed").toBool() && shell.lessonAssessment().value("completed").toBool());
+          auto* scroll = u3_find_item(view.contentItem(), QStringLiteral("lessonEvidenceScroll"));
+          auto* flickable = scroll ? scroll->property("contentItem").value<QObject*>() : nullptr;
+          if (flickable) flickable->setProperty("contentY", std::max(0.0,
+              scroll->property("contentHeight").toReal() - scroll->property("availableHeight").toReal()));
+          u3_record(*context, QStringLiteral("lesson-evidence-small-scroll-width"), scroll && flickable &&
+              scroll->property("contentWidth").toReal() <= scroll->property("availableWidth").toReal());
+          context->step++;
+          return;
+        }
+        case 313:
+          u3_screenshot(*context, view, QStringLiteral("u3-lesson-external-states-small"));
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          view.resize(1440, 900);
+          shell.discardDraftChanges();
+          shell.openPublishedContent(shell.publishedIds().indexOf(QStringLiteral("python-loop-sum")));
+          context->step = 400;
+          return;
+        case 400:
+          if (shell.contentBusy() || shell.operationBusy()) return;
+          shell.selectPage(QStringLiteral("编辑器"));
+          shell.updateDraftCode(QStringLiteral("print('workspace save fixture')\n"));
+          shell.saveDraft();
+          context->step++;
+          return;
+        case 401: {
+          if (shell.draftSaving() || shell.operationBusy()) return;
+          const auto storage_id = QStringLiteral("lesson-") + QString::fromLatin1(QCryptographicHash::hash(
+              shell.documentId().toUtf8(), QCryptographicHash::Sha256).toHex());
+          context->blocked_draft_path = QDir(QString::fromStdWString(shell.nativeDataRoot().wstring()))
+              .filePath(QStringLiteral("accounts/") + shell.activeAccountId() + QStringLiteral("/drafts/") +
+                  storage_id + QStringLiteral(".txt"));
+          const auto path = std::filesystem::path(context->blocked_draft_path.toStdWString());
+          std::error_code error;
+          const bool blocked = std::filesystem::remove(path, error) && !error &&
+              std::filesystem::create_directory(path, error) && !error;
+          u3_record(*context, QStringLiteral("workspace-save-fault-fixture-created"), blocked);
+          if (!blocked) { context->step = 99; return; }
+          shell.updateDraftCode(QStringLiteral("print('workspace unsaved edit')\n"));
+          auto* save = u3_find_item(view.rootObject(), QStringLiteral("workspaceSaveDraft"));
+          const bool invoked = save && QMetaObject::invokeMethod(save, "clicked", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("workspace-save-starts-and-disables"), invoked && shell.draftSaving() &&
+              !save->property("enabled").toBool());
+          context->step++;
+          return;
+        }
+        case 402: {
+          if (shell.draftSaving()) return;
+          auto* banner = u3_find_item(view.rootObject(), QStringLiteral("workspaceSaveError"));
+          auto* dismiss = u3_find_item(view.rootObject(), QStringLiteral("workspaceDismissError"));
+          u3_record(*context, QStringLiteral("workspace-save-failure-visible-and-preserves-edit"),
+              banner && banner->isVisible() && shell.draftDirty() &&
+              shell.draftCode() == QStringLiteral("print('workspace unsaved edit')\n"));

@@ -1,0 +1,65 @@
+#pragma once
+
+#include "account_service.hpp"
+#include "backend_task_service.hpp"
+#include "execution_service.hpp"
+#include "progress_projection.hpp"
+#include "review_service.hpp"
+
+#include <QObject>
+#include <QDate>
+#include <QHash>
+#include <QString>
+#include <QStringList>
+#include <QVariantList>
+#include <QVariantMap>
+#include <atomic>
+#include <unordered_map>
+#include <functional>
+
+class ChallengeSubmissionStore;
+class VaultWritebackStore;
+
+class UiShell final : public QObject {
+  Q_OBJECT
+  Q_PROPERTY(QString appTitle READ appTitle CONSTANT)
+  Q_PROPERTY(QString currentPage READ currentPage NOTIFY currentPageChanged)
+  Q_PROPERTY(QStringList publishedTitles READ publishedTitles NOTIFY publishedTitlesChanged)
+  Q_PROPERTY(QStringList publishedIds READ publishedIds NOTIFY publishedIdsChanged)
+  Q_PROPERTY(QVariantList lessonMeta READ lessonMeta NOTIFY publishedTitlesChanged)
+  Q_PROPERTY(QVariantList challengeMeta READ challengeMeta NOTIFY publishedTitlesChanged)
+  Q_PROPERTY(QVariantMap selectedChallenge READ selectedChallenge NOTIFY challengeSelectionChanged)
+  Q_PROPERTY(bool challengeDetailOpen READ challengeDetailOpen NOTIFY challengeSelectionChanged)
+  Q_PROPERTY(QString challengeCode READ challengeCode NOTIFY challengeCodeChanged)
+  Q_PROPERTY(QVariantMap challengeRunResult READ challengeRunResult NOTIFY challengeRunResultChanged)
+  Q_PROPERTY(bool challengeRunBusy READ challengeRunBusy NOTIFY challengeRunBusyChanged)
+  Q_PROPERTY(QVariantList challengeHistory READ challengeHistory NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(QVariantMap challengeProgress READ challengeProgress NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(bool challengeHistoryBusy READ challengeHistoryBusy NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(QString challengeHistoryStatus READ challengeHistoryStatus NOTIFY challengeHistoryChanged)
+  Q_PROPERTY(QString selectedContentBody READ selectedContentBody NOTIFY selectedContentBodyChanged)
+  Q_PROPERTY(QString starterLanguage READ starterLanguage NOTIFY starterCodeChanged)
+  Q_PROPERTY(QString starterCode READ starterCode NOTIFY starterCodeChanged)
+  Q_PROPERTY(QString executionPolicy READ executionPolicy NOTIFY starterCodeChanged)
+  Q_PROPERTY(QString draftCode READ draftCode NOTIFY draftChanged)
+  Q_PROPERTY(bool draftDirty READ draftDirty NOTIFY draftDirtyChanged)
+  Q_PROPERTY(qulonglong accountGeneration READ accountGeneration NOTIFY accountChanged)
+  Q_PROPERTY(qulonglong draftRevision READ draftRevision NOTIFY draftChanged)
+  Q_PROPERTY(qulonglong savedRevision READ savedRevision NOTIFY draftDirtyChanged)
+  Q_PROPERTY(QString documentId READ documentId NOTIFY selectedContentChanged)
+  Q_PROPERTY(bool hasActiveAccount READ hasActiveAccount NOTIFY accountChanged)
+  Q_PROPERTY(QString activeAccountId READ activeAccountId NOTIFY accountChanged)
+  Q_PROPERTY(bool draftSaving READ draftSaving NOTIFY draftSavingChanged)
+  Q_PROPERTY(bool draftPersistenceBlocked READ draftPersistenceBlocked NOTIFY draftPersistenceBlockedChanged)
+  Q_PROPERTY(bool hasSelectedContent READ hasSelectedContent NOTIFY selectedContentChanged)
+  Q_PROPERTY(QString contentStatus READ contentStatus NOTIFY contentStatusChanged)
+  Q_PROPERTY(bool contentBusy READ contentBusy NOTIFY contentBusyChanged)
+  Q_PROPERTY(bool accountBusy READ accountBusy NOTIFY accountBusyChanged)
+  Q_PROPERTY(QString accountStatus READ accountStatus NOTIFY accountStatusChanged)
+  Q_PROPERTY(QString accountName READ accountName NOTIFY accountChanged)
+  Q_PROPERTY(QString accountContact READ accountContact NOTIFY accountChanged)
+  Q_PROPERTY(QString hints READ hints NOTIFY hintsChanged)
+  Q_PROPERTY(QString operationStatus READ operationStatus NOTIFY operationStatusChanged)
+  Q_PROPERTY(bool operationBusy READ operationBusy NOTIFY operationBusyChanged)
+  Q_PROPERTY(bool executionBusy READ executionBusy NOTIFY executionBusyChanged)
+  Q_PROPERTY(bool executionPaused READ executionPaused NOTIFY executionStateChanged)

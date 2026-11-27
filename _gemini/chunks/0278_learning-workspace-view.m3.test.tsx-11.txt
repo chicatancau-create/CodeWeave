@@ -1,0 +1,75 @@
+    for (const shared of ['.code-editor', '.panel', '.console-panel', '.variables-panel', '.run-bar', '.flow-chart']) {
+      expect(selectors.filter((selector) => selector.includes(shared)).every((selector) => selector.startsWith('.cw-workspace'))).toBe(true)
+    }
+  })
+
+  it('不赋值编辑器字号相关变量：用户设置的字号不会被本页盖掉（§5.4）', () => {
+    expect(cssCode).not.toMatch(/--editor-font-size\s*:/)
+    expect(cssCode).not.toMatch(/--line-height-editor\s*:/)
+    for (const selector of [
+      '.cw-workspace .code-editor',
+      '.cw-workspace .code-editor textarea',
+      '.cw-workspace .code-tokens',
+      '.cw-workspace .line-numbers',
+    ]) {
+      const block = blockOf(selector)
+      expect(block, selector).not.toBe('')
+      expect(block, selector).toContain('var(--editor-font-size, 13px)')
+      expect(block, selector).toMatch(/font-size:\s*var\(--editor-font-size, 13px\)/)
+      expect(block, selector).not.toMatch(/font-size:\s*\d/)
+    }
+  })
+
+  it('长代码行横向滚动而不是折行挤压', () => {
+    const area = blockOf('.cw-workspace .code-editor textarea')
+    expect(area).toContain('white-space: pre')
+    expect(area).toContain('word-break: normal')
+    expect(area).toContain('overflow-wrap: normal')
+    expect(area).toContain('overflow-x: auto')
+    expect(blockOf('.cw-workspace .code-tokens')).toContain('white-space: pre')
+    expect(blockOf('.cw-workspace .console-body')).toContain('white-space: pre')
+    expect(blockOf('.cw-workspace .console-body')).toContain('overflow: auto')
+    expect(blockOf('.cw-workspace .reading-pane .md-view .md-code')).toContain('white-space: pre')
+    expect(cssCode).not.toMatch(/white-space:\s*pre-wrap/)
+    expect(cssCode).not.toMatch(/scrollbar-width:\s*none|::-webkit-scrollbar/)
+  })
+
+  it('阅读区正文 ~16px、行高落在 1.6–1.75（§5.4）', () => {
+    const root = blockOf('.cw-workspace')
+    expect(root).toContain('--cw-body: var(--ds-size-body, 16px)')
+    const leading = /--cw-leading:\s*var\(--ds-leading-body,\s*([\d.]+)\)/.exec(root)?.[1]
+    expect(Number(leading)).toBeGreaterThanOrEqual(1.6)
+    expect(Number(leading)).toBeLessThanOrEqual(1.75)
+    const reading = blockOf('.cw-workspace .reading-pane .md-view')
+    expect(reading).toContain('font-size: var(--cw-body)')
+    expect(reading).toContain('line-height: var(--cw-leading)')
+    expect(reading).toContain('font-family: var(--cw-ui)') // 长文用中文 UI 栈，不是等宽
+  })
+
+  it('字号地板：本页没有低于自设 --cw-label 的字面量，也不把基座 flow-node 的 §5.4 裁定压回去', () => {
+    const floor = Number(/--cw-label:\s*(\d+(?:\.\d+)?)px/.exec(blockOf('.cw-workspace'))?.[1])
+    expect(floor).toBeGreaterThanOrEqual(12)
+    const small = [...cssCode.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)]
+      .map((match) => Number(match[1]))
+      .filter((px) => px < floor)
+    expect(small, `低于 --cw-label ${floor}px 的字面量字号：${small.join(', ')}`).toEqual([])
+    // 字号上了令牌之后，只看字面量会漏：`font-size: var(--ds-size-meta, 10.5px)` 没有 px 字面量
+    // 却照样是 10.5px。所以令牌消费的兜底值一起纳入地板核对（兜底值本身另有守卫保证与定义相等）。
+    const viaToken = [...cssCode.matchAll(/font-size:\s*var\(--ds-size-[a-z]+,\s*(\d+(?:\.\d+)?)px\)/g)]
+      .map((match) => Number(match[1]))
+      .filter((px) => px < floor)
+    expect(viaToken, `低于 --cw-label ${floor}px 的令牌档：${viaToken.join(', ')}`).toEqual([])
+    // 节点标签字号只在基座说一次（13px，§5.4「节点标签是必读文字」）。本页曾以
+    // .cw-workspace .flow-node 把它压回 11px，因该文件从没钉过字号地板断言而存活——M4 死规则第 2 条。
+    // 2026-09-29 重做竖向步进器：13px 的 §5.4 裁定从节点块的 `div.flow-node` 挪到
+    // 「这一拍做了什么」那一行文字上（`span.flow-node-label`）——节点块现在只带等宽字栈，
+    // 字号归真正承载标签的那个元素，裁定本身没动。
+    expect(blockOf('.cw-workspace .flow-node')).not.toMatch(/font-size/)
+    expect(baseCssCode).toMatch(/div\.flow-node\s*\{[^}]*font-family:/)
+    expect(baseCssCode).toMatch(
+      /span\.flow-node-label\s*\{[^}]*font-size:\s*(?:13px|var\(--ds-size-control,\s*13px\))/,
+    )
+  })
+
+  it('形态：黑场 + 1px 发丝线 + 遮光层；无玻璃卡、渐变按钮与泛光（§5.1）', () => {
+    const declarations = styleRules.flatMap((rule) => rule.block.split(';').map((decl) => decl.trim()))

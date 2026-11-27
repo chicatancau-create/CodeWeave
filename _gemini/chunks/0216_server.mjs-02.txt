@@ -1,0 +1,127 @@
+// ---------------------------------------------------------------------------
+// R3 限流：滑动窗口计数，键数量有硬上限，攻击输入不会造成内存无界增长。
+// ---------------------------------------------------------------------------
+/** 清除过期窗口并按上限淘汰最早键；返回当前键数量。 */
+function sweepRateLimits(now = Date.now()) {
+  for (const [key, entry] of rateLimits) {
+    if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) rateLimits.delete(key)
+  }
+  while (rateLimits.size > RATE_LIMIT_MAX_KEYS) {
+    const oldest = rateLimits.keys().next().value
+    if (oldest === undefined) break
+    rateLimits.delete(oldest)
+  }
+  return rateLimits.size
+}
+
+/** 是否已被限流（不增加计数）。 */
+function isRateLimited(key, now = Date.now()) {
+  const entry = rateLimits.get(key)
+  if (!entry) return false
+  if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
+    rateLimits.delete(key)
+    return false
+  }
+  return entry.count >= RATE_LIMIT_MAX
+}
+
+/** 记录一次失败尝试。 */
+function recordFailure(key, now = Date.now()) {
+  const entry = rateLimits.get(key)
+  if (!entry || now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
+    rateLimits.set(key, { count: 1, firstAt: now })
+  } else {
+    entry.count += 1
+  }
+  sweepRateLimits(now)
+}
+
+/** 成功登录/注册后清空该标识的失败计数。 */
+function clearFailures(key) {
+  rateLimits.delete(key)
+}
+
+/** 供测试重置与观测内部状态。 */
+export function resetRateLimits() {
+  rateLimits.clear()
+}
+export function rateLimitSize() {
+  return rateLimits.size
+}
+
+// ---------------------------------------------------------------------------
+// 用户存储：整体读、队列化原子写（临时文件 + rename），避免并发写损坏。
+// 数据状态机：ok（正常）/ corrupt（文件存在但不可用——只读，拒绝一切写操作）。
+// ---------------------------------------------------------------------------
+let dataState = 'ok'
+let dataStateReason = ''
+
+/** 哈希格式：可选算法/版本前缀 + 32 位盐 + 128 位派生（兼容无前缀的历史数据）。 */
+const HASH_FORMAT = /^(?:scrypt\$v1\$)?[0-9a-f]{32}:[0-9a-f]{128}$/
+
+/** 统一用户文件校验：顶层数组、必需字段、类型、哈希格式、标识唯一。 */
+export function validateUsers(value) {
+  const errors = []
+  if (!Array.isArray(value)) {
+    return { valid: false, errors: ['用户文件顶层必须是数组'] }
+  }
+  const seenIds = new Set()
+  value.forEach((user, index) => {
+    const label = `users[${index}]`
+    if (typeof user !== 'object' || user === null) {
+      errors.push(`${label} 不是对象`)
+      return
+    }
+    if (typeof user.id !== 'string' || !user.id) errors.push(`${label}.id 缺失或非字符串`)
+    else if (seenIds.has(user.id)) errors.push(`${label}.id 重复（id 必须唯一）`)
+    else seenIds.add(user.id)
+    if (!user.email && !user.phone) errors.push(`${label} 缺少 email 或 phone`)
+    if (typeof user.name !== 'string' || user.name.length < 1) errors.push(`${label}.name 缺失`)
+    if (typeof user.passwordHash !== 'string' || !HASH_FORMAT.test(user.passwordHash)) {
+      errors.push(`${label}.passwordHash 格式非法（应为 salt:hash 十六进制）`)
+    }
+  })
+  return { valid: errors.length === 0, errors }
+}
+
+/** 启动时清理遗留的写入临时文件（异常退出残留）。 */
+export function cleanupTempFiles(dir = dataRoot) {
+  try {
+    for (const file of readdirSync(dir)) {
+      if (file.endsWith('.tmp')) {
+        rmSync(join(dir, file), { force: true })
+      }
+    }
+  } catch {
+    // 目录尚不存在时无需清理
+  }
+}
+
+/** 独立 SQLite 锁文件持有系统文件锁。异常退出时操作系统释放锁。 */
+const lockPath = join(dataRoot, '.instance.sqlite')
+let instanceLock
+export function acquireLock() {
+  if (instanceLock) return { ok: false, holder: process.pid }
+  let connection
+  try {
+    mkdirSync(dataRoot, { recursive: true })
+    connection = new DatabaseSync(lockPath)
+    connection.exec('PRAGMA busy_timeout = 0; BEGIN EXCLUSIVE;')
+    instanceLock = connection
+    return { ok: true }
+  } catch (error) {
+    connection?.close()
+    return { ok: false, holder: null, error }
+  }
+}
+
+function releaseLock() {
+  if (!instanceLock) return
+  instanceLock.close()
+  instanceLock = undefined
+}
+
+/** 本机部署命令。Windows 用户以本机文件权限运行，整个过程不开放 HTTP 入口。 */
+async function initializeLocal(legacyUsersPath) {
+  if (!legacyUsersPath || !runtime.configFile || runtime.sources.dataDir !== 'config' ||
+      runtime.sources.vaultRoot !== 'config' || runtime.conflicts.length || process.env.CODEWEAVE_ALLOW_REGISTRATION === '1') {

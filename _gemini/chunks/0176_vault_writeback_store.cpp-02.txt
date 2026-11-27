@@ -1,0 +1,71 @@
+bool read_target(const std::filesystem::path& root, const QString& relative,
+    QByteArray& bytes, QString& hash, bool& exists) {
+  if (!valid_relative(relative)) return false;
+  const auto path = root / relative.toStdWString();
+  if (!safe_path(path)) return false;
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(path, error);
+  if (error == std::errc::no_such_file_or_directory) {
+    bytes.clear(); hash.clear(); exists = false; return true;
+  }
+  if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) return false;
+  const auto size = std::filesystem::file_size(path, error);
+  if (error || size > static_cast<std::uintmax_t>(kMaxVaultFileBytes)) return false;
+  QFile file(qpath(path));
+  if (!file.open(QIODevice::ReadOnly)) return false;
+  bytes = file.read(kMaxVaultFileBytes + 1);
+  if (bytes.size() > kMaxVaultFileBytes || file.error() != QFileDevice::NoError) return false;
+  QStringDecoder decoder(QStringDecoder::Utf8);
+  decoder.decode(bytes);
+  if (decoder.hasError() || bytes.contains('\0')) return false;
+  hash = hash_bytes(bytes); exists = true; return true;
+}
+
+bool write_target(const std::filesystem::path& root, const QString& relative, const QByteArray& bytes) {
+  if (!valid_relative(relative) || bytes.size() > kMaxVaultFileBytes) return false;
+  const auto path = root / relative.toStdWString();
+  if (!safe_path(path)) return false;
+  const auto parent = qpath(path.parent_path());
+  if (!QDir().mkpath(parent) || !safe_path(path.parent_path())) return false;
+  QSaveFile file(qpath(path));
+  file.setDirectWriteFallback(false);
+  return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size() && file.commit();
+}
+
+QString fenced(const QString& text) {
+  const auto runs = QRegularExpression(QStringLiteral("`{3,}"));
+  int longest = 2;
+  auto match = runs.globalMatch(text);
+  while (match.hasNext()) longest = qMax(longest, match.next().capturedLength());
+  const auto fence = QString(longest + 1, QLatin1Char('`'));
+  return fence + QLatin1Char('\n') + text.trimmed() + QLatin1Char('\n') + fence;
+}
+
+QString render_log(const std::vector<EvidenceRecord>& records, const QString& operation) {
+  if (records.empty()) return {};
+  QString output;
+  if (records.front().content_id.empty()) return {};
+  for (const auto& record : records) {
+    if (!record.operation_id.empty()) output += QStringLiteral("\n---\n\n");
+    const auto topic = safe_topic(to_utf8(record.content_id));
+    output += QStringLiteral("## 学习证据 · %1\n\n| 项目 | 内容 |\n|---|---|\n")
+        .arg(topic);
+    const auto row = [&](const QString& label, const QString& value) {
+      auto cell = value; cell.replace('|', QStringLiteral("\\|"));
+      cell.replace(QRegularExpression(QStringLiteral("[\\r\\n]+")), QStringLiteral(" "));
+      output += QStringLiteral("| %1 | %2 |\n").arg(label, cell.trimmed());
+    };
+    row(QStringLiteral("学习日期"), to_utf8(record.at));
+    row(QStringLiteral("内容 ID"), to_utf8(record.content_id));
+    row(QStringLiteral("练习 ID"), to_utf8(record.exercise_id));
+    row(QStringLiteral("运行者"), record.ran_by == codeweave::learning::RanBy::Learner
+        ? QStringLiteral("学习者") : record.ran_by == codeweave::learning::RanBy::Assistant
+        ? QStringLiteral("AI 助手") : QStringLiteral("未说明"));
+    row(QStringLiteral("独立完成"), record.independent ? QStringLiteral("是（学习者声明）") : QStringLiteral("否"));
+    row(QStringLiteral("提示等级"), to_utf8(record.hint_level));
+    for (const auto& artifact : record.artifact_refs) row(QStringLiteral("证据产物"), to_utf8(artifact));
+    output += QLatin1Char('\n');
+    if (!record.expected_result.empty()) output += QStringLiteral("**预期结果**\n\n%1\n\n").arg(fenced(to_utf8(record.expected_result)));
+    if (!record.actual_result.empty()) output += QStringLiteral("**实际结果**\n\n%1\n\n").arg(fenced(to_utf8(record.actual_result)));
+    if (!record.unfinished_items.empty()) {
+      output += QStringLiteral("**未完成项**\n\n");

@@ -1,0 +1,56 @@
+  if (!status.ok || !owner) return status.ok ? Result::failure("先绑定当前资料库拥有者才能预览写回") : status;
+  if (evidence_ids.isEmpty() || evidence_ids.size() > 100) return Result::failure("请选择 1 至 100 条待写回证据");
+  if (QSet<QString>(evidence_ids.cbegin(), evidence_ids.cend()).size() != evidence_ids.size()) return Result::failure("不能重复选择同一条证据");
+  QVariantList pending, synced;
+  const auto queue = readEvidence(pending, synced); if (!queue.ok) return queue;
+  for (const auto& id : evidence_ids) {
+    const auto found = std::find_if(pending.begin(), pending.end(), [&](const auto& value) { return value.toMap().value("evidenceId") == id; });
+    if (found == pending.end() || found->toMap().value("state") == "partial")
+      return Result::failure("证据已同步或已有待恢复事务，请先核对事务记录");
+  }
+  codeweave::learning::EvidenceStore store(account_root_);
+  std::vector<EvidenceRecord> all; auto loaded = store.read_all(all); if (!loaded.ok) return loaded;
+  std::vector<EvidenceRecord> chosen;
+  for (const auto& id : evidence_ids) {
+    const auto found = std::find_if(all.begin(), all.end(), [&](const auto& record) { return record.evidence_id == id.toStdString(); });
+    if (found == all.end()) return Result::failure("暂存证据不存在或不属于当前账户");
+    if (found->state == EvidenceState::Synced) return Result::failure("已同步证据不能重复提交");
+    chosen.push_back(*found);
+  }
+  const auto operation = QStringLiteral("op-%1-%2").arg(QUuid::createUuid().toString(QUuid::Id128).left(12),
+      QUuid::createUuid().toString(QUuid::Id128).right(6));
+  const auto latest_record = std::max_element(chosen.begin(), chosen.end(), [](const auto& a, const auto& b) {
+    return a.at < b.at;
+  });
+  const auto date = to_utf8(latest_record->at);
+  const auto topic = safe_topic(to_utf8(latest_record->content_id));
+  QJsonArray targets;
+  QVariantList views;
+  QJsonArray ids; for (const auto& record : chosen) ids.append(to_utf8(record.evidence_id));
+
+  std::map<std::string, std::vector<EvidenceRecord>> groups;
+  for (const auto& record : chosen) groups[record.at + "|" + record.content_id].push_back(record);
+  for (const auto& [key, group] : groups) {
+    const auto parts = QString::fromStdString(key).split(QLatin1Char('|'));
+    const auto relative = QStringLiteral("全栈工程师学习计划/学习日志/%1/%2-%3.md").arg(parts[0].left(7), parts[0], safe_topic(parts.value(1)));
+    QByteArray before; QString hash; bool exists = false;
+    if (!read_target(vault_root_, relative, before, hash, exists)) return Result::failure("学习日志目标路径无效或不可读");
+    QString after = QString::fromUtf8(before);
+    if (!exists) after = QStringLiteral("# %1 学习日志 · %2\n\n> 由 CodeWeave 确认式写回创建。\n> 本记录不自动提升掌握等级。\n\n").arg(parts[0], safe_topic(to_utf8(group.front().content_id)));
+    if (!after.isEmpty() && !after.endsWith(QLatin1Char('\n'))) after += QLatin1Char('\n');
+    after += QStringLiteral("\n---\n\n") + render_log(group, operation);
+    Target target{relative, QStringLiteral("log"), hash, after, {}, {}, exists, false, false};
+    targets.append(target_json(target)); views.push_back(target_view(target));
+  }
+
+  QByteArray progress_bytes; QString progress_hash; bool progress_exists = false;
+  if (!read_target(vault_root_, QString::fromUtf8(kProgressPath), progress_bytes, progress_hash, progress_exists) || !progress_exists)
+    return Result::failure("进度追踪文件不存在或不可读，预览已停止");
+  const auto progress_text = QString::fromUtf8(progress_bytes);
+  if (!progress_text.contains(QStringLiteral("最近学习证据")) || !progress_text.contains(QStringLiteral("最近正式日志")) ||
+      !progress_text.contains(QStringLiteral("当前主题"))) return Result::failure("进度追踪结构不受支持，未生成写回预览");
+  const auto log_path = QStringLiteral("全栈工程师学习计划/学习日志/%1/%2-%3.md")
+      .arg(date.left(7), date, topic);
+  const auto link = QStringLiteral("[[%1]]").arg(log_path.left(log_path.size() - 3));
+  const auto progress_after = merge_progress(progress_text, date, topic, link);
+  Target progress{QString::fromUtf8(kProgressPath), QStringLiteral("progress"), progress_hash,

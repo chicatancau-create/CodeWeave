@@ -1,0 +1,80 @@
+                                    color: ds.accentSoft
+                                    border.color: ds.line
+                                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "⟲"
+                                        color: ds.accent
+                                        font.family: ds.ui
+                                        font.pixelSize: 13
+                                    }
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: ds.s4
+                                    Text {
+                                        text: "复习已学知识"
+                                        color: ds.ink
+                                        font.family: ds.ui
+                                        font.pixelSize: 12
+                                        font.weight: Font.Medium
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "暂无到期复习，保持学习节奏"
+                                        color: ds.faint
+                                        font.family: ds.ui
+                                        font.pixelSize: 13
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                                Text {
+                                    text: "›"
+                                    color: ds.faint
+                                    font.family: ds.ui
+                                    font.pixelSize: 14
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+
+                            // .desktop-plan-progress
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: ds.s16
+                                spacing: ds.s10
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "当前科目完成证据"
+                                    color: ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 13
+                                }
+                                Text {
+                                    text: uiShell.lessonEvidenceReady ? studyPage.completedLessonCount + "/" + studyPage.subjectLessons.length : "暂无完成证据数据"
+                                    color: ds.ink
+                                    font.family: ds.mono
+                                    font.pixelSize: 13
+                                }
+                            }
+                        }
+                    }
+
+                    // .desktop-note
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: noteCol.implicitHeight + ds.s32
+                        color: "transparent"
+                        Rectangle {
+                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                            width: 2
+                            color: ds.accentRing
+                        }
+                        ColumnLayout {
+                            id: noteCol
+                            anchors.fill: parent
+                            anchors.leftMargin: ds.s16 + ds.s2
+                            anchors.rightMargin: ds.s16
+                            anchors.topMargin: ds.s16
+                            anchors.bottomMargin: ds.s16
+                            spacing: 0

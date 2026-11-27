@@ -1,0 +1,93 @@
+      error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND;
+#else
+      false;
+#endif
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (is_missing_error(error)) {
+      error.clear();
+      continue;
+    }
+    if (error) return true;
+  }
+  return false;
+}
+
+std::string serialize(const MasteryEvidence& evidence) {
+  const auto scalar = [](bool value) { return value ? "1" : "0"; };
+  return encode_hex("1") + '\t' + encode_hex(evidence.operation_id) + '\t' +
+      encode_hex(evidence.id) + '\t' + encode_hex(evidence.ref_id) + '\t' +
+      encode_hex(kind_text(evidence.kind)) + '\t' + encode_hex(scalar(evidence.passed)) + '\t' +
+      encode_hex(verification_text(evidence.verification)) + '\t' + encode_hex(ran_by_text(evidence.ran_by)) + '\t' +
+      encode_hex(scalar(evidence.independent)) + '\t' + encode_hex(evidence.hint_level) + '\t' +
+      encode_hex(evidence.at) + '\t' + encode_hex(evidence.note);
+}
+
+bool parse_line(std::string_view line, MasteryEvidence& output) {
+  if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+  std::vector<std::string_view> fields;
+  std::size_t start = 0;
+  while (start <= line.size()) {
+    const auto end = line.find('\t', start);
+    fields.push_back(line.substr(start, end == std::string_view::npos ? line.size() - start : end - start));
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  if (fields.size() != 12) return false;
+  std::string values[12];
+  for (std::size_t index = 0; index < 12; ++index) {
+    if (!decode_hex(fields[index], values[index])) return false;
+  }
+  if (values[0] != "1" || !parse_kind(values[4], output.kind) ||
+      !parse_verification(values[6], output.verification) || !parse_ran_by(values[7], output.ran_by) ||
+      (values[5] != "0" && values[5] != "1") || (values[8] != "0" && values[8] != "1")) return false;
+  output.operation_id = values[1];
+  output.id = values[2];
+  output.ref_id = values[3];
+  output.passed = values[5] == "1";
+  output.independent = values[8] == "1";
+  output.hint_level = values[9];
+  output.at = values[10];
+  output.note = values[11];
+  return validate_mastery_evidence(output).ok;
+}
+
+bool same_evidence(const MasteryEvidence& left, const MasteryEvidence& right) {
+  return serialize(left) == serialize(right);
+}
+
+app::Result append_durable(const std::filesystem::path& destination, std::string_view line) {
+  std::ofstream output(destination, std::ios::binary | std::ios::app);
+  if (!output) return app::Result::failure("打开掌握度账本追加流失败");
+  output.write(line.data(), static_cast<std::streamsize>(line.size()));
+  output.flush();
+  if (!output) return app::Result::failure("追加掌握度账本失败");
+  output.close();
+#ifdef _WIN32
+  const auto handle = CreateFileW(destination.wstring().c_str(), GENERIC_READ | GENERIC_WRITE,
+      FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE || !FlushFileBuffers(handle)) {
+    if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+    return app::Result::failure("刷盘掌握度账本失败");
+  }
+  CloseHandle(handle);
+#endif
+  return app::Result::success("掌握度账本已追加");
+}
+
+app::Result write_pending(const std::filesystem::path& destination,
+    std::uintmax_t base_size, std::string_view line) {
+  const auto pending = pending_path(destination);
+  const auto temporary = temporary_path(pending);
+  const auto body = std::to_string(base_size) + "\n" + encode_hex(line);
+  {
+    std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+    if (!output) return app::Result::failure("创建掌握度追加事务失败");

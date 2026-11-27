@@ -1,0 +1,72 @@
+  size_t index = 11; std::string count_text; if (!hex_decode(fields[index++], count_text)) return false; size_t count = 0; auto parsed = std::from_chars(count_text.data(), count_text.data() + count_text.size(), count); if (parsed.ec != std::errc{} || parsed.ptr != count_text.data() + count_text.size() || count > 20 || fields.size() < index + count + 1) return false;
+  record.artifact_refs.clear(); for (size_t i = 0; i < count; ++i) { std::string value; if (!hex_decode(fields[index++], value)) return false; record.artifact_refs.push_back(std::move(value)); }
+  if (!hex_decode(fields[index++], count_text)) return false; count = 0; parsed = std::from_chars(count_text.data(), count_text.data() + count_text.size(), count); if (parsed.ec != std::errc{} || parsed.ptr != count_text.data() + count_text.size() || count > 20 || fields.size() != index + count) return false;
+  record.unfinished_items.clear(); for (size_t i = 0; i < count; ++i) { std::string value; if (!hex_decode(fields[index++], value)) return false; record.unfinished_items.push_back(std::move(value)); }
+  return validate_evidence(record).ok;
+}
+
+app::Result read_all_unlocked(const std::filesystem::path& path,
+    const std::filesystem::path& data_root, std::vector<EvidenceRecord>& records) {
+  records.clear();
+  if (data_root.empty() || !data_root.is_absolute()) {
+    return app::Result::failure("证据数据根必须是绝对路径");
+  }
+  const auto recovered = recover_pending(path, data_root);
+  if (!recovered.ok) return recovered;
+  std::error_code status_error;
+  const auto file_status = std::filesystem::symlink_status(path, status_error);
+  if (status_error && status_error != std::make_error_code(std::errc::no_such_file_or_directory) &&
+      status_error.value() != ERROR_FILE_NOT_FOUND && status_error.value() != ERROR_PATH_NOT_FOUND) {
+    return app::Result::failure("读取证据账本状态失败");
+  }
+  status_error.clear();
+  if (file_status.type() == std::filesystem::file_type::not_found) {
+    return app::Result::success("证据账本为空");
+  }
+  if (std::filesystem::is_symlink(file_status) ||
+      !std::filesystem::is_regular_file(file_status)) {
+    return app::Result::failure("证据账本文件类型无效");
+  }
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return app::Result::failure("打开证据账本失败");
+  std::error_code size_error;
+  if (const auto size = std::filesystem::file_size(path, size_error);
+      size_error || size > kMaxEvidenceFileBytes) {
+    return app::Result::failure("证据账本超过大小上限");
+  }
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty()) continue;
+    if (line.size() > kMaxEvidenceLineBytes) return app::Result::failure("证据记录超过大小上限");
+    EvidenceRecord record;
+    if (!parse(line, record)) return app::Result::failure("证据账本存在损坏记录");
+    records.push_back(std::move(record));
+  }
+  return input.eof() ? app::Result::success("证据账本已读取")
+                    : app::Result::failure("读取证据账本失败");
+}
+
+}  // namespace
+
+EvidenceStore::EvidenceStore(std::filesystem::path data_root) : data_root_(std::move(data_root)) {}
+std::filesystem::path EvidenceStore::path() const { return data_root_ / "learning" / "evidence.v1.log"; }
+std::filesystem::path EvidenceStore::index_path() const { return data_root_ / "learning" / "evidence-index.v1"; }
+
+app::Result EvidenceStore::read_all(std::vector<EvidenceRecord>& records) const {
+  std::lock_guard lock(mutex_);
+  const auto result = read_all_unlocked(path(), data_root_, records);
+  if (!result.ok) return result;
+  auto parsed = [](std::string_view line, std::string& operation_id) {
+    EvidenceRecord record;
+    if (!parse(line, record)) return false;
+    operation_id = std::move(record.operation_id);
+    return true;
+  };
+  auto index = operation_index::load_or_rebuild(index_path(), path(), data_root_,
+      kMaxEvidenceFileBytes, kMaxEvidenceLineBytes, kMaxEvidenceRecords, parsed,
+      index_snapshot_);
+  index_ready_ = index.ok;
+  return index;
+}
+
+app::Result EvidenceStore::remove_operation(std::string_view operation_id) {

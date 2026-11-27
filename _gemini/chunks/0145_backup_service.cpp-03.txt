@@ -1,0 +1,99 @@
+  }
+  if (error || !verify(target, report.receipts)) {
+    report.issues.push_back("target_verification_failed");
+    std::error_code ignored;
+    std::filesystem::remove_all(target, ignored);
+    return app::Result::failure("备份目标校验失败");
+  }
+  // A concurrent writer must not turn a partial point-in-time copy into a
+  // successful backup. Compare the source again after the copy.
+  std::vector<FileReceipt> after;
+  if (!collect(source, after, native) || after.size() != report.receipts.size() ||
+      !std::equal(after.begin(), after.end(), report.receipts.begin(),
+          [](const auto& left, const auto& right) {
+            return left.relative_path == right.relative_path &&
+                left.size == right.size && left.fingerprint == right.fingerprint;
+          })) {
+    report.issues.push_back("source_changed_during_backup");
+    std::error_code ignored;
+    std::filesystem::remove_all(target, ignored);
+    return app::Result::failure("备份期间源数据发生变化，未提交副本");
+  }
+  report.target = target;
+  report.target_verified = true;
+  report.committed = true;
+  return app::Result::success("隔离备份已创建");
+}
+
+}  // namespace
+
+app::Result create_fixture_backup(const std::filesystem::path& source,
+    const std::filesystem::path& target, Report& report) {
+  report = {};
+  report.fixture_only = true;
+  return copy_tree(source, target, report);
+}
+
+app::Result restore_fixture_backup(const std::filesystem::path& backup,
+    const std::filesystem::path& target, Report& report) {
+  report = {};
+  report.fixture_only = true;
+  const auto result = copy_tree(backup, target, report);
+  if (result.ok) report.target = target;
+  return result.ok ? app::Result::success("隔离备份已恢复") : result;
+}
+
+app::Result rollback_fixture_target(const std::filesystem::path& target,
+    Report& report) {
+  if (!report.fixture_only || !report.committed || target.empty() ||
+      !target.is_absolute() || report.target != target) {
+    return app::Result::failure("隔离备份回滚条件不满足");
+  }
+  std::error_code error;
+  std::filesystem::remove_all(target, error);
+  if (error) return app::Result::failure("隔离备份回滚失败");
+  report.rolled_back = true;
+  report.committed = false;
+  return app::Result::success("隔离备份已回滚");
+}
+
+app::Result create_native_backup(const std::filesystem::path& source,
+    const std::filesystem::path& target, Report& report) {
+  report = {};
+  if (source.empty() || !source.is_absolute() || has_symlink_component(source)) {
+    return app::Result::failure("原生备份源路径无效");
+  }
+  // The account store is the format authority. Reading a missing profile is
+  // valid for new users, but an arbitrary directory must not be accepted.
+  std::error_code error;
+  bool native_data = false;
+  for (const auto& name : {"profile", "accounts", "drafts", "learning"}) {
+    if (std::filesystem::is_directory(source / name, error)) native_data = true;
+    if (error && error != std::make_error_code(std::errc::no_such_file_or_directory)
+#ifdef _WIN32
+        && error.value() != ERROR_FILE_NOT_FOUND && error.value() != ERROR_PATH_NOT_FOUND
+#endif
+        ) {
+      return app::Result::failure("读取原生备份源失败");
+    }
+    error.clear();
+  }
+  if (!native_data) return app::Result::failure("所选目录不包含原生数据结构");
+  codeweave::account::AccountStore accounts(source);
+  std::vector<codeweave::account::Record> records;
+  if (!accounts.list_accounts(records).ok) return app::Result::failure("原生账户数据校验失败");
+  return copy_tree(source, target, report, true);
+}
+
+app::Result restore_native_backup(const std::filesystem::path& backup,
+    const std::filesystem::path& target, Report& report) {
+  report = {};
+  if (backup.empty() || !backup.is_absolute() || has_symlink_component(backup)) {
+    return app::Result::failure("原生备份路径无效");
+  }
+  std::error_code error;
+  const auto marker = backup / kBackupMarker;
+  const auto status = std::filesystem::symlink_status(marker, error);
+  if (error || !std::filesystem::is_regular_file(status) || std::filesystem::is_symlink(status)) {
+    return app::Result::failure("所选目录不是原生备份");
+  }

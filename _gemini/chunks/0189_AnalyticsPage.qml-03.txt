@@ -1,0 +1,64 @@
+                                        text: modelData.dt
+                                        color: ds.muted
+                                        font.family: ds.ui
+                                        font.pixelSize: 13
+                                        font.letterSpacing: 2.5
+                                        font.capitalization: Font.AllUppercase
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.dd
+                                        color: ds.ink
+                                        opacity: 0.82
+                                        font.family: ds.ui
+                                        font.pixelSize: 14
+                                        lineHeight: 1.6
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: ds.line
+                                }
+                            }
+                        }
+                    }
+
+                    // section.an-block ×3 — bare grids, no surface
+                    Repeater {
+                        model: [
+                            { idx: "01", icon: "◈", title: "近 7 天学习活动",
+                              rows: [
+                                { n: "完成课程单元", v: analyticsPage.metric("completedUnits", "暂无数据"), b: "按课程去重，仅计显式完成事实，不以输出匹配代替完成",
+                                  d: "窗口 " + analyticsPage.period + " 内的课程证据" },
+                                { n: "课程练习次数", v: analyticsPage.metric("practiceCount", "暂无数据"), b: "同一单元重复练习分别计数，与上一行是两个口径",
+                                  d: "窗口 " + analyticsPage.period + " 内的课程证据" },
+                                { n: "挑战通过记录", v: analyticsPage.metric("verifiedPasses", "暂无数据"), b: "按关卡取当前 passed / verified 结果；旧 Challenge 事实兼容去重",
+                                  d: "无分母，不折算百分比" },
+                                { n: "挑战通过（旧版迁移口径）", v: "暂无数据",
+                                  b: "记录缺失 status，按迁移语义单列为旧版，不混入上一行",
+                                  d: "无分母，不折算百分比" },
+                                { n: "复测通过", v: analyticsPage.metric("reviewPassed", "暂无数据"), b: "kind=review 且 passed 的证据",
+                                  d: "窗口 " + analyticsPage.period + " 内的复测证据" },
+                                { n: "复测未通过", v: analyticsPage.metric("reviewFailed", "暂无数据"), b: "kind=review 且未通过的证据",
+                                  d: "窗口 " + analyticsPage.period + " 内的复测证据" }
+                              ],
+                              note: "" },
+                            { idx: "02", icon: "▲", title: "近 7 天复测通过率",
+                              rows: [
+                                { n: "近 7 天复测通过率", v: analyticsPage.reviewRate,
+                                  b: "通过 /（通过 + 未通过），四舍五入到整数百分比",
+                                  d: analyticsPage.reviewRateDetail,
+                                  a: analyticsPage.reviewRate === "样本不足"
+                                      ? "下一步：到复习中心完成一次复测后，这里会显示比率。"
+                                      : "该比率只反映近 7 天复测结果，不代表到期任务完成率。" },
+                                { n: "到期任务完成率", v: "未统计",
+                                  b: "需要计划任务分母；本机没有可复现的历史排期记录（STAT-01 第 4 条）",
+                                  d: "无分母，不折算百分比",
+                                  a: "下一步：等复习中心的排期按生效节奏累计出可复现的分母；本页不提供手填任务数的入口，也不拿活动次数顶替。" }
+                              ],
+                              note: "复测通过率只统计近 7 天的通过与未通过复测记录。" },
+                            { idx: "03", icon: "◷", title: "连续打卡",
+                              rows: [
+                                { n: "连续打卡天数", v: analyticsPage.metric("streakDays", "暂无数据"),

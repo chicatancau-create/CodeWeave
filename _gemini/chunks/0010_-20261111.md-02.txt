@@ -1,0 +1,109 @@
+已逐项核对37项与当前代码/测试/证据，检查最终代码Diff、暂存范围、未削弱门禁、失败记录与后端声明、兼容性和数据边界。本轮未再启动代理；此前只读审查发现及A1/A2实例、B1–B4关闭证据保留。未把其他AI结论单独作为通过依据。
+
+阶段源码、SDK、依赖、正式安装版本、工作区与凭据不混入证据提交；本轮代码不改变公共接口或真实数据结构。最终暂存检查排除了受保护文件、运行时二进制和日志。文档与当前结果一致；历史边界均保留。
+
+## 临时文件清理
+
+**[保留]** 本轮隔离Qt部署：
+
+C:/Users/Admin/AppData/Local/Temp/CodeWeave-repair-20261115-708d121928524a04a4df099b127db393
+
+删除前只读确认：目录属于本轮、无ReparsePoint、无该路径运行进程。自动审批两次拒绝PowerShell删除（包括精确字面量路径），返回blocked by policy，原因未进一步细化。没有改用其他删除机制。目录为可再生成的部署副本，不含用户真实数据；保留风险是占用临时空间。手动清理前应再次核验进程和归属，再执行：
+
+~~~powershell
+Remove-Item -LiteralPath 'C:\Users\Admin\AppData\Local\Temp\CodeWeave-repair-20261115-708d121928524a04a4df099b127db393' -Recurse -Force
+~~~
+
+Web包装脚本已停止本轮Vite进程链。正式截图、JSON、复核脚本和忽略的本机原始日志保留为验收证据。旧Phase41临时目录本次确认已不存在，历史prunable工作树元数据未顺带清理；没有执行worktree prune或清理来源不明目录。
+
+## 工程知识库
+
+已尝试读取D:/Codex/Engineering-Knowledge/README.md和01-标准/工程执行标准.md，当前均不存在，不能声称本次已读。已查阅本机E:/本地AI使用手册的规则及MSVC脚本记录，并以当前构建验证。未写错误复盘、手册或记忆。
+
+## 风险与注意事项
+
+- Android APK/Lint/设备等待JDK17和SDK35；静态基线不证明Android可编译运行。
+- 正式账户/资料库、生产部署、GPU和系统时区运行中切换未联调；真实用户数据未操作。
+- 原始4.1受控历史七页与4.2可比组件可关闭；Phase4整页精修和其它状态保持原计划，未声明全状态视觉一致。
+- QML零警告只限QQmlEngine创建/加载期；A1对应窄窗几何已单独保护，不等于全局警告收集能力。
+- 临时部署目录因自动审批拒绝而保留；正式启动链接仍指向已安装版本，本次源码构建没有替换它。
+
+在当前已执行的验证范围内，未发现已知阻断问题。
+
+## 运行方式
+
+已执行确认：
+
+~~~powershell
+# G:/CodeWeave/网页端/项目
+corepack pnpm verify
+# G:/CodeWeave
+cmd /d /c 工程文件\工具\构建当前Qt.cmd
+node 工程文件/工具/check-layout.mjs
+node 工程文件/验收证据/修缮收口-20261115/verify-evidence.mjs
+~~~
+
+网页开发启动corepack pnpm dev、预览corepack pnpm preview由package.json确认，本轮浏览器包装脚本使用开发服务。Qt矩阵需按deploy-qt.ps1生成隔离部署，在Windows桌面会话直接运行部署EXE --u3-matrix-json <新目录>/report.json；本次软件渲染设置和插件路径见总证据README。部署文件已保留，不能写入正式工作区。
+
+Android环境就绪后的下一组命令（**本次未执行**）：在移动端/项目使用JDK17、SDK35，运行 .\gradlew.bat :mobile-app:assembleDebug :mobile-app:testDebugUnitTest :mobile-app:lintDebug。
+
+## 回滚方式
+
+本轮代码/证据提交8b148d5；先保护后续工作，在干净工作树执行git revert 8b148d5，撤回工具发现和验收harness改动，然后重跑标准Qt门禁。文档提交在本报告之后生成，按git log取hash，必要时先revert文档再revert代码。此前业务改动按核对表的阶段提交依赖倒序git revert对应提交，不用reset --hard或clean。没有真实数据迁移、远程发布或正式安装替换，无需数据回滚。
+
+## 本地提交
+
+以下是229a411之后至8b148d5的全部68个本地提交；包含本报告的最终文档提交无法在内容中自引用hash，最终完整列表执行git log --oneline --reverse 229a411..HEAD。
+
+~~~text
+787cdcb fix(app): 纠正课程选择与分析统计的数据口径
+4eb0e40 fix(web): 修复窄屏层叠覆盖、故障指引与浮层闭包问题
+6e1ddf2 feat(app): 补齐复习分组与挑战筛选分页
+172e633 修复 Qt 构建路径并更新阶段记录
+32cbc26 补充 Qt 真实窗口验收证据
+0761017 feat(app): 拆分学习页面与共享QML组件
+6d8041a fix(app): 注入学习页科目标签设计令牌
+c32bbb2 refactor(app): 拆分学习分析页面QML
+6c6baa4 refactor(app): 拆分复习中心页面QML
+723b8c5 refactor(app): 拆分草稿页面QML
+2b4fa5a refactor(app): 拆分挑战页面QML结构
+a178cba refactor(app): 拆分账户页面QML结构
+e20590b refactor(app): 拆分编辑器页面QML结构
+5451894 feat(app): 补全顶栏浮层与设置帮助交互
+c096edf perf(web): 完善窄屏布局与阶段五浏览器验收
+afda426 chore: 补齐移动端主题与构建基线并加固仓库忽略规则
+edc74a7 fix(app): 修复 QML 拆分警告并补齐菜单键盘验证
+c3da104 docs: 本轮修缮验收记录与进度同步
+e5320f7 fix(app): 补齐工作台课程页首与分区导航
+1b82cf8 feat(app): 展示所选课程主题原文与读取状态
+769beae feat(app): 展示流程结构与变量追踪空态
+377401e fix(app): 补齐工作台控制台复制清空与错误反馈
+fbe3d91 feat(app): 完成挑战筛选分页并验证组合状态
+4feb27e feat(app): 拆分账户域个人中心安全与隐私页面
+cfc631a feat(app): 补齐登录介绍与草稿结构并验证保存失败重试
+0551450 feat(app): 避免课程完成误算并接入阶段来源明细
+8b63e6f feat(app): 对齐学习明细层级并修正中文字体回退
+46f0508 docs(app): 规范构建证据尾随空格并说明归档处理
+1ca95aa feat(app): 验收顶栏导航浮层与设置帮助弹窗
+6ecd690 test(app): 严格验证设置窗口边界与外部关闭避免漏报
+5ed4b88 test(app): 验收复习中心三组数据与行操作
+f73c2ec docs(app): 记录复习中心验收修复边界
+9633814 feat(app): 补全挑战详情并验证真实数据路径
+42e1672 feat(app): 增加挑战逐条输出判定核心
+4b00b18 feat(app): 接入挑战隔离运行与逐条判定
+8a9d93f feat(app): 增加挑战提交历史与人工复核，保留账户级学习记录
+9c08221 feat(app): 接入课程证据与显式完成，防止工作台沿用旧课程状态
+d73af25 fix(app): 修正分析事实口径与本地日排期，保护工作台保存状态
+efa0802 feat(app): 接入账户打卡与复习角标，保护真实日期记录并修复窄窗日历裁切
+e41d554 feat(app): 接入真实执行事件回看，避免旧轨迹与窄窗误导
+d0f7b03 feat(app): 完成 P2.9 证据写回与资料库进度验收
+2ea960e feat(app): 接入 Python 源码步骤与受限变量回看
+d166376 test(app): 验证 Python 源码快照与执行轨迹回看
+5cc573e feat(app): 接入 JavaScript 源码快照并保持原生执行语义
+6bf12ad feat(app): 接入 Java 真实源码快照并修正编译取消状态
+9fb9e9f feat(app): 接入 C++ 真实源码快照并保护执行输出与进程控制边界
+3cdb832 feat(app): 接入实时执行事件并保持回看状态一致
+50af3bb feat(app): 补齐模块源码快照以保留真实变量与执行语义
+e82e46b feat(app): 用真实事件绘制程序状态图并验证失败取消状态
+9c80a7f feat(app): 补齐工作台模式指南并核实修缮剩余验收
+37457d2 修复顶栏浮层验收并记录像素尺寸

@@ -1,0 +1,110 @@
+      <th scope="row" className="rv-cell rv-cell-num">
+        <span className="rv-row-idx">{String(order).padStart(2, '0')}</span>
+      </th>
+      <td className="rv-cell rv-cell-item">
+        <span className="rv-item-title">{title}</span>
+        <span className="rv-item-ref">标识 {record.refId}</span>
+      </td>
+      <td className="rv-cell rv-cell-mastery">
+        <span className="rv-mastery-level">
+          {masteryLevelName(record.level)}
+        </span>
+        <span className="rv-mastery-note">
+          等级 {record.level} / {MAX_MASTERY_LEVEL} · 证据 {record.evidence.length} 条
+        </span>
+      </td>
+      <td className="rv-cell rv-cell-plan">
+        <span className="rv-plan-due">计划复测 {dueLabel || '未安排'}</span>
+        <span className="rv-plan-note">
+          复测节点 {nodeNow} / {nodeTotal}（{describeReviewPlan(plan)}）{overrideNote}
+        </span>
+        {record.lastFailReason ? <span className="rv-plan-fail">上次未通过：{record.lastFailReason}</span> : null}
+      </td>
+      <td className="rv-cell rv-cell-status">
+        <StatusMark tone={tone} />
+        <span className="rv-status-date">{dueLabel}</span>
+      </td>
+      <td className="rv-cell rv-cell-actions">
+        <div className="rv-actions">
+          {testing ? (
+            <>
+              <button className="subtle-button rv-btn" onClick={() => finishReview(false)}>
+                <X size={14} aria-hidden />
+                未通过
+              </button>
+              <button className="primary-action rv-btn" onClick={() => finishReview(true)}>
+                <Check size={14} aria-hidden />
+                通过
+              </button>
+            </>
+          ) : (
+            <button className="primary-action rv-btn" onClick={() => setTesting(true)}>
+              开始自评回顾
+            </button>
+          )}
+          {/* 顺延日期由 `snoozeTargetKey` 算——和 mastery 里真正写入的那一条是同一个函数，
+              所以界面说的日期不可能与实际写入的不一致（REVIEW-01 第 4 条）。 */}
+          <button
+            className="subtle-button rv-btn"
+            onClick={() => onSnooze(record.refId)}
+            title={`顺延到 ${snoozeToKey}`}
+          >
+            <AlarmClock size={14} aria-hidden />
+            稍后提醒
+            <span className="rv-snooze-date">到 {snoozeToKey}</span>
+          </button>
+          {isLesson && (
+            <button
+              className="subtle-button rv-btn"
+              onClick={() => onOpenLesson(record.refId)}
+              title="打开原课程工作台"
+            >
+              <BookOpen size={14} aria-hidden />
+              查看原课程
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+export function ReviewCenterView({ groups, titles, lessonIds, todayKey, onReview, onSnooze, onOpenLesson }: ReviewCenterViewProps) {
+  const { planFor, defaultPlan } = useReviewPlanResolver()
+  /** 排期节奏的**来源**要等 Provider 把教材目录读回来，所以本页跟着它有一档 loading / error。 */
+  const content = useOptionalContent()
+  /**
+   * 两档互斥：正在读取时只说「正在读」（此时上一轮的失败还挂在 error 上，不代表本轮结果）；
+   * 读取结束仍带 error 才说「读不到 + 可重试」。Provider 缺席（未接内容服务的用法）时为 null，
+   * 整块不出现——不造空转的骨架。
+   */
+  const asyncState: 'loading' | 'error' | null =
+    !content || defaultPlan.source !== 'fallback'
+      ? null
+      : content.loading
+        ? 'loading'
+        : content.error
+          ? 'error'
+          : null
+  const sections: { key: Tone; rows: MasteryRecord[] }[] = [
+    { key: 'overdue', rows: groups.overdue },
+    { key: 'today', rows: groups.today },
+    { key: 'upcoming', rows: groups.upcoming },
+  ]
+
+  const total = groups.overdue.length + groups.today.length
+  const scheduled = total + groups.upcoming.length
+  const lessonSet = new Set(lessonIds)
+
+  return (
+    <section className="review-center cw-review">
+      <div className="module-heading">
+        <div>
+          <p className="eyebrow">
+            <span className="eyebrow-dot" />
+            复习中心
+          </p>
+          <h1>延迟复测</h1>
+          {/*
+            节奏与分母都由生效计划派生（#33 裁定 4）：本页不再出现手写的节点串。
+            读不到发布规则时（未连接内容服务）就地承认这是本机排期，并说明标准那一档多什么——

@@ -1,0 +1,29 @@
+            "height": 32,
+            "name": "topbarBrand",
+            "width": 198,
+            "x": 24,
+            "y": 18
+        },
+        {
+            "height": 44,
+            "name": "topbarAreas",
+            "width": 193,
+            "x": 242,
+            "y": 12
+        },
+        {
+            "height": 41,
+            "name": "globalSearchBox",
+            "width": 659,
+            "x": 463,
+            "y": 14
+        },
+        {
+            "height": 36,
+            "name": "topbarActions",
+            "width": 272,
+            "x": 1144,
+            "y": 16
+        }
+    ]
+}

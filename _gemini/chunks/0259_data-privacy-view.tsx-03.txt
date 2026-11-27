@@ -1,0 +1,105 @@
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function onPick(file: File | undefined): Promise<void> {
+    reset()
+    setResult(null)
+    if (!file) return
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(await file.text())
+    } catch (cause) {
+      setError(`文件读不了或不是合法 JSON：${cause instanceof Error ? cause.message : String(cause)}`)
+      return
+    }
+    const next = previewImport(parsed, scope)
+    setPayload(parsed)
+    setPreview(next)
+    setDecisions(Object.fromEntries(next.items.map((item) => [item.key, item.decision])))
+    if (!next.ok) setError(next.errors.join('；') || '预览未通过')
+  }
+
+  function confirmImport(): void {
+    if (!preview?.ok) return
+    const next = applyImport(payload, scope, decisions)
+    setResult(next)
+    reset()
+  }
+
+  const chosen = preview?.items.filter((item) => decisions[item.key] === 'import') ?? []
+
+  return (
+    <section className="profile-overview-card cw-account-card">
+      <h2 className="security-card-title cw-account-title">
+        <Upload size={14} /> 从导出文件恢复
+      </h2>
+      <p className="cw-account-note">预览不写任何数据，也不会替你决定：默认只填目标位置尚无数据的条目，已有数据的要靠你逐项勾选才会替换；不属于本账户的键与未注册的键不给勾选、也不会写入。</p>
+      <label className="field-label cw-account-field" htmlFor="learning-data-import-file">
+        选择导出的 JSON 文件
+        <input
+          id="learning-data-import-file"
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => void onPick(event.target.files?.[0])}
+        />
+      </label>
+      {error ? (
+        <div className="auth-error cw-privacy-import-state" role="alert">
+          {error}
+        </div>
+      ) : null}
+      {preview?.ok ? (
+        <>
+          <p className="cw-account-status cw-account-status--notice" role="status">
+            来源账户 {preview.source?.scope}（格式版本 {preview.source?.version}，导出时间 {preview.source?.exportedAt || '未记录'}）；
+            本次将写入 {chosen.length} 项 / 文件内共 {preview.items.length} 项。
+          </p>
+          <div className="cw-privacy-scroll">
+            <table className="data-table cw-account-table">
+              <caption className="cw-account-caption">导出文件逐项预览：目标状态、大小与本次处理</caption>
+              <thead>
+                <tr>
+                  <th scope="col">数据类别</th>
+                  <th scope="col">目标状态</th>
+                  <th scope="col">大小</th>
+                  <th scope="col">本次处理</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.items.map((item) => (
+                  <tr key={item.key}>
+                    <td>{item.label}</td>
+                    <td data-ca-meta="1">
+                      {STATUS_LABELS[item.status]}
+                      {item.reason ? `（${item.reason}）` : ''}
+                    </td>
+                    <td data-ca-meta="1">{item.bytes} B</td>
+                    <td>
+                      {DECIDABLE.includes(item.status) ? (
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={decisions[item.key] === 'import'}
+                            onChange={(event) =>
+                              setDecisions((current) => ({
+                                ...current,
+                                [item.key]: event.target.checked ? 'import' : 'skip',
+                              }))
+                            }
+                          />
+                          {item.status === 'conflict' ? '覆盖现有记录' : '恢复'}
+                        </label>
+                      ) : (
+                        <span>不写入</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="account-actions cw-account-actions">
+            <button className="primary-action cw-account-btn" onClick={confirmImport}>
+              确认导入（{chosen.length} 项）
+            </button>

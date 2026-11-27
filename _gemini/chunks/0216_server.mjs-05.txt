@@ -1,0 +1,96 @@
+function sendJsonWithDetails(response, status, message, code, details) {
+  const body = JSON.stringify({ error: message, code: code ?? 'error', ...(details ? { details } : {}) })
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+    ...securityHeaders(),
+  })
+  response.end(body)
+}
+
+/** 写回错误码 → HTTP 状态。冲突与部分成功都用 409，交由界面区分处理。 */
+function writebackErrorStatus(code) {
+  if (code === 'forbidden') return 403
+  if (code === 'source_not_found') return 404
+  if (code === 'vault_unavailable') return 503
+  // 事务账本「这一次没读到」：与 GET /api/learning/evidence 的暂存队列同一口径（§11.2），
+  // 压成 400 会被界面读成「请求不合法」，而真正的原因是服务端读不出记录。
+  if (code === 'transactions_unreadable') return 503
+  if (['owner_unbound', 'sync_conflict', 'stale_preview', 'structure_unsupported', 'rollback_blocked', 'operation_rolled_back', 'transaction_corrupt', 'progress_pending'].includes(code)) {
+    return 409
+  }
+  return 400
+}
+
+/**
+ * 内容接口的稳定错误码 → HTTP 状态。
+ * 不向浏览器裸抛堆栈，也不回显资料库绝对路径。
+ */
+function contentErrorStatus(code) {
+  if (code === 'vault_unavailable') return 503
+  if (code === 'invalid_manifest' || code === 'source_changed' || code === 'publish_failed') return 409
+  if (code === 'not_found') return 404
+  if (code === 'content_bundle_retired') return 410
+  if (code === 'invalid') return 503
+  if (code === 'sync_rate_limited') return 429
+  return 400
+}
+
+function contentHeaders(bundleId, manifestHash, etag) {
+  return {
+    'X-Content-Bundle': bundleId,
+    'X-Content-Manifest': manifestHash,
+    'Cache-Control': 'private, no-cache',
+    Vary: 'Cookie, Authorization',
+    ETag: `"${etag}"`,
+  }
+}
+
+function sendContentJson(request, response, result) {
+  if (!result.ok) return sendJson(response, contentErrorStatus(result.code), result.message, result.code)
+  const headers = contentHeaders(result.bundleId, result.manifestHash, sha256(stableStringify(result.data)))
+  if (ifNoneMatchHits(request.headers['if-none-match'], headers.ETag)) {
+    response.writeHead(304, { ...headers, ...securityHeaders() })
+    return response.end()
+  }
+  return sendJson(response, 200, result.data, undefined, headers)
+}
+
+/** 内容接口统一入口：必须是已登录会话；资料库默认私人。 */
+async function handleContentRequest(request, response, url, users) {
+  const user = sessionUser(request, users)
+  if (!user) return sendJson(response, 401, '资料库内容需要登录后访问', 'unauthorized')
+
+  // LINK-08：教材准入由拥有者绑定决定；未绑定时保持对已登录账户开放。
+  const access = await learningService.contentAccess(user.id)
+  if (access.reason === 'owner_vault_mismatch') return sendJson(response, 403, '拥有者绑定属于其他资料库', access.reason)
+  if (!access.allowed) {
+    return sendJson(
+      response,
+      403,
+      access.reason === 'owner_record_corrupt'
+        ? '拥有者绑定记录损坏，教材访问已暂停；请修复数据后重试'
+        : '该账户未被授权查看此资料库（资料库默认私人）',
+      access.reason === 'owner_record_corrupt' ? 'owner_record_corrupt' : 'vault_private',
+    )
+  }
+
+  if (url.pathname === '/api/content/status' && request.method === 'GET') {
+    const state = await contentService.status()
+    // 只返回通俗状态与计数，不返回资料库绝对路径或任何私人文件内容。
+    return sendJson(response, 200, state)
+  }
+
+  if (url.pathname === '/api/content/catalog' && request.method === 'GET') {
+    const result = await contentService.catalog(url.searchParams.get('bundleId'), await learningService.readVaultId())
+    if (!result.ok) return sendJson(response, contentErrorStatus(result.code), result.message, result.code)
+    const identity = instanceIdentity({ dataDir: dataRoot, distDir: distRoot })
+    const catalog = {
+      ...result.data, serviceInstance: identity.instanceId, contractVersion: 1, minimumClientVersion: 1,
+      capabilities: ['pinnedContent', 'assetCas', 'offlineBundle', 'publicationJobs', 'learningSync'],
+    }
+    return sendContentJson(request, response, { ok: true, bundleId: catalog.bundleId, manifestHash: catalog.manifestHash, data: catalog })
+  }
+
+  const lessonMatch = /^\/api\/content\/lessons\/([^/]+)$/.exec(url.pathname)

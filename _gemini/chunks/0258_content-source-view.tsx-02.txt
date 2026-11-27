@@ -1,0 +1,116 @@
+   * 01 号方案 §4 的 loading 行：改版前「正在读」直接落进下面那一版告警，说的是
+   * 「当前显示的是旧内置课程」—— 读取中不等于旧课程，这句话在取数期间是错的。
+   * 这一档只报「正在读什么」，五块分区照挂（结构同形，落地时不顶开正文），
+   * 并且**不判断**当前显示的是哪一套内容。
+   */
+  if (content.loading || content.state === 'scanning' || content.state === 'validating') {
+    const loadingFields: SourceField[] = [
+      { key: 'topic', label: '规范主题', value: `资料库内容读取中（${stateLine}）` },
+      { key: 'source', label: '原文位置', value: '未记录：读取完成前不给出分册与章节' },
+      {
+        key: 'verification',
+        label: '核验状态',
+        value: '读取中：本轮没有核验结论，不沿用上一轮的措辞',
+        mark: (
+          <span className="cs-mark cs-mark--unverified" data-cs-mark="loading">
+            <span className="cs-mark-glyph" aria-hidden>
+              读
+            </span>
+            <span className="cs-mark-text">读取中</span>
+          </span>
+        ),
+      },
+      {
+        key: 'sync',
+        label: '同步时间',
+        value: content.buildTime
+          ? `上一轮成功快照构建于 ${new Date(content.buildTime).toLocaleString()}；本次读取尚未完成`
+          : '尚无成功快照记录',
+      },
+      {
+        key: 'facts',
+        label: '正式事实',
+        value: '无：读取完成前不给任何来源结论，也不用 0 或猜测值占位',
+      },
+    ]
+    return (
+      <div className="content-source-banner loading cw-source" role="status" aria-busy="true" data-cs-banner="loading">
+        <span className="cs-banner-lead">
+          <Database size={14} aria-hidden />
+          {stateLine}：正在读取教材目录，读取完成前不宣布当前显示的是哪一套内容。
+        </span>
+        <SourceSpecs fields={loadingFields} className="cs-specs cs-specs--inline" />
+        <div className="view-skeleton__shape" aria-hidden="true">
+          <span className="view-skeleton__line" />
+          <span className="view-skeleton__line view-skeleton__line--short" />
+        </div>
+      </div>
+    )
+  }
+
+  const warnFields: SourceField[] = [
+    {
+      key: 'topic',
+      label: '规范主题',
+      value: content.sourceKind === 'vault' ? '资料库主题（本次未能读取）' : '旧内置课程主题（未迁入资料库）',
+    },
+    { key: 'source', label: '原文位置', value: '旧 A—M 阶段口径展示，不对应资料库分册' },
+    {
+      key: 'verification',
+      label: '核验状态',
+      value: `${stateLine}：未经资料库侧核验，不显示为已核实`,
+      mark: (
+        <span className="cs-mark cs-mark--unverified" data-cs-mark="unverified">
+          <span className="cs-mark-glyph" aria-hidden>
+            待
+          </span>
+          <span className="cs-mark-text">{stateLine}</span>
+        </span>
+      ),
+    },
+    { key: 'sync', label: '同步时间', value: '最近一次成功同步未记录' },
+    { key: 'facts', label: '正式事实', value: '当前内容不作为正式事实计入资料库统计' },
+  ]
+
+  return (
+    <div className="content-source-banner warn cw-source" role="status">
+      <span className="cs-banner-lead">
+        <AlertTriangle size={14} aria-hidden />
+        当前显示的是<strong>旧内置课程</strong>（未迁移到资料库），阶段按旧 A—M 口径展示。
+        {content.error ? ` 原因：${content.error}` : ''}
+        {message ? ` ${message}` : ''}
+      </span>
+      <details className="cs-facts">
+        <summary className="cs-facts-summary">来源事实明细（5 项）</summary>
+        <SourceSpecs fields={warnFields} className="cs-specs cs-specs--inline" />
+      </details>
+      {busy && (
+        <p className="cs-disabled-hint" id={busyHintId} role="status">
+          现在按不了：上一次「重试同步」还没返回，返回后这一档自动恢复可点。
+        </p>
+      )}
+      <button
+        className="subtle-button cs-btn"
+        onClick={() => void handleSync()}
+        disabled={busy}
+        aria-disabled={busy || undefined}
+        aria-describedby={busy ? busyHintId : undefined}
+      >
+        <RefreshCw size={13} aria-hidden />
+        {busy ? '同步中…' : '重试同步'}
+      </button>
+    </div>
+  )
+}
+
+/** 来源详情：完整分册标题、章节、材料性质、核验状态；不自动打开任意协议。 */
+export function LessonSourceDetail({ lesson }: { lesson: Lesson }) {
+  const [open, setOpen] = useState(false)
+  /** Provider 之外也允许渲染（正文双链、独立预览）：拿不到就如实说拿不到。 */
+  const content = useOptionalContent()
+  if (!lesson.source || !lesson.source.path) return null
+  const heading = lesson.source.headingPath.join(' > ')
+  const verified = lesson.source.verificationStatus === '库内已存在'
+
+  const fields: SourceField[] = [
+    {

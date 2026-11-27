@@ -1,0 +1,63 @@
+          auto* previous = u3_find_item(view.contentItem(), QStringLiteral("checkinPreviousMonth"));
+          const auto today = QDate::currentDate();
+          auto* cell = u3_find_item(view.contentItem(), QStringLiteral("checkinDay-") + today.toString(Qt::ISODate));
+          u3_record(*context, QStringLiteral("checkin-calendar-focus-and-recorded-day"), previous && previous->hasActiveFocus() &&
+              cell && cell->isVisible() && shell.checkinSummary().value("totalDays").toInt() == 1);
+          send_editor_shortcut(view, Qt::Key_End, Qt::NoModifier);
+          auto* next = u3_find_item(view.contentItem(), QStringLiteral("checkinNextMonth"));
+          u3_record(*context, QStringLiteral("checkin-calendar-end-focus"), next && next->hasActiveFocus(),
+              QStringLiteral("found=%1 focused=%2 active=%3 focus=%4")
+                  .arg(next != nullptr).arg(next && next->hasActiveFocus()).arg(view.isActive())
+                  .arg(view.activeFocusItem() ? view.activeFocusItem()->objectName() : QString{}));
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 423: {
+          const auto next_month = QDate::currentDate().addMonths(1);
+          auto* label = u3_find_item(view.contentItem(), QStringLiteral("checkinCalendarMonth"));
+          u3_record(*context, QStringLiteral("checkin-calendar-next-month"), label &&
+              label->property("text").toString() == QStringLiteral("%1 年 %2 月").arg(next_month.year()).arg(next_month.month()));
+          u3_screenshot(*context, view, QStringLiteral("u3-checkin-calendar"));
+          send_editor_shortcut(view, Qt::Key_Home, Qt::NoModifier);
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          send_editor_shortcut(view, Qt::Key_Escape, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 424: {
+          auto* button = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+          u3_record(*context, QStringLiteral("checkin-calendar-escape-return-focus"), button && button->hasActiveFocus() &&
+              !view.rootObject()->property("checkinCalendarOpen").toBool());
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          context->step++;
+          return;
+        }
+        case 425: {
+          if (!view.rootObject()->property("checkinCalendarOpen").toBool()) return;
+          const QPointF point(view.width() - 30, 150);
+          QMouseEvent press(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+          QMouseEvent release(QEvent::MouseButtonRelease, point, point, point, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+          QCoreApplication::sendEvent(&view, &press);
+          QCoreApplication::sendEvent(&view, &release);
+          context->step++;
+          return;
+        }
+        case 426: {
+          u3_record(*context, QStringLiteral("checkin-calendar-outside-dismiss"),
+              !view.rootObject()->property("checkinCalendarOpen").toBool());
+          const auto path = QDir(nativeData).filePath("accounts/" + shell.activeAccountId() + "/learning/checkin.v1.json");
+          QFile file(path);
+          const bool opened = file.open(QIODevice::ReadOnly);
+          if (opened) context->checkin_bytes = file.readAll();
+          file.close();
+          const bool written = file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write("broken-checkin") == 14;
+          file.close();
+          u3_record(*context, QStringLiteral("checkin-isolated-corruption-fixture"), opened && written);
+          shell.refreshCheckin();
+          context->step++;
+          return;
+        }
+        case 427: {
+          if (shell.checkinSummary().value("busy").toBool()) return;
+          auto* error = u3_find_item(view.rootObject(), QStringLiteral("checkinErrorText"));

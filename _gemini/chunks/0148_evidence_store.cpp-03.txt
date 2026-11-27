@@ -1,0 +1,72 @@
+  if (input.fail()) return app::Result::failure("关闭证据追加事务失败");
+  const auto separator = body.find('\n');
+  if (separator == std::string::npos) return app::Result::failure("证据追加事务格式无效");
+  std::uintmax_t base_size{};
+  const auto parsed = std::from_chars(body.data(), body.data() + separator, base_size);
+  if (parsed.ec != std::errc{} || parsed.ptr != body.data() + separator) {
+    return app::Result::failure("证据追加事务原长度无效");
+  }
+  std::string line;
+  if (!hex_decode(std::string_view(body).substr(separator + 1), line) || line.empty() ||
+      line.size() > kMaxEvidenceLineBytes) {
+    return app::Result::failure("证据追加事务内容无效");
+  }
+  if (data_root.empty() || !data_root.is_absolute()) {
+    return app::Result::failure("证据数据根必须是绝对路径");
+  }
+  std::uintmax_t current_size = 0;
+  const auto destination_status = std::filesystem::symlink_status(destination, error);
+  if (error && error != std::make_error_code(std::errc::no_such_file_or_directory) &&
+      error.value() != ERROR_FILE_NOT_FOUND && error.value() != ERROR_PATH_NOT_FOUND) {
+    return app::Result::failure("读取证据账本状态失败");
+  }
+  if (!error && (std::filesystem::is_symlink(destination_status) ||
+      !std::filesystem::is_regular_file(destination_status))) {
+    return app::Result::failure("证据账本文件类型无效");
+  }
+  error.clear();
+  if (std::filesystem::exists(destination, error)) {
+    current_size = std::filesystem::file_size(destination, error);
+    if (error) return app::Result::failure("读取证据账本大小失败");
+  }
+  if (current_size < base_size || current_size > base_size + line.size()) {
+    return app::Result::failure("证据追加事务与账本长度不一致");
+  }
+  if (current_size != base_size) {
+    std::ifstream ledger(destination, std::ios::binary);
+    if (!ledger) return app::Result::failure("打开证据账本恢复尾部失败");
+    ledger.seekg(static_cast<std::streamoff>(base_size), std::ios::beg);
+    std::string tail(static_cast<std::size_t>(current_size - base_size), '\0');
+    ledger.read(tail.data(), static_cast<std::streamsize>(tail.size()));
+    if (!ledger && !ledger.eof()) return app::Result::failure("读取证据账本恢复尾部失败");
+    if (tail != line) {
+      if (current_size != base_size + line.size()) {
+        return app::Result::failure("证据追加事务尾部不匹配");
+      }
+      return app::Result::failure("证据追加事务尾部校验失败");
+    }
+    std::error_code remove_error;
+    std::filesystem::remove(pending, remove_error);
+    return remove_error ? app::Result::failure("清理证据追加事务失败")
+                         : app::Result::success("证据追加事务已恢复");
+  }
+  if (base_size + line.size() > kMaxEvidenceFileBytes) {
+    return app::Result::failure("恢复后证据账本超过大小上限");
+  }
+  const auto appended = append_durable(destination, line);
+  if (!appended.ok) return appended;
+  error.clear();
+  if (!std::filesystem::remove(pending, error) || error) {
+    return app::Result::failure("清理证据追加事务失败");
+  }
+  return app::Result::success("证据追加事务已恢复");
+}
+
+bool parse(std::string_view line, EvidenceRecord& record) {
+  std::vector<std::string_view> fields; size_t start = 0;
+  while (start <= line.size()) { const auto end = line.find('\t', start); fields.push_back(line.substr(start, end == std::string_view::npos ? line.size() - start : end - start)); if (end == std::string_view::npos) break; start = end + 1; }
+  if (fields.size() < 13) return false;
+  std::vector<std::string> decoded(11); for (size_t i = 0; i < decoded.size(); ++i) if (!hex_decode(fields[i], decoded[i])) return false;
+  record.evidence_id = decoded[0]; record.content_id = decoded[1]; record.exercise_id = decoded[2]; record.at = decoded[3]; record.expected_result = decoded[4]; record.actual_result = decoded[5];
+  if (!parse_actor(decoded[6], record.ran_by) || (decoded[7] != "0" && decoded[7] != "1") || !parse_state(decoded[9], record.state)) return false;
+  record.independent = decoded[7] == "1"; record.hint_level = decoded[8]; record.operation_id = decoded[10];

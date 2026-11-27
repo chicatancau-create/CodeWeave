@@ -1,0 +1,63 @@
+    const policy = sourcePolicy !== 'external' && ['python', 'java', 'javascript'].includes(item.language) ? 'native' : 'external'
+    const code = kind === 'lesson' ? item.code : item.starterCode
+    const stage = kind === 'lesson' ? item.content.stageId ?? '' : item.stageId
+    files.set(`${item.id}.txt`, body)
+    catalog.push([item.id, item.title, 'published', item.language, sha256(body), '1'])
+    starters.push([item.id, item.language, policy === 'native' ? starter(item.language, code) : code])
+    metadata.push([item.id, kind, stage, policy, sourcePolicy, kind === 'lesson' ? item.fileName : ''])
+    if (kind === 'challenge') {
+      const hint = section('提示', item.hint) + section('解释', item.explanation)
+      files.set(`hints/${item.id}.txt`, hint)
+      hints.push([item.id, sha256(hint)])
+    }
+    // Lesson exercise prompts do not declare machine-readable expected output.
+    // Never convert narrative completion criteria or external evidence into a pass.
+    if (kind === 'challenge' && policy === 'native') {
+      exercises.push([item.id, `${item.id}-challenge`, item.targetOutput.join('\n'), 'L1'])
+    }
+  }
+  curriculum.lessons.forEach((item) => add(item, 'lesson'))
+  curriculum.challenges.forEach((item) => add(item, 'challenge'))
+  files.set('catalog.v1.tsv', tsv(catalog))
+  files.set('exercises.v1.tsv', tsv(exercises))
+  files.set('starter-code.v1.tsv', tsv(starters))
+  files.set('metadata.v1.tsv', tsv(metadata))
+  files.set('hints.v1.tsv', tsv(hints))
+  files.set('curriculum.v1.json', json({ schemaVersion: 1, sourceHashes: curriculum.sources,
+    stages: curriculum.stages,
+    lessons: curriculum.lessons.map(({ progress, ...lesson }) => lesson),
+    challenges: curriculum.challenges }))
+  return { files, counts: { lessons: curriculum.lessons.length, challenges: curriculum.challenges.length,
+    stages: curriculum.stages.length, catalog: catalog.length, automaticExercises: exercises.length,
+    external: metadata.filter((x) => x[3] === 'external').length } }
+}
+
+export async function exportContent(output = join(appRoot, 'native/content')) {
+  const result = createContentPackage(await loadCurriculum())
+  await mkdir(output, { recursive: true })
+  // Refuse stale/unknown output instead of deleting unowned files or silently
+  // publishing a mixed snapshot when a curriculum ID has been retired.
+  const rootStatus = await lstat(output)
+  if (rootStatus.isSymbolicLink() || !rootStatus.isDirectory()) throw new Error('Output must be a real directory')
+  for (const name of await readdir(output)) {
+    const status = await lstat(join(output, name))
+    if (status.isSymbolicLink()) throw new Error(`Refusing symbolic output: ${name}`)
+    if (name === 'hints' && status.isDirectory()) {
+      for (const hint of await readdir(join(output, name))) {
+        const fileStatus = await lstat(join(output, name, hint))
+        if (fileStatus.isSymbolicLink() || !fileStatus.isFile() || !result.files.has(`hints/${hint}`)) throw new Error(`Unexpected hint output: ${hint}`)
+      }
+    } else if (!status.isFile() || !result.files.has(name)) throw new Error(`Unexpected content output: ${name}`)
+  }
+  for (const [name, text] of result.files) {
+    await mkdir(dirname(join(output, name)), { recursive: true })
+    await writeFile(join(output, name), text, 'utf8')
+  }
+  return result.counts
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const args = process.argv.slice(2)
+  if (args.length !== 0 && !(args.length === 2 && args[0] === '--out')) throw new Error('Usage: node scripts/export-native-content.mjs [--out directory]')
+  console.log(JSON.stringify(await exportContent(args.length ? resolve(args[1]) : undefined), null, 2))
+}

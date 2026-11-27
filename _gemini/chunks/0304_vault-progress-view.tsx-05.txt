@@ -1,0 +1,110 @@
+              <button className="subtle-button vp-btn" onClick={() => void load()}>
+                <RefreshCw size={12} aria-hidden /> 重试读取进度
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {state === 'ready' && progress && (
+        <>
+          <SourceSpecs
+            className="vp-specs"
+            fields={[
+              {
+                key: 'topic',
+                label: '规范主题',
+                value: progress.snapshot.currentStage
+                  ? `${progress.snapshot.currentStage.value || '原文未填写'}（正式进度追踪文件的当前阶段口径）`
+                  : '进度追踪文件未填写当前阶段',
+              },
+              {
+                key: 'source',
+                label: '原文位置',
+                value: `来源：${progress.source.path} · 文件指纹 ${progress.source.fileHash.slice(0, 8)}`,
+              },
+              {
+                key: 'verification',
+                label: '核验状态',
+                value: parseStatusText(progress),
+                mark: (
+                  <StateMark
+                    tone={progress.status === 'ok' ? 'ok' : progress.status === 'partial' ? 'warn' : 'unknown'}
+                    glyph={progress.status === 'ok' ? '解' : progress.status === 'partial' ? '部' : '待'}
+                    text={
+                      progress.status === 'ok'
+                        ? '结构已解析'
+                        : progress.status === 'partial'
+                          ? '部分待适配'
+                          : '结构待适配'
+                    }
+                  />
+                ),
+              },
+              {
+                key: 'sync',
+                label: '同步时间',
+                value: `解析于 ${progress.source.parsedAt || '未记录'}`,
+              },
+              { key: 'facts', label: '正式事实', value: progress.readOnlyNotice },
+            ]}
+          />
+
+          {progress.header && (
+            <SourceSpecs
+              className="vp-specs vp-specs--dates"
+              fields={[
+                { key: 'structure', label: '结构维护', value: progress.header.structureUpdatedOn ?? '未记录' },
+                { key: 'env', label: '环境核验', value: progress.header.environmentVerifiedOn ?? '未记录' },
+                { key: 'evidence', label: '最近学习证据', value: progress.header.latestEvidenceOn ?? '未记录' },
+              ]}
+            />
+          )}
+          <p className="vp-note">
+            环境核验与最近学习证据是两件不同的事实：环境齐全不代表阶段通过，本界面不由二者推导任何结论。
+          </p>
+
+          {progress.status !== 'ok' && (
+            <div className="vault-progress-warn vp-warn-band" role="status">
+              <AlertTriangle size={13} aria-hidden />
+              <span>
+                进度追踪有 {progress.unparsed.length} 处结构待适配；这些块按原文展示，不推断数值。
+              </span>
+            </div>
+          )}
+
+          <SnapshotLedger items={snapshotItems(progress)} />
+
+          <h4 className="vault-progress-subtitle vp-subtitle">
+            <span className="vp-subtitle-idx" aria-hidden>
+              02
+            </span>
+            掌握矩阵（原文口径，不折算）
+          </h4>
+          <table className="vp-ledger">
+            <caption className="vp-sr-only">
+              掌握矩阵：共 {progress.mastery.rows.length} 项技能，等级按资料库原文口径显示，不折算为整数
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="vp-col vp-col-num">
+                  次
+                </th>
+                <th scope="col" className="vp-col">
+                  技能
+                </th>
+                <th scope="col" className="vp-col vp-col-level">
+                  等级（原文）
+                </th>
+                <th scope="col" className="vp-col vp-col-state">
+                  状态
+                </th>
+                <th scope="col" className="vp-col">
+                  证据
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {progress.mastery.rows.map((row, index) => (
+                <tr key={row.skill}>
+                  <th scope="row" className="vp-cell vp-cell-num">

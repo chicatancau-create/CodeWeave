@@ -1,0 +1,106 @@
+function serveStatic(request, response, url) {
+  const requested = url.pathname === '/' ? '/index.html' : url.pathname
+  // 路径穿越防护：先规范化分隔符（含反斜杠与重复斜杠），再做 dist 边界检查。
+  // decodeURIComponent 对畸形编码（如 %ZZ）会抛错，退化为 400 而非 500。
+  let decoded
+  try {
+    decoded = decodeURIComponent(requested)
+  } catch {
+    return sendJson(response, 400, '请求路径编码无效', 'invalid_path_encoding')
+  }
+  const safePath = decoded.replace(/\\/g, '/').replace(/\/{2,}/g, '/')
+  const filePath = resolve(distRoot, `.${normalize(safePath)}`)
+  const withinDist = relative(distRoot, filePath)
+  const isInside = withinDist !== '' && !withinDist.startsWith('..') && !isAbsolutePath(withinDist)
+  if (isInside && existsSync(filePath)) {
+    response.writeHead(200, {
+      'Content-Type': mime[extname(filePath)] ?? 'application/octet-stream',
+      'Cache-Control': cacheControlFor(filePath),
+      ...securityHeaders(),
+    })
+    createReadStream(filePath).pipe(response)
+  } else {
+    sendJson(response, 404, '页面不存在', 'not_found')
+  }
+}
+
+/** 判断相对路径是否为绝对路径（跨平台）。 */
+function isAbsolutePath(value) {
+  return value.startsWith('/') || /^[A-Za-z]:/.test(value)
+}
+
+/** 慢速请求防护超时（毫秒）：本地工具也要防止连接长期占用。 */
+const REQUEST_TIMEOUT_MS = 30_000
+const HEADERS_TIMEOUT_MS = 10_000
+
+// ---------------------------------------------------------------------------
+// 服务器工厂（导出供集成测试使用）
+// ---------------------------------------------------------------------------
+export function createCodeCanvasServer() {
+  const server = createHttpServer(async (request, response) => {
+    const startedAt = Date.now()
+    try {
+      await initialize()
+      // 以固定 origin 解析：request.url 只可能是路径+查询串。
+      // 若直接 new URL(request.url, ...)，形如 "//package.json" 会被当作协议相对 URL，
+      // 导致 host 被劫持为 "package.json"、pathname 退化为 "/"，从而错误地返回首页。
+      // 先把开头的重复斜杠折叠为单个斜杠，再解析。
+      const rawUrl = String(request.url ?? '/')
+      const safeUrl = rawUrl.startsWith('//') ? `/${rawUrl.replace(/^\/+/, '')}` : rawUrl
+      const url = new URL(safeUrl, `http://${request.headers.host ?? '127.0.0.1'}`)
+      if (url.pathname.startsWith('/api/')) await handleApi(request, response, url)
+      else serveStatic(request, response, url)
+    } catch (error) {
+      // R3：不把内部堆栈或错误详情返回客户端，仅记录到服务端日志。
+      console.error(JSON.stringify({ event: 'request_failed', message: error instanceof Error ? error.message : String(error) }))
+      if (!response.headersSent) {
+        sendJson(response, 500, '服务器内部错误', 'internal_error')
+      } else {
+        response.end()
+      }
+    } finally {
+      // 结构化访问日志：只记录方法、路径、状态、耗时，绝不记录请求体/Cookie/凭据。
+      // 高频探测或测试环境可用 CODE_CANVAS_QUIET_LOGS=1 关闭。
+      if (process.env.CODE_CANVAS_QUIET_LOGS !== '1') {
+        const emitAccessLog = () => {
+          console.log(
+            JSON.stringify({
+              event: 'request',
+              method: request.method,
+              // 去掉查询串，避免把查询参数写入日志
+              path: String(request.url ?? '/').split('?')[0],
+              status: response.statusCode,
+              durationMs: Date.now() - startedAt,
+            }),
+          )
+        }
+        // 注意：response.end() 会在返回前同步派发 'close'（writableFinished 随之变为 true），
+        // 因此在此处注册 'close' 时事件往往已经错过，导致访问日志整体丢失。
+        // 先判断是否已结束，已结束则直接记录；否则等 'finish'（正常写完）或未写完即被
+        // 提前中断的 'close' 兜底，保证恰好记录一次。
+        if (response.writableFinished) {
+          emitAccessLog()
+        } else {
+          let logged = false
+          const logOnce = () => {
+            if (logged) return
+            logged = true
+            emitAccessLog()
+          }
+          response.once('finish', logOnce)
+          response.once('close', logOnce)
+        }
+      }
+    }
+  })
+  // 慢速请求与响应头超时：防止连接长时间占用（slowloris 类）。
+  server.requestTimeout = REQUEST_TIMEOUT_MS
+  server.headersTimeout = HEADERS_TIMEOUT_MS
+  server.keepAliveTimeout = 5_000
+  return server
+}
+
+async function start() {
+  // §6.2：配置把数据目录指向空目录、而旧目录仍持有账户时拒绝启动，
+  // 避免「换根后看起来账户没了」。修正配置或先迁移数据。
+  if (runtime.conflicts.length) {

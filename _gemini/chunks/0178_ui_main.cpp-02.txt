@@ -1,0 +1,83 @@
+  if (!detail.isEmpty()) item.insert(QStringLiteral("detail"), detail);
+  context.checks.append(item);
+}
+
+bool u3_screenshot(U3MatrixContext& context, QQuickView& view, const QString& name,
+    const QSize& expected_size = {}) {
+  const auto path = QDir(context.screenshot_dir).filePath(name + QStringLiteral(".png"));
+  const auto image = view.grabWindow();
+  const bool saved = view.isExposed() && !image.isNull() &&
+      (expected_size.isEmpty() || image.size() == expected_size) && image.save(path);
+  if (saved) context.screenshots.append(path);
+  return saved;
+}
+
+bool u3_write_result(const U3MatrixContext& context) {
+  QJsonObject result;
+  result.insert(QStringLiteral("schemaVersion"), 1);
+  result.insert(QStringLiteral("mode"), QStringLiteral("qt-real-window-input-matrix"));
+  result.insert(QStringLiteral("isolatedData"), true);
+  result.insert(QStringLiteral("checks"), context.checks);
+  result.insert(QStringLiteral("screenshots"), context.screenshots);
+  bool passed = true;
+  for (const auto& value : context.checks) passed = passed && value.toObject().value("passed").toBool();
+  result.insert(QStringLiteral("passed"), passed);
+  QFile file(context.output);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+  file.write(QJsonDocument(result).toJson(QJsonDocument::Indented));
+  return file.flush();
+}
+
+bool u3_all_passed(const U3MatrixContext& context) {
+  if (context.checks.isEmpty()) return false;
+  for (const auto& value : context.checks) {
+    if (!value.toObject().value(QStringLiteral("passed")).toBool()) return false;
+  }
+  return true;
+}
+
+void send_editor_shortcut(QQuickView& view, int key, Qt::KeyboardModifiers modifiers) {
+  QKeyEvent press(QEvent::KeyPress, key, modifiers);
+  QCoreApplication::sendEvent(&view, &press);
+  QKeyEvent release(QEvent::KeyRelease, key, modifiers);
+  QCoreApplication::sendEvent(&view, &release);
+}
+
+QQuickItem* u3_find_item(QQuickItem* parent, const QString& name) {
+  if (parent->objectName() == name) return parent;
+  for (auto* child : parent->childItems()) {
+    if (auto* found = u3_find_item(child, name)) return found;
+  }
+  return nullptr;
+}
+
+bool u3_stage_terminal_visible(QQuickItem* root, const QVariantMap& event, bool failed) {
+  auto* diagram = u3_find_item(root, QStringLiteral("executionStageDiagram"));
+  if (!diagram) return false;
+  const auto frame = diagram->property("frame").value<QJSValue>().toVariant().toMap();
+  const auto nodes = frame.value(QStringLiteral("nodes")).toList();
+  if (nodes.isEmpty()) return false;
+  const auto terminal = nodes.last().toMap();
+  return terminal.value(QStringLiteral("kind")).toString() == QStringLiteral("end") &&
+      terminal.value(QStringLiteral("state")).toString() == QStringLiteral("now") &&
+      terminal.value(QStringLiteral("label")) == event.value(QStringLiteral("label")) &&
+      terminal.value(QStringLiteral("failed")).toBool() == failed &&
+      diagram->property("currentNodeId").toString() ==
+          QStringLiteral("event:") + event.value(QStringLiteral("sequence")).toString() &&
+      diagram->property("currentNodeVisible").toBool();
+}
+
+bool u3_reveal_challenge_item(QQuickItem* root, const QString& name) {
+  auto* scroll = u3_find_item(root, QStringLiteral("challengeLabSection"));
+  auto* item = u3_find_item(root, name);
+  auto* flick = scroll ? qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>()) : nullptr;
+  if (!flick || !item || !item->isVisible()) return false;
+  const auto target = flick->property("contentY").toReal() + item->mapToItem(flick, QPointF()).y();
+  flick->setProperty("contentY", std::clamp(target, 0.0,
+      std::max(0.0, scroll->property("contentHeight").toReal() - flick->height())));
+  const auto top = item->mapToItem(flick, QPointF()).y();
+  return top >= -1 && top + item->height() <= flick->height() + 1;
+}
+
+int main(int argc, char* argv[]) {
+  if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") {

@@ -1,0 +1,84 @@
+        result.insert(QStringLiteral("qmlWarnings"), QJsonArray::fromStringList(qml_warnings));
+        result.insert(QStringLiteral("workspaceReference"), QJsonObject::fromVariantMap(context->workspace_reference));
+        result.insert(QStringLiteral("checks"), context->checks);
+        result.insert(QStringLiteral("screenshots"), context->screenshots);
+        result.insert(QStringLiteral("passed"), u3_all_passed(*context));
+        QFile file(context->output);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
+            file.write(QJsonDocument(result).toJson(QJsonDocument::Indented)) < 0 || !file.flush()) {
+          application.exit(3);
+          return;
+        }
+        application.exit(u3_all_passed(*context) ? 0 : 3);
+        return;
+      }
+      if (context->step % 3 == 0) {
+        if (shell.publishedIds().isEmpty()) return;
+        if (page_index == 3) {
+          const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+          if (index < 0) { application.exit(3); return; }
+          shell.openPublishedContent(index);
+          shell.loadStarterCode();
+        }
+        shell.selectPage(pages.at(page_index));
+      } else if (context->step % 3 == 1 && page_index == 3) {
+        shell.loadStarterCode();
+      } else if (context->step % 3 == 2) {
+        // Allow a complete render tick after changing the Loader's page.
+        const bool saved = u3_screenshot(*context, view, names.at(page_index), QSize(1440, 900));
+        u3_record(*context, names.at(page_index), saved && shell.currentPage() == pages.at(page_index) &&
+            view.width() == 1440 && view.height() == 900);
+      }
+      ++context->step;
+    });
+    comparison_timer.start(200);
+  }
+  // Read-only, real-window smoke. Never creates an account or a data root.
+  const auto smoke = arguments.indexOf(QStringLiteral("--smoke-screenshot"));
+  std::unique_ptr<WindowProbe> probe;
+  if (benchmark >= 0) probe = std::make_unique<WindowProbe>(application, shell, view,
+      arguments.at(benchmark + 1), entered);
+  QTimer smoke_timer;
+  int smoke_step = 0;
+  int smoke_ticks = 0;
+  if (smoke >= 0) {
+    if (smoke + 1 >= arguments.size()) return 2;
+    const auto screenshot = arguments.at(smoke + 1);
+    // Optional "--page <name>": capture a specific page instead of the default.
+    // Visual-comparison affordance only; it calls the same selectPage the UI does.
+    const auto page_arg = arguments.indexOf(QStringLiteral("--page"));
+    if (page_arg >= 0 && page_arg + 1 < arguments.size())
+      shell.selectPage(arguments.at(page_arg + 1));
+    QObject::connect(&smoke_timer, &QTimer::timeout, &application, [&, screenshot] {
+      if (++smoke_ticks > 100) { application.exit(3); return; }
+      if (shell.contentBusy()) return;
+      if (smoke_step == 0 && !shell.publishedTitles().isEmpty()) {
+        shell.openPublishedContent(0);
+        ++smoke_step;
+        return;
+      }
+      if (smoke_step == 1 && !shell.selectedContentBody().isEmpty()) {
+        shell.loadStarterCode();
+        ++smoke_step;
+        return;
+      }
+      if (smoke_step < 2 || shell.starterLanguage().isEmpty()) return;
+      const auto frame = view.grabWindow();
+      const bool ok = view.isExposed() && !frame.isNull() &&
+          !shell.contentBusy() && !shell.publishedTitles().isEmpty() && frame.save(screenshot);
+      application.exit(ok ? 0 : 3);
+    });
+    smoke_timer.start(100);
+  }
+  QTimer matrix_timer;
+  if (matrix >= 0) {
+    QObject::connect(&matrix_timer, &QTimer::timeout, &application, [&, context = matrix_context.get()] {
+      if (++context->ticks > 500) {
+        u3_record(*context, QStringLiteral("matrix-timeout"), false,
+            QStringLiteral("验收步骤超过 50 秒"));
+        u3_write_result(*context);
+        application.exit(3);
+        return;
+      }
+      // WindowShortcut actions require an active window. Re-establish the
+      // test precondition after Windows resize/activation events, within the

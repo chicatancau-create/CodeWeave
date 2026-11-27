@@ -1,0 +1,107 @@
+    const body = bodyByKey.get(topicKey(topic.path, topic.headingPath))
+    if (body && body.bodyText.length > maxTopicBytes) {
+      blockingAll.push({ code: 'topic_too_large', path: topic.path, message: `主题 ${topic.topicId} 正文超过单主题上限` })
+    }
+    return {
+      topicId: topic.topicId,
+      path: topic.path,
+      headingPath: topic.headingPath,
+      title: topic.title,
+      level: topic.level,
+      line: topic.line,
+      topicKind: topic.topicKind,
+      sourceIds: topic.sourceIds,
+      verificationStatus: topic.verificationStatus,
+      contentHash: topic.contentHash,
+      status: topic.status,
+      isEmpty: topic.isEmpty,
+      movedFrom: topic.movedFrom ?? null,
+    }
+  })
+
+  const attachments = await collectPublishedAssets(root, lessons)
+  const aliases = compileLegacyAliases(legacyMap, lessons)
+  blockingAll.push(...attachments.problems, ...aliases.problems)
+  const core = {
+    assets: attachments.assets,
+    legacyAliases: aliases.legacyAliases,
+    aliasVersion: aliases.aliasVersion,
+    schemaVersion: BUNDLE_SCHEMA_VERSION,
+    compilerVersion: COMPILER_VERSION,
+    vaultId: manifest.vaultId,
+    ruleVersion: rules?.ruleVersion ?? null,
+    // 迁移表也是发布契约的一部分：映射改了，快照版本必须跟着变。
+    mapVersion: legacyMap?.mapVersion ?? null,
+    legacyMapHash: sha256(stableStringify(legacyMap?.entries ?? [])),
+    topicIdMapHash: sha256(stableStringify(idMapRaw)),
+    rules: rulesPublished,
+    stages: rulesPublished.stages ?? [],
+    topics: topicsOut,
+    lessons,
+    exercises: exerciseList,
+    volumes: scan.volumes.map((volume) => ({
+      path: volume.path,
+      kind: volume.kind,
+      levels: volume.levels,
+      updated: volume.updated,
+      sourceIds: volume.sourceIds,
+      verificationStatus: volume.verificationStatus,
+      fileHash: volume.fileHash,
+      title: volume.title,
+      topicCount: volume.topicCount,
+      duplicateTitles: volume.duplicateTitles,
+    })),
+  }
+  const bundleId = sha256(stableStringify(core)).slice(0, 32)
+
+  // DATA-02：口径必须可解释，不能只报一个总数。
+  const topicReconciliation = reconcileTopicCounts(registry)
+  const counts = {
+    volumes: scan.volumes.length,
+    topics: topicReconciliation.formalTopic,
+    registeredTopics: topicReconciliation.registered,
+    activeTopics: topicReconciliation.active,
+    compatPointerTopics: topicReconciliation.compatPointer,
+    emptyTopics: topicReconciliation.emptyContainer,
+    indexAlignedTopics: topicReconciliation.indexAligned,
+    lessons: lessons.length,
+    exercises: exerciseList.length,
+    legacyEntries: legacyMap?.entries?.length ?? 0,
+  }
+
+  // 两端同一规范下主题集合必须一致：与资料库生成的定位索引逐册比对差集。
+  let topicIndexDiff = { available: false, nodeOnly: [], indexOnly: [] }
+  let indexText
+  try {
+    indexText = normalizeText(await readVaultText(root, wl.topicIndexPath))
+    inputFileHashes[wl.topicIndexPath] = sha256(indexText)
+  } catch {
+    indexText = null
+  }
+  if (indexText === null) {
+    warnings.push({ code: 'topic_index_absent', path: wl.topicIndexPath, message: '主题定位索引不存在，无法核对两端口径（资料库侧运行 build_topic_index.py 生成）' })
+  } else {
+    topicIndexDiff = diffTopicIndex({ topics: registry, index: parseTopicIndex(indexText) })
+    if (topicIndexDiff.nodeOnly.length > 0 || topicIndexDiff.indexOnly.length > 0) {
+      const describe = (items) => items.slice(0, 8).map((item) => `${item.volume}#${item.title}`).join('、')
+      blockingAll.push({
+        code: 'topic_index_mismatch',
+        path: wl.topicIndexPath,
+        message:
+          `主题口径与定位索引不一致：应用侧多 ${topicIndexDiff.nodeOnly.length} 项` +
+          `${topicIndexDiff.nodeOnly.length ? `（${describe(topicIndexDiff.nodeOnly)}）` : ''}；` +
+          `索引侧多 ${topicIndexDiff.indexOnly.length} 项` +
+          `${topicIndexDiff.indexOnly.length ? `（${describe(topicIndexDiff.indexOnly)}）` : ''}。` +
+          `两端必须使用同一主题识别规范（DATA-02）。`,
+      })
+    }
+  }
+
+  const bundle = {
+    ...core,
+    bundleId,
+    buildTime: new Date().toISOString(),
+    counts,
+    publishedContentIds,
+    diagnostics: {
+      blocking: blockingAll,

@@ -1,0 +1,93 @@
+#include "challenge_submission_store.hpp"
+#include "output_comparison.hpp"
+
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLockFile>
+#include <QRegularExpression>
+#include <QSaveFile>
+#include <QSet>
+#include <filesystem>
+#include <functional>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace {
+using codeweave::app::Result;
+constexpr qint64 max_file_bytes = 16 * 1024 * 1024;
+constexpr qsizetype max_records = 1000;
+
+bool safe_path(const QString& path) {
+  const auto absolute = std::filesystem::path(path.toStdWString());
+  if (!absolute.is_absolute()) return false;
+  std::filesystem::path current;
+  for (const auto& part : absolute) {
+    current /= part;
+    if (current == absolute.root_name() || current == absolute.root_path()) continue;
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (error == std::errc::no_such_file_or_directory) continue;
+    if (error || std::filesystem::is_symlink(status)) return false;
+#ifdef _WIN32
+    const auto attributes = GetFileAttributesW(current.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return false;
+#endif
+  }
+  return true;
+}
+
+bool text(const QJsonObject& record, const QString& name, qsizetype limit, bool required = true) {
+  const auto value = record.value(name);
+  if (!value.isString()) return false;
+  const auto string = value.toString();
+  return (!required || !string.trimmed().isEmpty()) && !string.contains(QChar::Null) &&
+      QString::fromUtf8(string.toUtf8()) == string && string.toUtf8().size() <= limit;
+}
+
+bool lines(const QJsonValue& value, std::vector<std::string>& output) {
+  if (!value.isArray() || value.toArray().size() > 100) return false;
+  qsizetype bytes = 0;
+  for (const auto& item : value.toArray()) {
+    if (!item.isString()) return false;
+    const auto line = item.toString();
+    const auto encoded = line.toUtf8();
+    bytes += encoded.size();
+    if (bytes > 32768 || line.contains(QChar::Null) || QString::fromUtf8(encoded) != line) return false;
+    output.push_back(encoded.toStdString());
+  }
+  return true;
+}
+
+bool valid_observation(const QString& observation) {
+  return observation.isEmpty() || observation == QStringLiteral("completed") ||
+      observation == QStringLiteral("partially-completed") || observation == QStringLiteral("attempted");
+}
+
+bool valid_record(const QJsonObject& record) {
+  static const QRegularExpression id(QStringLiteral("^submission-[a-f0-9]{32}$"));
+  static const QRegularExpression challenge(QStringLiteral("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"));
+  if (!id.match(record.value("id").toString()).hasMatch() ||
+      !challenge.match(record.value("challengeId").toString()).hasMatch() ||
+      !text(record, "submittedAt", 40) ||
+      !QDateTime::fromString(record.value("submittedAt").toString(), Qt::ISODateWithMs).isValid() ||
+      !text(record, "evidence", 8192) || !text(record, "code", 65536, false) ||
+      !text(record, "observation", 32, false) || !valid_observation(record.value("observation").toString()) ||
+      !text(record, "reviewedAt", 40, false)) return false;
+  const auto status = record.value("status").toString();
+  const auto tier = record.value("tier").toString();
+  const auto reviewed = record.value("reviewedAt").toString();
+  if (!reviewed.isEmpty() && !QDateTime::fromString(reviewed, Qt::ISODateWithMs).isValid()) return false;
+  std::vector<std::string> expected, output;
+  if (!lines(record.value("expected"), expected) || !lines(record.value("output"), output)) return false;
+  if (tier == "external") {
+    return record.value("judgeMode").toString().isEmpty() &&
+        record.value("code").toString().isEmpty() && output.empty() &&
+        ((status == "submitted" && reviewed.isEmpty()) ||
+         ((status == "verified" || status == "rejected") && !reviewed.isEmpty()));
+  }

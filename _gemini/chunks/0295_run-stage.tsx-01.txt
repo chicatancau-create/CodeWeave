@@ -1,0 +1,119 @@
+/**
+ * 运行画布（RunStage）：把「一拍一行的文字快照」升级成**这一拍的图形状态**。
+ *
+ * 与 `flow-chart.tsx` 并存，不是替换它。两块同源（同一个 `eventIndex`），分工是：
+ * - `flow-chart`：一拍一行的文字明细——标题、源码行、detail、逐个 `key = value`；
+ * - `RunStage`：一眼看上图的形状——骨架节点按 `kind` 画成不同轮廓、箭头连成路径、
+ *   数据格落在当前那一格里、值变过的那一格亮一档、循环绕回来的那条回边真的画出来。
+ *
+ * **为什么是 `<svg>` 而不是 `<div>`。** 上一版用 DOM 盒子排出来的「画布」，用户的评价是
+ * 「你现在的画布效果一直就是个文字而已」——说得对：DOM 排版只能把方块摞成一列，
+ * 画不出斜的连线、画不出绕回去的弧，也画不出形状（判定的六边形、输出的平行四边形）。
+ * 参考实现 `algorithm-visualization-replica/` 用的就是 SVG，几何照它那一套抄
+ * （盒子 + `marker` 箭头 + 下方绕行的回边），尺寸按中文内容放大，见 `engine/stage-layout.ts`。
+ *
+ * 四条来自实读的约束（每一条都决定了一段写法）：
+ *
+ * 1. **完整受控，不持有 `stepIndex`、不持有时钟。** 播放/单步/上一步全部由上层
+ *    `use-execution.ts` 驱动——那里的 `setTimeout` 链（`STEP_DELAY_MS = 850`）是本项目
+ *    唯一的回放节拍，而它恰好与参考实现 `timeline.mjs` 的 `interval = 850` 同值。
+ *    参考实现用 `setInterval`，本项目全局禁用，所以**不移植那个 Timeline 类**——
+ *    既有的链条已经在跑同一个节拍。本组件再起一个计时器，「暂停」会在下一个 tick 被拽回去。
+ *
+ * 2. **画布上不重复「重置」。** 控制条只放 `上一步 / 播放 / 下一步` 这一组**回放导航**；
+ *    重置留在 `RuntimeTraceControls` 那一份——两者背后是同一个 `execution.handleReset`，
+ *    在同一块页面上摆两个叫「重置」的按钮，读屏的名字会撞车。
+ *
+ * 3. **靠重渲染驱动，不靠动画。** `requestAnimationFrame` 全项目恰好 1 处（在
+ *    `code-editor.tsx`）。所以「生长」感来自**属性变化**（没走到的边是虚线、走过的是实线、
+ *    刚走的这一步换一档亮色），配 CSS `transition` 呈现过渡——静态截下来也读得懂。
+ *
+ * 4. **不拿空数据画假节点。** `frame === null` 时整块不画；`canStep` 为假时连控制条都不画——
+ *    画一排永远禁用的按钮是「假动作」，与 `RuntimeTrace.tsx` 同一条纪律。
+ *
+ * 无障碍：`<svg>` 自己就是那份**有序列表**（`role="list"`，每个节点 `<g role="listitem">`），
+ * 而不是「画一张图 + 另挂一份隐藏文字」——后者会让读屏用户读到的和屏幕上画的分成两套真相，
+ * 改一处忘一处就开始撒谎。装饰性的边与箭头挂 `aria-hidden`，它们的含义已经由节点顺序
+ * 与回边注记说清楚了。
+ */
+import { memo, type CSSProperties } from 'react'
+import { SkipBack, SkipForward } from 'lucide-react'
+import type { StageCell, StageFrame } from '../engine/run-stage-model'
+import { NODE_W, layoutStage, type LaidEdge, type LaidNode } from '../engine/stage-layout'
+import './run-stage.css'
+
+export type RunStageProps = {
+  /** 当前帧；null = 还没运行（或这一课没有流程元数据）→ 整块不画。 */
+  frame: StageFrame | null
+  /** 播放中（上层折 `runStatus === 'running'`）；本组件据此只换标签，不驱动时间。 */
+  playing: boolean
+  /** 0 起的当前拍下标，用于右上角计数器。 */
+  stepIndex: number
+  /** 总拍数。 */
+  stepTotal: number
+  /** 有拍可走（`stepTotal > 0`）；为假时控制条不画。 */
+  canStep: boolean
+  onPrev: () => void
+  onNext: () => void
+  /** 上层的播放/暂停切换（实际调 `handleRun`）。 */
+  onTogglePlay: () => void
+  /**
+   * 重置入口。**为了对外签名稳定而保留**，当前不由本组件渲染按钮——
+   * 重置在 `RuntimeTraceControls` 那一份上（同一个 `handleReset`）。
+   * 将来若画布要自带的「重播」动作，接这里，不要再造第二个 `重置`。
+   */
+  onReset: () => void
+}
+
+/** 计数器：`03 / 07`——定宽两位，切拍时数字不跳位（tabular-nums 在 CSS 里）。 */
+const counter = (index: number, total: number) =>
+  `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`
+
+/**
+ * 一格里最多画几个数据格。盒子是固定高度的，装不下就得取舍：
+ * 画三个 + 一句「还有 N 项」，比把第四行压在描边上更诚实。
+ * 完整的变量表在 `VariablePanel` 里，画布不承担「列全」这件事。
+ */
+const CELLS_PER_NODE = 3
+
+/** 文字行的基线，相对盒子上沿。 */
+const ROW_TITLE = 26
+const ROW_META = 46
+const ROW_CELL_TOP = 68
+const ROW_CELL_PITCH = 18
+
+/**
+ * 一格数据：`名字 = 值`。`changed` / `born` 各换一档颜色，并带一句话说明给读屏——
+ * 颜色是唯一的「刚变过」提示时，读屏用户看不到。
+ * 类型名放在 `<title>` 里而不是画在格子上：一格只有 156px 宽，
+ * `total = 15 int` 三段并排会挤成一团，而类型是次要信息。
+ */
+const Cell = memo(function Cell({ cell, x, y }: { cell: StageCell; x: number; y: number }) {
+  const mark = cell.born ? '这一拍首次出现' : cell.changed ? '这一拍被改写' : ''
+  return (
+    <text
+      className={`rs-cell${cell.born ? ' is-born' : ''}${cell.changed ? ' is-changed' : ''}`}
+      x={x}
+      y={y}
+    >
+      <tspan className="rs-cell-name">{cell.name}</tspan>
+      <tspan className="rs-cell-eq" aria-hidden="true">
+        {' = '}
+      </tspan>
+      <tspan className="rs-cell-value">{cell.value}</tspan>
+      <title>
+        {cell.name} 等于 {cell.value}，类型 {cell.type}
+        {mark ? `，${mark}` : ''}
+      </title>
+      {/* 读屏要听到的那句话；视觉上由颜色承担，所以不画在格子里。 */}
+      <tspan className="rs-sr">
+        {' '}
+        {cell.type}
+        {mark ? ` ${mark}` : ''}
+      </tspan>
+    </text>
+  )
+})
+
+/** 盒子轮廓。形状由 `kind` 决定，是与颜色无关的第二个通道。 */
+const Shape = memo(function Shape({ laid }: { laid: LaidNode }) {

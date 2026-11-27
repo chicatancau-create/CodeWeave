@@ -1,0 +1,50 @@
+      "main_thread_scope": "outermost Qt event dispatch, includes workload callbacks; startup construction excluded",
+      "qt_version": "6.8.3",
+      "schemaVersion": 1,
+      "slow_events": [],
+      "startup_entry_to_ready_ms": 385.8386000096798,
+      "startup_scope": "process main entry to exposed window + loaded catalog + event loop tick; excludes OS loader"
+    }
+  ],
+  "limitations": [
+    "warm OS cache; synthetic workload",
+    "frameSwapped is not DWM presentation",
+    "startup from main entry excludes OS loader",
+    "not a Win32 parity comparison"
+  ],
+  "metrics": {
+    "main_thread_ms": {
+      "count": 4082,
+      "p50": 0.027300000190734863,
+      "p95": 0.5562999844551086,
+      "max": 13.954100012779236,
+      "budget": 16.7,
+      "passed": true
+    },
+    "frame_interval_ms": {
+      "count": 679,
+      "p50": 15.530900001525879,
+      "p95": 16.43189999461174,
+      "max": 17.535100013017654,
+      "budget": 20,
+      "passed": true
+    },
+    "edit_ms": {
+      "count": 180,
+      "p50": 15.925800025463104,
+      "p95": 16.699600011110306,
+      "max": 17.86649999022484,
+      "budget": 50,
+      "passed": true
+    },
+    "cancel_ms": {
+      "count": 30,
+      "p50": 56.47339999675751,
+      "p95": 72.58879998326302,
+      "max": 74.25839999318123,
+      "budget": 100,
+      "passed": true
+    }
+  },
+  "status": "passed"
+}

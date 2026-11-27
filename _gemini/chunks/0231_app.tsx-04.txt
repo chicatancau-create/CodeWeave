@@ -1,0 +1,96 @@
+    scopedKey(STORAGE_KEYS.NOTIFICATIONS, scope),
+    { readIds: [] },
+  )
+  // 瞬时事件（保存失败等）：同样按账户隔离，上限 50 条
+  const [notifEvents, setNotifEvents] = useLocalStorage<NotificationItem[]>(
+    scopedKey(STORAGE_KEYS.NOTIF_EVENTS, scope),
+    [],
+  )
+
+  const recordTransientEvent = useCallback(
+    (item: NotificationItem) => {
+      setNotifEvents((current) => mergeTransientEvents(current, item))
+    },
+    [setNotifEvents],
+  )
+
+  const workspace = useMemo(() => readWorkspace(scope), [scope])
+  const [languageId, setLanguageId] = useState<LanguageId>(workspace.languageId ?? 'python')
+  /**
+   * LINK-07 修复：列表与筛选按**内容科目**分组，不再把 HTML/CSS/Vue/Webpack/Linux
+   * 硬塞进五种可执行语言。`languageId` 退化为「当前科目的可执行语言」，
+   * 只在真正需要执行时使用。
+   */
+  const [subjectId, setSubjectId] = useState<string>(() => {
+    const saved = workspace.subjectId
+    if (saved && content.subjects.some((subject) => subject.id === saved)) return saved
+    const savedLesson = workspace.lessonId
+      ? content.lessons.find((lesson) => lesson.id === workspace.lessonId)
+      : undefined
+    if (savedLesson?.subjectId) return savedLesson.subjectId
+    return content.subjects[0]?.id ?? 'python'
+  })
+  const [selectedLessonId, setSelectedLessonId] = useState<string>(() => {
+    const saved = workspace.lessonId
+    if (saved && content.lessons.some((lesson) => lesson.id === saved)) return saved
+    const subject = workspace.subjectId
+      ? content.lessons.find((lesson) => lesson.subjectId === workspace.subjectId)
+      : undefined
+    return subject?.id ?? content.lessons[0]?.id ?? getDefaultLesson().id
+  })
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null)
+  const [code, setCode] = useState<string>(() => {
+    const lessonId = workspace.lessonId
+    const lesson = lessonId ? content.lessons.find((item) => item.id === lessonId) : undefined
+    return lesson ? getLessonCode(lesson.id, lesson.code, scope) : ''
+  })
+  /**
+   * #94：资料库单元的起始代码要等详情回来才有。在这之前 `code` 是目录占位的空串，
+   * 而保存快照效果对「代码变了」一视同仁——于是这份空占位在 600ms 防抖后被写成该课的草稿，
+   * 详情回来后 `getLessonCode` 又优先读那份草稿（'' 不是 nullish，顶不掉），起始代码就再也不出现了，
+   * 重载还是空的。这里记下「这一课的详情还在路上」，让快照效果在这段窗口里不出手。
+   */
+  const detailPendingLessonId = useRef<string | null>(null)
+  /** `detailPendingLessonId` 的渲染态镜像（#105）：只有 ref 的话界面不会为这一秒重画。 */
+  const [detailPendingId, setDetailPendingId] = useState<string | null>(null)
+
+  const lessons = useMemo(
+    () => content.lessons.filter((lesson) => lesson.subjectId === subjectId),
+    [content.lessons, subjectId],
+  )
+  /**
+   * 快照到达后自动校正选中项：保存过的课程若已不在列表中（旧课迁移、切语言），
+   * 退回到该语言的第一课。用**派生值**而不是 effect 里 setState，避免级联渲染。
+   */
+  const effectiveLessonId = lessons.some((lesson) => lesson.id === selectedLessonId)
+    ? selectedLessonId
+    : (lessons[0]?.id ?? selectedLessonId)
+  const selectedLesson = lessons.find((lesson) => lesson.id === effectiveLessonId)
+
+  // 科目 / 课程选择持久化到本账户工作区。
+  useEffect(() => {
+    const current = readWorkspace(scope)
+    saveWorkspace({ ...current, languageId, subjectId, lessonId: effectiveLessonId }, scope)
+  }, [languageId, subjectId, effectiveLessonId, scope])
+
+  // 跨账户（组件重挂载）时读取课程代码由上面的 useState 初始化完成；
+  // 运行中切课需要清理执行状态。
+  // §5.3 第 3 条的两条来源任一命中都要停：CSS 那半边由下面的 .reduce-motion 根类与媒体查询
+  // 承担，运行播放头是 JS 定时器链，只能显式问它。
+  const reducedMotion = useReducedMotion(Boolean(settings.reduceMotion))
+  const execution = useExecution(
+    code,
+    activeLesson?.language ?? 'python',
+    activeLesson ?? getDefaultLesson(),
+    // 与渲染工作台的条件一致（见下方 `view === 'path' && activeLesson && selectedLesson`）。
+    // 以前只看 `activeLesson !== null`，而 activeLesson 切走视图时不会清空，
+    // 于是人在别的页面上按 Ctrl+Enter 仍会触发一次运行（审计卡 RUN-01 第 4 条）。
+    activeLesson !== null && view === 'path',
+    reducedMotion,
+  )
+
+  const challenges = useMemo(() => getChallenges(), [])
+  const challengeProgress = useChallengeProgress(scope)
+  const { verifySubmission, rejectSubmission } = challengeProgress
+  const mastery = useReviewSchedule(scope, now)
+  const projects = useProjects(scope)

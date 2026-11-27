@@ -1,0 +1,55 @@
+          for (const auto& value : shell.reviewItems())
+            if (value.toMap().value(QStringLiteral("contentId")) == QStringLiteral("python-condition") &&
+                value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) context->review_before = value.toMap();
+          auto* snooze = u3_find_item(view.rootObject(), QStringLiteral("reviewSnooze-python-condition"));
+          u3_record(*context, QStringLiteral("review-snooze-row-action"), snooze && snooze->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(snooze, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 203: {
+          if (shell.operationBusy()) return;
+          QVariantMap updated;
+          for (const auto& value : shell.reviewItems())
+            if (value.toMap().value(QStringLiteral("contentId")) == QStringLiteral("python-condition") &&
+                value.toMap().value(QStringLiteral("exerciseId")).toString().isEmpty()) updated = value.toMap();
+          u3_record(*context, QStringLiteral("review-snooze-refreshes-date-without-changing-mastery"),
+              updated.value(QStringLiteral("masteryLevel")) == context->review_before.value(QStringLiteral("masteryLevel")) &&
+              updated.value(QStringLiteral("nextNodeIndex")) == context->review_before.value(QStringLiteral("nextNodeIndex")) &&
+              updated.value(QStringLiteral("dueKey")).toString() == QDate::currentDate().addDays(1).toString(Qt::ISODate) &&
+              updated.value(QStringLiteral("group")) == QStringLiteral("upcoming"));
+          u3_record(*context, QStringLiteral("review-updated-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-review-updated")));
+          auto* open = u3_find_item(view.rootObject(), QStringLiteral("reviewOpen-java-loop-sum"));
+          u3_record(*context, QStringLiteral("review-open-course-row-action"), open && open->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(open, "clicked", Qt::DirectConnection));
+          context->step++;
+          return;
+        }
+        case 204:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("review-open-course-resolves-published-id"),
+              shell.hasSelectedContent() && shell.documentId() == QStringLiteral("java-loop-sum"),
+              QStringLiteral("page=%1 document=%2 selected=%3 body=%4")
+                  .arg(shell.currentPage(), shell.documentId()).arg(shell.hasSelectedContent())
+                  .arg(!shell.selectedContentBody().isEmpty()));
+          shell.openPublishedContent(shell.publishedIds().indexOf(QStringLiteral("stage-d")));
+          shell.selectPage(QStringLiteral("编辑器"));
+          context->step = 300;
+          return;
+        case 300: {
+          if (shell.contentBusy()) return;
+          const auto workspace_size = view.size();
+          view.resize(QSize(1100, 720));
+          QCoreApplication::processEvents();
+          auto* title = u3_find_item(view.rootObject(), QStringLiteral("workspaceLessonTitle"));
+          auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+          auto* breadcrumb_index = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbIndex"));
+          auto* breadcrumb_label = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbEntryLabel"));
+          auto* accessible_breadcrumb = breadcrumb
+              ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+          const auto published_index = shell.publishedIds().indexOf(shell.documentId());
+          const auto published_title = published_index >= 0
+              ? shell.publishedTitles().value(published_index) : QString{};
+          const auto selected = view.rootObject()->property("selectedLesson").toMap();
+          const bool is_course = selected.value(QStringLiteral("id")).toString() == shell.documentId();

@@ -1,0 +1,96 @@
+      {
+        std::lock_guard lock(g_result_mutex);
+        g_result_queue.push_back(PendingResult{generation, std::move(result), std::move(challenge_message)});
+      }
+      if (!PostMessageW(window, kExecutionResultMessage, 0, 0)) {
+        std::lock_guard lock(g_result_mutex);
+        g_result_queue.clear();
+      }
+    }
+    g_execution_running.store(false);
+  });
+  set_status(L"执行任务已提交，窗口保持可操作");
+}
+
+void cancel_execution_request() {
+  if (!g_execution_running.load()) {
+    set_status(L"当前没有正在运行的执行任务");
+    return;
+  }
+  g_execution_cancelled.store(true);
+  set_status(L"正在取消执行任务");
+}
+
+void control_execution_request(codeweave::execution::ControlCommand command) {
+  if (!g_execution_running.load()) {
+    set_status(L"当前没有正在运行的执行任务");
+    return;
+  }
+  const auto result = g_execution_control.request(command);
+  set_status(wide_from_utf8(result.message));
+}
+
+void show_execution_result() {
+  std::unique_ptr<codeweave::execution::ServiceResult> owned;
+  std::string challenge_message;
+  {
+    std::lock_guard lock(g_result_mutex);
+    if (g_result_queue.empty()) return;
+    if (g_result_queue.front().generation != g_execution_generation.load()) {
+      g_result_queue.pop_front();
+      return;
+    }
+    owned = std::move(g_result_queue.front().result);
+    challenge_message = std::move(g_result_queue.front().challenge_message);
+    g_result_queue.pop_front();
+  }
+  if (!owned->validation.ok) {
+    set_status(wide_from_utf8(owned->validation.message));
+    return;
+  }
+  if (!owned->process.has_value()) {
+    set_status(L"执行未产生进程结果");
+    return;
+  }
+  const auto& process = *owned->process;
+  std::wstring status = process.error_code.empty() ? L"执行完成" : wide_from_utf8(process.error_code);
+  status += L"，输出字节：" + std::to_wstring(process.output.size());
+  if (!challenge_message.empty()) {
+    status += L"；" + wide_from_utf8(challenge_message);
+  }
+  set_status(status);
+  set_multiline(g_output, process.output);
+  if (g_trace_status && g_trace_store) {
+    codeweave::execution::TracePage page;
+    const auto loaded = g_trace_store->read_page(owned->trace && !owned->trace->events().empty()
+            ? owned->trace->events().front().session_id : execution_request().session_id,
+        0, 128, page);
+    if (loaded.ok) {
+      const auto summary = codeweave::execution::summarize_trace(page.events);
+      std::wstring trace_text = L"轨迹：" + std::to_wstring(summary.event_count) + L" 个事件，输出 " +
+          std::to_wstring(summary.output_bytes) + L" 字节";
+      if (!page.end) trace_text += L"（可继续读取）";
+      SetWindowTextW(g_trace_status, trace_text.c_str());
+    } else {
+      SetWindowTextW(g_trace_status, wide_from_utf8(loaded.message).c_str());
+    }
+  }
+  refresh_progress_status();
+  refresh_review_summary();
+}
+
+LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+  switch (message) {
+    case WM_CREATE: {
+      const auto workspace = locate_workspace();
+      if (workspace.empty()) { MessageBoxW(window, L"找不到有效的 CodeWeave 工作区。", L"CodeWeave", MB_ICONERROR | MB_OK); return -1; }
+      const auto data_root = configured_data_root();
+      const auto opened = data_root.empty()
+          ? g_core.open_workspace(workspace)
+          : g_core.open_workspace(workspace, data_root);
+      if (!opened.ok) { MessageBoxW(window, wide_from_utf8(opened.message).c_str(), L"CodeWeave", MB_ICONERROR | MB_OK); return -1; }
+      g_account_store = std::make_unique<codeweave::account::AccountStore>(g_core.data_root());
+      g_account_service = std::make_unique<codeweave::account::AccountService>(*g_account_store);
+
+      CreateWindowW(L"STATIC", L"CodeWeave 原生应用", WS_CHILD | WS_VISIBLE, 24, 10, 500, 24, window, nullptr, nullptr, nullptr);
+      CreateWindowW(L"STATIC", L"原生账户", WS_CHILD | WS_VISIBLE, 24, 30, 260, 20, window, nullptr, nullptr, nullptr);

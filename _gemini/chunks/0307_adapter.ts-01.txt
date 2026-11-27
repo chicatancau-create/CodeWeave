@@ -1,0 +1,129 @@
+/**
+ * 内容适配（LINK-05）：把资料库内容快照适配成现有页面使用的 Lesson / CurriculumStage。
+ *
+ * 为什么用适配而不是重写页面：
+ * - 工作台、挑战页、搜索、掌握度都建立在 Lesson 形状上；
+ *   先统一**数据入口**（快照），页面结构保持不变，风险限制在数据层。
+ * - 旧内置课程（src/data/lessons.ts）在本轮作为“未迁移的旧记录”保留并标注 legacy；
+ *   阶段、来源、练习一律以资料库为准，不允许静默退回旧教材当正式内容。
+ *
+ * 两级数据：
+ * - 目录（catalog）只给摘要，用于课程列表、搜索、阶段树；
+ * - 详情（lesson detail）才带主题原文与练习契约，进入工作台时按需拉取。
+ */
+import type { CurriculumStage } from '../data/curriculum'
+import { curriculumStages as legacyStages } from '../data/curriculum'
+import { lessons as legacyLessons } from '../data/lessons'
+import type { LanguageId, Lesson, LessonUnit } from '../types/lesson'
+import type { ContentSnapshot, SnapshotExercise, SnapshotLesson } from './types'
+
+const LANGUAGE_IDS: readonly LanguageId[] = ['python', 'javascript', 'csharp', 'java', 'c']
+
+/**
+ * 科目归一（LINK-07 修复）。
+ *
+ * 背景：旧数据只有 `LanguageId` 五种可执行语言，HTML/CSS/Vue/Webpack/Linux 等科目
+ * 只能借用某个语言 id（例如把 Vue 单元塞进 javascript），导致科目筛选与列表错乱。
+ * 这里为「内容科目」建立独立分组键：能执行的科目与可执行语言一一对应，
+ * 框架/工具类科目单独成组。
+ */
+const SUBJECT_OVERRIDES: Record<string, { id: string; label: string; short: string }> = {
+  'JavaScript DOM': { id: 'javascript', label: 'JavaScript', short: 'JS' },
+  'Vue 3': { id: 'vue3', label: 'Vue 3', short: 'Vue' },
+  'Webpack 5': { id: 'webpack', label: 'Webpack 5', short: 'Wp' },
+  CSharp: { id: 'csharp', label: 'C#', short: 'C#' },
+  'C#': { id: 'csharp', label: 'C#', short: 'C#' },
+  HTML: { id: 'html', label: 'HTML', short: 'H5' },
+  CSS: { id: 'css', label: 'CSS', short: 'CSS' },
+}
+
+const SUBJECT_COLORS: Record<string, string> = {
+  python: 'blue',
+  c: 'teal',
+  csharp: 'purple',
+  java: 'orange',
+  javascript: 'yellow',
+  html: 'coral',
+  css: 'cyan',
+  vue3: 'green',
+  webpack: 'blue',
+  http: 'teal',
+  mysql: 'orange',
+  spring: 'green',
+  springboot: 'purple',
+  mybatis: 'coral',
+  springcloud: 'yellow',
+  linux: 'cyan',
+  docker: 'blue',
+  nginx: 'green',
+  security: 'coral',
+  project: 'purple',
+}
+
+/** 科目键：非法字符折叠为 `-`，中文科目保留原样（便于阅读）。 */
+export function subjectKeyOf(label: string): string {
+  const override = SUBJECT_OVERRIDES[label]
+  if (override) return override.id
+  const slug = label
+    .trim()
+    .toLowerCase()
+    .replace(/[#]/g, 'sharp')
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || 'other'
+}
+
+export function subjectMetaOf(label: string, fallbackShort: string): { id: string; label: string; short: string; color: string } {
+  const override = SUBJECT_OVERRIDES[label]
+  const id = subjectKeyOf(label)
+  return {
+    id,
+    label: override?.label ?? label,
+    short: override?.short ?? fallbackShort,
+    color: SUBJECT_COLORS[id] ?? 'blue',
+  }
+}
+
+/** 简短标签：取科目名首 2 个字符，中文按字符、英文按大写字母。 */
+function shortLabelOf(label: string): string {
+  const override = SUBJECT_OVERRIDES[label]
+  if (override) return override.short
+  const ascii = label.match(/[A-Za-z]/g)
+  if (ascii && ascii.length >= 2 && /^[A-Za-z]/.test(label)) return ascii.slice(0, 2).join('').toUpperCase()
+  return label.slice(0, 2)
+}
+
+export type SubjectOption = {
+  id: string
+  label: string
+  short: string
+  color: string
+  lessonCount: number
+  /** 该科目是否含资料库正式内容 */
+  hasVaultContent: boolean
+  /** 该科目是否可自动执行（HTML/CSS/Vue/构建工具等为 false） */
+  executable: boolean
+}
+
+/**
+ * 由课程列表汇总科目选项：
+ * 含资料库正式内容的科目排在前，其次按课程数，最后按名称稳定排序。
+ */
+export function collectSubjects(lessons: Lesson[]): SubjectOption[] {
+  const map = new Map<string, SubjectOption>()
+  for (const lesson of lessons) {
+    const id = lesson.subjectId ?? subjectKeyOf(lesson.languageLabel)
+    const existing = map.get(id)
+    if (existing) {
+      existing.lessonCount += 1
+      existing.hasVaultContent = existing.hasVaultContent || lesson.contentId !== undefined
+      existing.executable = existing.executable || lesson.executable !== false
+      continue
+    }
+    const meta = subjectMetaOf(lesson.languageLabel, shortLabelOf(lesson.languageLabel))
+    map.set(id, {
+      id,
+      label: meta.label,
+      short: meta.short,
+      color: meta.color,
+      lessonCount: 1,

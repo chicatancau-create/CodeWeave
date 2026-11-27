@@ -1,0 +1,77 @@
+        if (output.find("stream-ready") != std::string::npos && (!expect_source || source_seen)) cancellation.store(true);
+      });
+  assert(result.validation.ok && result.process && result.process->cancelled && result.trace);
+  assert(output == result.process->output && output.find("stream-ready") != std::string::npos);
+  assert(!expect_source || source_seen);
+  assert(observed.size() == result.trace->events().size());
+  for (std::size_t index = 0; index < observed.size(); ++index) {
+    assert(observed[index].sequence == index + 1 && observed[index].session_id == "live-" + language);
+    assert(observed[index].payload == result.trace->events()[index].payload);
+    assert(observed[index].kind == result.trace->events()[index].kind);
+  }
+  assert(observed.back().kind == codeweave::execution::EventKind::Cancelled);
+  assert(std::count_if(observed.begin(), observed.end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::Cancelled;
+  }) == 1);
+  assert(std::filesystem::is_empty(execution_root));
+#else
+  (void)tool; (void)language; (void)source; (void)expect_source;
+#endif
+}
+
+void test_streaming_output_keeps_utf8_and_crlf_together(const std::filesystem::path& python) {
+#ifdef _WIN32
+  if (python.empty()) return;
+  Fixture fixture;
+  std::vector<std::string> chunks;
+  const auto result = codeweave::execution::ExecutionService{}.run(
+      {"stream-utf8", "python", "import sys, time\n"
+       "for part in [bytes([0xe4]), bytes([0xb8]), bytes([0xad]), b'\\r', b'\\n']:\n"
+       " sys.stdout.buffer.write(part)\n sys.stdout.buffer.flush()\n time.sleep(0.12)\n", 5000, 4096},
+      python, fixture.root, nullptr, nullptr, [&](const auto& event) {
+        if (event.kind == codeweave::execution::EventKind::Output) chunks.push_back(event.payload);
+      });
+  assert(result.process && result.process->exit_code == 0 && result.process->output == "\xe4\xb8\xad\r\n");
+  std::string combined;
+  for (const auto& chunk : chunks) {
+    assert(chunk == "\xe4\xb8\xad" || chunk == "\r\n" || chunk == "\xe4\xb8\xad\r\n");
+    combined += chunk;
+  }
+  assert(combined == result.process->output);
+#else
+  (void)python;
+#endif
+}
+
+void test_trace_contract_is_ordered_and_bounded() {
+  codeweave::execution::Trace trace("session-trace-01");
+  assert(trace.append(codeweave::execution::EventKind::Started).ok);
+  assert(trace.append(codeweave::execution::EventKind::Output, "line 1").ok);
+  assert(!trace.append(codeweave::execution::EventKind::Completed, "unexpected").ok);
+  assert(trace.append(codeweave::execution::EventKind::Completed).ok);
+  assert(trace.events().size() == 3);
+  assert(trace.events()[0].sequence == 1 && trace.events()[1].sequence == 2 && trace.events()[2].sequence == 3);
+  assert(trace.events()[1].payload == "line 1");
+  assert(!trace.append(codeweave::execution::EventKind::Output,
+      std::string(codeweave::execution::Limits::kMaxOutputBytes + 1, 'x')).ok);
+  assert(!trace.append_source_step(std::string(8193, 'x')).ok);
+  assert(trace.append_source_step("{\"line\":1,\"variables\":{}}").ok);
+}
+
+void test_trace_store_paginates_and_summarizes() {
+  Fixture fixture;
+  codeweave::execution::Trace trace("trace-store-01");
+  assert(trace.append(codeweave::execution::EventKind::Started).ok);
+  assert(trace.append(codeweave::execution::EventKind::Paused).ok);
+  assert(trace.append(codeweave::execution::EventKind::Resumed).ok);
+  assert(trace.append(codeweave::execution::EventKind::Output, "abcdef").ok);
+  assert(trace.append_source_step("{\"line\":1,\"variables\":{}}").ok);
+  assert(trace.append(codeweave::execution::EventKind::Completed).ok);
+  codeweave::execution::TraceStore store(fixture.root);
+  const auto first_save = store.append(trace);
+  if (!first_save.ok) std::cerr << first_save.message << "\n";
+  assert(first_save.ok);
+  const auto second_save = store.append(trace);
+  if (!second_save.ok) std::cerr << second_save.message << "\n";
+  assert(second_save.ok);
+  codeweave::execution::TracePage page;

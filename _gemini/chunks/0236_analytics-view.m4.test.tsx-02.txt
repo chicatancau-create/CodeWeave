@@ -1,0 +1,88 @@
+    expect(tables[1]?.querySelector('caption')?.textContent).toContain('复测完成率与到期任务完成率，共 2 项')
+    expect(tables[2]?.querySelector('caption')?.textContent).toContain('连续打卡与今日状态，共 3 项')
+    for (const table of tables) expect(table.querySelector('caption')?.className).toContain('an-sr-only')
+  })
+
+  it('每张台账住在一个可 Tab 到、有名字的横向滚动区里，且 CSS 给了指标名列下限', () => {
+    renderView()
+    const tables = [...document.querySelectorAll<HTMLTableElement>('table.an-ledger')]
+    expect(tables).toHaveLength(3)
+    for (const table of tables) {
+      const wrap = table.parentElement
+      expect(wrap?.className).toBe('an-table-scroll')
+      expect(wrap?.getAttribute('tabindex')).toBe('0')
+      expect(wrap?.getAttribute('role')).toBe('region')
+      expect(wrap?.getAttribute('aria-label')).toContain('可横向滚动')
+    }
+    // 320 档实测「指标名」列被挤到 37px（页面不溢出但一个字一行）——下限与滚动区都得在
+    expect(cssCode).toMatch(/\.cw-analytics \.an-table-scroll\s*\{[^}]*overflow-x:\s*auto/)
+    const narrow = cssCode.slice(cssCode.indexOf('@media (max-width: 679px)'))
+    expect(narrow).toMatch(/\.cw-analytics \.an-ledger\s*\{[^}]*min-width:\s*6[0-9]{2}px/)
+    expect(narrow).toMatch(/\.cw-analytics \.an-cell-name\s*\{[^}]*min-width:\s*1[0-9]em/)
+    // #95 普查实测「分母」列 109px≈7.3 字/行：口径与分母两列同样要地板
+    expect(narrow).toMatch(
+      /\.cw-analytics \.an-cell-basis,\s*\.cw-analytics \.an-cell-den\s*\{[^}]*min-width:\s*1[0-9]em/,
+    )
+    // 地板用 em 写就得把换算基数钉住：这两列走 --an-meta，窄档 12px ⇒ 11em = 132px ≥ 120px
+    expect(mediaBlock('max-width: 399px')).toMatch(/--an-meta:\s*12px/)
+    expect(cssCode).toMatch(/\.cw-analytics \.an-cell-basis,\s*\.cw-analytics \.an-cell-den\s*\{[^}]*--an-meta/)
+  })
+
+  it('列表头含「分母」列，行表头是编号', () => {
+    renderView()
+    const table = document.querySelector('table.an-ledger') as HTMLTableElement
+    expect([...table.querySelectorAll('thead th[scope="col"]')].map((th) => th.textContent)).toEqual([
+      '次',
+      '指标',
+      '数值',
+      '派生口径',
+      '分母',
+    ])
+    expect([...table.querySelectorAll('tbody th[scope="row"]')].map((th) => th.textContent)).toEqual([
+      '01',
+      '02',
+      '03',
+      '04',
+      '05',
+      '06',
+    ])
+  })
+
+  it('分组编号 01/02/03 成文，层次不靠卡片', () => {
+    renderView()
+    expect([...document.querySelectorAll('.an-block-idx')].map((el) => el.textContent)).toEqual(['01', '02', '03'])
+    expect(document.querySelectorAll('.an-block')).toHaveLength(3)
+  })
+})
+
+describe('M4 学习分析 · 诚实指标（真实分母 / 样本不足 / 未统计）', () => {
+  it('样本不足时逐字保留原有说明，且整页不出现任何百分比', () => {
+    renderView({ reviewsPassed: 0, reviewsFailed: 0, reviewRate: null })
+    expect(
+      screen.getByText('样本不足：近 7 天还没有复测记录。完成课程后按计划复测，这里会出现完成率。'),
+    ).toBeTruthy()
+    const value = [...document.querySelectorAll('.an-row')].find((row) => row.textContent?.includes('复测完成率'))
+    expect(value?.querySelector('.an-cell-value')?.textContent).toBe('样本不足')
+    expect(document.body.textContent).not.toContain('%')
+  })
+
+  it('完成率出现时同一条给出真实分母（通过 / 全部复测），不是孤立的百分数', () => {
+    renderView({ reviewsPassed: 3, reviewsFailed: 1, reviewRate: 75 })
+    const row = [...document.querySelectorAll('.an-row')].find((item) => item.textContent?.includes('复测完成率'))
+    expect(row?.querySelector('.an-cell-value')?.textContent).toBe('75%')
+    expect(row?.querySelector('.an-cell-den')?.textContent).toBe(
+      '全部复测 4 次（通过 3 · 未通过 1）',
+    )
+    expect(row?.querySelector('.an-cell-basis')?.textContent).toContain('通过 /（通过 + 未通过）')
+  })
+
+  it('没有可复现分母的指标显示「无分母，不折算百分比」', () => {
+    renderView()
+    const noDen = [...document.querySelectorAll('.an-no-den')]
+    expect(noDen.length).toBeGreaterThanOrEqual(4)
+    expect(noDen.every((node) => node.textContent === '无分母，不折算百分比')).toBe(true)
+    // 挑战通过数只有计数、没有窗口内尝试次数分母，因此不显示比率
+    const challengeRow = [...document.querySelectorAll('.an-row')].find((item) =>
+      item.textContent?.includes('挑战通过（本机已验证）'),
+    )
+    expect(challengeRow?.querySelector('.an-cell-value')?.textContent).toBe('1')

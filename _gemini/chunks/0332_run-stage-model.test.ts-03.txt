@@ -1,0 +1,42 @@
+    const frame = stageFrameAt(events, steps, 1)
+    expect(frame!.nodes[1]!.state).toBe('now')
+    expect(frame!.nodes[1]!.cells).toMatchObject([{ name: 'b', value: '2' }])
+    // n1 在第一拍已经走过了（state=done），但它那一拍的 a=1 不该出现在第二拍的画布上。
+    expect(frame!.nodes[0]!.state).toBe('done')
+    expect(frame!.nodes[0]!.cells).toEqual([])
+  })
+})
+
+describe('run-stage-model · 边界', () => {
+  const events: TraceEvent[] = [
+    { id: 'e0', type: 'start', line: 1, label: '开始', detail: '', variables: [], nodeId: 'n1' },
+  ]
+  const steps: StageStep[] = [{ id: 'n1', label: '开始', kind: 'start', tone: 'purple' }]
+
+  it('没有事件时返回 null，不返回半帧', () => {
+    expect(stageFrameAt([], steps, 0)).toBeNull()
+    expect(stageFrames([], steps)).toEqual([])
+  })
+
+  it('下标越界 / 非整数一律 null', () => {
+    expect(stageFrameAt(events, steps, -1)).toBeNull()
+    expect(stageFrameAt(events, steps, 1)).toBeNull()
+    expect(stageFrameAt(events, steps, 1.5)).toBeNull()
+    expect(stageFrameAt(events, steps, Number.NaN)).toBeNull()
+  })
+
+  it('没走到的节点：state=todo、ordinal=null、不填数据格', () => {
+    const twoSteps: StageStep[] = [...steps, { id: 'n2', label: '结束', kind: 'end', tone: 'green' }]
+    const frame = stageFrameAt(events, twoSteps, 0)
+    expect(frame!.nodes[1]).toMatchObject({ state: 'todo', ordinal: null, cells: [], visit: 0 })
+  })
+
+  it('输出行只累计到当前这一拍为止', () => {
+    const out: TraceEvent[] = [
+      { id: 'e0', type: 'output', line: 1, label: '第一行', detail: '', variables: [], nodeId: 'n1' },
+      { id: 'e1', type: 'output', line: 2, label: '第二行', detail: '', variables: [], nodeId: 'n1' },
+    ]
+    expect(stageFrameAt(out, steps, 0)!.outputLines).toEqual(['第一行'])
+    expect(stageFrameAt(out, steps, 1)!.outputLines).toEqual(['第一行', '第二行'])
+  })
+})

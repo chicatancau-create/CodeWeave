@@ -1,0 +1,117 @@
+    languages: INT_DECLARING,
+    requires: (m) => /\bint\s+a\s*=\s*-?\d+/.test(m.code) && /\bint\s+b\s*=\s*-?\d+/.test(m.code) && /\bif\b/.test(m.code),
+  },
+  {
+    id: 'for-sum',
+    title: 'for 循环累加',
+    inputSyntax: 'total = <初值>; for (…; i <= <上限>; …) 或 for i in range(a, b)',
+    outputRule: '输出累加后的 total',
+    languages: ALL_LANGUAGES,
+    requires: (m) => /\bfor\b/.test(m.code) && /\btotal\s*=/.test(m.code) && /\btotal\s*(?:\+=|-=|=[^=]*[+-])/.test(m.code) && !/\bwhile\b/.test(m.code),
+  },
+  {
+    id: 'age-increment',
+    title: '变量递增',
+    inputSyntax: 'age = <整数>，随后输出结果',
+    outputRule: '输出 age + 1',
+    languages: ALL_LANGUAGES,
+    requires: (m) => /\bage\s*=\s*-?\d+/.test(m.code) && PRINT_TOKEN.test(m.code),
+  },
+]
+
+/** 未识别到任何支持模板时的显式状态（禁止猜测成功）。 */
+export const UNSUPPORTED_MESSAGE =
+  '教学运行器未识别这段代码的结构：它只支持下方列出的模板。请改用支持模板，或在浏览器沙箱 / 真实环境中运行。'
+
+/**
+ * 一段代码同时含两种以上支持模板的结构时的显式拒绝。
+ *
+ * 起因是 S11 复现的那份 134 行参考实现（练习页 cw-py-loop-range-001-ex1）：
+ * 它里面既有 `while` 又有 `for … total`，还有一句 `if a%2==0`，
+ * 于是旧实现按登记表顺序认领了第一个命中的 parity，交出 `["偶数"]` —— 而它真跑是 22 行输出。
+ * 单模板模拟器对这种多主题程序**无论选中哪个都是错的**，所以这里不选。
+ */
+export function ambiguousTemplateMessage(candidates: TeachingTemplate[]): string {
+  const names = candidates.map((t) => `「${t.title}」`).join('、')
+  return `这段代码同时含 ${candidates.length} 种支持模板的结构（${names}）：教学运行器只按单一模板模拟，无法判断该按哪一种输出。请改用浏览器沙箱 / 真实环境运行。`
+}
+
+/**
+ * 源码拆成两栏：`code` 是剥掉注释与字符串字面量之后的代码（字面量位置留 `""` 占位），
+ * `literals` 是所有字面量内容。换行一律保留，否则报错行号会漂。
+ *
+ * 为什么必须拆：整段子串匹配里，`message` 含 age、`information` 含 for、
+ * 注释里一句 while、`printf("%2d")` 里的 %2 都会让模板认领一段它并不认识的代码。
+ * 认领的代价不是「多跑一次」而是界面把模板算出来的数当作这段程序的输出——
+ * 比认不出（老实说「未识别代码结构」）更糟。
+ */
+export type TeachingMatch = { code: string; literals: string; language: LanguageId }
+
+function splitSource(source: string, language: LanguageId): TeachingMatch {
+  const hashComment = language === 'python'
+  const literals: string[] = []
+  let code = ''
+  let i = 0
+  const newlinesOf = (text: string) => '\n'.repeat((text.match(/\n/g) ?? []).length)
+  while (i < source.length) {
+    const ch = source[i]
+    const next = source[i + 1]
+    if (ch === '/' && (next === '/' || next === '*')) {
+      if (next === '/') {
+        while (i < source.length && source[i] !== '\n') i += 1
+      } else {
+        i += 2
+        const start = i
+        while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i += 1
+        code += newlinesOf(source.slice(start, i))
+        i += 2
+      }
+      continue
+    }
+    if (ch === '#' && hashComment) {
+      while (i < source.length && source[i] !== '\n') i += 1
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      i += 1
+      let text = ''
+      while (i < source.length && source[i] !== ch) {
+        if (source[i] === '\n') break // 未闭合的引号到此为止，别把整份文件当字符串吞掉
+        if (source[i] === '\\') { text += source[i] + (source[i + 1] ?? ''); i += 2; continue }
+        text += source[i]
+        i += 1
+      }
+      i += 1
+      literals.push(text)
+      code += '""' + newlinesOf(text)
+      continue
+    }
+    code += ch
+    i += 1
+  }
+  return { code, literals: literals.join('\n'), language }
+}
+
+function unsupportedResult(message = UNSUPPORTED_MESSAGE, label = '未识别代码结构'): ExecutionResult {
+  const error = { line: 1, message }
+  return {
+    events: [event('unsupported', 'error', 1, label, message, [])],
+    output: [],
+    error,
+    tier: 'teaching',
+    unsupported: true,
+  }
+}
+
+/** 全部命中的模板（不只第一个）：诊断与测试都读这个，`detectTemplate` 只在唯一命中时才放行。 */
+export function detectTemplates(code: string, language: LanguageId): TeachingTemplate[] {
+  const match = splitSource(code, language)
+  return TEACHING_TEMPLATES.filter((template) => template.languages.includes(language) && template.requires(match))
+}
+
+/**
+ * 认出模板 = 恰好命中一条。
+ * 命中 0 条是认不出；命中 ≥2 条是「这段程序同时是几种结构」，单模板模拟器选哪一种都必然交出假输出，
+ * 所以同样不放行——旧实现按登记表顺序取第一条，把 134 行的多主题参考实现当成了奇偶判断。
+ */
+export function detectTemplate(code: string, language: LanguageId): TeachingTemplate | undefined {

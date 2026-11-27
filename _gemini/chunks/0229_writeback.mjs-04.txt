@@ -1,0 +1,97 @@
+   * 备份目标文件原文。
+   * - 用读+写而不是 copyFile：copyFile 会连**只读属性**一起复制到备份，
+   *   导致同一操作重试时无法覆盖备份（EPERM），恢复流程会被卡住。
+   * - 备份路径由 operationId 决定且已存在时直接复用：同一次操作的原始版本是固定的，
+   *   重复复制既无意义又会引入新的失败点。
+   */
+  async function backupFile(root, relPath, operationId, index) {
+    const { abs, existed } = resolveWritablePath(root, relPath)
+    if (!existed) return null
+    const dir = join(backupDir, safeSegment(operationId))
+    await mkdir(dir, { recursive: true })
+    const target = join(dir, `${index}-${safeSegment(relPath.split('/').at(-1))}.bak`)
+    if (existsSync(target)) return target
+    await writeFile(target, await readFile(abs))
+    return target
+  }
+
+  /** 原子写库内文件：库内临时文件 + rename（同目录，避免跨卷）。失败时清理临时文件。 */
+  async function writeVaultFile(root, relPath, text) {
+    const { abs } = resolveWritablePath(root, relPath)
+    await mkdir(dirname(abs), { recursive: true })
+    const temp = `${abs}.${process.pid}.${randomBytes(3).toString('hex')}.tmp`
+    await writeFile(temp, Buffer.isBuffer(text) ? text : normalizeText(text), { encoding: 'utf8', flush: true })
+    try {
+      await rename(temp, abs)
+    } catch (error) {
+      // 不留半写临时文件在用户笔记目录里。
+      await rm(temp, { force: true }).catch(() => {})
+      throw error
+    }
+  }
+
+  async function loadEvidence(userId, evidenceIds) {
+    const all = await evidenceStore.list(userId)
+    const wanted = new Set(evidenceIds)
+    const records = all.filter((record) => wanted.has(record.evidenceId))
+    if (records.length !== wanted.size) {
+      const missing = [...wanted].filter((id) => !records.some((record) => record.evidenceId === id))
+      throw new WritebackError('evidence_not_found', `暂存证据不存在或不属于当前账户：${missing.join('、')}`)
+    }
+    const synced = records.filter((record) => record.state === EVIDENCE_STATE.SYNCED)
+    if (synced.length > 0 && records.length === synced.length) {
+      throw new WritebackError('already_synced', '这些证据已同步过；重复提交不会再次追加')
+    }
+    return records.filter((record) => record.state !== EVIDENCE_STATE.SYNCED)
+  }
+
+  /**
+   * 计算本次写回的全部目标（不写盘）。
+   * @returns {{ targets: object[], evidenceIds: string[], masteryBlocked: object[] }}
+   */
+  async function buildPlan(root, records, masteryUpdates) {
+    const board = await readTarget(root, PROGRESS_BOARD_PATH)
+    // 证据按「日期 + 主题」分组：同一天同一主题合并到同一份日志，不同主题各写各的。
+    const groups = new Map()
+    for (const record of records) {
+      const key = `${record.at}|${record.topic}`
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(record)
+    }
+
+    // 掌握等级只由「学习者本人、独立、未用 L3/L4 对照答案、且留下了实际输出」的证据支撑。
+    // 逐条判定并取 every：批次里混进一条 AI 运行或抄答案的证据，整批都不晋级。
+    const notPromotable = records.filter((record) => !promotableEvidence(record))
+    const promotionCleared = records.length > 0 && notPromotable.length === 0
+
+    const targets = []
+    for (const group of groups.values()) {
+      const first = group[0]
+      const path = board.text !== null ? boardLogPath(first.at, first.topic) : logPathOf(first.at, first.topic)
+      const current = await readTarget(root, path)
+      targets.push({
+        path,
+        kind: 'log',
+        exists: current.hash !== null,
+        expectedHash: current.hash,
+        before: {
+          exists: current.hash !== null,
+          length: current.text?.length ?? 0,
+          tail: current.text ? current.text.slice(-400) : '',
+        },
+        // 预览内容：真正追加时会重新读取当前文本再合并，避免展示与实际不一致。
+        preview: mergeEvidenceIntoLog({
+          existingText: current.text,
+          records: group,
+          operationId: 'PREVIEW',
+        }),
+        groupEvidenceIds: group.map((record) => record.evidenceId),
+      })
+    }
+
+    if (board.text !== null) {
+      const boardEntries = targets.map((target) => ({
+        date: target.path.split('/').at(-1).slice(0, 10), link: boardLogLink(target.path),
+      }))
+      const patch = evidenceBoardPatch(board.text, boardEntries)
+      const masteryBlocked = (Array.isArray(masteryUpdates) ? masteryUpdates : []).map(({ skill, level }) => ({

@@ -1,0 +1,99 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import "../components"
+import "../components/ExecutionStage.js" as Stage
+
+Item {
+    property var hostRoot
+    property QtObject ds
+    id: editorPage
+    objectName: "editorPageRoot"
+    property int activeWorkspacePane: 0
+    property bool consoleOutputCleared: false
+    property string consoleCopyStatus: ""
+    property string evidenceAccountRequested: ""
+    property bool showExecutionTrace: false
+    property bool codeMode: false
+    property string modeDocumentId: ""
+    function syncCodeMode() {
+        if (modeDocumentId === uiShell.documentId) return;
+        modeDocumentId = uiShell.documentId;
+        codeMode = uiShell.starterLanguage.length > 0
+                   || (currentLesson !== null && (currentLesson.flow || []).length > 0);
+        courseGuide.close();
+    }
+    Component.onCompleted: syncCodeMode()
+    readonly property var currentLesson: {
+        for (const lesson of uiShell.lessonMeta)
+            if (lesson.id === uiShell.documentId) return lesson;
+        return null;
+    }
+    readonly property string currentTitle: {
+        const index = uiShell.publishedIds.indexOf(uiShell.documentId);
+        return currentLesson ? (currentLesson.title || uiShell.documentId)
+               : index >= 0 ? uiShell.publishedTitles[index] : "未选择课程";
+    }
+    function revealItem(item) {
+        const top = item.mapToItem(workspaceContent, 0, 0).y;
+        workspaceScroll.contentItem.contentY = Math.max(0, Math.min(top,
+            workspaceScroll.contentItem.contentHeight - workspaceScroll.availableHeight));
+    }
+    function revealExecutionTrace() { revealItem(stagePanel); }
+
+    Connections {
+        target: uiShell
+        function onSelectedContentChanged() { Qt.callLater(editorPage.syncCodeMode); }
+        function onAccountChanged() { editorPage.evidenceAccountRequested = ""; }
+        function onExecutionTraceChanged() {
+            editorPage.showExecutionTrace = (uiShell.executionTrace.events || []).length > 0;
+        }
+        function onExecutionOutputChanged() {
+            editorPage.consoleOutputCleared = false;
+            editorPage.consoleCopyStatus = "";
+        }
+    }
+    Timer {
+        interval: 100
+        repeat: true
+        running: editorPage.visible && uiShell.hasActiveAccount && !uiShell.lessonEvidenceReady
+                 && editorPage.evidenceAccountRequested !== uiShell.activeAccountId
+        onTriggered: {
+            if (uiShell.accountBusy || uiShell.contentBusy || uiShell.operationBusy || uiShell.executionBusy
+                    || uiShell.draftSaving || uiShell.challengeHistoryBusy) return;
+            editorPage.evidenceAccountRequested = uiShell.activeAccountId;
+            uiShell.refreshReviewSummary();
+        }
+    }
+
+        ScrollView {
+            id: workspaceScroll
+            anchors.fill: parent
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        ColumnLayout {
+            id: workspaceContent
+            width: workspaceScroll.availableWidth
+            height: Math.max(workspaceScroll.availableHeight, implicitHeight)
+            spacing: ds.s12
+
+            Rectangle {
+                objectName: "workspaceSaveError"
+                Layout.fillWidth: true
+                visible: hostRoot.isErrorStatus(uiShell.contentStatus)
+                implicitHeight: statusRow.implicitHeight + ds.s16
+                radius: ds.radiusSm
+                color: ds.bannerBg
+                border.color: ds.warning
+                RowLayout {
+                    id: statusRow
+                    anchors.fill: parent
+                    anchors.margins: ds.s8
+                    Text {
+                        Layout.fillWidth: true
+                        text: uiShell.contentStatus
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }

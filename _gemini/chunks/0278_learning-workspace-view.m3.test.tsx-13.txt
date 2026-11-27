@@ -1,0 +1,78 @@
+    expect(cssCode).toContain('--cw-tap: var(--ds-tap-min, 44px)')
+    expect(cssCode).toContain('min-height: var(--cw-tap)')
+    expect(blockOf('.cw-workspace')).toContain('--cw-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72))')
+    expect(blockOf('.cw-workspace')).toContain('--cw-focus-off: var(--ds-focus-offset, 2px)')
+    const focus = blockOf('.cw-workspace :focus-visible')
+    expect(focus).toContain('outline: var(--cw-focus-w) solid var(--cw-focus)')
+    expect(focus).toContain('outline-offset: var(--cw-focus-off)')
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)\s*[;!]/)
+    // §5.4 命中区复测（#51）钉住的三条：分区导航链接、顶栏药丸、运行控制条。
+    // 这一档原本只有 `padding: 10px 14px`（20px 行盒 + 20 = 40 高），浏览器实测
+    // 就是 40，不达 44；改为「min-height 走令牌 + 上下各 12px」后正好 44。
+    const paneNavA = blockOf('.cw-workspace .cw-pane-nav a')
+    expect(paneNavA).toContain('padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px)')
+    expect(paneNavA).toContain('min-height: var(--cw-tap)')
+    // 顶栏与运行控制条以前写死 40px，而本文件末的 ≤760px 媒体查询又把同一批控件
+    // 抬回 var(--cw-tap)：40 是桌面漏档，不是设计决定，三处选择器一律回到令牌。
+    for (const sel of [
+      '.cw-workspace .back-button',
+      '.cw-workspace .reset-button',
+      '.cw-workspace .step-button',
+      '.cw-workspace .run-button',
+      '.cw-workspace .subtle-button',
+    ]) {
+      expect(blockOf(sel), sel).toContain('min-height: var(--cw-tap)')
+    }
+    expect(cssCode).not.toMatch(/min-height:\s*40px/)
+    // 「复制」是状态条上的次级文字按钮，撑盒子会把 34px 的 code-footer 顶到 60，
+    // 因此它走本库既有的伪元素档：视觉 28px 不动，::before 外扩 ±8px 补到 44 高。
+    expect(blockOf('.cw-workspace .editor-actions button')).toContain('position: relative')
+    const copyHit = blockOf('.cw-workspace .editor-actions button::before')
+    expect(copyHit).toContain("content: ''")
+    expect(copyHit).toContain('position: absolute')
+    expect(copyHit).toContain('inset: -8px -6px')
+  })
+
+  it('#58 长课名在 320px 不许被挤成一字一行：标题的 flex basis 是 auto 而不是 0%', () => {
+    // 基座 styles.css:934 写的是 `flex: 1`（= basis 0%）。在**可换行**的 flex 容器里，
+    // basis 0% 等于「永远算放得下」，flex-wrap 于是永不触发，标题只能吃同行剩下的宽度。
+    // 长文本补测（report-states-final2 → injectedTitle['workspace@320x844']）量到
+    // 盒宽 24px、110 字排成 69.5 行；改 basis auto 后同一格是 226px / 6 行。
+    expect(blockOf('.cw-workspace .learning-title')).toMatch(/flex:\s*1 1 auto/)
+    expect(blockOf('.cw-workspace .learning-header')).toContain('flex-wrap: wrap')
+  })
+
+  it('响应式：移动优先单列，两列只出现在 min-width 断点里；320px 有专门降级', () => {
+    expect(blockOf('.cw-workspace .learning-view')).toContain('grid-template-columns: minmax(0, 1fr)')
+    const firstMinWidth = cssCode.indexOf('@media (min-width:')
+    expect(cssCode.slice(0, firstMinWidth)).not.toContain('1.25fr')
+    expect(cssCode).toMatch(/@media \(min-width: 1081px\)/)
+    expect(cssCode).toMatch(/@media \(max-width: 760px\)/)
+    expect(cssCode).toMatch(/@media \(max-width: 380px\)/)
+    expect(blockOf('.cw-workspace')).toContain('min-width: 0')
+  })
+
+  it('对比度纪律：三级色（0.34，实测 2.69:1）只用于纯装饰点，不承载文字信息', () => {
+    const faintUsers = styleRules.filter((rule) => rule.block.includes('var(--cw-fg-faint)')).map((rule) => rule.selector)
+    expect(faintUsers).toEqual(['.cw-workspace .variable-dots'])
+  })
+})
+
+/* ─────────────────────────── 5. 无障碍结构 ─────────────────────────── */
+
+describe('M3 学习工作台 · 无障碍（axe-core）', () => {
+  it('四区 + 导航 + 运行控制 + 来源结构无 axe 违规', async () => {
+    const { container } = renderWorkspace({ isDirty: true, completed: true })
+    const results = await axe.run(container, {
+      rules: {
+        // jsdom 无真实布局：色彩对比与触控尺寸由上面的 CSS 源码不变式与浏览器复核承担
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.html.slice(0, 60)).join(' | ')}`)).toEqual([])
+  })
+
+  it('分区有可读名字，导航是 nav 地标，装饰序号对读屏隐藏', () => {
+    const { container } = renderWorkspace()
+    expect(container.querySelector('section.workspace')?.getAttribute('aria-label')).toBe('阅读与代码区')

@@ -1,0 +1,104 @@
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-strong);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.global-search__sub { color: var(--faint); font-size: var(--ds-size-control, 13px); white-space: nowrap; }
+.global-search__empty { padding: var(--ds-space-14, 14px) var(--ds-space-10, 10px); color: var(--muted); font-size: var(--ds-size-control, 13px); text-align: center; }
+
+/* 通知中心 */
+.notification-wrap { position: relative; }
+.notification-trigger { position: relative; }
+.notification-badge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 16px;
+  padding: 0 var(--ds-space-4, 4px);
+  color: var(--ink-on-accent);         /* 危险色实底上用黑字：8.74:1（白字压珊瑚只有 2.4:1） */
+  border-radius: var(--radius-pill);
+  background: var(--c-coral);
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-meta);
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: var(--z-popover);
+  width: 300px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding: var(--ds-space-12, 12px);
+  border: var(--hair) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--overlay);
+  box-shadow: var(--ds-shadow-panel); /* 模板零投影（site.css 全文；tokens §7）：浮层用实底黑 + 发丝线分离 */
+}
+.notification-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ds-space-8, 8px);
+  color: var(--ink-strong);
+  font-size: var(--ds-size-body);
+}
+.notification-panel-head span { color: var(--faint); font-size: var(--ds-size-control, 13px); }
+.notification-empty { margin: var(--ds-space-6, 6px) 0; color: var(--muted); font-size: var(--ds-size-control, 13px); line-height: 1.6; }
+.notification-list { display: flex; flex-direction: column; gap: var(--ds-space-6, 6px); margin: 0; padding: 0; list-style: none; }
+.notification-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-height: var(--tap-min);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--ink);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  font-size: var(--ds-size-control, 13px);
+  text-align: left;
+  transition: border-color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease);
+}
+.notification-item:hover { border-color: var(--accent); }
+.notification-item:active { background: var(--scrim-raised); }
+.notification-kind {
+  flex: 0 0 auto;
+  padding: var(--ds-space-2, 2px) var(--ds-space-6, 6px);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 800;
+}
+.notification-kind.kind-review-due { color: var(--c-yellow); background: rgba(255, 196, 87, 0.12); }
+.notification-kind.kind-challenge-passed { color: var(--c-green); background: rgba(63, 211, 164, 0.12); }
+.notification-kind.kind-checkin-milestone { color: var(--c-cyan); background: var(--accent-2-wash); }
+.notification-title { flex: 1; min-width: 0; color: var(--ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.notification-date { color: var(--faint); font-family: var(--font-mono); font-size: var(--ds-size-meta); }
+/* 面包屑 = 「清楚的当前入口」（§5.2）。字号走正文档 16px（§5.4）：它是导航信息，
+   不是 meta；层级靠颜色与字重分档，不靠把字压小。
+   分隔符 `/` 是装饰：DOM 上带 aria-hidden（topbar.tsx），色档也走纯装饰的
+   --ink-decor（α 0.34，对 #000 只有 2.69:1，只允许承载可丢失的东西）。 */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  color: var(--faint);                 /* 0.52 档：5.44:1，可读 */
+  font-size: var(--ds-size-body);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.breadcrumbs__root { color: var(--faint); font-weight: 600; }
+/* 分隔符不是「可丢失的装饰」：它标出的是层级关系，且与左右两段同屏共读，
+   所以按本系统自己的规矩（上面 37/39 行：0.34 只留给可丢失的东西）应走文字档。
+   §5.4 实测原色 rgba(220, 233, 251,.34) 对纯黑只有 2.69:1，低于普通文本要求的 4.5:1。 */
+.breadcrumbs__sep { color: var(--faint); }
+.breadcrumbs__trail {
+  display: inline-flex;
+  align-items: center;

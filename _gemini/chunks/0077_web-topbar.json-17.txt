@@ -1,0 +1,116 @@
+            }
+          },
+          "row": {
+            "text": "学习提醒在本机保留学习提醒状态",
+            "geometry": {
+              "x": 299,
+              "y": 236.09375,
+              "width": 492,
+              "height": 71.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {
+              "x": 740,
+              "y": 257.6875,
+              "width": 48,
+              "height": 28
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(255, 255, 255)",
+              "backgroundColor": "rgb(15, 19, 27)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(142, 213, 255)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(255, 255, 255)",
+              "outlineOffset": "0px"
+            }
+          }
+        },
+        {
+          "index": 1,
+          "title": "编辑器自动保存",
+          "label": {
+            "text": "编辑器自动保存",
+            "geometry": {
+              "x": 299,
+              "y": 320.28125,
+              "width": 368.046875,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "修改课程代码时自动保存到本机（关闭后可用 Ctrl+S 手动保存）",
+            "geometry": {
+              "x": 299,
+              "y": 346.671875,
+              "width": 368.046875,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "编辑器自动保存修改课程代码时自动保存到本机（关闭后可用 Ctrl+S 手动保存）",
+            "geometry": {
+              "x": 299,
+              "y": 307.28125,
+              "width": 492,
+              "height": 72.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",

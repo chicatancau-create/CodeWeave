@@ -1,0 +1,23 @@
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-review-updated.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-workspace-breadcrumb-narrow-first-run.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-lesson-read.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-lesson-missed-cases.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-lesson-verified.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-lesson-external-small.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-lesson-external-states-small.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-workspace-save-error.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-analysis-empty.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-analysis-values.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-analysis-review-rate.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-checkin-sidebar.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-checkin-calendar.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-checkin-error.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-checkin-narrow.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-vault-connected-name.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-vault-evidence-preview.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-vault-confirmation.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-vault-ledger-narrow.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-vault-rolled-back.png",
+    "G:/CodeWeave/应用端/工程文件/验收证据/Phase4-topbar-final-20261108/u3/u3-analysis.png"
+  ]
+}

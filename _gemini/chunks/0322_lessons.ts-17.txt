@@ -1,0 +1,73 @@
+    insight: '可执行 jar + 外部化配置 = 单体服务的交付形态；上传与分页是业务功能的第一批扩展点。', fileName: 'deploy-notes.md', runtime: '外部环境 · Maven + JDK',
+    content: unit(
+      '独立完成 jar 打包与启动、一个上传接口和一个分页接口，全部留下验证记录。',
+      {
+        prerequisites: ['i2-springboot-rest-actuator'],
+        explanation: [
+          'spring-boot-maven-plugin 产出可执行 jar（内嵌容器，java -jar 即起）。',
+          '上传需配置大小限制与存储位置；文件名要重命名，防路径穿越与覆盖。',
+          '分页参数要有默认值与上限保护，防止 size 超限拖垮数据库。',
+        ],
+        examples: [
+          { good: '上传文件重命名为 uuid + 原扩展名，并白名单校验类型', bad: '直接用原始文件名存盘且无类型检查', why: '上传是文件写入类攻击的入口' },
+        ],
+        guidedSteps: ['打包 jar 并在 8081 端口启动，验证接口。', '实现 multipart 上传接口，配置大小上限。', '给列表接口加 page/size 分页并测边界（page=0、size 超限）。'],
+        exercise: '独立增加“上传附件 + 列表展示”的小闭环。',
+        variant: '配置外部化（application-prod.yml + 启动参数），演示不改代码换配置。',
+        projectTask: 'I 阶段验收（迁移 + 新业务功能）的交付物以本单元输出为准。',
+        mistakes: ['jar 内配置写死端口导致多环境无法部署', '上传目录放在 jar 解压目录内，升级即丢文件'],
+        runCommand: 'mvn clean package + java -jar（本地交付验证）',
+        completion: 'jar 启动成功、上传与分页接口验证通过，交付记录完整。',
+        runEnvironment: 'external',
+        estimatedMinutes: 50,
+        acceptanceCriteria: ['jar 打包并指定端口启动成功', '上传接口受大小与类型限制', '分页边界行为正确'],
+        evidenceChecklist: ['打包与启动日志', '上传与分页验证输出'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'I',
+    ),
+  },
+]
+
+extraLessons.java.push(...stageHUnits, ...stageIUnits)
+
+/** 阶段 J：登录、权限与安全基础（J2 沙箱可执行；J1/J3 外部环境实验） */
+const stageJUnits: Lesson[] = [
+  {
+    id: 'j1-auth-session-flow', language: 'javascript', languageLabel: '安全', label: 'J1',
+    title: '认证与授权：Session、Token 与边界', description: '登录态如何在请求间维持', duration: '40 min', level: '进阶', progress: 0,
+    code: '# 认证流程观察（真实服务或本项目的 /api/auth/*）：\n# 1. POST /api/auth/login（错误密码）→ 401\n# 2. POST /api/auth/login（正确密码）→ Set-Cookie: code_canvas_session=...\n# 3. GET /api/auth/me（带 Cookie）→ 用户数据\n# 4. GET /api/auth/me（不带 Cookie）→ {"data":null}',
+    flow: sumFlow('开始', '提交凭据', '校验通过？', '颁发会话凭证', '后续请求携带凭证'),
+    insight: '认证回答“你是谁”，授权回答“你能做什么”；会话是两者的载体，过期与失效同样重要。', fileName: 'auth-flow-notes.md', runtime: '外部环境 · curl + 本项目 API',
+    content: unit(
+      '独立完成一次完整登录流程观察，并解释 Cookie 会话与 Token 方案的取舍。',
+      {
+        prerequisites: ['i2-springboot-rest-actuator'],
+        explanation: [
+          '登录成功后服务端颁发凭证：Cookie+Session 存服务端，JWT 把状态签名进令牌。',
+          'HttpOnly 阻止 JS 读 Cookie，SameSite 缓解 CSRF；Token 常放 Authorization 头。',
+          '会话必须有过期与登出失效：只颁发不回收等于门永不锁。',
+        ],
+        examples: [
+          { good: '本项目登出后旧 Cookie 立即失效（服务端删除会话）', bad: 'Token 永不过期且无法吊销，泄露即永久失控', why: '凭证生命周期是安全设计的一部分' },
+        ],
+        guidedSteps: ['用 curl 走完本项目 4 步登录流程并记录状态码与 Cookie。', '观察登录前后的差异：哪些接口开始返回数据。', '画出 Session 方案与 JWT 方案的时序对比。'],
+        exercise: '独立整理一张“未登录 / 登录 / 登出”三态下各接口行为的验证表。',
+        variant: '对比 JWT：解码一段真实 JWT 的 header/payload（不签名验证），说明为何不能放敏感信息。',
+        projectTask: 'J 阶段验收（验证未登录、无权限和异常请求）的测试用例清单来自本单元。',
+        mistakes: ['把用户敏感信息放进 JWT payload（base64 不是加密）', '前端只在 UI 隐藏按钮而不做后端鉴权'],
+        runCommand: 'curl -i + 本项目 /api/auth/*（真实 API）',
+        completion: '三态验证表完整，能解释两种会话方案的取舍。',
+        runEnvironment: 'external',
+        estimatedMinutes: 40,
+        acceptanceCriteria: ['四步流程状态码记录完整', '未登录/登出后受保护接口不可访问', '能对比 Session 与 JWT'],
+        evidenceChecklist: ['curl 输出记录', '三态验证表', '时序对比图或文字'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'J',
+    ),
+  },
+  {
+    id: 'j2-xss-sanitize-sandbox', language: 'javascript', languageLabel: '安全', label: 'J2',
+    title: 'XSS 防御与输入净化（沙箱可执行）', description: '为什么转义发生在输出侧', duration: '35 min', level: '进阶', progress: 0,
+    code: 'function escapeHtml(text) {\n  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", \'"\': "&quot;", "\'": "&#39;" };\n  return text.replace(/[&<>"\']/g, (ch) => map[ch]);\n}\nconst payload = \'<img src=x onerror="alert(1)">\';\nconsole.log("原始长度:", payload.length);\nconsole.log("净化后:", escapeHtml(payload));\nconsole.log("净化后仍含标签?", escapeHtml(payload).includes("<img"));',

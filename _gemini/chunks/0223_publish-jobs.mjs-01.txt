@@ -1,0 +1,96 @@
+import { randomUUID } from 'node:crypto'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
+
+const RUNNING = ['scanning', 'validating']
+
+export function openPublicationJobs(dataRoot) {
+  mkdirSync(dataRoot, { recursive: true })
+  const db = new DatabaseSync(join(dataRoot, 'unified.sqlite'))
+  try {
+    db.exec(`
+      PRAGMA busy_timeout = 5000;
+      PRAGMA journal_mode = WAL;
+      PRAGMA synchronous = FULL;
+      BEGIN IMMEDIATE;
+    `)
+    const { user_version: version } = db.prepare('PRAGMA user_version').get()
+    if (version > 5) throw new Error('无法打开较新版本的统一数据 SQLite')
+    if (version === 0) db.exec(`
+      CREATE TABLE publication_jobs (
+        id TEXT PRIMARY KEY NOT NULL,
+        vault_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL,
+        request_hash TEXT NOT NULL,
+        attempt TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('scanning', 'validating', 'ready', 'invalid', 'unavailable')),
+        result TEXT NOT NULL,
+        UNIQUE (vault_id, account_id, idempotency_key)
+      ) STRICT;
+      CREATE UNIQUE INDEX publication_jobs_single_writer ON publication_jobs ((1))
+        WHERE state IN ('scanning', 'validating');
+      CREATE TABLE publication_grants (
+        vault_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        PRIMARY KEY (vault_id, account_id)
+      ) STRICT;
+      PRAGMA user_version = 1;
+    `)
+    if (version < 2) db.exec(`
+      CREATE TABLE accounts (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_json TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE sessions (
+        digest TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL,
+        last_seen_at INTEGER NOT NULL
+      ) STRICT;
+      CREATE INDEX sessions_seen ON sessions(last_seen_at);
+      CREATE INDEX sessions_account ON sessions(account_id);
+      CREATE TABLE runtime_metadata (name TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL) STRICT;
+      PRAGMA user_version = 2;
+    `)
+    if (version < 3) db.exec(`
+      CREATE TABLE learning_events (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL REFERENCES accounts(id), vault_id TEXT NOT NULL,
+        change_id TEXT NOT NULL, event_json TEXT NOT NULL,
+        UNIQUE (account_id, change_id)
+      ) STRICT;
+      CREATE INDEX learning_events_scope ON learning_events(account_id, vault_id, sequence);
+      CREATE TABLE learning_idempotency (
+        account_id TEXT NOT NULL REFERENCES accounts(id), change_id TEXT NOT NULL,
+        request_hash TEXT NOT NULL, result_json TEXT NOT NULL,
+        PRIMARY KEY (account_id, change_id)
+      ) STRICT;
+      CREATE TABLE learning_revisions (
+        account_id TEXT NOT NULL REFERENCES accounts(id), vault_id TEXT NOT NULL,
+        entity_key TEXT NOT NULL, sequence INTEGER NOT NULL REFERENCES learning_events(sequence),
+        PRIMARY KEY (account_id, vault_id, entity_key)
+      ) STRICT;
+      CREATE TABLE learning_conflicts (
+        id TEXT PRIMARY KEY NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id), vault_id TEXT NOT NULL,
+        details_json TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX learning_conflicts_scope ON learning_conflicts(account_id, vault_id);
+      PRAGMA user_version = 3;
+    `)
+    if (version < 4) db.exec(`
+      CREATE TABLE vault_owner (
+        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+        record_json TEXT NOT NULL
+      ) STRICT;
+      PRAGMA user_version = 4;
+    `)
+    if (version < 5) db.exec(`
+      CREATE TABLE learning_checkins (
+        account_id TEXT NOT NULL REFERENCES accounts(id), vault_id TEXT NOT NULL,
+        local_date TEXT NOT NULL, time_zone TEXT NOT NULL,
+        sequence INTEGER NOT NULL REFERENCES learning_events(sequence),
+        PRIMARY KEY (account_id, vault_id, local_date, time_zone)
+      ) STRICT;

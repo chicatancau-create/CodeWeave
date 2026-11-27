@@ -1,0 +1,53 @@
+          u3_record(*context, QStringLiteral("account-profile-page-and-sibling-links"), profile_loaded);
+          u3_screenshot(*context, view, QStringLiteral("u3-profile"));
+          const bool navigated = security_link &&
+              QMetaObject::invokeMethod(security_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("账户安全");
+          u3_record(*context, QStringLiteral("profile-to-security-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 10: {
+          if (shell.operationBusy()) return;
+          auto* security_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityPageRoot"));
+          auto* password_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityPasswordButton"));
+          auto* delete_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityDeleteButton"));
+          auto* privacy_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityPrivacyLink"));
+          auto* current_password = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityCurrentPassword"));
+          auto* new_password = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityNewPassword"));
+          auto* confirm_password = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityConfirmPassword"));
+          const bool security_loaded = shell.currentPage() == QStringLiteral("账户安全") && security_page &&
+              password_button && delete_button && privacy_link && current_password && new_password && confirm_password &&
+              !password_button->property("enabled").toBool() && !delete_button->property("enabled").toBool();
+          u3_record(*context, QStringLiteral("account-security-page-and-disabled-boundaries"), security_loaded);
+          u3_screenshot(*context, view, QStringLiteral("u3-security"));
+          const bool navigated = privacy_link &&
+              QMetaObject::invokeMethod(privacy_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("数据与隐私");
+          u3_record(*context, QStringLiteral("security-to-privacy-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 11: {
+          if (shell.operationBusy()) return;
+          auto* privacy_page = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyPageRoot"));
+          auto* export_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyExportButton"));
+          auto* import_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyImportButton"));
+          auto* security_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacySecurityLink"));
+          const bool privacy_loaded = shell.currentPage() == QStringLiteral("数据与隐私") && privacy_page &&
+              export_button && import_button && security_link && export_button->property("enabled").toBool() &&
+              import_button->property("enabled").toBool();
+          u3_record(*context, QStringLiteral("account-privacy-page-and-data-actions"), privacy_loaded);
+          u3_screenshot(*context, view, QStringLiteral("u3-privacy"));
+          const bool navigated = security_link &&
+              QMetaObject::invokeMethod(security_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("账户安全");
+          u3_record(*context, QStringLiteral("privacy-to-security-navigation"), navigated);
+          context->step++;
+          return;
+        }
+        case 12: {
+          auto* profile_link = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityProfileLink"));
+          const bool navigated = profile_link &&
+              QMetaObject::invokeMethod(profile_link, "clicked", Qt::DirectConnection) &&
+              shell.currentPage() == QStringLiteral("账户");

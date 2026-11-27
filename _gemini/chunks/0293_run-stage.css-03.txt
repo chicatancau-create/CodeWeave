@@ -1,0 +1,121 @@
+  stroke: var(--ds-node-stroke, #44566f);
+  /* 参考实现 `.visual-node rect { stroke-width: 2 }`——照抄。先前取 1.5 是想「更精细」，
+     但这一格在整幅画布上本来就不大，1.5 在 100% 缩放下会虚成一条灰边。 */
+  stroke-width: 2;
+  transition: fill var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)),
+    stroke var(--ds-dur-quick, 150ms) var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* ── 三态：当前 / 已走过 / 未到 ───────────────────────────────────────────── */
+/* 当前：强调色描边 + 加粗 + 近档发光。参考实现用 drop-shadow 做同一件事。 */
+g.rs-node.is-now .rs-node-box {
+  fill: var(--ds-status-info-wash, rgba(91, 134, 255, 0.16));
+  stroke: var(--ds-scene-active, rgb(34, 211, 238));
+  stroke-width: 2.25;
+  /* 参考站 `node-active` 用 drop-shadow 做「这一格在发光」。这里连点两层：
+     近的一层压描边色，远的一层铺开——单层只会像描边糊了，不像发光。 */
+  filter: drop-shadow(0 0 8px var(--ds-line-accent, rgba(34, 211, 238, 0.38)))
+    drop-shadow(0 0 22px var(--ds-stage-active-glow));
+}
+/* 已走过：描边升一档，填充不变——「走过了」不该比「正在走」更抢眼。 */
+g.rs-node.is-done .rs-node-box {
+  stroke: var(--ds-line-raised, rgba(150, 190, 235, 0.2));
+}
+/* 未到：虚线描边 + 不填充（形状通道），不靠 opacity 压暗——仍要能读全骨架。 */
+g.rs-node.is-todo .rs-node-box {
+  fill: transparent;
+  stroke-dasharray: 5 4;
+}
+
+/* 回边起点那一格：底边加重，说「这里会绕回去」。 */
+g.rs-node.is-loop-back .rs-node-box {
+  stroke: var(--ds-status-warning, #ffc457);
+}
+
+/* ── 盒子里的文字 ─────────────────────────────────────────────────────────── */
+g.rs-node text {
+  font-family: inherit;
+  /* SVG 文字不继承 HTML 的行高，基线由 stage-layout 的 y 定。 */
+  dominant-baseline: middle;
+}
+g.rs-node .rs-node-no {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+g.rs-node .rs-node-label {
+  fill: var(--ds-text-primary, #e8eef7);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+}
+g.rs-node.is-todo .rs-node-label {
+  fill: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+}
+g.rs-node .rs-node-line-no {
+  fill: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+g.rs-node .rs-node-visit {
+  fill: var(--ds-status-warning, #ffc457);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 语义档：tone-* 只染描边 + 一层极淡的填充（说「这一格是什么性质」），不染整块。
+   与 flow-chart 的 tone-* 同一张映射。
+
+   之前这里只写了 `.is-todo` 四档——只有「还没走到」的节点才分色，
+   走过之后四档又全变回同一种灰。参考站不是这样：它的 `node-sentinel` / `node-compare`
+   任何时候都保持自己的色相，因为**性质是节点固有的，不是「走没走到」的函数**。
+   所以改成随时生效，`is-todo` 只用虚线把「还没走到」这层额外说出来。 */
+g.rs-node.tone-blue .rs-node-box {
+  stroke: var(--ds-status-info, #5b86ff);
+  fill: var(--ds-status-info-wash, rgba(91, 134, 255, 0.16));
+}
+g.rs-node.tone-yellow .rs-node-box {
+  stroke: var(--ds-status-warning, #ffc457);
+  fill: var(--ds-status-warning-wash, rgba(255, 196, 87, 0.12));
+}
+g.rs-node.tone-coral .rs-node-box {
+  stroke: var(--ds-status-danger, #ff8371);
+  fill: var(--ds-status-danger-wash, rgba(255, 131, 113, 0.16));
+}
+g.rs-node.tone-green .rs-node-box {
+  stroke: var(--ds-status-success, #3fd3a4);
+  fill: var(--ds-status-success-wash, rgba(63, 211, 164, 0.12));
+}
+/* 紫色没有对应的 `--ds-status-*`（状态四色里没有紫），走场景档的星云色。 */
+g.rs-node.tone-purple .rs-node-box {
+  stroke: var(--ds-scene-nebula, rgb(167, 139, 250));
+  fill: var(--ds-stage-nebula-wash);
+}
+/* 「还没走到」仍要能一眼认出：虚线描边，并把填充压掉——虚线下面透着一块色会糊。 */
+g.rs-node.is-todo .rs-node-box {
+  fill: transparent;
+  stroke-dasharray: 5 4;
+}
+/* 「已走过」的填充留一半，与「此刻」区分开。 */
+g.rs-node.is-done .rs-node-box {
+  fill-opacity: 0.55;
+}
+/* 「此刻」那一格必须是全场最亮的：覆盖上面所有 tone 的填充，只留描边色相。 */
+g.rs-node.is-now .rs-node-box {
+  fill: var(--ds-status-info-wash, rgba(91, 134, 255, 0.16));
+  fill-opacity: 1;
+}
+
+/* ── 数据格：这一拍那个变量的值 ───────────────────────────────────────────── */
+g.rs-node .rs-cell {
+  fill: var(--ds-text-primary, #e8eef7);
+  font-size: 12px;
+}
+g.rs-node .rs-cell.is-empty {
+  fill: var(--ds-text-tertiary, rgba(224, 234, 248, 0.36));
+}
+g.rs-node .rs-cell-name {
+  fill: var(--ds-text-secondary, rgba(224, 234, 248, 0.6));
+}
+g.rs-node .rs-cell-eq {

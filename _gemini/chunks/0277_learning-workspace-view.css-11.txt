@@ -1,0 +1,156 @@
+   带类型名，镜像也带上（测试的 key 比对不剥 p / span 之外的类型）。 */
+.cw-workspace p.flow-node-detail {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace span.flow-node-line-no {
+  color: var(--cw-fg-dim);
+}
+
+/* 三态：形状由基座定，本页只给「当前 / 已走过 / 未到」配光与色。 */
+.cw-workspace li.flow-step.is-now .flow-node {
+  box-shadow: var(--cw-glow-near);
+}
+.cw-workspace li.flow-step.is-done .flow-node {
+  box-shadow: var(--cw-glow-inset);
+}
+.cw-workspace li.flow-step.is-todo .flow-node {
+  box-shadow: none;
+}
+/* 展开的那一拍要宽到能横向读一条变量。基座定「展开格更宽」这个形状（360px），
+   本页把宽度钉到工作台的可用宽度上：一屏 1600px 里右栏约占一半，
+   360px 是轨道里放得下又读得开的一档，窄屏的降级留在基座。 */
+.cw-workspace li.flow-step.is-expanded .flow-node {
+  width: 360px;
+}
+.cw-workspace li.flow-step.is-todo .flow-node-head .flow-node-label,
+.cw-workspace li.flow-step.is-todo .flow-node-line code {
+  color: var(--cw-fg-dim);
+}
+
+/* ── 数据栏：这一拍的变量快照 —— 与节点同一套发丝线，颜色只分「变了没有」 ──── */
+.cw-workspace .flow-data {
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border-color: var(--cw-line);
+}
+.cw-workspace ul.flow-data-list {
+  gap: var(--ds-space-6, 6px);
+  min-width: 0;
+}
+.cw-workspace ul.flow-data-list li {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .flow-data-name,
+.cw-workspace .flow-data-value {
+  color: var(--cw-fg);
+}
+.cw-workspace .flow-data-eq {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .flow-data-type {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace li.is-coral .flow-data-value {
+  color: var(--cw-err);
+}
+.cw-workspace li.is-blue .flow-data-value {
+  color: var(--cw-info);
+}
+.cw-workspace p.flow-data-empty {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .variable-list {
+  max-height: 240px;
+  padding: 0 var(--ds-space-14, 14px);
+}
+.cw-workspace .variable-row {
+  min-height: 44px;
+  gap: var(--ds-space-10, 10px);
+  border-bottom: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .variable-row:last-child {
+  border-bottom: 0;
+}
+.cw-workspace .variable-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-circle, 50%);
+}
+.cw-workspace .variable-icon.blue {
+  color: var(--cw-info);
+  background: transparent;
+}
+.cw-workspace .variable-icon.coral {
+  color: var(--cw-err);
+  background: transparent;
+}
+.cw-workspace .variable-name strong {
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 400;
+}
+.cw-workspace .variable-name span {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+}
+.cw-workspace .variable-value {
+  max-width: none;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  white-space: pre;
+  text-overflow: clip;
+}
+/* 变量行在单步回放里反复重建：不做缩放弹跳，保持低干扰 */
+.cw-workspace .variable-row.changed .variable-value {
+  animation: none;
+}
+.cw-workspace .variable-dots {
+  color: var(--cw-fg-faint); /* 纯装饰点，不承载信息 */
+  letter-spacing: 2px;
+}
+.cw-workspace .console-body {
+  max-height: 240px;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.65;
+  white-space: pre; /* stdout 长行横向滚动 */
+  overflow: auto;
+}
+.cw-workspace .console-line {
+  color: var(--cw-fg);
+}
+.cw-workspace .console-line span {
+  margin-right: var(--ds-space-10, 10px);
+  color: var(--cw-ok);
+}
+.cw-workspace .console-error {
+  color: var(--cw-err);
+}
+.cw-workspace .empty-panel {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.08em;
+}
+
+/* ── 来源详情与课程指南：ledger / specs 式细线表格（§5.2） ───────────── */
+.cw-workspace .lesson-source {
+  margin-top: var(--ds-space-2, 2px);
+  padding: var(--ds-space-14, 14px);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

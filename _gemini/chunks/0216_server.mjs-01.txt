@@ -1,0 +1,84 @@
+import { createServer as createHttpServer } from 'node:http'
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import { existsSync, createReadStream, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { extname, join, normalize, relative, resolve } from 'node:path'
+import { promisify } from 'node:util'
+import { pathToFileURL } from 'node:url'
+import { DatabaseSync } from 'node:sqlite'
+import { createContentService } from './server/content/index.mjs'
+import { ifNoneMatchHits, publicAssetId, resolveContentAsset } from './server/content/asset.mjs'
+import { sha256, stableStringify } from './server/content/markdown.mjs'
+import { openPublicationJobs } from './server/content/publish-jobs.mjs'
+import { createAccountStore } from './server/accounts.mjs'
+import { createContentReferenceResolver } from './server/content/identity.mjs'
+import { createLearningSync } from './server/learning/sync.mjs'
+import { createLearningService } from './server/learning/index.mjs'
+import { resolveRuntimePaths } from './server/config.mjs'
+import { instanceIdentity } from './server/instance.mjs'
+
+const scrypt = promisify(scryptCallback)
+
+// 路径与端口由 §6.2 的统一解析器决定：CLI/环境变量 > 本机配置 > 工程相对默认。
+// 数据目录仍可由 CODE_CANVAS_DATA_DIR 覆盖（测试隔离用）。
+const root = resolve(import.meta.dirname)
+const runtime = resolveRuntimePaths({ startDir: root })
+// 同源服务的网页端产物：由本机配置 / CODEWEAVE_STATIC_DIR / 默认 `<本包>/data/web-client` 决定，
+// 不认兄弟工程的源码相对路径（分离方案 §5）。未发布产物时服务照开，API 与 /api/health 仍可用。
+const distRoot = resolve(runtime.staticDir)
+const dataRoot = runtime.dataDir
+const usersPath = join(dataRoot, 'users.json')
+
+// 内容联动服务：教材快照是派生数据，落在应用数据目录，不从资料库根直接对外提供。
+let accounts
+let learningSync
+let publicationJobs
+let initialization
+const contentService = createContentService({
+  dataRoot, vaultRoot: runtime.vaultRoot,
+  configFingerprint: sha256(stableStringify({ vaultRoot: runtime.vaultRoot, dataRoot, staticDir: distRoot, port: runtime.port })),
+  recordCommitted: ({ jobId, attempt, result }) => publicationJobs.complete(jobId, attempt, result),
+})
+
+function initialize() {
+  initialization ??= (async () => {
+    publicationJobs = openPublicationJobs(dataRoot)
+    accounts = createAccountStore(publicationJobs.database)
+    learningSync = createLearningSync(publicationJobs.database, {
+      serviceInstance: instanceIdentity({ dataDir: dataRoot, distDir: distRoot }).instanceId,
+      resolveContent: createContentReferenceResolver(contentService.snapshotStore),
+    })
+    await contentService.initialize()
+    publicationJobs.recoverInterrupted()
+  })()
+  return initialization
+}
+// 学习事实服务（LINK-08）：拥有者绑定 + 正式进度只读投影；同样只落在应用数据目录。
+const learningService = createLearningService({ dataRoot, vaultRoot: runtime.vaultRoot, database: () => publicationJobs.database })
+// 同步是重操作：单独限流，避免被当作低成本接口反复触发。
+const CONTENT_SYNC_MAX = Number(process.env.CODE_CANVAS_CONTENT_SYNC_MAX ?? 30)
+
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 天
+const SESSION_COOKIE = 'code_canvas_session'
+const MAX_BODY_BYTES = 100_000
+// 密码长度上限：注册 / 登录 / 改密统一，进入 scrypt 前先拦截（避免超长输入耗尽 CPU）。
+const MAX_PASSWORD_LENGTH = 128
+// 会话上限（测试可用环境变量调低）；超限后按创建时间淘汰最早会话。
+const MAX_SESSIONS = Number(process.env.CODE_CANVAS_MAX_SESSIONS ?? 500)
+// 过期会话的周期清理间隔；登录时也会顺带清理一次。
+const SESSION_SWEEP_INTERVAL_MS = 60 * 60 * 1000
+
+// --- R3 限流：按（维度 + 标识）在滑动窗口内计数失败尝试；键数量有硬上限。 ---
+const RATE_LIMIT_MAX = Number(process.env.CODE_CANVAS_RATE_LIMIT_MAX ?? 10)
+const RATE_LIMIT_WINDOW_MS = Number(process.env.CODE_CANVAS_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000)
+const RATE_LIMIT_MAX_KEYS = Number(process.env.CODE_CANVAS_RATE_LIMIT_MAX_KEYS ?? 5000)
+/** key -> { count, firstAt }。超过 RATE_LIMIT_MAX_KEYS 时按最早时间淘汰。 */
+const rateLimits = new Map()
+
+const SCRYPT_KEYLEN = 64
+/** scrypt 成本参数（显式配置，便于审计与未来迁移）。 */
+const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }
+/** 哈希格式版本前缀：v1 = scrypt。未来更换算法时可据此并行迁移。 */
+const HASH_PREFIX = 'scrypt$v1$'
+
+

@@ -1,0 +1,78 @@
+      <ContentProviderHost.Provider value={{ ...legacyContent, sync } as unknown as ContentContextValue}>
+        <ContentSourceBanner />
+      </ContentProviderHost.Provider>,
+    )
+    const button = screen.getByRole('button', { name: /重试同步/ })
+    expect(button.hasAttribute('aria-disabled')).toBe(false)
+    fireEvent.click(button)
+    await waitFor(() => expect(sync).toHaveBeenCalledTimes(1))
+
+    const busyButton = screen.getByRole('button', { name: /同步中…/ })
+    expect((busyButton as HTMLButtonElement).disabled).toBe(true)
+    expect(busyButton.getAttribute('aria-disabled')).toBe('true')
+    const hint = container.querySelector<HTMLElement>('.cs-disabled-hint')
+    expect(hint?.getAttribute('role')).toBe('status')
+    expect(hint?.textContent).toContain('现在按不了：上一次「重试同步」还没返回')
+    expect(busyButton.getAttribute('aria-describedby')).toBe(hint?.id)
+    release({ ok: true, message: '同步任务已提交' })
+    await waitFor(() => expect((busyButton as HTMLButtonElement).disabled).toBe(false))
+    expect(container.querySelector('.cs-disabled-hint')).toBeNull()
+  })
+})
+
+describe('M4 来源区 · CSS 源码不变式', () => {
+  it('样式表原文确实读到，且全局裸选择器数量为 0', () => {
+    expect(cssText.length).toBeGreaterThan(3000)
+    expect(selectorParts(cssCode).length).toBeGreaterThan(25)
+    const bare = selectorParts(cssCode).filter(
+      (selector) => !selector.startsWith('.cw-source') && !selector.startsWith('.reduce-motion'),
+    )
+    expect(bare).toEqual([])
+  })
+
+  it('不声明 :root / html / body；零 !important；发光走别名、无渐变玻璃；圆角只有令牌档', () => {
+    const selectors = selectorParts(cssCode)
+    expect(selectors.some((selector) => /(^|[\s,])(:root|html|body)(\s|,|$)/.test(selector))).toBe(false)
+    expect(cssCode).not.toContain('!important')
+    // 科技档反转（tokens §4.5）：发光代替黑投影承担层级；仍不许裸字面量。
+    const shadows = [...cssCode.matchAll(/box-shadow:\s*([^;]+)/g)].map((m) => m[1]!.trim())
+    for (const value of shadows) {
+      expect(/^var\(--cs-glow-(near|panel|inset)\)$/.test(value), `未走发光令牌：${value}`).toBe(true)
+    }
+    expect(cssCode).not.toMatch(/backdrop-filter|linear-gradient|radial-gradient|conic-gradient|text-shadow/)
+    expect(cssCode).not.toMatch(/border-radius:\s*[0-9]/)
+    expect(cssCode).not.toMatch(/outline(-style)?:\s*(none|0)/)
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+  })
+
+  it('正文 16px、行高 1.6–1.75；长路径与长中文换行不撑破 320px', () => {
+    const root = declarationBlock('.cw-source')
+    expect(root).toContain('--cs-body: var(--ds-size-body, 16px)')
+    const leading = Number(/--cs-leading:\s*var\(--ds-leading-body,\s*([\d.]+)\)/.exec(root)?.[1])
+    expect(leading).toBeGreaterThanOrEqual(1.6)
+    expect(leading).toBeLessThanOrEqual(1.75)
+    expect(declarationBlock('.cw-source :is(dt, dd, p, span, strong, em, button)')).toContain('overflow-wrap: anywhere')
+    expect(mediaBlock('max-width: 399px')).toContain('--cs-body: 15px')
+    expect(mediaBlock('max-width: 679px')).toContain('grid-template-columns: minmax(0, 1fr)')
+  })
+
+  it('触控 44px 与焦点轮廓：按钮与可聚焦元素都覆盖', () => {
+    expect(declarationBlock('.cw-source')).toContain('--cs-tap: var(--ds-tap-min, 44px)')
+    expect(declarationBlock('.cw-source .cs-btn')).toContain('min-height: var(--cs-tap)')
+    expect(declarationBlock('.cw-source :is(button, a, summary, [tabindex]):focus-visible')).toContain(
+      'var(--ds-focus-ring, rgba(220, 233, 251, 0.72))',
+    )
+  })
+
+  it('核验状态的两档靠边框样式区分，不使用场景色或状态色', () => {
+    expect(declarationBlock('.cw-source .cs-mark--verified')).toContain('border-style: solid')
+    expect(declarationBlock('.cw-source .cs-mark--unverified')).toContain('border-style: dotted')
+    expect(declarationBlock('.cw-source .cs-mark--unverified .cs-mark-text')).toContain('text-decoration-style: dotted')
+    for (const selector of ['.cw-source .cs-mark--verified', '.cw-source .cs-mark--unverified']) {
+      expect(declarationBlock(selector)).not.toMatch(/var\(--cs-accent\)|var\(--c-|var\(--ds-status-/)
+    }
+  })
+

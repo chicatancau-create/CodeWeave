@@ -1,0 +1,66 @@
+                    .arg(row->width()).arg(row->height());
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+            }
+            diagnostic = QStringLiteral("passed");
+            write_smoke_report();
+            application.exit(0);
+            return;
+          }
+          {
+            auto* flick = qobject_cast<QQuickItem*>(settings_scroll->property("contentItem").value<QObject*>());
+            auto* export_data = u3_find_item(settings_scroll, QStringLiteral("settingsDataExportAction"));
+            auto* clear_data = u3_find_item(settings_scroll, QStringLiteral("settingsDataClearAction"));
+            const auto content_height = flick ? flick->property("contentHeight").toReal() : 0;
+            if (!flick || !export_data || !clear_data || content_height <= flick->height() ||
+                export_data->property("enabled").toBool() || clear_data->property("enabled").toBool()) {
+              diagnostic = QStringLiteral("Settings bottom controls or scrollable content are missing");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            const auto fully_visible = [&](QQuickItem* item) {
+              const auto origin = item->mapToItem(flick, QPointF());
+              return item->isVisible() && item->width() > 0 && item->height() > 0 &&
+                  origin.x() >= -1 && origin.y() >= -1 &&
+                  origin.x() + item->width() <= flick->width() + 1 &&
+                  origin.y() + item->height() <= flick->height() + 1;
+            };
+            for (int index = 0; index < 8; ++index) {
+              auto* row = u3_find_item(settings_scroll,
+                  QStringLiteral("settingsPreferenceRow%1").arg(index));
+              if (!row) {
+                diagnostic = QStringLiteral("Settings preference row %1 is missing").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              flick->setProperty("contentY", 0);
+              QCoreApplication::processEvents();
+              const auto initial = row->mapToItem(flick, QPointF());
+              const auto target_y = initial.y() + row->height() / 2 - flick->height() / 2;
+              flick->setProperty("contentY", std::clamp(target_y, 0.0, content_height - flick->height()));
+              QCoreApplication::processEvents();
+              if (!fully_visible(row)) {
+                diagnostic = QStringLiteral("Settings preference row %1 is clipped at 1100x720").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              const auto control_name = index == 3 ? QStringLiteral("settingsReducedMotionToggle") :
+                  index == 4 ? QStringLiteral("settingsEditorFontSize") :
+                  index == 7 ? QStringLiteral("settingsEditorLineNumbersToggle") :
+                  QStringLiteral("settingsPreference%1%2").arg(index == 5 ? "Select" : "Toggle").arg(index);
+              auto* control = u3_find_item(row, control_name);
+              const auto origin = control ? control->mapToItem(row, QPointF()) : QPointF();
+              const auto control_right_inset = control
+                  ? row->width() - origin.x() - control->width() : -1.0;
+              const auto expected_right_inset = index == 4 || index == 5 ? 0.0 : 3.0;
+              if (!control || !fully_visible(control) || origin.x() < 0 || origin.y() < 0 ||
+                  origin.x() + control->width() > row->width() + 1 ||
+                  origin.y() + control->height() > row->height() + 1 ||
+                  std::abs(control_right_inset - expected_right_inset) > 0.01 ||
+                  (index == 4 && std::abs(row->width() - 493) > 0.01)) {
+                diagnostic = QStringLiteral("Settings preference row %1 control alignment mismatch: width=%2 controlRightInset=%3 expected=%4")

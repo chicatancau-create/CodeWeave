@@ -1,0 +1,93 @@
+  border: var(--hair) dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--scrim);            /* 原为蓝黑半透明实底，改暖白遮光层 */
+}
+
+/* CHAL-01：已选筛选标签（可单独移除，不只靠颜色表达） */
+.challenge-filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-6, 6px); width: 100%; }
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-4, 4px) var(--ds-space-10, 10px);
+  color: var(--accent);
+  border: var(--hair) solid var(--accent-ring);
+  border-radius: var(--radius-pill);   /* 细线药丸：模板唯一保留的小圆角形态（L393） */
+  background: var(--accent-soft);
+  font-size: var(--ds-size-control, 13px);   /* 原 `font-size: 13`：无单位对 font-size 非法，整条被丢弃 */
+  font-weight: 600;
+  transition: border-color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease);
+}
+.filter-chip:hover { border-color: var(--accent); background: rgba(34, 211, 238, 0.18); }
+.filter-chip:active { border-color: var(--accent); background: var(--scrim-raised); }
+.filter-chip:focus-visible { outline: var(--ds-focus-ring-width) solid var(--focus-ring); outline-offset: 1px; }
+
+/* CHAL-01：详情态提示（失效外链等） */
+.challenge-notice {
+  margin: 0 0 var(--ds-space-14, 14px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-14, 14px);
+  border: var(--hair) solid rgba(255, 196, 87, 0.28);
+  border-left: 3px solid var(--c-yellow);
+  border-radius: var(--radius);
+  background: rgba(255, 196, 87, 0.07);
+  color: var(--c-yellow);
+  font-size: var(--ds-size-control, 13px);
+}
+
+/* CHAL-01：分页导航 */
+.challenge-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-12, 12px);
+  margin-top: var(--ds-space-14, 14px);
+}
+.challenge-pagination .subtle-button { min-height: var(--tap-min); }
+.challenge-pagination-status { color: var(--muted); font-size: var(--ds-size-control, 13px); font-weight: 700; }
+
+/* CHAL-01：独立详情页头部（返回 + 标题 + 元信息） */
+.challenge-detail-view { display: flex; flex-direction: column; gap: var(--ds-space-14, 14px); }
+.challenge-detail-head { display: flex; flex-direction: column; gap: var(--ds-space-12, 12px); }
+.challenge-back { align-self: flex-start; min-height: var(--tap-min); }
+.challenge-detail-heading h2 { margin: var(--ds-space-10, 10px) 0 var(--ds-space-8, 8px); color: var(--ink-strong); font-size: 21px; letter-spacing: -0.3px; }
+.challenge-detail-heading p { margin: 0 0 var(--ds-space-8, 8px); color: var(--muted); font-size: var(--ds-size-control, 13px); line-height: 1.65; }
+.challenge-detail-heading-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-6, 6px); }
+
+/* ---------------------------------------------------------------------------
+   Moving Border 主操作按钮（B6 原生重建，零依赖）
+   装饰光束层 aria-hidden + pointer-events:none。
+   §5.1 形态项要求移除渐变按钮与泛光：conic 光束因此**常态隐藏**（display:none），
+   按钮落成模板的「细线药丸」（site.css L392-L394）。类名与 DOM 层级一个不动，
+   .moving-border--active 与 keyframes 保留，降级路径也仍按两条写（见 §5.3 小节）。
+   ------------------------------------------------------------------------- */
+.moving-border {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  min-height: var(--tap-min);
+  border: var(--hair) solid var(--field-line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: border-color var(--ds-dur-quick) var(--ease), background var(--ds-dur-quick) var(--ease);
+}
+.moving-border:disabled { cursor: not-allowed; opacity: 0.5; }
+.moving-border__beam {
+  display: none;
+  position: absolute;
+  inset: -150%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 20deg,
+    var(--c-cyan) 60deg,
+    var(--c-purple) 100deg,
+    transparent 140deg 360deg
+  );
+  animation: moving-border-spin 3.6s linear infinite;
+  animation-play-state: var(--anim-play-state);
+}
+.moving-border:not(.moving-border--active) .moving-border__beam { opacity: 0; }
+.moving-border__content {
+  position: relative;
+  display: inline-flex;
+  transition: color var(--ds-dur-quick) var(--ease);
+  align-items: center;

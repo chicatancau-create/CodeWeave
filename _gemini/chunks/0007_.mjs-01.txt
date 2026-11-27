@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { registerHooks } from 'node:module'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join, relative, resolve } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
+import { pathToFileURL } from 'node:url'
+
+const repository = resolve(import.meta.dirname, '..', '..', '..', '..')
+const workspace = join(repository, '工作区')
+const web = join(repository, '网页端', '项目')
+const expanded = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+const stamp = expanded.replace(/-/g, '').replace(' ', '_').replace(/:/g, '')
+const backup = join('G:/数据备份', `CodeWeave_本机连接_${stamp}`)
+const restore = await mkdtemp(join(tmpdir(), 'codeweave-restore-test-'))
+const legacy = join(workspace, 'data', 'runtime', 'desktop')
+const unified = join(workspace, 'data', 'runtime', 'unified-local')
+const vault = join(workspace, '全栈工程师学习资料库')
+const chrome = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const browserData = join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'User Data')
+const stats = []
+
+const hooks = registerHooks({
+  resolve(specifier, context, next) {
+    try { return next(specifier, context) } catch (error) {
+      if (error.code !== 'ERR_MODULE_NOT_FOUND' || !context.parentURL?.startsWith(pathToFileURL(web).href) || !specifier.startsWith('.')) throw error
+      return next(`${specifier}.ts`, context)
+    }
+  },
+})
+const { buildExportPayload } = await import(pathToFileURL(join(web, 'src', 'utils', 'local-data.ts')).href)
+hooks.deregister()
+
+async function hash(path) {
+  return createHash('sha256').update(await readFile(path)).digest('hex')
+}
+async function copyIfPresent(source, dest, required = false) {
+  try { await stat(source) } catch (error) {
+    if (error.code !== 'ENOENT' || required) throw error
+    stats.push({ category: dest, presence: 'absent' })
+    return
+  }
+  const target = join(backup, dest)
+  await mkdir(dirname(target), { recursive: true })
+  await cp(source, target, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true })
+  stats.push({ category: dest, presence: 'backed_up' })
+}
+async function getFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true })
+  const files = []
+  for (const entry of entries) {
+    const path = join(root, entry.name)
+    if (entry.isFile()) files.push(path)
+    else if (entry.isDirectory()) files.push(...await getFiles(path))
+    else throw new Error('备份对象内检测到链接或非普通文件')
+  }
+  return files.sort()
+}
+
+async function browserExports(accountId) {
+  const { chromium } = await import('file:///D:/DevCache/CodeWeave-Browser-Smoke/node_modules/playwright-core/index.mjs')
+  const profiles = (await readdir(browserData, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && /^(Default|Profile \d+)$/.test(entry.name))
+  for (const entry of profiles) {
+    const source = join(browserData, entry.name, 'Local Storage', 'leveldb')
+    let files
+    try { files = (await readdir(source, { withFileTypes: true })).filter((item) => item.isFile() && /(?:^CURRENT$|^MANIFEST-\d+$|^\d+\.(?:log|ldb|sst)$)/.test(item.name)) }
+    catch (error) { if (error.code === 'ENOENT') continue; throw error }
+    if (!files.some((item) => item.name === 'CURRENT')) continue
+    const profileCopy = await mkdtemp(join(restore, 'chrome-'))
+    const copy = join(profileCopy, 'Default', 'Local Storage', 'leveldb')
+    await mkdir(copy, { recursive: true })
+    const observed = new Map()
+    for (const file of files) {
+      const filename = join(source, file.name)
+      observed.set(filename, await hash(filename))
+      await cp(filename, join(copy, file.name), { errorOnExist: true, force: false })
+      assert.equal(await hash(join(copy, file.name)), observed.get(filename), 'Chrome 存储快照在复制过程中发生变化')
+    }

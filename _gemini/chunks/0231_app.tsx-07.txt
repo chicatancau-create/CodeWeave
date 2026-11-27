@@ -1,0 +1,111 @@
+      payload.externalEvidence ? `${note}\n${summarizeExternalEvidence(payload.externalEvidence)}` : note,
+      payload.verification,
+    )
+  }
+
+  /**
+   * R4 人工复核「确认通过」：状态迁移整个交给 `useChallengeProgress.verifySubmission`
+   * （它只认 submitted，rejected/passed 一律不动），这里只补一条掌握度证据。
+   *
+   * 补这条是为了让两条通过路径同口径：本机自动通过早就在 `handleChallengeSubmit` 里
+   * 记 `kind:'challenge', passed:true`，人工确认过的外部证据此前什么都不记，
+   * 「计入完成数与掌握度」（use-challenge-progress.ts:43）只兑了一半。
+   */
+  const handleVerifySubmission = (challengeId: string, observation?: AchievementObservation) => {
+    const record = challengeProgress.progress[challengeId]
+    // 界面只在 status==='submitted' 的记录上画按钮；这里再判一次，迟到/重复点击不会写出第二条证据。
+    if (!record || record.status !== 'submitted') return
+    verifySubmission(challengeId, observation)
+    mastery.recordEvidence(
+      challengeId,
+      'challenge',
+      true,
+      '人工复核通过：外部环境提交的证据经人确认后才计入通过（判定来源：人工复核，非本机自动验证）',
+    )
+  }
+
+  /**
+   * R4 人工复核「标记不通过」：同样只走 hook 的 `rejectSubmission`。
+   * 这里不写掌握度证据——`handleChallengeSubmit` 对本机判失败的一跑也不写，
+   * 不通过的事实由挑战记录自己承载（`status:'rejected'`），记一条 passed:false 反而
+   * 会给从没通过过的单元凭空造出一条掌握度记录。
+   */
+  const handleRejectSubmission = (challengeId: string) => {
+    const record = challengeProgress.progress[challengeId]
+    if (!record || record.status !== 'submitted') return
+    rejectSubmission(challengeId)
+  }
+
+  /**
+   * LEARN-01 第 4 条：「已练习」由真实跑完的轨迹自动记，「已阅读」由工作台的按钮显式记。
+   * 两条都是 `passed:false` 的证据（见 hooks/use-lesson-signals），只作为状态陈述，
+   * 不当完成、不推进等级；下面的 `completed` 与「下一推荐」都必须走 `hasCompletionEvidence`，
+   * 否则按一次「标记已阅读」就会把整页判成已完成。
+   */
+  const lessonSignals = useLessonSignals({
+    lesson: view === 'path' ? activeLesson : null,
+    runStatus: execution.runStatus,
+    execution: execution.execution,
+    records: mastery.records,
+    recordEvidence: mastery.recordEvidence,
+  })
+
+  const handleChallengeSubmit = (
+    challenge: Challenge,
+    submission: {
+      output: string[]
+      evidence: string
+      passed: boolean
+      tier: ExecutionTier
+      judgeMode?: ChallengeJudgeMode
+      externalEvidence?: ExternalEvidence
+    },
+  ) => {
+    // R4：外部环境实验无法在本机验证真实性 → 只能进入「待人工确认」，不自动通过。
+    const status: ChallengeProgressStatus = submission.tier === 'external' ? 'submitted' : submission.passed ? 'passed' : 'rejected'
+    challengeProgress.applySubmission({
+      challengeId: challenge.id,
+      status,
+      output: submission.output,
+      evidence: submission.evidence,
+      tier: submission.tier,
+      judgeMode: submission.judgeMode,
+    })
+    // 只有本机可验证的通过才写入掌握度；待人工确认不产生掌握度记录。
+    if (status === 'passed') {
+      mastery.recordEvidence(challenge.id, 'challenge', true, submission.evidence)
+    }
+  }
+
+  const handleReview = (record: MasteryRecord, passed: boolean) => {
+    mastery.recordEvidence(record.refId, 'review', passed, passed ? '复测通过' : '复测未通过')
+  }
+
+  const titles = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const lesson of content.lessons) map[lesson.id] = `${lesson.label} · ${lesson.title}`
+    for (const challenge of challenges) map[challenge.id] = challenge.title
+    return map
+  }, [content.lessons, challenges])
+
+  /** 下一推荐单元：当前科目中第一个还没有**完成证据**的课程（只有阅读/练习信号的课仍要推荐） */
+  const recommendedLesson = useMemo(() => {
+    const list = content.lessons.filter((lesson) => lesson.subjectId === subjectId)
+    return list.find((lesson) => !hasCompletionEvidence(mastery.records[lesson.id])) ?? null
+  }, [content.lessons, subjectId, mastery.records])
+
+  /** 阶段展示口径：优先新口径 S0—S9；资料库未连接时退回旧 A—M 并明确标注。 */
+  const displayStages = content.stages.length > 0 ? content.stages : content.legacyStages
+  const stagesAreLegacy = content.stages.length === 0
+
+  /**
+   * 掌握度地图：按当前展示口径的阶段聚合（个人中心）。
+   * 旧 A—M 单元记录不会自动并入 S0—S9（方案 §4：旧通过不自动变成新阶段通过）。
+   */
+  const stageMastery = useMemo(
+    () =>
+      aggregateMasteryByStage(
+        mastery.records,
+        displayStages,
+        new Map(content.lessons.map((lesson) => [lesson.id, lesson.content.stageId])),
+      ),

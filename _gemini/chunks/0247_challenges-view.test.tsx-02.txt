@@ -1,0 +1,98 @@
+    fireEvent.change(editor, { target: { value: '// 只有注释，无可识别结构' } })
+    fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+    // 运行结果同时渲染在「编写与运行」与「提交记录」面板（hidden 面板仍在 DOM）
+    expect((await screen.findAllByText(/未识别代码结构，未产生通过判定/)).length).toBeGreaterThan(0)
+
+    // 切到提交记录：未识别 → 提交禁用
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    const submit = screen.getByRole('button', { name: /提交答案/ }) as HTMLButtonElement
+    expect(submit.disabled).toBe(true)
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    // 让运行通过：恢复原始代码并运行；证据为空仍不能提交
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    const editor2 = screen.getByRole('textbox', { name: /B 关卡验收：Java 核心编程 代码编辑器/ })
+    fireEvent.change(editor2, { target: { value: challenges[1]!.starterCode } })
+    fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+    expect((await screen.findAllByText(/输出与验收点一致/)).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    const submit2 = screen.getByRole('button', { name: /提交答案/ }) as HTMLButtonElement
+    expect(submit2.disabled).toBe(true)
+
+    // 未识别与未提交都不增加完成数（回到列表查看概览）
+    fireEvent.click(screen.getByRole('button', { name: /返回列表/ }))
+    expect(screen.getByText(/已完成 0 \/ 13/)).toBeTruthy()
+  })
+
+  it('运行一致 + 证据后可提交，且 onSubmit 收到 passed 提交', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    fireEvent.click(screen.getByRole('button', { name: /运行检查/ }))
+    expect((await screen.findAllByText(/输出与验收点一致/)).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), {
+      target: { value: '教学运行器输出 15，与验收点一致。' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /提交答案/ }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    const call = onSubmit.mock.calls[0]![0] as Challenge
+    expect(call.id).toBe('stage-b')
+
+    // 提交只清证据、不动代码：从没编辑过代码的人，提交后编辑器必须还是起始代码。
+    // 旧实现在 patchDraft 的基底里凭空补 code:''，这一次提交就把起始代码顶成了空白。
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    expect((screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement).value).toBe(
+      challenges[1]!.starterCode,
+    )
+    expect(document.querySelector('.challenge-draft-state--code')?.textContent).toContain('本机无代码草稿')
+  })
+
+  it('外部实验关卡不调用运行器，并显示不伪造声明与证据要求', () => {
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /编写与运行/ }))
+    expect(screen.getByText(/本页面不会伪造真实运行结果/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /运行检查/ })).toBeNull()
+  })
+
+  it('R4：外部关卡提交随机长文本不会进入已验证通过状态（结构化必填校验）', () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /A 关：开发环境与基本操作/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /提交记录/ }))
+
+    // 只填“结果摘要”一栏的随机长文本：必填字段缺失 → 不能提交
+    fireEvent.change(screen.getByLabelText(/结果摘要/), {
+      target: { value: '这是一段足够长的随机文本，用来模拟原先仅凭长度即可通过的情况。'.repeat(3) },
+    })
+    expect((screen.getByRole('button', { name: /提交证据/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    // 必填项缺失时有可访问的错误提示
+    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0)
+  })
+
+  it('R4：外部关卡填齐必填字段后可提交，且 onSubmit 收到 passed=false 与 external 等级', () => {
+    const onSubmit = vi.fn()
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}

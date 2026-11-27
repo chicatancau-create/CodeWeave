@@ -1,0 +1,149 @@
+  border-bottom: var(--ds-line-width, 1px) solid var(--vp-hair);
+  transition: background-color var(--vp-quick) var(--vp-ease);
+}
+
+.cw-vault .vp-ledger thead th {
+  padding: var(--ds-space-10, 10px) var(--ds-space-10, 10px) var(--ds-space-8, 8px) 0;
+  font-size: var(--vp-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+  color: var(--vp-dim);
+  border-bottom-color: var(--vp-hair-raised);
+}
+
+.cw-vault .vp-ledger tbody tr th,
+.cw-vault .vp-ledger tbody tr td {
+  transition: background-color var(--vp-quick) var(--vp-ease);
+}
+
+.cw-vault .vp-ledger tbody tr:hover th,
+.cw-vault .vp-ledger tbody tr:hover td {
+  background-color: var(--vp-wash);
+}
+
+.cw-vault .vp-col-num,
+.cw-vault .vp-cell-num {
+  width: 3.2em;
+}
+
+.cw-vault .vp-col-level,
+.cw-vault .vp-col-state {
+  width: 9em;
+}
+
+.cw-vault .vp-row-idx {
+  display: block;
+  font-size: var(--ds-size-control, 13px);
+  color: var(--vp-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-vault .vp-cell-value {
+  color: var(--vp-ink);
+  opacity: var(--ds-text-emphasis-strong, 0.85); /* L379 .ledger b */
+}
+
+.cw-vault .vp-cell-evidence,
+.cw-vault .vp-cell-note {
+  display: block;
+  font-size: var(--vp-meta);
+  line-height: 1.6;
+  color: var(--vp-dim);
+}
+
+/* ── 小标题：编号 + 发丝线 ───────────────────────────────────────────────── */
+.cw-vault .vp-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  margin: 0;
+  padding: var(--ds-space-14, 14px) 0 var(--ds-space-8, 8px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--vp-hair-raised);
+  color: var(--vp-ink);
+  font-size: clamp(15px, 1.4vw, 18px);
+  font-weight: var(--ds-weight-body, 400);
+  line-height: var(--ds-leading-title, 1.15);
+  letter-spacing: var(--ds-track-title, -0.02em);
+}
+
+.cw-vault .vp-subtitle-idx {
+  font-size: clamp(18px, 2.4vw, 28px);
+  line-height: 1;
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-display, -0.03em);
+  color: var(--vp-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 空态 / 说明 / 告警：细线分区，不是卡片 ──────────────────────────────── */
+.cw-vault .vp-empty {
+  margin: 0;
+  padding: var(--ds-space-14, 14px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-bottom: var(--ds-line-width, 1px) solid var(--vp-hair);
+  color: var(--vp-dim);
+  font-size: var(--vp-body);
+  line-height: var(--vp-leading);
+}
+
+.cw-vault .vp-note {
+  margin: 0;
+  color: var(--vp-dim);
+  font-size: var(--vp-meta);
+  line-height: var(--vp-leading);
+  max-width: 92ch;
+}
+
+.cw-vault .vp-warn-band {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding: var(--ds-space-12, 12px) 0;
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-bottom: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--vp-ink);
+  font-size: var(--vp-body);
+  line-height: 1.6;
+}
+
+/* ── 结构待适配原文：黑场实底 + 发丝线，横向滚动而不是折行挤压 ─────────────── */
+.cw-vault .vp-unparsed {
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+  padding-top: var(--ds-space-10, 10px);
+}
+
+.cw-vault .vp-unparsed summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--vp-tap);
+  color: var(--vp-ink);
+  font-size: var(--vp-body);
+  cursor: pointer;
+}
+
+.cw-vault .vp-unparsed ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--vp-hair);
+}
+
+.cw-vault .vp-unparsed li {
+  padding: var(--ds-space-12, 12px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--vp-hair);
+  font-size: var(--vp-meta);
+  line-height: 1.6;
+  color: var(--vp-dim);
+}
+
+.cw-vault .vp-unparsed pre {
+  margin: var(--ds-space-8, 8px) 0 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  overflow-x: auto;
+  background: var(--ds-canvas-solid, #000);
+  border: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  color: var(--vp-ink);

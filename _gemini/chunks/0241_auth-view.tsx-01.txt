@@ -1,0 +1,105 @@
+import './auth-view.css'
+
+import { AlertTriangle, CodeXml, Eye, EyeOff, LogIn, Pause, Play, ShieldCheck } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import type { FormEvent, KeyboardEvent } from 'react'
+import { useLocalStorage } from '../hooks/use-local-storage'
+import { STORAGE_KEYS } from '../utils/constants'
+import { currentSurface, SURFACE_LABEL } from '../utils/surface'
+
+/** 设备级设置里本页唯一关心的一项：应用内「减少动效」开关（app.tsx L193 同名字段）。 */
+type ReduceMotionSetting = { reduceMotion?: boolean }
+
+type AuthMode = 'login' | 'register'
+type ContactType = 'email' | 'phone'
+
+type AuthViewProps = {
+  mode: AuthMode
+  error: string
+  busy: boolean
+  /**
+   * 登录状态检查阶段的连接故障：'unavailable'（服务未启动）与 'bad_response'（响应异常）。
+   * 与凭据错误（error）分开显示，避免用户把“服务没开”误判为“密码错了”。
+   */
+  connectionError?: 'unauthorized' | 'unavailable' | 'bad_response' | 'request_failed' | null
+  onModeChange: (mode: AuthMode) => void
+  onSubmit: (values: {
+    name?: string
+    email?: string
+    phone?: string
+    identifier?: string
+    contactType?: ContactType
+    password: string
+  }) => void
+}
+
+const CONNECTION_HINTS: Record<string, string> = {
+  unavailable: '无法连接本地服务。请在网页端项目目录运行 corepack pnpm server:start 启动服务，或运行 corepack pnpm dev 启动开发页面后重试。',
+  bad_response: '服务返回了异常响应，可能正在升级或未构建前端产物。请在网页端项目目录运行 corepack pnpm build 后重启服务。',
+  request_failed: '服务暂时无法处理请求，请稍后重试。',
+}
+
+/** 密码长度约束：必须与 server.mjs 的 8-128 校验保持一致。 */
+const PASSWORD_MIN_LENGTH = 8
+const PASSWORD_MAX_LENGTH = 128
+
+/** 提交按钮文案：正常态与忙态都按模式区分，避免“创建账户”误写成“注册”。 */
+const SUBMIT_LABEL: Record<AuthMode, { idle: string; busy: string }> = {
+  login: { idle: '登录', busy: '正在登录…' },
+  register: { idle: '创建账户', busy: '正在创建…' },
+}
+
+/** 眉标编号：入口页沿用模板的章节编号表达（index.html L63 `<i class="idx">00</i>`）。 */
+const REDUCE_MOTION_CLASS = 'reduce-motion'
+const REDUCE_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+
+/** 系统「减少动效」偏好。非浏览器环境（node 测试）按“不减少”处理。 */
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia(REDUCE_MOTION_QUERY).matches
+}
+
+/**
+ * 应用内「减少动效」设置的根类。app.tsx 把 `.reduce-motion` 挂在壳层根节点上，
+ * 登录页在它之外（app.tsx L130 直接渲染 AuthView），因此这里读 documentElement/body
+ * 两处，并用 MutationObserver 跟随变化；CSS 里同时写了 `.reduce-motion …` 后代选择器，
+ * 任一层先落地都能真正停止动画。
+ */
+function hasReduceMotionClass(): boolean {
+  if (typeof document === 'undefined') return false
+  return (
+    document.documentElement.classList.contains(REDUCE_MOTION_CLASS) ||
+    document.body.classList.contains(REDUCE_MOTION_CLASS)
+  )
+}
+
+/**
+ * 场景动效的四条“真停”路径（§5.3.3 / §5.3.4）：系统偏好、应用「减少动效」设置、
+ * 用户手动暂停、页面切到后台。命中任一条即 `still`，组件把 `data-motion="still"`
+ * 写进 DOM，CSS 侧一律 `animation: none`（移除关键帧），而不是放慢时长。
+ * 场景本身是纯 CSS 装饰层，不持有 RAF / 监听器 / GPU 资源，因此不存在需要释放的帧循环。
+ */
+function useSceneMotion() {
+  const [systemReduce, setSystemReduce] = useState(prefersReducedMotion)
+  const [classReduce, setClassReduce] = useState(hasReduceMotionClass)
+  const [hidden, setHidden] = useState(() => document.visibilityState === 'hidden')
+  const [userPaused, setUserPaused] = useState(false)
+  /**
+   * 设置里的「减少动效」开关（app.tsx L193 定义、L600 挂 `.reduce-motion` 类）。
+   * 登录页渲染在 `.app-shell` 之外，拿不到那个类，因此这里直接读同一条设备级设置；
+   * 共享层若把该类提到 documentElement/body，上面的观测会同时生效，两条路径不冲突。
+   */
+  const [settings] = useLocalStorage<ReduceMotionSetting>(STORAGE_KEYS.SETTINGS, {})
+  const settingReduce = settings.reduceMotion === true
+
+  useEffect(() => {
+    // jsdom 不实现 matchMedia（真实浏览器与 Edge 全都有）：缺失时按“不减少”处理。
+    if (typeof window.matchMedia !== 'function') return
+    const query = window.matchMedia(REDUCE_MOTION_QUERY)
+    const onChange = (event: MediaQueryListEvent) => setSystemReduce(event.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => setClassReduce(hasReduceMotionClass()))

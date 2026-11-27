@@ -1,0 +1,133 @@
+  margin: 0 0 var(--ds-space-10, 10px);
+  font-size: var(--ewb-body);
+  font-weight: 400;
+}
+
+.evidence-writeback .ewb-zone-title {
+  color: var(--ewb-ink);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.evidence-writeback .evidence-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .evidence-list li,
+.evidence-writeback .ewb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  min-width: 0;
+  padding: var(--ds-space-6, 6px) var(--ds-space-2, 2px);
+  border: 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-radius: 0;
+  background: none;
+}
+
+/* 条目级再叠一层形状通道（3px 起始缺口）：状态已经由「图形 + 文字」表达，
+   这里的颜色只是第三重加强，单独看颜色不成立。 */
+.evidence-writeback .ewb-row {
+  border-inline-start: 3px solid transparent;
+}
+
+.evidence-writeback .ewb-row--pending {
+  border-inline-start-color: var(--ewb-info);
+}
+
+.evidence-writeback .ewb-row--partial {
+  border-inline-start-color: var(--ewb-warn);
+}
+
+.evidence-writeback .ewb-row--synced {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .evidence-list label,
+.evidence-writeback .ewb-row-static {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  min-width: 0;
+  min-height: var(--ewb-tap);
+}
+
+/* 只有可勾选的行才是指针态；已同步行是只读账目 */
+.evidence-writeback .evidence-list label {
+  cursor: pointer;
+}
+
+/* 勾选框：视觉保持 22×22 的自绘方框，命中区用 ::before 外扩到 44×44（§5.4）。
+   这一组共用规则同时覆盖本页两颗复选框：待处理列表 .evidence-list 与
+   「由我独立完成 / 我已核对确认」两颗 .vault-binding-toggle（见 §8 的说明）。
+
+   为什么必须 appearance:none、而不是给原生框加 ::before——
+   原生外观的复选框是**替换元素**，伪元素根本不参与命中。本轮已用**受信点击**实测：
+     · appearance:auto + ::before{inset:-11px}：computed style 报 44×44，
+       但框外 8px 处 document.elementFromPoint 给的是 MAIN.content-wrap，点下去 checked 不翻；
+     · 退而点包裹它的 <label>：命中的又是盖在上面的兄弟节点 P.ewb-state，同样不翻。
+   只有 appearance:none 让 input 不再是替换元素，::before 才真正撑出命中区，
+   命中点回落到 INPUT 自身（复核脚本 tmp-m6-visual/probe-checkbox-v2.mjs 记有 before/after 两态）。
+   写法与 styles.css 的 .setting-row 开关同源：小视觉框 + ::before 外扩命中 + ::after 自绘图形。
+   另：§5.4 量的是**目标自身**的命中区，label 包裹只让「点文字」也能勾选，
+   验收探针（tools/visual/probes.mjs 的 hitBox）不认它，此前这一档就是 22×22。
+   左右 ±11px 落在 label 自身的 10–12px gap / ≥44px 行高内，不越到相邻文字的字形上。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: var(--ds-line-width, 1px) solid var(--ewb-edge-active);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--ewb-canvas);
+  cursor: pointer;
+}
+
+/* 命中区：::before 外扩 ±11px（22 → 44），appearance:none 后才是真的可点。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  inset: -11px;
+}
+
+/* 勾：::after 用右/下两条 2px 边旋转 45° 自绘，只在 :checked 现形，
+   压在暖白实心底上的反色（黑）。未勾选是空心描边框——「勾 / 空框」是颜色之外的第二重通道。
+   pointer-events:none 保证命中区只由 ::before 决定，::after 纯装饰。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 11px;
+  border: 2px solid transparent;
+  transform: rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 勾选态：描边与底一并抬到暖白 --ewb-ink，勾取反色（画布黑）。 */
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']:checked {
+  border-color: var(--ewb-ink);
+  background: var(--ewb-ink);
+}
+.evidence-writeback :is(.evidence-list, .vault-binding-toggle) input[type='checkbox']:checked::after {
+  border-right-color: var(--ewb-canvas);
+  border-bottom-color: var(--ewb-canvas);
+  opacity: 1;
+}
+
+/* 禁用态（「由我独立完成」在 AI 运行 / L3·L4 提示下禁用）：
+   自绘后不再继承原生的置灰，这里显式压一档，不改变 22×22 视觉与 44×44 命中尺寸。 */

@@ -1,0 +1,39 @@
+  const search = page.getByRole('combobox', { name: '全局搜索课程、挑战与项目' });
+  await search.fill('no-match-qt-smoke');
+  await capture('topbar-search', '.global-search__panel');
+  assert(await search.evaluate(element => element === document.activeElement));
+  report.searchFocus = { ...await measureElement(search), focused: true,
+    focusVisible: await search.evaluate(element => element.matches(':focus-visible')) };
+  await escapeAndFocus('.global-search__panel', search);
+  await search.fill('');
+  await search.press('Escape');
+  const settings = page.getByRole('button', { name: '打开设置', exact: true });
+  await settings.click();
+  await capture('topbar-settings', '.settings-modal');
+  report.settings = [await measureSettings()];
+  await page.setViewportSize({ width: 1100, height: 720 });
+  await capture('topbar-settings-small', '.settings-modal');
+  report.settings.push(await measureSettings());
+  await escapeAndFocus('.settings-modal', settings);
+  await capture('topbar-shell-small', '.topbar');
+  report.topbar.push(await measureTopbar());
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await quick.click();
+  await page.getByRole('menuitem', { name: /学习指南/ }).click();
+  await capture('topbar-help', '.help-modal');
+  report.help = { viewport: page.viewportSize(),
+    title: await measureElement(page.locator('.help-modal .cw-modal-title')),
+    sectionTitles: await measureElements(page.locator('.help-modal .cw-modal-help h3')),
+    body: await measureElements(page.locator('.help-modal .cw-modal-help p')),
+    button: await measureElement(page.locator('.help-modal .cw-modal-cta')) };
+  await escapeAndFocus('.help-modal', quick);
+  assert.deepEqual(report.errors, []);
+  report.passed = true;
+} catch (error) {
+  report.failure = String(error);
+  throw error;
+} finally {
+  report.completedAt = new Date().toISOString();
+  await writeFile(resolve(output, 'web-topbar.json'), JSON.stringify(report, null, 2) + '\n');
+  await browser.close();
+}

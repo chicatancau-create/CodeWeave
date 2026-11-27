@@ -1,0 +1,55 @@
+                  <span className={`execution-tier tier-${tierOfRunner(selectedChallenge.runner)}`} role="note">
+                    {EXECUTION_TIER_LABEL[tierOfRunner(selectedChallenge.runner)]}
+                  </span>
+                </div>
+                <h2>{selectedChallenge.title}</h2>
+                <p>{selectedChallenge.description}</p>
+                <div className="challenge-meta">
+                  <span>
+                    {isExternalSelected ? <FlaskConical size={12} /> : <Play size={12} />}{' '}
+                    {RUNNER_LABELS[selectedChallenge.runner]}
+                  </span>
+                  <span>{selectedChallenge.track}</span>
+                  {selectedChallenge.prerequisites.length > 0 && (
+                    <span>
+                      前置：{selectedChallenge.prerequisites.map((id) => id.replace('stage-', '').toUpperCase()).join('、')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </header>
+
+            <ChallengeDetail
+              challenge={selectedChallenge}
+              sequence={sequenceById.get(selectedChallenge.id) ?? '——'}
+              total={totalOrdinal}
+              record={progress[selectedChallenge.id]}
+              units={unitsByStage[selectedChallenge.stageId] ?? NO_UNITS}
+              onOpenUnit={onOpenUnit}
+              draft={drafts[selectedChallenge.id]?.code ?? selectedChallenge.starterCode}
+              draftCodeState={describeCodeDraft(drafts[selectedChallenge.id])}
+              draftEvidenceState={describeEvidenceDraft(evidenceNote)}
+              onDraftChange={updateDraft}
+              runResult={runResult}
+              outputMatches={outputMatches}
+              judge={judge}
+              busy={busy}
+              onRun={handleRun}
+              evidence={evidenceNote}
+              onEvidenceChange={updateEvidence}
+              externalEvidence={externalEvidence}
+              externalCheck={externalCheck}
+              onExternalEvidenceChange={handleExternalEvidenceChange}
+              hintOpen={hintOpen}
+              onToggleHint={toggleHint}
+              canSubmit={canSubmit}
+              onSubmit={handleSubmit}
+              onVerifySubmission={onVerifySubmission}
+              onRejectSubmission={onRejectSubmission}
+            />
+          </section>
+        )
+      )}
+    </section>
+  )
+}

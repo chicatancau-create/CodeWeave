@@ -1,0 +1,134 @@
+            "passed": true
+        },
+        {
+            "name": "learning-details-open-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-five-statistics-and-truthful-stage-groups",
+            "passed": true
+        },
+        {
+            "name": "learning-details-preserves-header-and-vertical-statistics",
+            "passed": true
+        },
+        {
+            "name": "learning-details-actual-subject-metadata-and-evidence-labels",
+            "passed": true
+        },
+        {
+            "name": "learning-details-resolves-windows-ui-font",
+            "passed": true
+        },
+        {
+            "name": "learning-details-stage-number-rail-precedes-content",
+            "passed": true
+        },
+        {
+            "name": "learning-details-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "learning-details-subject-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-lesson-keyboard-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-keyboard-focus-scrolls-to-lesson",
+            "passed": true
+        },
+        {
+            "name": "learning-details-ledger-title-column-aligns-with-header",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-selected-unit-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-target",
+            "passed": true
+        },
+        {
+            "name": "review-three-group-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "review-three-groups-match-real-schedules",
+            "passed": true
+        },
+        {
+            "name": "review-nonempty-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-pass-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-pass-refreshes-level-step-and-due-date",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-row-action",
+            "passed": true
+        },
+        {
+            "name": "review-snooze-refreshes-date-without-changing-mastery",
+            "passed": true
+        },
+        {
+            "name": "review-updated-screenshot",
+            "passed": true
+        },
+        {
+            "name": "review-open-course-row-action",
+            "passed": true
+        },
+        {
+            "detail": "page=复习与进度 document=java-loop-sum selected=1 body=1",
+            "name": "review-open-course-resolves-published-id",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "22",
+            "name": "twenty-two-page-screenshots",
+            "passed": true
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-review.png",

@@ -1,0 +1,40 @@
+                        style = MaterialTheme.typography.bodySmall)
+                    val opened = page
+                    if (opened == null) {
+                        index.courses.forEach { course ->
+                            Button(modifier = Modifier.fillMaxWidth(), enabled = !busy, onClick = {
+                                val token = generation
+                                busy = true
+                                notice = null
+                                scope.launch {
+                                    try {
+                                        val loaded = withContext(Dispatchers.IO) { content.page(active, index, course) }
+                                        if (token == generation) page = loaded
+                                    } catch (cancelled: CancellationException) { throw cancelled }
+                                    catch (error: Exception) {
+                                        if (token == generation) {
+                                            notice = error.message ?: "无法读取课程"
+                                            if ((error as? ServiceError)?.code == "unauthorized") loadCourses(active)
+                                        }
+                                    } finally { if (token == generation) busy = false }
+                                }
+                            }) { Text(course.title) }
+                        }
+                    } else {
+                        TextButton(onClick = { page = null }) { Text("返回目录") }
+                        Text(opened.title, style = MaterialTheme.typography.titleLarge)
+                        Text(opened.markdown)
+                        opened.exercises.forEach { (title, prompt) ->
+                            Text(title, style = MaterialTheme.typography.titleMedium)
+                            Text(prompt)
+                        }
+                        opened.attachments.forEach { attachment ->
+                            val bitmap = remember(attachment) { BitmapFactory.decodeByteArray(attachment.bytes, 0, attachment.bytes.size) }
+                            if (bitmap == null) Text(attachment.name) else Image(bitmap.asImageBitmap(), attachment.name, Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

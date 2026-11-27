@@ -1,0 +1,98 @@
+  const status = content.learningStatus
+
+  const [form, setForm] = useState({
+    at: todayLocal(),
+    topic: '',
+    stage: '',
+    contentId: '',
+    exerciseId: '',
+    expected: '',
+    actual: '',
+    artifacts: '',
+    unfinished: '',
+    ranBy: 'learner' as EvidenceRanBy,
+    independent: true,
+    hintLevel: '' as '' | 'L1' | 'L2' | 'L3' | 'L4',
+  })
+  const [selected, setSelected] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [preview, setPreview] = useState<WritebackPreview | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
+  const [conflict, setConflict] = useState<WritebackConflictDetails | null>(null)
+  const [partial, setPartial] = useState<PartialTransaction | null>(null)
+
+  /**
+   * 队列读取的三档判定（挂账②）：`queuePhase` 表达「这一次读怎么样了」，
+   * `queue` 表达「手上最可信的一份数据是什么」。二者分开，重读时不清空已有数据，
+   * 失败也就不会被界面显示成「没有待写回证据」。
+   */
+  const [queue, setQueue] = useState<EvidenceQueue | null>(null)
+  const [queuePhase, setQueuePhase] = useState<QueuePhase>('loading')
+  const [queueFailure, setQueueFailure] = useState<{ code: string; reason: string } | null>(null)
+  /** 是否已经成功读到过：决定后台重读要不要把界面退回加载态（只有首次读才退回）。 */
+  const hasQueueRef = useRef(false)
+
+  // -------------------------------------------------------------------------
+  // 事务账本（挂账 #35）：事实来源是服务端磁盘上的事务记录，不是 React 状态。
+  // 界面刷新后「刚才那次写回做了什么、还差哪一步、能不能回滚」都要还能答上来。
+  // 判定口径与上面的队列一致：`ledgerPhase` 说「这一次读怎么样了」，
+  // `ledger` 说「手上最可信的一份记录是什么」，读失败绝不写成「没有写回事务」。
+  // -------------------------------------------------------------------------
+  const [ledger, setLedger] = useState<WritebackTransactionList | null>(null)
+  const [ledgerPhase, setLedgerPhase] = useState<QueuePhase>('loading')
+  const [ledgerFailure, setLedgerFailure] = useState<{ code: string; reason: string } | null>(null)
+  const hasLedgerRef = useRef(false)
+
+  /** 同一时刻只展开一笔事务的明细：逐步清单与回滚入口都挂在它下面。 */
+  const [openTxId, setOpenTxId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<WritebackTransactionDetail | null>(null)
+  const [detailPhase, setDetailPhase] = useState<QueuePhase>('loading')
+  const [detailFailure, setDetailFailure] = useState('')
+  /** 停在「等待确认」的那笔事务：没有这一步确认就不会发出回滚请求。 */
+  const [rollbackConfirmId, setRollbackConfirmId] = useState<string | null>(null)
+  const [rollbackBusy, setRollbackBusy] = useState(false)
+  /** 上一次回滚的回执，按事务留存；文字只转述服务端给的事实，不下「一定修好了」的结论。 */
+  const [rollbackOutcome, setRollbackOutcome] = useState<RollbackOutcome>(null)
+
+  const isOwner = status?.isOwner === true
+
+  /*
+   * 01 号方案 §4 的 disabled 行：三颗按钮原先只被共享层压到 opacity .5，界面从没说
+   * 「按不动的条件是什么、做什么才解禁」。条件在这里列成清单，一句句渲染成真实文字，
+   * 再用 aria-describedby 绑到按钮上；条件不同时**不合并成一句笼统的「请稍后」**。
+   * 说明文字不挂 role=status：本页的播报权属于写入结果那一行（见 ewb-result 那几条断言）。
+   */
+  const stageBlockers: string[] = []
+  if (busy) stageBlockers.push('上一次写盘还没返回')
+  if (!form.topic.trim()) stageBlockers.push('先填这条证据的主题名，暂存才知道要落到哪一页')
+
+  const previewBlockers: string[] = []
+  if (busy) previewBlockers.push('上一次请求还没返回')
+  if (selected.length === 0) previewBlockers.push('上面还没勾出要写回的条目（当前 0 项）')
+  if (!isOwner) previewBlockers.push('写回资料库只有拥有者能做，当前账户不是拥有者——导出待保存 Markdown 那一颗仍然可用')
+
+  const stageDisabled = stageBlockers.length > 0
+  const previewDisabled = previewBlockers.length > 0
+
+  const refreshQueue = useCallback(async () => {
+    if (!hasQueueRef.current) {
+      setQueuePhase('loading')
+      setQueueFailure(null)
+    }
+    const loaded = await loadEvidenceQueueState()
+    if (loaded.status === 'ready') {
+      hasQueueRef.current = true
+      setQueue(loaded.queue)
+      setQueueFailure(null)
+      setQueuePhase('ready')
+      setSelected(loaded.queue.pending.map((record) => record.evidenceId))
+      return
+    }
+    setQueueFailure({ code: loaded.code, reason: loaded.reason })
+    setQueuePhase('failed')
+    if (!hasQueueRef.current) setSelected([])
+  }, [])
+
+  const refreshLedger = useCallback(async () => {

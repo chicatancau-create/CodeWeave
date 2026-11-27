@@ -1,0 +1,77 @@
+  assert(store.read_page("trace-store-01", 0, 2, page).ok);
+  assert(page.events.size() == 2 && !page.end && page.next_offset == 2);
+  std::vector<codeweave::execution::TraceEvent> all = page.events;
+  assert(store.read_page("trace-store-01", page.next_offset, 8, page).ok);
+  assert(page.events.size() == 3 && page.end);
+  all.insert(all.end(), page.events.begin(), page.events.end());
+  const auto summary = codeweave::execution::summarize_trace(all);
+  assert(summary.event_count == 5);
+  assert(summary.output_bytes == 6 && summary.completed && summary.paused);
+  assert(!store.read_page("trace-store-01", 0, 0, page).ok);
+  assert(store.read_page("trace-store-01", 1000000, 2, page).ok);
+  assert(page.events.empty() && page.end && page.next_offset == 5);
+  std::ofstream(fixture.root / "execution" / "trace.v1.log", std::ios::app) << "broken\n";
+  assert(!store.read_page("trace-store-01", 0, 1, page).ok);
+  assert(page.events.empty());
+}
+
+std::filesystem::path sibling_process_tool() {
+#ifdef _WIN32
+  std::wstring buffer(32768, L'\0');
+  const auto length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+  if (length == 0 || length >= buffer.size()) return {};
+  buffer.resize(length);
+  return std::filesystem::path(buffer).parent_path() / L"codeweave-cpp-runner.exe";
+#else
+  return {};
+#endif
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  test_backend_task_service_is_bounded_cancellable_and_generation_safe();
+  test_backend_task_service_keeps_successful_write_when_cancelled();
+  test_backend_task_service_close_cancels_inflight_read();
+  test_worker_cannot_wait_for_itself();
+  test_workspace_and_draft_round_trip();
+  test_workspace_can_use_independent_application_data_root();
+  test_workspace_rejects_symlink_data_root();
+  test_invalid_ids_and_atomic_replace();
+  test_oversized_existing_draft_is_rejected_before_reading();
+  test_draft_symlink_is_rejected_before_reading();
+  test_write_before_open_is_rejected();
+  test_open_workspace_is_idempotence_guarded();
+  test_account_contract_uses_non_sensitive_vectors();
+  test_password_crypto_matches_legacy_scrypt_vector();
+  test_account_store_is_native_only_and_idempotence_guarded();
+  test_account_service_owns_in_memory_session_only();
+  test_account_learning_roots_are_session_scoped_and_fail_closed();
+  test_content_contract_requires_stable_published_units();
+  test_content_repository_reads_only_published_units();
+  test_content_repository_rejects_symlink_files();
+  test_content_repository_reads_versioned_exercise_metadata();
+  test_content_contract_rejects_invalid_exercise_utf8();
+  test_learning_contract_preserves_uncertainty_and_evidence_boundaries();
+  test_mastery_contract_matches_web_semantics_and_eligibility_gate();
+  test_mastery_store_is_idempotent_fail_closed_and_replayable();
+  test_review_scheduler_matches_web_vectors();
+  test_evidence_store_is_idempotent_and_atomic();
+  test_learning_stores_serialize_concurrent_appends();
+  test_progress_store_is_idempotent_and_separate_from_projection();
+  test_progress_index_refreshes_after_external_ledger_change();
+  test_progress_append_transaction_recovers_or_fails_closed();
+  test_operation_index_rejects_symlink_shard();
+  test_evidence_append_transaction_recovers_and_cleans_up();
+  test_corrupt_learning_ledgers_fail_closed();
+  test_learning_ledgers_reject_symlink_files();
+  test_learning_and_trace_ledgers_reject_oversized_records();
+  test_challenge_service_links_execution_evidence_and_progress();
+  test_challenge_output_judgement_matches_exact_lines_contract();
+  test_challenge_service_compensates_evidence_when_progress_commit_fails();
+  test_external_evidence_stays_pending_and_rejects_sensitive_fields();
+  test_migration_staging_requires_fixture_and_rolls_back();
+  test_fixture_staging_rejects_targets_inside_source_or_through_alias();
+  test_fixture_backup_rejects_targets_inside_source();
+  test_fixture_backup_restore_round_trip();
+  test_native_backup_restores_only_to_new_directory();

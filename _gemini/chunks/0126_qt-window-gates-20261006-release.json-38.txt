@@ -1,0 +1,44 @@
+    }
+  ],
+  "limitations": [
+    "warm OS cache; synthetic workload",
+    "frameSwapped is not DWM presentation",
+    "startup from main entry excludes OS loader",
+    "not a Win32 parity comparison"
+  ],
+  "metrics": {
+    "main_thread_ms": {
+      "count": 4067,
+      "p50": 0.02120000123977661,
+      "p95": 0.4984000027179718,
+      "max": 234.95820000767708,
+      "budget": 16.7,
+      "passed": true
+    },
+    "frame_interval_ms": {
+      "count": 678,
+      "p50": 15.53099998831749,
+      "p95": 16.589300006628036,
+      "max": 19.24200001358986,
+      "budget": 20,
+      "passed": true
+    },
+    "edit_ms": {
+      "count": 180,
+      "p50": 15.742599993944168,
+      "p95": 16.5629999935627,
+      "max": 17.1390999853611,
+      "budget": 50,
+      "passed": true
+    },
+    "cancel_ms": {
+      "count": 30,
+      "p50": 69.14509999752045,
+      "p95": 72.7102999985218,
+      "max": 72.90719997882843,
+      "budget": 100,
+      "passed": true
+    }
+  },
+  "status": "passed"
+}

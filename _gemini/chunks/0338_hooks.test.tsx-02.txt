@@ -1,0 +1,121 @@
+        tier: 'teaching',
+      })
+    })
+    expect(result.current.completedCount).toBe(1)
+    expect(result.current.progress['stage-b']?.evidence).toBe('输出 15')
+  })
+
+  it('R4：外部证据提交进入待人工确认，不计入完成数', () => {
+    const { result } = renderHook(() => useChallengeProgress('user-1'))
+
+    act(() => {
+      result.current.applySubmission({
+        challengeId: 'stage-a',
+        status: 'submitted',
+        output: [],
+        evidence: '执行环境：Windows 11\n执行命令：java -version',
+        tier: 'external',
+      })
+    })
+    expect(result.current.completedCount).toBe(0)
+    expect(result.current.pendingVerifyCount).toBe(1)
+    expect(result.current.progress['stage-a']?.status).toBe('submitted')
+
+    // 人工确认后提升为 verified，并计入完成数
+    act(() => {
+      result.current.verifySubmission('stage-a')
+    })
+    expect(result.current.progress['stage-a']?.status).toBe('verified')
+    expect(result.current.completedCount).toBe(1)
+    expect(result.current.pendingVerifyCount).toBe(0)
+  })
+
+  it('进度按账户作用域隔离', () => {
+    const first = renderHook(() => useChallengeProgress('user-1'))
+    act(() => {
+      first.result.current.applySubmission({
+        challengeId: 'stage-a',
+        status: 'passed',
+        output: [],
+        evidence: '',
+        tier: 'worker',
+      })
+    })
+
+    const second = renderHook(() => useChallengeProgress('user-2'))
+    expect(second.result.current.completedCount).toBe(0)
+  })
+
+  it('v1 布尔值数据被迁移', () => {
+    localStorage.setItem('code-canvas.challenge-progress.v2:guest', JSON.stringify({ 'stage-a': true }))
+    const { result } = renderHook(() => useChallengeProgress(undefined))
+    expect(result.current.completedCount).toBe(1)
+    expect(result.current.progress['stage-a']?.completedAt).toContain('迁移')
+  })
+
+  it('STAT-01 第 5 条：单条判断与「已通过 N 关」共用一个口径，不许各写一套', () => {
+    // 缺 `status` 的旧记录：统计侧按迁移语义视为已通过（isPassedRecord），单条判断必须同解。
+    // 改版前 `isCompleted` 走的是 `isPassedStatus(...)`，那正是全站第二套「通过」定义。
+    localStorage.setItem(
+      'code-canvas.challenge-progress.v2:user-7',
+      JSON.stringify({ schemaVersion: SCHEMA_VERSION, data: { 'stage-a': { completedAt: '2026-09-01T00:00:00.000Z', evidence: '' } } }),
+    )
+    const { result } = renderHook(() => useChallengeProgress('user-7'))
+    const challenge = { id: 'stage-a' } as Parameters<typeof result.current.isCompleted>[0]
+
+    expect(result.current.completedCount).toBe(1)
+    expect(result.current.isCompleted(challenge)).toBe(true)
+    // 没打过的关两边都不算通过
+    expect(result.current.isCompleted({ id: 'stage-zz' } as typeof challenge)).toBe(false)
+  })
+})
+
+describe('useCheckin', () => {
+  it('打卡、去重与连续天数', () => {
+    const now = new Date()
+    const { result } = renderHook(() => useCheckin('user-1', now))
+
+    act(() => {
+      result.current.handleCheckin()
+    })
+    expect(result.current.checkedIn).toBe(true)
+    expect(result.current.streak).toBe(1)
+
+    // 重复打卡不会产生重复日期
+    act(() => {
+      result.current.handleCheckin()
+    })
+    expect(result.current.checkinDates.filter((key) => key === getLocalDateKey(now))).toHaveLength(1)
+  })
+
+  it('昨天打过卡，今天打卡后连续 2 天', () => {
+    const now = new Date()
+    const yesterday = shiftDateKey(getLocalDateKey(now), -1)
+    localStorage.setItem('code-canvas.checkin.v1:user-1', JSON.stringify([yesterday]))
+
+    const { result } = renderHook(() => useCheckin('user-1', now))
+    expect(result.current.streak).toBe(1)
+    act(() => {
+      result.current.handleCheckin()
+    })
+    expect(result.current.streak).toBe(2)
+  })
+})
+
+describe('B4：数据可靠性与边界', () => {
+  it('账户 A 写入后 B 不可读；A 重新登录（重挂载）数据恢复', () => {
+    const first = renderHook(() => useChallengeProgress('user-A'))
+    act(() => {
+      first.result.current.applySubmission({
+        challengeId: 'stage-b',
+        status: 'passed',
+        output: ['15'],
+        evidence: 'A 的证据',
+        tier: 'teaching',
+      })
+    })
+
+    const other = renderHook(() => useChallengeProgress('user-B'))
+    expect(other.result.current.completedCount).toBe(0)
+
+    // A 注销后重新登录：同作用域重新初始化，数据从持久化恢复

@@ -1,0 +1,111 @@
+  })
+
+  it('首项禁用时聚焦首个可用项；方向键循环、Home/End 跳转，并只有当前项在 Tab 序列', () => {
+    setup({ recommended: null })
+    openPanel()
+    const reachable = screen.getAllByRole('menuitem').filter((item) => !(item as HTMLButtonElement).disabled)
+    expect(reachable.length).toBe(2)
+    expect(document.activeElement).toBe(reachable[0])
+    expect(reachable.map((item) => item.tabIndex)).toEqual([0, -1])
+    fireEvent.keyDown(reachable[0]!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(reachable[1])
+    expect(reachable.map((item) => item.tabIndex)).toEqual([-1, 0])
+    fireEvent.keyDown(reachable[1]!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(reachable[0])
+    fireEvent.keyDown(reachable[0]!, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(reachable[1])
+    fireEvent.keyDown(reachable[1]!, { key: 'Home' })
+    expect(document.activeElement).toBe(reachable[0])
+    fireEvent.keyDown(reachable[0]!, { key: 'End' })
+    expect(document.activeElement).toBe(reachable[1])
+  })
+})
+
+describe('§3.2 快捷动作 · 静态面板与令牌', () => {
+  it('面板不抢播报：没有 aria-live / role=status 的活区域', () => {
+    setup()
+    openPanel()
+    const live = [...screen.getByRole('menu').querySelectorAll('[aria-live],[role="status"],[role="alert"]')]
+    expect(live).toEqual([])
+  })
+
+  it('新增样式段只用令牌：无硬编码色值、无持续动画', () => {
+    expect(quickCssStart).toBeGreaterThan(-1)
+    expect(quickCss).toContain('.topbar-quick-actions__panel')
+    expect(quickCss).not.toMatch(/#[0-9a-fA-F]{3,8}/)
+    expect(quickCss).not.toMatch(/rgba?\(/)
+    expect(quickCss).not.toMatch(/hsla?\(/)
+    expect(quickCss).not.toMatch(/animation|@keyframes/)
+    // 触控命中区仍按 §5.4 的 44 档
+    expect(quickCss).toMatch(/\.topbar-quick-actions__item \{[\s\S]*?min-height: var\(--tap-min/)
+    // 字号一律令牌，不写裸 px 档
+    expect(quickCss).not.toMatch(/font-size:\s*\d+(\.\d+)?px/)
+  })
+})
+
+describe('壳层接线 · GlobalTopbar 仍从 ./topbar 具名导出', () => {
+  const user: AuthUser = {
+    id: 'user-quick-1',
+    email: 'student@example.com',
+    name: '小明',
+    bio: '',
+    createdAt: '2026-09-01T00:00:00.000Z',
+  }
+  const targets: SearchTarget[] = [
+    { id: 'lesson-1', type: 'lesson', title: '变量与作用域', subtitle: 'Python · 资料库', aliases: [] },
+  ]
+  const items: NotificationItem[] = [
+    { id: 'n1', kind: 'review-due', title: '3 条复习到期', dateKey: '2026-09-20' },
+  ]
+
+  /** 壳层测试里只覆写这两处：ref 归属、以及「动作没接齐」那一档。 */
+  type ShellOverrides = {
+    settingsTriggerRef?: { current: HTMLButtonElement | null }
+    onOpenHelp?: () => void
+  }
+
+  function setupShell(overrides: ShellOverrides = {}) {
+    const handlers = {
+      onMarkAllRead: vi.fn(),
+      onPickLesson: vi.fn(),
+      onPickChallenge: vi.fn(),
+      onPickProject: vi.fn(),
+      onNavigateView: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onNavigateSecurity: vi.fn(),
+      onNavigateData: vi.fn(),
+      onExportData: vi.fn(),
+      onLogout: vi.fn(),
+      onContinueLesson: vi.fn(),
+      onGoReviews: vi.fn(),
+      onOpenHelp: vi.fn(),
+    }
+    const utils = render(
+      <GlobalTopbar
+        breadcrumbLabel="课程"
+        currentEntry={{ index: '01', label: '学习路径' }}
+        searchTargets={targets}
+        recentViews={[{ id: 'reviews', label: '复习中心' }]}
+        notifications={items}
+        user={user}
+        recommendedLesson={recommended}
+        reviewDueCount={3}
+        {...handlers}
+        {...overrides}
+      />,
+    )
+    return { ...utils, ...handlers }
+  }
+
+  it('五个新 props 齐了才出现快捷动作，并把上层的条数与推荐原样带进面板', () => {
+    const shell = setupShell()
+    fireEvent.click(screen.getByRole('button', { name: '快捷动作' }))
+    expect(screen.getByText('S1 · 变量与作用域')).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /今日复习 3 项/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: /学习指南/ }))
+    expect(shell.onOpenHelp).toHaveBeenCalledTimes(1)
+  })
+
+  it('快捷动作不吃掉设置按钮：`打开设置` 仍在，且壳层 ref 指的还是设置那颗', () => {
+    const ref = { current: null as HTMLButtonElement | null }
+    const shell = setupShell({ settingsTriggerRef: ref })

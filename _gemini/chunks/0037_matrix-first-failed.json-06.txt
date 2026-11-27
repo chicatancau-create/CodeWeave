@@ -1,0 +1,63 @@
+            "name": "checkin-isolated-corruption-fixture",
+            "passed": true
+        },
+        {
+            "name": "checkin-corruption-visible-preserved-retry",
+            "passed": true
+        },
+        {
+            "name": "checkin-isolated-fixture-repair",
+            "passed": true
+        },
+        {
+            "name": "checkin-retry-reloads-record",
+            "passed": true
+        },
+        {
+            "name": "checkin-narrow-calendar-framed",
+            "passed": true
+        },
+        {
+            "name": "page-analysis",
+            "passed": true
+        },
+        {
+            "detail": "46",
+            "name": "page-challenge-lesson-evidence-and-execution-trace-screenshots",
+            "passed": false
+        },
+        {
+            "name": "qml-no-warnings",
+            "passed": true
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": false,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-execution-trace-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-execution-trace-stale.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-execution-trace-cancelled.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-execution-trace-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-detail.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-detail-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-judgement-passed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-judgement-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-submitted.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-submitted-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-pending-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-verified-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-challenge-review-history.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-6-20261108-deploy-8f604a/evidence/u3-drafts-small.png",

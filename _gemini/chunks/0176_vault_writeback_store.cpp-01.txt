@@ -1,0 +1,114 @@
+#include "vault_writeback_store.hpp"
+
+#include "progress_projection.hpp"
+
+#include <QCryptographicHash>
+#include <QDate>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLockFile>
+#include <QRegularExpression>
+#include <QSaveFile>
+#include <QStringDecoder>
+#include <QSet>
+#include <QUuid>
+
+#include <algorithm>
+#include <fstream>
+#include <iterator>
+#include <map>
+#include <memory>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace {
+using codeweave::app::Result;
+using codeweave::learning::EvidenceRecord;
+using codeweave::learning::EvidenceState;
+constexpr qint64 kMaxVaultFileBytes = 8 * 1024 * 1024;
+constexpr qint64 kMaxTransactionBytes = 24 * 1024 * 1024;
+constexpr auto kProgressPath = "全栈工程师学习计划/进度追踪.md";
+constexpr auto kPlanPath = "全栈工程师学习计划/全栈竞赛长期冲刺总计划.md";
+
+QString hash_bytes(const QByteArray& bytes) {
+  return QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
+}
+
+bool safe_path(const std::filesystem::path& path) {
+  if (!path.is_absolute()) return false;
+  auto current = std::filesystem::path{};
+  for (const auto& part : path) {
+    current /= part;
+    if (current == path.root_name() || current == path.root_path()) continue;
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (error == std::errc::no_such_file_or_directory) continue;
+    if (error || std::filesystem::is_symlink(status)) return false;
+#ifdef _WIN32
+    const auto attributes = GetFileAttributesW(current.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return false;
+#endif
+  }
+  return true;
+}
+
+QString qpath(const std::filesystem::path& path) { return QString::fromStdWString(path.wstring()); }
+
+QString to_utf8(const std::string& value) { return QString::fromUtf8(value.data(), static_cast<qsizetype>(value.size())); }
+
+QString safe_topic(QString value) {
+  value.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("-"));
+  value.replace(QRegularExpression(QStringLiteral("\\s+")), QStringLiteral(" "));
+  value = value.trimmed();
+  if (value.isEmpty()) value = QStringLiteral("学习记录");
+  return value.left(120);
+}
+
+bool valid_relative(const QString& relative) {
+  if (relative == QString::fromUtf8(kProgressPath) || relative == QString::fromUtf8(kPlanPath)) return true;
+  static const QRegularExpression log_path(QStringLiteral(
+      "^全栈工程师学习计划/学习日志/\\d{4}-\\d{2}/\\d{4}-\\d{2}-\\d{2}-[A-Za-z0-9._-]{1,128}\\.md$"));
+  return log_path.match(relative).hasMatch() && !relative.contains(QStringLiteral(".."));
+}
+
+bool valid_operation(const QString& operation) {
+  return codeweave::learning::is_operation_id(operation.toStdString());
+}
+
+struct Target {
+  QString path;
+  QString kind;
+  QString expected_hash;
+  QString after;
+  QString backup;
+  QString post_hash;
+  bool existed{};
+  bool applied{};
+  bool skipped{};
+  bool prepared{};
+  bool restored{};
+};
+
+QJsonObject target_json(const Target& target) {
+  return {{"path", target.path}, {"kind", target.kind},
+      {"expectedHash", target.expected_hash}, {"after", target.after},
+      {"backup", target.backup}, {"postHash", target.post_hash},
+      {"existed", target.existed}, {"applied", target.applied}, {"skipped", target.skipped},
+      {"prepared", target.prepared}, {"restored", target.restored}};
+}
+
+Target target_from_json(const QJsonObject& object) {
+  return {object.value("path").toString(), object.value("kind").toString(),
+      object.value("expectedHash").toString(), object.value("after").toString(),
+      object.value("backup").toString(), object.value("postHash").toString(),
+      object.value("existed").toBool(), object.value("applied").toBool(),
+      object.value("skipped").toBool(), object.value("prepared").toBool(), object.value("restored").toBool()};
+}
+

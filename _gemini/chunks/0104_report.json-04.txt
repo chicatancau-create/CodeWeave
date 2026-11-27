@@ -1,0 +1,140 @@
+            "name": "draft-save-fault-fixture-removed",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-starts",
+            "passed": true
+        },
+        {
+            "name": "draft-save-retry-persists-and-hides-error",
+            "passed": true
+        },
+        {
+            "name": "page-drafts",
+            "passed": true
+        },
+        {
+            "name": "draft-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-completion-evidence-loaded",
+            "passed": true
+        },
+        {
+            "name": "learning-selection-updates-hero-plan-and-code",
+            "passed": true
+        },
+        {
+            "name": "learning-completed-filter-empty-state",
+            "passed": true
+        },
+        {
+            "name": "learning-empty-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-isolated-evidence-fixture-created",
+            "passed": true
+        },
+        {
+            "name": "learning-all-subject-status-combinations-and-original-indices",
+            "passed": true
+        },
+        {
+            "name": "learning-reading-and-challenge-not-completion",
+            "passed": true
+        },
+        {
+            "name": "learning-filtered-sequence-starts-at-one-and-count-is-subject-scoped",
+            "passed": true
+        },
+        {
+            "name": "learning-completed-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-enter-selected-course-action",
+            "passed": true
+        },
+        {
+            "name": "learning-enter-resolves-published-id-and-syncs-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-changing-course-preserves-unsaved-draft",
+            "passed": true
+        },
+        {
+            "name": "learning-queued-refresh-finishes-after-busy",
+            "passed": true
+        },
+        {
+            "name": "learning-details-open-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-five-statistics-and-truthful-stage-groups",
+            "passed": true
+        },
+        {
+            "name": "learning-details-preserves-header-and-vertical-statistics",
+            "passed": true
+        },
+        {
+            "name": "learning-details-actual-subject-metadata-and-evidence-labels",
+            "passed": true
+        },
+        {
+            "name": "learning-details-resolves-windows-ui-font",
+            "passed": true
+        },
+        {
+            "name": "learning-details-stage-number-rail-precedes-content",
+            "passed": true
+        },
+        {
+            "name": "learning-details-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-escape-restores-trigger-focus",
+            "passed": true
+        },
+        {
+            "name": "learning-details-subject-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-lesson-keyboard-selection",
+            "passed": true
+        },
+        {
+            "name": "learning-details-keyboard-focus-scrolls-to-lesson",
+            "passed": true
+        },
+        {
+            "name": "learning-details-ledger-title-column-aligns-with-header",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-window-scrolls-without-overlap",
+            "passed": true
+        },
+        {
+            "name": "learning-details-small-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-selected-unit-screenshot",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-action",
+            "passed": true
+        },
+        {
+            "name": "learning-details-enter-target",
+            "passed": true
+        },
+        {

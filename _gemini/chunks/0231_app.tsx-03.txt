@@ -1,0 +1,122 @@
+export default function App() {
+  const auth = useAuth()
+
+  if (!auth.checked) {
+    return <BootNotice>正在检查登录状态…</BootNotice>
+  }
+
+  return (
+    <ErrorBoundary scope="app">
+      {auth.user ? (
+        <ContentProvider key={auth.user.id} enabled>
+          <WorkspaceShell
+            user={auth.user}
+            onLogout={auth.handleLogout}
+            onUpdateUser={auth.updateUser}
+          />
+        </ContentProvider>
+      ) : (
+        <AuthView
+          mode={auth.mode}
+          error={auth.error}
+          busy={auth.busy}
+          connectionError={auth.connectionError}
+          onModeChange={auth.setMode}
+          onSubmit={auth.handleSubmit}
+        />
+      )}
+    </ErrorBoundary>
+  )
+}
+
+/**
+ * 登录后的工作台外壳。以 user.id 作为 key：切换账户时整体重挂载，
+ * 所有按账户隔离的本地状态都会重新初始化。
+ */
+function WorkspaceShell({
+  user,
+  onLogout,
+  onUpdateUser,
+}: {
+  user: AuthUser
+  onLogout: () => void
+  onUpdateUser: (updates: Partial<Pick<AuthUser, 'name' | 'bio'>>) => Promise<AuthUser | null>
+}) {
+  const scope = user.id
+  // LINK-05：教材数据统一来自内容快照；旧内置课程以 legacy 标记保留，不做静默替换。
+  const content = useContent()
+  /**
+   * #49 首屏偏移（§5.4 要求 CLS ≤ 0.1）。
+   *
+   * 冷缓存量不到这个缺陷，热缓存（本地应用的常态：第二次打开）一量就有：JS 比本机
+   * 接口先画完，外壳先落地，随后
+   *  - `/api/learning/status`（实测 ~70ms）让拥有者面板从「不渲染」变成一整块，
+   *  - `/api/content/status` + `/api/content/catalog`（~85ms）让来源状态条从
+   *    「旧内置课程」那一版换成「资料库已连接」那一版（两者结构不同、高度不同），
+   * 两块都在首屏之上，把已经画出来的欢迎区与阶段列表整段往下推。
+   * 实测 spec CLS：1280×720 0.1202 / 390×844 0.2066 —— 超线。
+   *
+   * 修法是把「等数据」这一段显式画出来：首轮取数结束之前，登录后的一屏只挂加载态。
+   * 加载态没有删（§5.4 要求验证加载、空内容、失败三种形态），只是把「先画错的一屏」
+   * 换成「先画一句实话」；也没有靠猜高度预留——猜出来的尺寸在 320px 那一档必然猜不准
+   * （实测这两块的高度在 293/372/454/479px 之间跳）。冷缓存下本来就是接口先赢，
+   * 这个门等于让热缓存回到冷缓存的先后顺序。
+   *
+    * 本轮把加载门限定到正文数据区，顶栏和侧栏先保留，用户可以使用设置与登出。
+    * 验收以 main[aria-busy="false"] 或页内标题作为数据就绪的同步点。
+   *
+   * 判定只用 Provider 已经暴露的三个事实：`loading` 覆盖整段取数（成功与失败分支都会
+   * 复位），而 `status` / `error` 在取数开始前必为 null，所以「不在取数且二者之一已
+   * 就位」等价于「首轮已结束」。用渲染期 setState（与本文件「最近访问」同一写法）
+   * 把它钉住：之后的 refresh()/重试同步/绑定会再次进入 loading，那时外壳不能被
+   * 占位符换掉，否则按一次「重试同步」整个界面就闪没。
+   */
+  const [contentSettled, setContentSettled] = useState(false)
+  if (!contentSettled && !content.loading && (content.status !== null || content.error !== null)) {
+    setContentSettled(true)
+  }
+  // 取消信号处理卸载和刷新；等待预算则在服务长时间无响应时放行正文兜底内容。
+  useEffect(() => {
+    if (contentSettled) return
+    const timer = window.setTimeout(() => setContentSettled(true), BOOT_WAIT_BUDGET_MS)
+    return () => window.clearTimeout(timer)
+  }, [contentSettled])
+  const now = useLocalDay()
+  const [view, setView] = useState<ViewId>('path')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // 关闭弹层后焦点回到触发按钮（键盘可达性，B6）
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null)
+  // 全局搜索指定聚焦的挑战；最近访问的页面（N1）
+  const [focusChallengeId, setFocusChallengeId] = useState<string>()
+  const [recentViews, setRecentViews] = useState<{ id: string; label: string }[]>([])
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
+
+  // Escape 关闭浮层。
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setSettingsOpen(false)
+      setHelpOpen(false)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
+  const [settings, setSettings] = useLocalStorage<AppSettings>(STORAGE_KEYS.SETTINGS, {
+    notifications: true,
+    autosave: true,
+    compactMode: false,
+    editorFontSize: 13,
+    reduceMotion: false,
+    editorTabSize: 2,
+    editorWordWrap: false,
+    editorLineNumbers: true,
+  })
+  /**
+   * DATA-01 第 3 条：通知标题会带课程/项目内容，因此**按账户隔离**。
+   * 改版前这里写的是未加后缀的键，而注册表把通知声明为 session 类——
+   * 结果是「清除本账户数据」永远清不到真实通知，隐私清单那一行还恒显「从未保存」。
+   * 旧的未加后缀键**不迁移也不删除**（归属未知，见 data-privacy-view 的旧数据行与 storage-registry 注释）。
+   */
+  const [notifState, setNotifState] = useLocalStorage<{ readIds: string[]; clearedDateKey?: string }>(

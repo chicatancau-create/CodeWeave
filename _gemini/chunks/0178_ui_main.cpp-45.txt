@@ -1,0 +1,60 @@
+          auto* status = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          const auto history = shell.challengeHistory();
+          u3_record(*context, QStringLiteral("challenge-local-history-and-progress-visible"),
+              history.size() == 1 && history.first().toMap().value("status") == "passed" && status &&
+              status->property("text").toString().contains(QStringLiteral("自动判定通过")) &&
+              shell.challengeProgress().value("stage-d").toMap().value("status") == "passed",
+              shell.challengeHistoryStatus());
+          auto* evidence = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmissionEvidence-0"));
+          u3_record(*context, QStringLiteral("challenge-evidence-is-rendered-as-plain-text"),
+              evidence && evidence->property("textFormat").toInt() == int(Qt::PlainText) &&
+              evidence->property("text").toString().contains(QStringLiteral("<b>原文保留</b>")));
+          view.resize(1440, 900);
+          context->step = 217;
+          return;
+        }
+        case 217:
+          if (view.size() != QSize(1440, 900)) return;
+          u3_record(*context, QStringLiteral("challenge-history-scroll-reaches-submission"),
+              u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0")));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-submitted"), QSize(1440, 900));
+          view.resize(1100, 720);
+          context->step = 218;
+          return;
+        case 218: {
+          if (view.size() != QSize(1100, 720)) return;
+          auto* scroll = u3_find_item(view.rootObject(), QStringLiteral("challengeLabSection"));
+          u3_record(*context, QStringLiteral("challenge-history-small-window-scroll-without-overflow"),
+              scroll && scroll->property("contentWidth").toReal() <= scroll->width() + 1 &&
+              u3_reveal_challenge_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0")));
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge-submitted-small"), QSize(1100, 720));
+          shell.openChallenge(QStringLiteral("stage-a"));
+          context->step = 219;
+          return;
+        }
+        case 219: {
+          const std::pair<const char*, QString> fields[]{
+              {"challengeExternalEnvironment", QStringLiteral("Windows 11 隔离验收环境")},
+              {"challengeExternalCommand", QStringLiteral("codeweave-check --isolated")},
+              {"challengeExternalSummary", QStringLiteral("已完成外部实验，保存一次构建报错的完整日志供人工检查。")},
+              {"challengeExternalArtifact", QStringLiteral("isolated-build-report.txt")},
+              {"challengeExternalDate", QDate::currentDate().toString(Qt::ISODate)}};
+          bool filled = true;
+          for (const auto& [name, value] : fields) {
+            auto* field = u3_find_item(view.rootObject(), QString::fromLatin1(name));
+            filled = filled && field && field->setProperty("text", value);
+          }
+          auto* submit = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmit"));
+          u3_record(*context, QStringLiteral("challenge-external-form-submits-pending-evidence"),
+              filled && submit && submit->property("enabled").toBool() &&
+              QMetaObject::invokeMethod(submit, "clicked", Qt::DirectConnection) && shell.challengeHistoryBusy());
+          context->step = 220;
+          return;
+        }
+        case 220: {
+          if (shell.challengeHistoryBusy()) return;
+          auto* status = u3_find_item(view.rootObject(), QStringLiteral("challengeSubmissionStatus-0"));
+          u3_record(*context, QStringLiteral("challenge-external-pending-does-not-auto-pass"),
+              shell.challengeHistory().size() == 1 && status &&
+              status->property("text").toString().contains(QStringLiteral("待人工确认")) &&
+              shell.challengeProgress().value("stage-a").toMap().value("status") == "submitted",

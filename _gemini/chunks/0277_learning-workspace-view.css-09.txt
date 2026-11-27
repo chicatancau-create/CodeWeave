@@ -1,0 +1,144 @@
+  font-size: var(--cw-label);
+  overflow-wrap: anywhere;
+}
+
+/* ── LEARN-01 第 4 条：六种学习状态逐条分开列 ────────────────────────────
+   成立与否同时用三个非颜色通道表达：勾/横线符号 + 实线或虚线边框 + 文字本身。
+   六格一律由上层从掌握度证据折出（utils/lesson-evidence.ts），本文件不做任何判断。 */
+.cw-workspace .cw-evidence-states {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  min-width: 0;
+  margin-top: var(--ds-space-14, 14px);
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--cw-line-width) solid var(--cw-line);
+  overflow-wrap: anywhere;
+}
+.cw-workspace .cw-evidence-states-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  /* 2026-09-30 单屏化：`<summary>` 是这组证据的折叠把手，44px 是 §5.4 的点击目标下限；
+     展开态由浏览器自带的三角标记 + 这里的字色变化双通道表达。 */
+  min-height: 44px;
+  padding: var(--ds-space-6, 6px) 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  list-style: none;
+}
+/* 收起时给一个「可以点开」的形状提示（自绘三角，跨浏览器一致） */
+.cw-workspace .cw-evidence-states-title::-webkit-details-marker {
+  display: none;
+}
+.cw-workspace .cw-evidence-states-title::before {
+  content: '▸';
+  flex: 0 0 auto;
+  color: var(--cw-fg-dim);
+  font-size: var(--cw-label);
+}
+.cw-workspace .cw-evidence-states[open] .cw-evidence-states-title::before {
+  content: '▾';
+}
+.cw-workspace .cw-evidence-states-title:hover {
+  color: var(--cw-fg);
+}
+.cw-workspace .cw-evidence-states-count {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  color: var(--cw-fg-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.cw-workspace .cw-evidence-state-list {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+.cw-workspace .cw-evidence-state-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-4, 4px) var(--ds-space-8, 8px);
+  padding: var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-none, 0);
+  min-width: 0;
+}
+.cw-workspace .cw-evidence-state-list li.is-held {
+  color: var(--cw-fg);
+  border-style: solid;
+}
+.cw-workspace .cw-evidence-state-list li.is-absent {
+  color: var(--cw-fg-dim);
+  border-style: dashed;
+}
+.cw-workspace .cw-evidence-state-glyph {
+  flex: 0 0 auto;
+}
+/* 状态名是一行的主语，说明句是从语：两者同档就会糊成一片读不出「哪条成立了」。 */
+.cw-workspace .cw-evidence-state-label {
+  flex: 0 0 auto;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  letter-spacing: 0.02em;
+}
+.cw-workspace .cw-evidence-state-meaning {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .cw-mark-read {
+  align-self: flex-start;
+}
+
+/* ── 提示条：发丝线 + 左侧语义线，颜色不单独承载语义 ────────────────── */
+.cw-workspace .workspace-external-note,
+.cw-workspace .workspace-tier-note {
+  gap: var(--ds-space-8, 8px);
+  margin-top: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  background: var(--cw-scrim);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-left: 2px solid var(--cw-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-inset);
+  color: var(--cw-warn);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.cw-workspace .workspace-tier-note {
+  border-left-color: var(--cw-err);
+  color: var(--cw-err);
+}
+
+/* ── 右栏观察区：流程 / 变量 / 控制台 ────────────────────────────────── */
+.cw-workspace .panel {
+  min-width: 0;
+  background: var(--cw-canvas);
+  border: var(--cw-line-width) solid var(--cw-line);
+  border-radius: var(--ds-radius-panel, 0);
+  box-shadow: var(--cw-glow-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cw-workspace .panel-header {
+  min-height: 42px;
+}
+.cw-workspace .panel-title svg {
+  color: var(--cw-scene);
+}
+.cw-workspace .step-counter,
+.cw-workspace .console-status {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.1em;
+}
+.cw-workspace .console-status.error {

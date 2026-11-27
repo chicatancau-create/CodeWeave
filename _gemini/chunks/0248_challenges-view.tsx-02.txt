@@ -1,0 +1,99 @@
+  const previousScope = useRef(scope)
+
+  // CHAL-01：详情返回列表时的焦点与滚动恢复。
+  // 焦点恢复记录关卡 id 而不是元素引用——列表在详情模式下被卸载，元素会脱离文档。
+  const savedScrollRef = useRef(0)
+  const lastCardIdRef = useRef<string | null>(null)
+  const restoreListRef = useRef(false)
+  const backRef = useRef<HTMLButtonElement | null>(null)
+  // RUN-01 遗留（挑战侧）：运行令牌防止切题后迟到的旧结果写回状态。
+  const runTokenRef = useRef(0)
+
+  // 账户切换：重新加载该作用域的草稿与外部证据，并清空会话内运行结果（避免串号）。
+  useEffect(() => {
+    if (previousScope.current === scope) return
+    previousScope.current = scope
+    setDrafts(readChallengeDrafts(scope))
+    setExternalDrafts(readExternalEvidence(scope))
+    setRunResults({})
+  }, [scope])
+
+  // 外部入口（全局搜索）指定聚焦关卡：渲染期重置（避免 effect 级联渲染）。
+  // 失效 id 停留在列表并提示，不默认跳到第一关。
+  const [lastFocusId, setLastFocusId] = useState<string | undefined>(undefined)
+  if (lastFocusId !== focusChallengeId) {
+    setLastFocusId(focusChallengeId)
+    if (focusChallengeId) {
+      const target = challenges.find((challenge) => challenge.id === focusChallengeId)
+      if (target) {
+        setSelectedId(target.id)
+        setMode('detail')
+        setNotice(null)
+      } else {
+        setMode('list')
+        setNotice(`未找到指定的挑战（${focusChallengeId}），请从列表重新选择。`)
+      }
+    }
+  }
+
+  useEffect(() => {
+    saveFilters(filters)
+  }, [filters])
+
+  useEffect(() => {
+    saveViewState({ mode, selectedId, page })
+  }, [mode, selectedId, page])
+
+  // 进入详情：焦点移到「返回列表」，屏幕阅读器能感知视图切换。
+  useEffect(() => {
+    if (mode === 'detail') backRef.current?.focus()
+  }, [mode, selectedId])
+
+  // 返回列表：焦点回到进入时的卡片，滚动位置回到进入前的位置。
+  useEffect(() => {
+    if (mode !== 'list' || !restoreListRef.current) return
+    restoreListRef.current = false
+    const card = lastCardIdRef.current
+      ? document.querySelector<HTMLButtonElement>(`.stage-card[data-challenge-id="${lastCardIdRef.current}"]`)
+      : null
+    card?.focus()
+    window.scrollTo(0, savedScrollRef.current)
+  }, [mode])
+
+  // STAT-01：完成数与待确认数共用唯一派生口径（与个人中心、学习分析一致）。
+  const { passed: passedCount, legacy: legacyPassedCount, pendingVerify: pendingVerifyCount } =
+    countPassedChallenges(progress)
+  const completedCount = passedCount + legacyPassedCount
+  const tracks = useMemo(() => [...new Set(challenges.map((challenge) => challenge.track))], [challenges])
+  const stages = useMemo(() => [...new Set(challenges.map((challenge) => challenge.stageId))], [challenges])
+  // §5.2 编号列表：序号取自数据原始顺序（A—M），是关卡身份的一部分，不随筛选/排序漂移。
+  const sequenceById = useMemo(() => buildSequence(challenges), [challenges])
+  const totalOrdinal = padOrdinal(challenges.length)
+
+  const sessionStatusOf = useCallback(
+    (challenge: Challenge): 'ran' | 'unsupported' | undefined => {
+      const result = runResults[challenge.id]
+      if (!result) return undefined
+      return result.unsupported ? 'unsupported' : 'ran'
+    },
+    [runResults],
+  )
+
+  const statusOf = useCallback(
+    (challenge: Challenge) => cardStatus(challenge, progress[challenge.id], sessionStatusOf(challenge)),
+    [progress, sessionStatusOf],
+  )
+
+  const visibleChallenges = useMemo(() => {
+    const filtered = challenges.filter((challenge) => {
+      if (!matchesQuery(challenge, filters.q)) return false
+      if (filters.stage !== 'all' && challenge.stageId !== filters.stage) return false
+      if (filters.track !== 'all' && challenge.track !== filters.track) return false
+      if (filters.difficulty !== 'all' && challenge.difficulty !== filters.difficulty) return false
+      if (filters.runner === 'browser' && challenge.runner !== 'javascript-sandbox') return false
+      if (filters.runner === 'teaching' && challenge.runner !== 'teaching') return false
+      if (filters.runner === 'external' && challenge.runner !== 'external') return false
+      if (filters.status !== 'all') {
+        const status = statusOf(challenge)
+        if (filters.status === 'passed' && status !== 'passed') return false
+        if (filters.status === 'pending' && status !== 'pending-verify') return false

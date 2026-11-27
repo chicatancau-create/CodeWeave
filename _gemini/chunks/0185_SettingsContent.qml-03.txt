@@ -1,0 +1,68 @@
+                        font.family: settings.ds.mono
+                        font.pixelSize: 14
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    indicator: LucideIcon {
+                        objectName: preferenceSelect.objectName + "Indicator"
+                        x: preferenceSelect.width - width - settings.ds.s10
+                        y: (preferenceSelect.height - height) / 2
+                        width: 14
+                        height: 14
+                        name: "ChevronDown"
+                        size: 14
+                        color: preferenceSelect.enabled ? settings.ds.muted : settings.ds.faint
+                    }
+                    background: Rectangle {
+                        objectName: preferenceSelect.objectName + "Background"
+                        color: settings.ds.page
+                        border.width: 1
+                        border.color: preferenceSelect.activeFocus ? settings.ds.accent : settings.ds.lineStrong
+                    }
+                    onActivated: index => {
+                        if (modelData.title !== "编辑器字号") return;
+                        uiShell.setEditorFontSize(modelData.options[index]);
+                        currentIndex = Qt.binding(() => modelData.options.indexOf(uiShell.editorFontSize));
+                    }
+                    Accessible.name: modelData.title
+                        + (modelData.title === "编辑器字号" ? "" : "（待接入）")
+                }
+            }
+        }
+    }
+    Text { Layout.topMargin: settings.ds.s24; text: "数据管理"; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 13 }
+    Repeater {
+        model: [
+            { title: "导出本机学习数据", detail: "JSON 导出待接入；原生备份可在数据与隐私页操作", action: "导出" },
+            { title: "清除本机学习数据", detail: "批量清除尚未接入，不会删除账户或学习记录", action: "清除数据" }
+        ]
+        delegate: RowLayout {
+            required property var modelData
+            Layout.fillWidth: true
+            Layout.topMargin: settings.ds.s12
+            spacing: settings.ds.s12
+            ColumnLayout {
+                Layout.fillWidth: true
+                Text { Layout.fillWidth: true; text: modelData.title; color: settings.ds.ink; font.family: settings.ds.ui; font.pixelSize: 16; wrapMode: Text.WrapAnywhere }
+                Text { Layout.fillWidth: true; text: modelData.detail; color: settings.ds.muted; font.family: settings.ds.ui; font.pixelSize: 13; wrapMode: Text.WrapAnywhere }
+            }
+            QuietButton {
+                objectName: modelData.action === "导出" ? "settingsDataExportAction" : "settingsDataClearAction"
+                ds: settings.ds
+                label: modelData.action
+                enabled: false
+                implicitHeight: 44
+            }
+        }
+    }
+    QuietButton { Layout.topMargin: settings.ds.s16; ds: settings.ds; label: "数据与隐私"; implicitHeight: 44; onClicked: settings.openPrivacy() }
+    Text {
+        Layout.fillWidth: true
+        Layout.topMargin: settings.ds.s20
+        text: "未接入的学习与编辑器偏好暂不可用。"
+        color: settings.ds.muted
+        font.family: settings.ds.ui
+        font.pixelSize: 13
+        wrapMode: Text.WrapAnywhere
+    }
+}

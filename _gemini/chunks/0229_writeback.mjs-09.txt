@@ -1,0 +1,99 @@
+        continue
+      }
+      if (item.mode === 'skip') {
+        step.applied = true
+        step.preHash = item.current.hash
+        step.postHash = item.current.hash
+        step.appliedAt = new Date().toISOString()
+        step.skipped = true
+        if (step.kind === 'log') logSaved = true
+        await writeTransaction(transaction)
+        continue
+      }
+
+      const before = await readTarget(root, step.path)
+      if (before.hash !== item.current.hash) {
+        transaction.state = WRITEBACK_STATE.PARTIAL
+        transaction.result = { logSaved, message: '写入前检测到第三方修改，已停止' }
+        await writeTransaction(transaction)
+        throw new WritebackError('sync_conflict', '写入前检测到第三方修改，已停止', {
+          ...(await conflictDetails(root, transaction)),
+          logSaved,
+          progressPending: logSaved,
+        })
+      }
+
+      const index = transaction.targets.indexOf(step)
+      try {
+        step.backupPath = await backupFile(root, step.path, operationId, index)
+        step.preHash = item.current.hash
+        step.intendedHash = sha256(normalizeText(item.desired.text))
+        await writeTransaction(transaction)
+        await writeVaultFile(root, step.path, item.desired.text)
+      } catch (error) {
+        transaction.state = logSaved ? WRITEBACK_STATE.PARTIAL : WRITEBACK_STATE.FAILED
+        transaction.result = { logSaved, message: scrubLocalPaths(`写入失败：${error?.message ?? error}`) }
+        await writeTransaction(transaction)
+        throw new WritebackError(
+          logSaved ? 'progress_pending' : 'write_failed',
+          scrubLocalPaths(
+            logSaved
+              ? `日志已保存，进度待合并：写入失败（${error?.message ?? error}）`
+              : `写入失败，已保留备份：${error?.message ?? error}`,
+          ),
+          // 不带 backupPath：备份的绝对路径留在事务里，响应体只给库内相对路径。
+          { path: step.path, logSaved, progressPending: logSaved },
+        )
+      }
+
+      step.applied = true
+      step.preHash = item.current.hash
+      step.postHash = step.intendedHash
+      step.appliedAt = new Date().toISOString()
+      if (step.kind === 'log') logSaved = true
+      await writeTransaction(transaction)
+    }
+
+    // 全部成功：才标 synced，并回写应用侧证据状态。
+    transaction.state = WRITEBACK_STATE.SYNCED
+    transaction.syncedAt = new Date().toISOString()
+    transaction.result = { logSaved: true, message: '本次写回目标均已处理并复核' }
+    await writeTransaction(transaction)
+    await evidenceStore.updateRecords(userId, transaction.evidenceIds, {
+      state: EVIDENCE_STATE.SYNCED,
+      operationId,
+      syncedAt: transaction.syncedAt,
+      logPath: transaction.targets.find((step) => step.kind === 'log')?.path ?? null,
+    })
+
+    return {
+      synced: true,
+      idempotent: false,
+      operationId,
+      at: transaction.at,
+      topic: transaction.topic,
+      targets: transaction.targets.map((step) => ({ path: step.path, kind: step.kind, applied: step.applied, skipped: step.skipped === true })),
+    }
+  }
+
+  /**
+   * 回滚：用备份恢复，但**恢复前再次校验 hash**。
+   * 若目标文件当前内容不是本次写入的结果（有第三方新改动），拒绝覆盖，转人工合并。
+   */
+  async function rollback({ userId, operationId }) {
+    await requireOwner(userId)
+    const root = requireRoot()
+    const transaction = await readTransaction(operationId)
+    if (!transaction) throw new WritebackError('operation_not_found', '找不到对应的写回事务')
+    if (transaction.userId !== userId) throw new WritebackError('forbidden', '该写回事务属于其他账户')
+    if (transaction.state === WRITEBACK_STATE.ROLLED_BACK) return { rolledBack: true, idempotent: true, targets: [] }
+
+    const blockers = []
+    for (const step of transaction.targets) {
+      if (!step.applied || step.skipped) continue
+      const current = await readTarget(root, step.path)
+      if (step.postHash !== current.hash) {
+        blockers.push({ path: step.path, kind: step.kind, reason: '第三方新改动', currentHash: current.hash, postHash: step.postHash })
+      }
+      if (!step.backupPath || !existsSync(step.backupPath)) {
+        // 新建的文件没有备份：回滚即删除；同样要确认当前内容仍是本次写入结果。

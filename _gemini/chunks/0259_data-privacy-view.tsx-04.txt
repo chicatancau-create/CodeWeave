@@ -1,0 +1,36 @@
+            <button className="subtle-button cw-account-btn" onClick={reset}>
+              取消
+            </button>
+          </div>
+        </>
+      ) : null}
+      {result ? (
+        <div className="cw-privacy-result" role="status">
+          <p className={`cw-account-status ${result.failed.length ? 'cw-account-status--error' : 'cw-account-status--ok'}`}>
+            {result.failed.length ? (
+              <AlertCircle size={14} aria-hidden="true" />
+            ) : (
+              <CheckCircle2 size={14} aria-hidden="true" />
+            )}
+            <span className="cw-account-status-text">
+              已写入 {result.applied.length} 项，跳过 {result.skipped.length} 项，失败 {result.failed.length} 项。
+              {result.rolledBack ? ' 写入过程中出现失败，本次写入的键已全部恢复原值。' : ''}
+            </span>
+          </p>
+          {result.unresolved.length ? (
+            <div className="auth-error cw-privacy-import-state">
+              有 {result.unresolved.length} 项恢复不回去，需要手工核对：{result.unresolved.map((item) => item.key).join('、')}
+            </div>
+          ) : null}
+          {result.applied.length ? (
+            <div className="account-actions cw-account-actions">
+              <button className="primary-action cw-account-btn" onClick={() => window.location.reload()}>
+                重新载入以查看恢复结果
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  )
+}

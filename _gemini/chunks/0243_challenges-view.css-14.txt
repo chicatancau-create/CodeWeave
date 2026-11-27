@@ -1,0 +1,173 @@
+  line-height: 1.6;
+}
+
+.challenges-view .external-evidence-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .external-evidence-keywords code {
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) solid var(--cv-hair-raised);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ============================================================================
+   7. 响应式：3 列 → 2 列 → 1 列；320px 最小宽度不破版（§5.4）
+   ========================================================================== */
+
+@media (max-width: 1080px) {
+  .challenges-view .challenge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  /* 桌面：标签栏收起，三个分区一次性展开；提交记录区里草稿/提交并排 */
+  .challenges-view .detail-tabs {
+    display: none;
+  }
+
+  .challenges-view .challenge-detail {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+    gap: var(--ds-space-20, 20px);
+    align-items: start;
+  }
+
+  .challenges-view .detail-tabpanel {
+    display: flex;
+  }
+
+  .challenges-view .detail-tabpanel--overview {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .challenges-view .detail-tabpanel--lab {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .challenges-view .detail-tabpanel--evidence {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cv-gap);
+    align-items: start;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .challenges-view .detail-tabpanel--evidence > .challenge-result,
+  .challenges-view .detail-tabpanel--evidence > .challenge-zone-head {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .challenges-view {
+    gap: var(--ds-space-20, 20px);
+  }
+
+  .challenges-view .challenge-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .challenges-view .challenge-overview-stats {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .challenges-view .challenge-overview-text {
+    text-align: left;
+  }
+
+  .challenges-view .challenge-progress {
+    width: 100%;
+  }
+
+  .challenges-view .challenge-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .challenges-view .challenge-filter {
+    justify-content: space-between;
+    gap: var(--ds-space-10, 10px);
+  }
+
+  .challenges-view .challenge-filter select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .challenges-view .challenge-actions {
+    width: 100%;
+  }
+
+  .challenges-view .challenge-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .challenges-view .challenge-submit.moving-border {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 360px) {
+  /* 320px 视口：留白收到 12px，编号与徽章同排但都允许折行 */
+  .challenges-view {
+    --cv-pad: 12px;
+    --cv-gap: 8px;
+  }
+
+  .challenges-view .stage-card {
+    min-height: 0;
+    padding: var(--ds-space-12, 12px) var(--ds-space-10, 10px);
+  }
+
+  .challenges-view .stage-card-top,
+  .challenges-view .stage-card-meta,
+  .challenges-view .challenge-zone-head {
+    flex-wrap: wrap;
+  }
+
+  .challenges-view .stage-card-action {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+
+  .challenges-view .challenge-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .challenges-view .challenge-pagination .subtle-button {
+    width: 100%;
+  }
+
+  .challenges-view .target-output code,
+  .challenges-view .external-evidence-keywords code {
+    max-width: 100%;
+  }
+}
+
+/* ============================================================================
+   8. §5.3 降级：新增动效只有一条 —— 标签下划线/边框的 150–220ms 过渡，
+   没有 infinite 循环。两条路径各写真停（M3 记录 §4 的教训：只压时长不算停）。
+   这里是本文件**唯一**使用 !important 的位置，且只用于压过 styles.css 的
+   同权重兜底规则。终态可读：不停在半透明帧上。
+   ========================================================================== */
+

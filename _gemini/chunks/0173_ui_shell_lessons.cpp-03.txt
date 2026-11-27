@@ -1,0 +1,27 @@
+    const codeweave::learning::ExternalEvidenceFields fields{
+        externalEvidence.value("environment").toString().toUtf8().toStdString(),
+        externalEvidence.value("command").toString().toUtf8().toStdString(),
+        externalEvidence.value("resultSummary").toString().toUtf8().toStdString(),
+        externalEvidence.value("artifactRef").toString().toUtf8().toStdString(),
+        externalEvidence.value("reproducedOn").toString().toUtf8().toStdString()};
+    const auto checked = codeweave::learning::prepare_external_evidence(
+        selected_content_id_.toStdString(), fields, "op-lesson-0123ab", "lesson-validation", prepared);
+    if (!checked.ok) { setOperationStatus(QString::fromUtf8(checked.message)); return; }
+    QVariantMap acceptance{{"targetOutput", lesson_expected_output_}};
+    for (const auto& value : lesson_meta_) {
+      const auto lesson = value.toMap();
+      if (lesson.value("id") == selected_content_id_) acceptance["evidence"] = lesson.value("evidenceChecklist");
+    }
+    if (!mentionsAcceptance(externalEvidence.value("resultSummary").toString(), acceptance)) {
+      setOperationStatus(QStringLiteral("结果摘要没有提到本课的任何验收点，请补充实际结果"));
+      return;
+    }
+    note += '\n' + QString::fromUtf8(prepared.actual_result);
+    if (!prepared.artifact_refs.empty()) note += QStringLiteral("\n日志 / 截图引用：") + QString::fromUtf8(prepared.artifact_refs.front());
+    if (note.toUtf8().size() > 4000) {
+      setOperationStatus(QStringLiteral("课程完成证据超过账本上限，请缩短摘要"));
+      return;
+    }
+  }
+  saveLessonFact("completion", note, verified);
+}

@@ -1,0 +1,101 @@
+  // Ctrl/Cmd+S 手动保存（不区分自动保存开关）。
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        if (!activeLesson) return
+        event.preventDefault()
+        // 卡片要求「不论自动保存是否开启都执行当前快照保存并给出结果」，所以这里必须用返回值，
+        // 不能像改版前那样 `saveNow()` 一扔了之——成功与失败都得说出口。
+        setSaveFeedback(saveNow() ? '已保存到本机' : '保存失败：草稿未写入（详见通知中心）')
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [activeLesson, saveNow])
+
+  /**
+   * 详情取数的失败态（01 号方案 §4 的 error 行：可理解原因 + 重试 + 保留输入）。
+   *
+   * #105 修的是「还没读到」，本条修的是「读失败」——改版前两者都落到同一句
+   * 「本单元没有配套代码」上，等于把服务故障说成教材没有内容。失败按 lessonId 存，
+   * 只有当前这一课读到的那一条才显示，切课之后上一课的迟到失败不会挂在新课上。
+   */
+  const [detailFailure, setDetailFailure] = useState<{ lessonId: string; message: string } | null>(null)
+
+  const requestLessonDetail = useCallback(
+    (lesson: Lesson) => {
+      if (!lesson.contentId) return
+      detailPendingLessonId.current = lesson.id
+      // 同一个「在路上」要能被界面读到，所以除了 ref（给上面那条草稿守卫同步读），
+      // 再 mirror 一份 state 供渲染——只有 ref 的话这一秒界面不会重画，占位也就无从显示。
+      setDetailPendingId(lesson.id)
+      setDetailFailure(null)
+      void content.loadLessonDetail(lesson.contentId).then((result) => {
+        if (detailPendingLessonId.current === lesson.id) {
+          detailPendingLessonId.current = null
+          setDetailPendingId((current) => (current === lesson.id ? null : current))
+        }
+        if (!result.ok) {
+          setDetailFailure({ lessonId: lesson.id, message: result.message })
+          return
+        }
+        const detail = result.lesson
+        setActiveLesson((current) => (current && current.id === detail.id ? detail : current))
+        // 用户尚未改动时才用资料库 starterCode 覆盖，避免覆盖正在编辑的草稿。
+        // SAVE-01 第 4 条：这一覆盖也来自存储，算「已保存」，不许留下假脏标记。
+        setCodeFromStorage((currentCode) =>
+          currentCode === lesson.code ? getLessonCode(detail.id, detail.code, scope) : currentCode,
+        )
+      })
+    },
+    [content, scope, setCodeFromStorage],
+  )
+
+  const { handleReset } = execution
+  const handleLessonChange = useCallback((lesson: Lesson) => {
+    // 切课前先把当前待保存内容落盘（快照绑定的是旧课程，不会误写新课程）。
+    if (saveSnapshotRef.current && (settings.autosave ?? true)) saveNow(false)
+    handleReset()
+    setActiveLesson(lesson)
+    setLanguageId(lesson.language)
+    // 打开课程时同步切换科目，保证返回列表后仍停在同一科目
+    if (lesson.subjectId) setSubjectId(lesson.subjectId)
+    const defaultCode = lesson.code
+    // 新课程的内容来自存储，属于"已知已保存"状态；防抖比较按 revision 进行，
+    // 因此把成功版本对齐到即将生成的 revision，避免刚切课就显示"未保存"。
+    setSavedRevision(null)
+    setCodeFromStorage(getLessonCode(lesson.id, defaultCode, scope))
+    setSelectedLessonId(lesson.id)
+    setView('path')
+    // 资料库条目：详情（主题原文 + 练习契约）按需拉取，失败就地给出原因与重试，不清草稿。
+    if (lesson.contentId) requestLessonDetail(lesson)
+  }, [settings.autosave, saveNow, handleReset, setCodeFromStorage, requestLessonDetail, scope])
+
+  const handleSubjectChange = (next: string) => {
+    setSubjectId(next)
+    const first = content.lessons.find((lesson) => lesson.subjectId === next)
+    if (first) {
+      setSelectedLessonId(first.id)
+      setLanguageId(first.language)
+    }
+  }
+
+  const closeWorkspace = useCallback(() => {
+    // 离开工作台前先把待保存内容按快照落盘，避免编辑丢失。
+    saveNow(false)
+    execution.handleReset()
+    setActiveLesson(null)
+  }, [execution, saveNow])
+
+  const handleLessonCompleted = (payload: LessonCompletionPayload) => {
+    if (!activeLesson) return
+    /** LEARN-01 第 4/5 条：证据写清「谁判的」（文案由 data/mastery 的纯函数单点产生）；旧记录不带来源，读出来按未知处理。 */
+    const note = lessonCompletionNote(activeLesson.title, payload.verification, payload.cases)
+    /**
+     * LEARN-01 第 5a 条：外部真实环境的课把四项结构化证据原样留档在这条完成证据里，
+     * 序列化仍走 utils/external-evidence.ts（与挑战页同一个函数），不另起一套格式。
+     * `verification` 保持 `self-declared`：环境/命令/摘要写得再齐，本机也没有比对过任何输出，
+     * 把它升成 auto-verified 就是谎称验证——证据齐全 ≠ 已验证。
+     */
+    mastery.markLessonCompleted(
+      activeLesson.id,

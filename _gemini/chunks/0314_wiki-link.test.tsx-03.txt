@@ -1,0 +1,11 @@
+    await waitFor(() => expect(calls).toContain('/api/content/catalog'))
+    await waitFor(() => {
+      const hint = container.querySelector('.md-wikilink--unresolved')
+      expect(hint?.textContent ?? '').toContain('该引用指向未发布/未登记内容')
+    })
+    const hint = container.querySelector('.md-wikilink--unresolved')
+    expect(hint?.getAttribute('title')).toContain('未发布')
+    expect(container.querySelector('button')).toBeNull()
+    expect(container.querySelector('[href]')).toBeNull()
+  })
+})

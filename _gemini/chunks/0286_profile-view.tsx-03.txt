@@ -1,0 +1,51 @@
+                  <span className="cw-account-status-glyph" aria-hidden="true">
+                    {error ? '×' : '✓'}
+                  </span>
+                  <span className="cw-account-status-text">{statusText}</span>
+                </>
+              ) : null}
+            </span>
+            <button
+              className="primary-action cw-account-btn"
+              onClick={save}
+              disabled={busy}
+              aria-disabled={busy || undefined}
+              aria-describedby={busy ? saveHintId : undefined}
+            >
+              {busy ? '保存中…' : '保存修改'} <Save size={14} />
+            </button>
+          </div>
+        </section>
+      {/* ③ 掌握度地图（A—M 阶段 × 0—6 级 × 证据数） */}
+      <section className="profile-overview-card cw-account-card cw-profile-mastery">
+        <h3 className="security-card-title cw-account-title">
+          <UserRound size={14} />
+          掌握度地图（阶段 · 0—6 级）
+        </h3>
+        {stageMastery.length === 0 && <p className="cw-profile-empty">完成首次练习后，这里会呈现各阶段的掌握度与学习证据。</p>}
+        <ul className="mastery-map">
+          {stageMastery.map((row) => (
+            <li key={row.stageId}>
+              <span className="mastery-map-stage">{row.stageId}</span>
+              <span className="mastery-map-title" title={row.title}>{row.title}</span>
+              <div className="mastery-bar" role="img" aria-label={`${row.stageId} 阶段掌握等级 ${row.level}（共 6 级），证据 ${row.evidenceCount} 条`}>
+                <span style={{ width: `${(row.level / 6) * 100}%` }} />
+              </div>
+              <small className="mastery-map-level">{masteryLevelName(row.level as MasteryLevel)}</small>
+              <small className="mastery-map-count">证据 {row.evidenceCount}</small>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+            </div>
+            <div className="cw-profile-panel-column cw-profile-library" aria-label="资料库与学习证据">
+              <VaultProgressCard />
+              <EvidenceWritebackPanel />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

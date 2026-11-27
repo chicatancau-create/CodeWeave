@@ -1,0 +1,150 @@
+   模板原实现只把时间流速乘 0.35（main.js L315），循环仍满帧跑；
+   这里在系统偏好与应用内「减少动效」两个通道下都把 animation-name 归零，
+   是真正停止，而不是放慢。 */
+@keyframes ewb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.evidence-writeback .ewb-icon-spin {
+  animation: ewb-spin 1.1s linear infinite;
+  animation-play-state: var(--ewb-play);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidence-writeback .ewb-icon-spin {
+    animation: none !important; /* 名称归零 = 不产生任何持续动画 */
+    transform: none;
+  }
+}
+
+/* 应用内「减少动效」设置：.reduce-motion 挂在根壳上（app.tsx 的 shellClassName），
+   与系统偏好任一成立即停止。两种挂载位置都写，避免根元素换位后失效。 */
+.reduce-motion .evidence-writeback .ewb-icon-spin,
+.evidence-writeback.reduce-motion .ewb-icon-spin {
+  animation: none !important;
+  transform: none;
+}
+
+/* 悬停位移与滤镜类效果在降级下一律取消 */
+@media (prefers-reduced-motion: reduce) {
+  .evidence-writeback :is(.primary-action, .subtle-button) {
+    transition: none;
+  }
+}
+
+.reduce-motion .evidence-writeback :is(.primary-action, .subtle-button),
+.evidence-writeback.reduce-motion :is(.primary-action, .subtle-button) {
+  transition: none;
+}
+
+/* ── 12. 事务账本与回滚（挂账 #35）────────────────────────────────────────
+   新增区块，不复用 01 / 03 两区的行类名：取证闸门按 `.ewb-row--synced` 与
+   `.evidence-list .ewb-row` 数行数，账本另起一套 `.ewb-tx-*` 才不会把它们的行数改掉。
+   形态沿用本页既有口径：黑场、1px 发丝线、无卡片无投影，语义仍走「图形 + 文字」。 */
+
+.evidence-writeback .ewb-zone--ledger {
+  border-inline-start-color: var(--ewb-info);
+}
+
+/* 两档新状态：颜色仍是第三重提示，认状态靠图标 + 文字。
+   已回滚是中性终止态（不是成功也不是失败），写入中断与「加载中」共用 ink-2，
+   两者的文字通道分别是「已回滚」「写入中断」。 */
+.evidence-writeback .ewb-mark--rolledback {
+  color: var(--ewb-ink-2);
+  background: none;
+}
+.evidence-writeback .ewb-mark--interrupted {
+  color: var(--ewb-warn);
+  background: var(--ewb-warn-wash);
+}
+
+.evidence-writeback .ewb-tx-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.evidence-writeback .ewb-tx-summary .subtle-button {
+  margin-inline-start: var(--ds-space-4, 4px);
+}
+
+/* 数量与「读不出来」的诚实说明：用次要色 +  dashed 边，不冒充条目本身的状态 */
+.evidence-writeback .ewb-tx-note {
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  border: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* 重读失败但仍留着上一次的结果（与队列同一口径） */
+.evidence-writeback .ewb-tx-reread {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-bad);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-tx-reread-text {
+  min-width: 0;
+  flex: 1 1 30ch;
+}
+
+.evidence-writeback .ewb-tx-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-tx-item {
+  padding: var(--ds-space-6, 6px) 0 var(--ds-space-10, 10px);
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-tx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-tx-topic {
+  min-width: 0;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-tx-detail {
+  margin-top: var(--ds-space-10, 10px);
+  padding-top: var(--ds-space-10, 10px);
+  border-top: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-tx-facts {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;

@@ -1,0 +1,20 @@
+    throw new ContentError('source_ref_invalid', `${label}引用需形如 path/文件.md#标题1 > 标题2，实际：${text}`)
+  }
+  const path = text.slice(0, hash).trim()
+  const headingPath = text.slice(hash + 1).split('>').map((part) => part.trim()).filter(Boolean)
+  if (!path.endsWith('.md')) {
+    throw new ContentError('source_ref_invalid', `${label}引用路径必须以 .md 结尾：${path}`)
+  }
+  if (headingPath.length === 0) {
+    throw new ContentError('source_ref_invalid', `${label}引用缺少标题定位：${text}`)
+  }
+  return { path, headingPath }
+}
+
+/** 确定性 JSON：键排序，用于内容摘要与 bundleId。 */
+export function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
+}

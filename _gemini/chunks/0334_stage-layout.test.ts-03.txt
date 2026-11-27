@@ -1,0 +1,14 @@
+    expect(withNow.current?.node.id).toBe('b')
+
+    const noNow = layoutStage(frame({ nodes: [node({ id: 'a', state: 'todo' })] }))
+    expect(noNow.current).toBeNull()
+  })
+
+  it('空节点也给出可用画布（不是 NaN 尺寸）', () => {
+    const laid = layoutStage(frame({ nodes: [] }))
+    expect(laid.nodes).toHaveLength(0)
+    expect(laid.edges).toHaveLength(0)
+    expect(Number.isFinite(laid.height)).toBe(true)
+    expect(laid.height).toBeGreaterThan(0)
+  })
+})

@@ -1,0 +1,64 @@
+    merge_challenge_submissions(mastery_records, submissions);
+    for (auto& record : evidence_records) normalize_local_day(record.at);
+    for (auto& record : mastery_records) normalize_local_day(record.at);
+    *analysis = codeweave::learning::summarize_analysis_window(
+        evidence_records, mastery_records, first_day, today);
+    const auto source = read_progress_source(workspace);
+    if (source.found) {
+      *projection_found = true;
+      *projection = codeweave::learning::parse_progress(source.markdown);
+    }
+    return result;
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, summary, projection, projection_found, analysis, lesson_states, task_name, today, first_day](
+          codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, summary,
+            projection, projection_found, analysis, lesson_states, task_name, today, first_day, result = std::move(result)] {
+          if (task_name != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          if (result.cancelled) {
+            setOperationStatus(QStringLiteral("复习读取已取消"));
+            return;
+          }
+          progress_summary_.clear();
+          review_summary_.clear();
+          review_items_.clear();
+          analysis_snapshot_.clear();
+          lesson_evidence_states_.clear();
+          lesson_evidence_ready_ = result.result.ok;
+          if (result.result.ok) {
+            lesson_evidence_states_ = *lesson_states;
+            progress_summary_ = QStringLiteral("正式进度事实：%1 条（仅独立完成挑战计入）")
+                .arg(summary->progress_count);
+            review_summary_ = QStringLiteral("证据 %1 条，通过 %2 次，独立通过 %3 次\n"
+                "逾期 %4 项，今日 %5 项，未来 7 天 %6 项\n")
+                .arg(summary->evidence_count).arg(summary->passed_count)
+                .arg(summary->independent_passed_count).arg(summary->overdue_count)
+                .arg(summary->today_count).arg(summary->upcoming_count);
+            for (const auto& item : summary->items) {
+              QVariantMap dto;
+              dto.insert(QStringLiteral("itemId"), QString::fromUtf8(item.content_id));
+              dto.insert(QStringLiteral("contentId"), QString::fromUtf8(item.content_id));
+              dto.insert(QStringLiteral("exerciseId"), QString::fromUtf8(item.exercise_id));
+              dto.insert(QStringLiteral("latestAt"), QString::fromUtf8(item.latest_at));
+              dto.insert(QStringLiteral("latestResult"), QString::fromUtf8(item.latest_result));
+              dto.insert(QStringLiteral("passed"), item.passed);
+              dto.insert(QStringLiteral("independent"), item.independent);
+              dto.insert(QStringLiteral("hintLevel"), QString::fromUtf8(item.hint_level));
+              dto.insert(QStringLiteral("evidenceCount"), static_cast<qulonglong>(item.evidence_count));
+              dto.insert(QStringLiteral("dueKey"), QString::fromUtf8(item.due_key));
+              dto.insert(QStringLiteral("nextNodeIndex"), static_cast<qulonglong>(item.next_node_index));
+              dto.insert(QStringLiteral("masteryLevel"), item.mastery_level);
+              dto.insert(QStringLiteral("planSource"), plan_source_text(item.plan_source));
+              dto.insert(QStringLiteral("group"), QString::fromUtf8(item.group));
+              dto.insert(QStringLiteral("forgettingRisk"), QString::fromUtf8(item.forgetting_risk));
+              review_items_.push_back(std::move(dto));
+            }
+            for (const auto& item : summary->items) {
+              review_summary_ += QStringLiteral("\n%1 / %2 · %3 · %4\n%5\n")
+                  .arg(QString::fromUtf8(item.content_id), QString::fromUtf8(item.exercise_id),

@@ -1,0 +1,78 @@
+                    searchPopup.close();
+                }
+                delegate: Rectangle {
+                    required property var modelData
+                    width: searchResultsView.width
+                    height: 46
+                    radius: ds.radiusSm
+                    color: searchRowHover.hovered || ListView.isCurrentItem && searchResultsView.activeFocus
+                        ? ds.accentSoft : "transparent"
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: ds.s8
+                        anchors.rightMargin: ds.s8
+                        spacing: ds.s8
+                        Text { text: modelData.kind === "lesson" ? "课程" : "挑战"; color: ds.accent; font.family: ds.mono; font.pixelSize: 11 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            Text { Layout.fillWidth: true; text: modelData.label; color: ds.ink; font.family: ds.ui; font.pixelSize: 13; elide: Text.ElideRight }
+                            Text { Layout.fillWidth: true; text: modelData.detail; color: ds.faint; font.family: ds.mono; font.pixelSize: 11; elide: Text.ElideRight }
+                        }
+                    }
+                    HoverHandler { id: searchRowHover }
+                    TapHandler {
+                        onTapped: {
+                            if (modelData.kind === "lesson") {
+                                root.openLesson(modelData.index);
+                            } else {
+                                uiShell.selectPage("挑战");
+                            }
+                            searchField.text = "";
+                            searchPopup.close();
+                        }
+                    }
+                }
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Down) { currentIndex = Math.min(count - 1, currentIndex + 1); event.accepted = true; }
+                    else if (event.key === Qt.Key_Up) { currentIndex = Math.max(0, currentIndex - 1); event.accepted = true; }
+                    else if (event.key === Qt.Key_Home) { currentIndex = 0; event.accepted = true; }
+                    else if (event.key === Qt.Key_End) { currentIndex = count - 1; event.accepted = true; }
+                    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { activateCurrent(); event.accepted = true; }
+                    else if (event.key === Qt.Key_Escape) { searchPopup.close(); event.accepted = true; }
+                }
+            }
+            RowLayout {
+                anchors.centerIn: parent
+                visible: searchResultsView.count === 0
+                Text {
+                    text: searchField.text.trim() === "" ? "输入关键词搜索课程和挑战" : "没有匹配的结果"
+                    color: ds.muted; font.family: ds.ui; font.pixelSize: 13
+                }
+                QuietButton {
+                    id: clearSearchButton
+                    objectName: "clearSearchButton"
+                    ds: root.designSystem
+                    label: "清除搜索"
+                    visible: searchField.text.trim() !== ""
+                    onClicked: searchField.clear()
+                }
+            }
+        }
+
+        ShellPopup {
+            id: quickPopup
+            objectName: "quickPopup"
+            parent: root
+            anchorItem: quickButton
+            menuItems: [continueAction, reviewAction, helpAction]
+            width: 268
+            height: quickActionsColumn.implicitHeight + ds.s24
+            ds: root.designSystem
+            returnFocusItem: quickButton
+            onClosed: root.quickActionsOpen = false
+            ColumnLayout {
+                id: quickActionsColumn
+                anchors.fill: parent
+                spacing: ds.s6
+                Text { text: "快捷动作"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }

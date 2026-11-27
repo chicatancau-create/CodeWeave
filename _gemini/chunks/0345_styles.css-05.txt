@@ -1,0 +1,106 @@
+  color: var(--ink-strong);
+  font-size: 17px;
+  font-weight: var(--weight-display);  /* 展示标题字重 200（site.css L262） */
+  letter-spacing: var(--track-display);/* -0.03em（L260）；中文多行不用 line-height:1 */
+}
+/* 品牌点：模板的「1.5px 圆环 + 近距泛光」（site.css L118-L120）。§5.1 移除泛光，
+   只保留圆环那一半：1.5px 场景色描边 + 黑场底， glyph 用场景色而非白字。 */
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  border-radius: var(--radius-circle);
+  background: var(--inset);
+  box-shadow: inset 0 0 0 var(--ds-scene-glow-ring) var(--accent);
+}
+.brand-accent { color: var(--accent); }
+
+.workspace-switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: var(--tap-min);
+  margin: var(--ds-space-28, 28px) 0 var(--ds-space-24, 24px);
+  padding: var(--ds-space-10, 10px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.workspace-icon {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  border-radius: var(--radius-circle);
+  background: transparent;             /* 原为渐变方块 + 10px 泛光 */
+  box-shadow: inset 0 0 0 var(--hair) var(--accent-ring);
+  font-size: var(--ds-size-control, 13px);   /* 原写作 `font-size: 12`：无单位长度对 font-size 非法，浏览器整条丢弃，字实际继承 16px */
+  font-weight: 800;
+}
+.workspace-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: var(--ds-space-2, 2px); }
+.workspace-copy strong { color: var(--ink-strong); font-size: var(--ds-size-control, 13px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-copy span { color: var(--muted); font-size: var(--ds-size-control, 13px); }
+
+.nav-label {
+  margin: var(--ds-space-6, 6px) var(--ds-space-10, 10px) var(--ds-space-8, 8px);
+  color: var(--muted);                 /* 原 --faint 的 9px 灰字实测不足 4.5:1 */
+  font-size: var(--ds-size-control, 13px);      /* 导航名是必读文字，不占用模板 10.5px 那档装饰微字 */
+  font-weight: 600;
+  letter-spacing: var(--ds-track-meta);/* 0.2em（L110）：模板眉标靠字距而非字重分层 */
+  text-transform: uppercase;
+}
+.main-nav { display: flex; flex-direction: column; gap: var(--ds-space-4, 4px); }
+.nav-item {
+  position: relative;
+  width: 100%;
+  min-height: var(--tap-min);          /* §5.4 主要触控目标 ≥44px（原 40px） */
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-12, 12px);
+  padding: 0 var(--ds-space-12, 12px);
+  color: var(--muted);
+  font-size: var(--ds-size-body);      /* M4 §5.4：导航项是被读的文字，取正文档（原 13px） */
+  font-weight: 600;
+  text-align: left;
+  transition: background var(--ds-dur-quick) var(--ease), color var(--ds-dur-quick) var(--ease);
+}
+/* 按下的一档（全站此前一条 :active 都没有，见文件末 §5.4-B 的说明） */
+.nav-item:active { background: var(--scrim-raised); }
+/* §5.2「编号主导航」：编号是 app.tsx 渲染的真实 DOM 文本（不是 CSS counter，
+   见 app.tsx 的 navIndex 注释），因此它随按钮名称一起被朗读、顺序即 DOM 顺序。
+   形态走模板的编号眉标档：等宽 + 字距 + 场景点缀色，不靠字号压层级。 */
+.nav-item__index {
+  flex: 0 0 auto;
+  min-width: 22px;
+  color: var(--accent);                /* 冷青对深蓝黑 11.14:1 */
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-meta);      /* 编号本身是 2 位数字，meta 档即可辨 */
+  font-weight: 400;
+  letter-spacing: var(--ds-track-meta);
+}
+.nav-item:hover { color: var(--ink-strong); background: var(--scrim); }
+/* 清楚的当前入口：冷白文字 + 一档遮光 + 左侧 2px 场景色条 + 一层横向冷光。
+   原为「横向渐变底 + 渐变指示条 + 12px 泛光」，科技档把泛光重新引回来。 */
+.nav-item.active {
+  color: var(--ink-strong);
+  background: linear-gradient(90deg, var(--accent-soft), transparent 85%);
+  box-shadow: inset 0 0 0 var(--hair) var(--line-accent, rgba(34, 211, 238, 0.38));
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);   /* 科技档：指示条自带泛光 */
+}
+.nav-item.active .nav-item__index { color: var(--accent-hover); } /* 冰蓝，当前入口的编号一起抬亮 */
+.nav-item.active svg { color: var(--accent); filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.55)); }
+/* 计数徽标：细线药丸（模板唯一允许的小圆角形态，site.css L393），不靠颜色单独承载 */
+.nav-badge {
+  margin-left: auto;

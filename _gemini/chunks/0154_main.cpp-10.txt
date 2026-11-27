@@ -1,0 +1,97 @@
+    SetWindowTextW(g_exercise_id, wide_from_utf8(exercises.front().exercise_id).c_str());
+    set_status(L"已打开课程正文，并载入首个练习元数据（只读）");
+  } else {
+    SetWindowTextW(g_exercise_id, L"");
+    set_status(L"已打开课程正文；该课程没有练习元数据");
+  }
+}
+
+void refresh_progress_status() {
+  if (!g_progress_status) return;
+  if (!g_progress_store) { SetWindowTextW(g_progress_status, L"登录后显示个人进度"); return; }
+  std::vector<codeweave::learning::ProgressFact> facts;
+  const auto result = g_progress_store->read_all(facts);
+  if (!result.ok) {
+    SetWindowTextW(g_progress_status, wide_from_utf8(result.message).c_str());
+    return;
+  }
+  const auto text = L"正式进度事实：" + std::to_wstring(facts.size()) +
+      L" 条（仅独立完成挑战计入）";
+  SetWindowTextW(g_progress_status, text.c_str());
+}
+
+void refresh_review_summary() {
+  if (!g_review_status) return;
+  if (!g_evidence_store || !g_progress_store) { SetWindowTextW(g_review_status, L"登录后显示个人复习记录"); return; }
+  codeweave::learning::ReviewService service(*g_evidence_store, *g_progress_store);
+  codeweave::learning::ReviewSummary summary;
+  const auto result = service.summarize(summary);
+  if (!result.ok) {
+    SetWindowTextW(g_review_status, wide_from_utf8(result.message).c_str());
+    return;
+  }
+  const auto text = L"复习：证据 " + std::to_wstring(summary.evidence_count) +
+      L" 条，通过 " + std::to_wstring(summary.passed_count) + L" 次，独立通过 " +
+      std::to_wstring(summary.independent_passed_count) + L" 次（只读汇总）";
+  SetWindowTextW(g_review_status, text.c_str());
+}
+
+void save_draft() {
+  if (!g_personal_core.is_open()) { set_status(L"请先登录以保存个人草稿"); return; }
+  if (g_draft_read_failed) { set_status(L"原草稿读取失败，已阻止覆盖。请从数据菜单备份并检查文件。"); return; }
+  g_draft_dirty = true;
+  if (persist_draft()) set_status(L"个人课程草稿已保存");
+}
+
+codeweave::execution::Request execution_request() {
+  const auto timeout_text = control_text(g_timeout_edit);
+  std::uint32_t timeout = 0;
+  const auto parsed = std::from_chars(timeout_text.data(), timeout_text.data() + timeout_text.size(), timeout);
+  if (parsed.ec != std::errc{} || parsed.ptr != timeout_text.data() + timeout_text.size()) timeout = 0;
+  return {control_text(g_session_edit), control_text(g_language_edit), control_text(g_draft_edit), timeout, 64 * 1024};
+}
+
+void validate_execution_request() {
+  const auto request = execution_request();
+  if (!is_native_ui_runnable(request.language)) {
+    set_status(L"该语言尚未纳入原生执行支持清单");
+    return;
+  }
+  const auto result = codeweave::execution::validate_request(request);
+  set_status(result.ok ? L"执行请求契约有效（尚未启动代码）" : wide_from_utf8(result.message));
+}
+
+void run_execution_request() {
+  if (g_execution_policy == "external") { set_status(L"本课程需按正文说明在对应工具中完成；应用保留课程与草稿"); return; }
+  if (g_execution_running.exchange(true)) {
+    set_status(L"已有执行任务正在运行");
+    return;
+  }
+  g_execution_cancelled.store(false);
+  const auto generation = g_execution_generation.fetch_add(1) + 1;
+  auto request = execution_request();
+  unsigned char nonce[16]{};
+  if (BCryptGenRandom(nullptr, nonce, sizeof(nonce), BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0) {
+    g_execution_running.store(false);
+    set_status(L"无法生成执行编号，未启动任务");
+    return;
+  }
+  constexpr char digits[] = "0123456789abcdef";
+  request.session_id = "run-";
+  for (const auto byte : nonce) { request.session_id += digits[byte >> 4]; request.session_id += digits[byte & 15]; }
+  SetWindowTextW(g_session_edit, wide_from_utf8(request.session_id).c_str());
+  if (!is_native_ui_runnable(request.language)) {
+    g_execution_running.store(false);
+    set_status(L"该语言尚未纳入原生执行支持清单");
+    return;
+  }
+  const auto content_root = configured_content_root();
+  const auto trace_store = g_trace_store;
+  const auto challenge_service = g_challenge_service;
+  const auto evidence_store = g_evidence_store;
+  const auto progress_store = g_progress_store;
+  if (!trace_store || !challenge_service || !g_account_service || !g_account_service->authenticated()) {
+    g_execution_running.store(false);
+    set_status(L"请先登录原生账户后再执行并保存学习记录");
+    return;
+  }

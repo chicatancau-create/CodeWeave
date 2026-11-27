@@ -1,0 +1,161 @@
+.cw-vault.vault-binding {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ds-space-6, 6px) var(--ds-space-12, 12px);
+  justify-items: start;
+  margin: 0 0 var(--ds-space-10, 10px);
+  padding: var(--ds-space-8, 8px) var(--ds-space-14, 14px);
+  background: var(--ds-canvas, #000);
+  border: var(--ds-line-width, 1px) solid var(--vp-hair);
+  border-radius: var(--ds-radius-panel, 0);
+}
+
+/* 兜底：没有单独定位的子元素（骨架、提示、小字回执）一律跟在说明那一列。 */
+.cw-vault.vault-binding > * {
+  grid-column: 2;
+}
+
+.cw-vault.vault-binding > .vault-binding-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-6, 6px) var(--ds-space-8, 8px);
+  color: var(--vp-ink);
+  font-size: var(--vp-body);
+  line-height: 1.5;
+  grid-row: 1;
+  grid-column: 1;
+}
+
+/* 说明收成一行：单屏里它是解释，不是主体；超出用省略号，`title` 给全文。 */
+.cw-vault.vault-binding > .vp-lead {
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: stretch;
+}
+
+/* 换库告警是「另一档事」，不和说明抢同一行——它单独占第二行。 */
+.cw-vault.vault-binding > .vp-warn {
+  grid-row: 2;
+  grid-column: 2 / -1;
+  justify-self: stretch;
+}
+
+.cw-vault.vault-binding > .vp-facts {
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: start;
+}
+
+/* 展开态要铺满整宽，否则五块挤在 `auto` 宽的单元格里竖排读不了。 */
+.cw-vault.vault-binding > .vp-facts[open] {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+/* 两种分支的按键落点不同：未绑定分支的按钮是直接子元素，已绑定分支裹在
+   `.vault-binding-actions` 里（含一个复选项）。两者都收在最右一列。 */
+.cw-vault.vault-binding > .vault-binding-actions,
+.cw-vault.vault-binding > .vp-btn {
+  grid-row: 1;
+  grid-column: 4;
+  justify-self: end;
+}
+
+.cw-vault.vault-binding > .vault-binding-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+}
+
+.cw-vault .vp-lead,
+.cw-vault .vp-warn {
+  margin: 0;
+  color: var(--vp-dim);
+  font-size: var(--vp-body);
+  line-height: var(--vp-leading);
+}
+
+/* 换库告警：点线下划线 + 加粗 + 文字，三重非颜色通道（不跟场景色） */
+.cw-vault .vp-warn {
+  color: var(--vp-ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.cw-vault .vp-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: var(--vp-tap);
+  color: var(--vp-ink);
+  font-size: var(--vp-body);
+  line-height: 1.5;
+}
+
+/* #76 复选框命中区：这一颗只在「资料库已绑定 + 本账户是拥有者」那一档出现，
+   所以 §13.4 之前从没被量到过 —— 个人页绑定态第一次进浏览器就量到 hit 18×18。
+   原生外观的复选框是**替换元素**，`::before` 不参与命中，加 padding 也不会变命中区；
+   写法与 evidence-writeback-view.css 的 #51 同源：appearance:none 自绘，
+   ::before 外扩 13px（18 + 13×2 = 44）撑出命中区，勾由 ::after 自绘，
+   未勾选是空心描边框 —— 「勾 / 空框」是颜色之外的第二重通道（§5.1 末段）。 */
+.cw-vault .vp-toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: var(--ds-line-width, 1px) solid var(--vp-field-line);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--vp-canvas);
+  cursor: pointer;
+}
+
+.cw-vault .vp-toggle input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  inset: -13px;
+}
+
+.cw-vault .vp-toggle input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 4px;
+  height: 9px;
+  border: 2px solid transparent;
+  transform: rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cw-vault .vp-toggle input[type='checkbox']:checked {
+  border-color: var(--vp-ink);
+  background: var(--vp-ink);
+}
+
+.cw-vault .vp-toggle input[type='checkbox']:checked::after {
+  border-right-color: var(--vp-canvas);
+  border-bottom-color: var(--vp-canvas);
+  opacity: 1;
+}
+
+.cw-vault .vp-toggle input[type='checkbox']:disabled,
+.cw-vault .vp-toggle input[type='checkbox'][aria-disabled='true'] {
+  cursor: not-allowed;
+  /* §4 disabled 行：改版前只有 `opacity: .45` —— 那一档把边框一起压到看不见，
+     读屏也拿不到「为什么不能勾」。现在禁用感交给**点线框**（本页第三重非颜色通道），
+     条件说明写在同一条 actions 区的文字里，并用 aria-describedby 指过去。 */

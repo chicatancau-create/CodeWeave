@@ -1,0 +1,73 @@
+        expect(decls, `${file} ${key}`).toContain('white-space: pre')
+        if (key !== '.variable-value') {
+          expect(decls, `${file} ${key}`).toContain('word-break: normal')
+          expect(decls, `${file} ${key}`).toContain('overflow-wrap: normal')
+        }
+        expect(decls.some((decl) => /^overflow(-x|-y)?:\s*(auto|hidden)/.test(decl)), `${file} ${key}`).toBe(true)
+      }
+    }
+    for (const file of ['code-editor.css', 'console-panel.css', 'variable-panel.css']) {
+      const text = cssText.get(file) ?? ''
+      if (file === 'code-editor.css') {
+        // EDIT-01 把「自动换行」做成了设置项，默认**关**：§5.4 长代码行那一格量的就是关着时的横向滚动。
+        // 所以这条不变式收细成「默认规则里不许折行」，而不是「整个文件不许出现 pre-wrap」——
+        // 折行只允许出现在容器带 `.code-editor--wrap` 的那两条规则里，下面逐条核对。
+        const wrapRules = (cssRules.get(file) ?? []).filter((rule) => rule.selectors.some((s) => s.raw.includes('--wrap')))
+        expect(wrapRules.length, '自动换行那组规则不见了（设置项就成了空开关）').toBeGreaterThan(0)
+        // 折行规则允许拆成多条（同一条给两层，或再补一条只管的），所以按层核对而不是按条。
+        const wrapText = wrapRules.map((rule) => rule.block).join('\n')
+        for (const layer of ['textarea', 'pre.code-tokens']) {
+          expect(wrapRules.some((rule) => rule.selectors.some((s) => s.raw.includes(layer) && /white-space:\s*pre-wrap/.test(rule.block))),
+            `${layer} 那一层没有跟着折行 —— 两层折行规则不一致就会逐行错位`).toBe(true)
+        }
+        expect(wrapText).toContain('overflow-wrap: anywhere')
+        const defaults = (cssRules.get(file) ?? [])
+          .filter((rule) => !rule.selectors.some((s) => s.raw.includes('--wrap')))
+          .map((rule) => rule.block).join('\n')
+        expect(defaults).not.toMatch(/white-space:\s*pre-wrap/)
+        expect(defaults).not.toMatch(/word-break:\s*(break-all|break-word)/)
+      } else {
+        expect(text, file).not.toMatch(/white-space:\s*pre-wrap/)
+        expect(text, file).not.toMatch(/word-break:\s*(break-all|break-word)/)
+      }
+      expect(text, file).not.toMatch(/scrollbar-width:\s*none|::-webkit-scrollbar/) // 滚动条要可见、可定位
+    }
+  })
+
+  it('当前执行行带高度 = 整数一个行高，且基座不再声明同名规则', () => {
+    expect(declarationsOf('code-editor.css', '.code-highlight')).toContain(
+      'height: calc(var(--editor-font-size, 13px) * var(--line-height-editor, 1.55))',
+    )
+    expect(declarationsOf('code-editor.css', '.code-highlight')).toContain('transition: none')
+    // 基座那条 `height: calc(... + 4px)` 是死码（div.code-highlight 特异度更高，每条声明都被覆写），
+    // 且 4px 会让带子压住下一行 —— 已从 styles.css 删除，这里钉住不许重建。
+    expect(declarationsOf(STYLESHEET, '.code-highlight')).toHaveLength(0)
+  })
+
+  it('输入区焦点环被基座要回来（styles.css 的 outline: 0 同档且在后会赢）', () => {
+    expect(declarationsOf(STYLESHEET, '.code-editor textarea')).toContain('outline: 0')
+    const focus = declarationsOf('code-editor.css', '.code-editor textarea:focus-visible')
+    expect(focus.some((decl) => /^outline:\s*var\(--ds-focus-ring-width/.test(decl))).toBe(true)
+    expect(focus.some((decl) => /0\.72/.test(decl))).toBe(true)
+  })
+})
+
+/* ───────────────── 4. §5.1 形态：黑场 / 发丝线 / 三档圆角 ───────────────── */
+
+describe('M4 子组件基座 · 形态', () => {
+  it('无玻璃、无渐变、无泛光：模糊与渐变函数出现 0 次', () => {
+    for (const file of BASE_FILES) {
+      const text = cssText.get(file) ?? ''
+      expect(text.match(/(?:[a-z-]*blur\(|drop-shadow\()/gi) ?? [], file).toEqual([])
+      expect(text, file).not.toMatch(/backdrop-filter:\s*(?:blur|saturate|brightness|contrast|grayscale|invert|sepia|opacity|hue-rotate)/)
+      expect(text, file).not.toMatch(/@(repeating-)?(linear|radial|conic)-gradient/)
+      expect(text, file).not.toMatch(/var\(--(glass|accent-gradient|glow-)/)
+    }
+  })
+
+  it('黑场分区 + 1px 发丝线：结构线全部来自 --ds-line-* / --ds-canvas', () => {
+    const lineDecl = /^(border|border-(top|right|bottom|left))(-width)?:/
+    let lines = 0
+    for (const file of BASE_FILES) {
+      for (const rule of rulesOf(file).filter((item) => !item.insideKeyframes && !isMotionGuard(item))) {
+        for (const decl of rule.block.split(';').map((item) => item.trim())) {

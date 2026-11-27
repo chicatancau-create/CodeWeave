@@ -1,0 +1,101 @@
+                            color: ds.cyanText
+                            font.family: ds.ui
+                            font.pixelSize: 11
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                }
+
+                IconButton {
+                    ds: root.designSystem
+                    id: settingsButton
+                    implicitWidth: root.width <= 1200 ? 44 : 36
+                    implicitHeight: implicitWidth
+                    objectName: "settingsButton"
+                    iconName: "Settings"
+                    tip: "账户与设置"
+                    onClicked: {
+                        root.dialogReturnFocusItem = settingsButton;
+                        root.closeTopbarPopups();
+                        settingsDialog.open();
+                    }
+                }
+
+                // .topbar-avatar
+                Rectangle {
+                    id: topbarAvatar
+                    objectName: "topbarAvatar"
+                    activeFocusOnTab: true
+                    function toggleMenu() {
+                        const shouldOpen = !accountPopup.opened;
+                        root.closeTopbarPopups();
+                        root.accountMenuOpen = shouldOpen;
+                        if (shouldOpen) accountPopup.open();
+                    }
+                    Keys.onReturnPressed: toggleMenu()
+                    Keys.onSpacePressed: toggleMenu()
+                    implicitWidth: root.width <= 1200 ? 44 : 34
+                    implicitHeight: implicitWidth
+                    radius: root.width <= 1200 ? width / 2 : ds.radius
+                    color: root.width <= 1200 ? "transparent" : ds.accent
+                    border.color: root.width <= 1200 ? ds.accentRing : ds.accentEdge
+                    border.width: 1
+                    Layout.alignment: Qt.AlignVCenter
+                    Text {
+                        anchors.centerIn: parent
+                        text: uiShell.hasActiveAccount && uiShell.accountName.length > 0
+                              ? uiShell.accountName.charAt(0) : "?"
+                        color: root.width <= 1200 ? ds.accent : ds.inkOnAccent
+                        font.family: ds.shellUi
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                    }
+                    TapHandler {
+                        onTapped: {
+                            topbarAvatar.toggleMenu();
+                        }
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "账户菜单"
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: 30000
+        repeat: true
+        running: true
+        onTriggered: {
+            uiShell.refreshLocalDay();
+            root.refreshSidebarReview();
+        }
+    }
+
+        ShellPopup {
+            id: searchPopup
+            objectName: "searchPopup"
+            parent: root
+            anchorItem: searchBox
+            alignRight: false
+            anchorGap: ds.s6
+            width: searchBox.width
+            height: Math.min(360, Math.max(93, searchResultsView.contentHeight + ds.s24))
+            ds: root.designSystem
+            returnFocusItem: searchField
+            onOpened: searchField.forceActiveFocus()
+
+            ListView {
+                id: searchResultsView
+                objectName: "searchResultsView"
+                anchors.fill: parent
+                clip: true
+                focus: true
+                model: root.searchResults(searchField.text)
+                function activateCurrent() {
+                    if (currentIndex < 0 || currentIndex >= count) return;
+                    const result = model[currentIndex];
+                    if (result.kind === "lesson") {
+                        root.openLesson(result.index);
+                    } else uiShell.selectPage("挑战");
+                    searchField.text = "";

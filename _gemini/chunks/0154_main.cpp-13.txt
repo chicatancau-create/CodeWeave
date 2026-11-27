@@ -1,0 +1,20 @@
+      g_account_name = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER, 24, 52, 120, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountNameId)), nullptr, nullptr);
+      g_account_identifier = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER, 152, 52, 180, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountIdentifierId)), nullptr, nullptr);
+      g_account_password = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_PASSWORD, 340, 52, 150, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountPasswordId)), nullptr, nullptr);
+      CreateWindowW(L"BUTTON", L"注册", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 498, 50, 70, 28, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountRegisterId)), nullptr, nullptr);
+      CreateWindowW(L"BUTTON", L"登录", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 574, 50, 70, 28, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountLoginId)), nullptr, nullptr);
+      CreateWindowW(L"BUTTON", L"退出", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 650, 50, 70, 28, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountLogoutId)), nullptr, nullptr);
+      g_account_new_password = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_PASSWORD, 726, 52, 150, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountNewPasswordId)), nullptr, nullptr);
+      CreateWindowW(L"BUTTON", L"修改密码", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 884, 50, 110, 28, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountChangePasswordId)), nullptr, nullptr);
+      g_account_status = CreateWindowW(L"STATIC", L"未登录", WS_CHILD | WS_VISIBLE, 24, 82, 970, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kAccountStatusId)), nullptr, nullptr);
+      g_exercise_id = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_READONLY, 24, 650, 180, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kExerciseId)), nullptr, nullptr);
+      g_progress_status = CreateWindowW(L"STATIC", L"正式进度事实：0 条（仅独立完成挑战计入）", WS_CHILD | WS_VISIBLE, 220, 650, 400, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kProgressStatusId)), nullptr, nullptr);
+      g_trace_status = CreateWindowW(L"STATIC", L"轨迹：尚无执行结果", WS_CHILD | WS_VISIBLE, 220, 688, 600, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kTraceStatusId)), nullptr, nullptr);
+      CreateWindowW(L"BUTTON", L"刷新复习汇总", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+          24, 510, 140, 28, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kReviewButtonId)), nullptr, nullptr);
+      g_review_status = CreateWindowW(L"STATIC", L"复习：尚无数据", WS_CHILD | WS_VISIBLE,
+          180, 514, 800, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kReviewStatusId)), nullptr, nullptr);
+      g_independent_check = CreateWindowW(L"BUTTON", L"独立完成", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 630, 650, 150, 24, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIndependentCheckId)), nullptr, nullptr);
+      g_content_list = CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_VSCROLL, 868, 104, 300, 180, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kContentListId)), nullptr, nullptr);
+      g_content_body = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY, 868, 292, 300, 242, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kContentBodyId)), nullptr, nullptr);
+      CreateWindowW(L"BUTTON", L"读取课程目录", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 868, 544, 140, 28, window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kListContentButtonId)), nullptr, nullptr);

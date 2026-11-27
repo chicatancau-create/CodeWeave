@@ -1,0 +1,63 @@
+            if (flick->property("contentY").toReal() <= 0 || !fully_visible(export_data) ||
+                !fully_visible(clear_data)) {
+              diagnostic = QStringLiteral("Settings data controls are clipped after scrolling to the bottom");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            if (!capture_topbar(QStringLiteral("topbar-settings-bottom-small"))) { application.exit(1); return; }
+            flick->setProperty("contentY", 0);
+          }
+          {
+            const QPointF point(12, 12);
+            QMouseEvent press(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton,
+                Qt::LeftButton, Qt::NoModifier);
+            QMouseEvent release(QEvent::MouseButtonRelease, point, point, point, Qt::LeftButton,
+                Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&view, &press);
+            QCoreApplication::sendEvent(&view, &release);
+          }
+          break;
+        case 19:
+          if (settings->property("opened").toBool() || !require_focus(settings_button)) {
+            if (diagnostic == QStringLiteral("running")) {
+              diagnostic = QStringLiteral("Settings did not close on outside click or return focus");
+              write_smoke_report();
+              application.exit(1);
+            }
+            return;
+          }
+          shell.selectPage(QStringLiteral("分析"));
+          {
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            if (!breadcrumb || breadcrumb->property("text").toString() !=
+                    QStringLiteral("Code Canvas / 分析 / 05 学习分析") ||
+                !accessible_breadcrumb || accessible_breadcrumb->text(QAccessible::Name) !=
+                    QStringLiteral("当前位置：Code Canvas / 分析 / 05 学习分析") ||
+                view.rootObject()->property("breadcrumbEntry").toMap().value("index").toString() != QStringLiteral("05") ||
+                view.rootObject()->property("breadcrumbEntry").toMap().value("label").toString() != QStringLiteral("学习分析")) {
+              diagnostic = QStringLiteral("Analytics breadcrumb did not preserve its navigation index and label");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+          }
+          shell.selectPage(QStringLiteral("学习"));
+          {
+            auto* compact_brand = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("compactSidebarBrand"));
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* breadcrumb_root = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbRoot"));
+            auto* breadcrumb_section = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbSection"));
+            auto* breadcrumb_index = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbIndex"));
+            auto* breadcrumb_entry = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbEntryLabel"));
+            auto* accessible_breadcrumb = breadcrumb
+                ? QAccessible::queryAccessibleInterface(breadcrumb) : nullptr;
+            if (view.size() != QSize(1100, 720) || !compact_brand || !compact_brand->isVisible() ||
+                compact_brand->width() != 240 || compact_brand->height() != 64 ||
+                !breadcrumb || breadcrumb->property("text").toString() !=
+                    QStringLiteral("Code Canvas / 课程 / 01 学习路径") ||
+                !accessible_breadcrumb || accessible_breadcrumb->text(QAccessible::Name) !=
+                    QStringLiteral("当前位置：Code Canvas / 课程 / 01 学习路径") ||
+                !breadcrumb_root || breadcrumb_root->property("text").toString() != QStringLiteral("Code Canvas") ||

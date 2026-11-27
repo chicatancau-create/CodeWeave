@@ -1,0 +1,69 @@
+                    if (token == generation) notice = error.message ?: "无法读取课程目录"
+                }
+            } finally { if (token == generation) busy = false }
+        }
+    }
+
+    LaunchedEffect(service) {
+        val token = generation
+        val saved = withContext(Dispatchers.IO) { service.storedSession() }
+        if (saved != null && token == generation) { session = saved; address = saved.origin; loadCourses(saved) }
+    }
+
+    Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("CodeWeave", style = MaterialTheme.typography.headlineMedium)
+            if (busy) CircularProgressIndicator()
+            notice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            val active = session
+            if (active == null) {
+                OutlinedTextField(address, { address = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("服务地址") }, enabled = !busy)
+                OutlinedTextField(identifier, { identifier = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("邮箱或手机号") }, enabled = !busy)
+                OutlinedTextField(password, { password = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("密码") }, visualTransformation = PasswordVisualTransformation(), enabled = !busy)
+                Button(onClick = {
+                    generation += 1
+                    val token = generation
+                    val host = address
+                    val login = identifier
+                    val secret = password
+                    password = ""
+                    busy = true
+                    notice = null
+                    scope.launch {
+                        try {
+                            val signedIn = withContext(Dispatchers.IO) { service.login(host, login, secret).also(service::save) }
+                            if (token == generation) { session = signedIn; loadCourses(signedIn) }
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (error: Exception) {
+                            if (token == generation) { busy = false; notice = error.message ?: "无法登录" }
+                        }
+                    }
+                }, enabled = !busy && identifier.isNotBlank() && password.isNotEmpty()) { Text("登录") }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TextButton(onClick = { page = null; notice = null; loadCourses(active) }, enabled = !busy) { Text("刷新目录") }
+                    TextButton(onClick = {
+                        generation += 1
+                        val token = generation
+                        session = null
+                        catalog = null
+                        page = null
+                        busy = true
+                        notice = null
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    service.discard(active)
+                                    runCatching { service.request(active.origin, "/api/auth/logout", active, JSONObject()) }
+                                }
+                            } finally { if (token == generation) busy = false }
+                        }
+                    }) { Text("退出登录") }
+                }
+                catalog?.let { index ->
+                    Text(if (index.offline || page?.offline == true) "离线只读" else "已连接", style = MaterialTheme.typography.titleSmall)
+                    Text("实例 ${index.serviceInstance}\n资料库 ${index.vaultId}\n快照 ${index.bundleId}\n校验 ${index.manifestHash}",

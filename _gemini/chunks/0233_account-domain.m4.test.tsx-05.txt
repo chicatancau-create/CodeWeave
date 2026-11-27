@@ -1,0 +1,92 @@
+    fireEvent.click(screen.getByRole('button', { name: /导出学习数据/ }))
+    expect(profile.onExportData).toHaveBeenCalledTimes(1)
+  })
+
+  it('跨账户导出件：不可决定的行只有「不写入」文字，界面上不给勾选', async () => {
+    renderPrivacy(okClear)
+    await chooseFile(
+      payloadFor(OTHER, { [`${STORAGE_KEYS.WORKSPACE}:${OTHER}`]: { savedAt: 'x', data: { lessonId: 'theirs' } } }),
+    )
+    expect(await screen.findByText(/属于其他账户/)).toBeTruthy()
+    expect(screen.getByText('不写入')).toBeTruthy()
+    expect(screen.queryByLabelText(/覆盖现有记录/)).toBeNull()
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  it('可决定的行才给勾选（空位默认勾、冲突默认不勾）', async () => {
+    localStorage.setItem(`${STORAGE_KEYS.WORKSPACE}:${ACCOUNT}`, envelope({ lessonId: 'current' }))
+    renderPrivacy(okClear)
+    await chooseFile(
+      payloadFor(ACCOUNT, {
+        [`${STORAGE_KEYS.WORKSPACE}:${ACCOUNT}`]: { savedAt: 'x', data: { lessonId: 'from-file' } },
+        [`${STORAGE_KEYS.PROJECTS}:${ACCOUNT}`]: { savedAt: 'x', data: { a: 1 } },
+      }),
+    )
+    const override = (await screen.findByLabelText(/覆盖现有记录/)) as HTMLInputElement
+    const fresh = (await screen.findByLabelText(/^恢复/)) as HTMLInputElement
+    expect(override.checked).toBe(false)
+    expect(fresh.checked).toBe(true)
+  })
+})
+
+describe('M4 账户域 · 按范围清除（部分失败不得显示成功）', () => {
+  it('数据与隐私页：部分失败时留字面告警，不出现成功态', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { onClearLocalData } = renderPrivacy(partialClear)
+    fireEvent.click(screen.getByRole('button', { name: /清除本机学习数据/ }))
+    expect(onClearLocalData).toHaveBeenCalledTimes(1)
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('清除未完成：1 项数据删除失败')
+    expect(alert.textContent).toContain('已保留未删除的数据')
+    expect(document.querySelector('.cw-account-status--ok')).toBeNull()
+  })
+
+  it('数据与隐私页：全部成功时不留下任何告警区', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPrivacy(okClear)
+    fireEvent.click(screen.getByRole('button', { name: /清除本机学习数据/ }))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('取消确认时一个键都不删（确认仍是清除的前置）', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    localStorage.setItem(`${STORAGE_KEYS.MASTERY}:${ACCOUNT}`, '{"kept":true}')
+    const { onClearLocalData } = renderPrivacy(okClear)
+    fireEvent.click(screen.getByRole('button', { name: /清除本机学习数据/ }))
+    expect(onClearLocalData).not.toHaveBeenCalled()
+    expect(localStorage.getItem(`${STORAGE_KEYS.MASTERY}:${ACCOUNT}`)).toBe('{"kept":true}')
+  })
+
+  it('个人中心：部分失败在账户操作区如实上报', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { onClearLocalData } = renderProfile(partialClear)
+    fireEvent.click(screen.getByRole('button', { name: /清除本机学习数据/ }))
+    expect(onClearLocalData).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('alert').textContent).toContain('清除未完成：1 项数据删除失败')
+  })
+
+  it('清除文案点明范围是「当前账户」，与设置弹窗的「全部账户」不混用', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderPrivacy(okClear)
+    fireEvent.click(screen.getByRole('button', { name: /清除本机学习数据/ }))
+    expect(String(confirmSpy.mock.calls[0]![0])).toContain('只清当前账户')
+    expect(String(confirmSpy.mock.calls[0]![0])).not.toContain('所有账户')
+  })
+})
+
+describe('M4 账户域 · §5.2 体系与形态（account-domain.css 不变式）', () => {
+  it('每条选择器都带账户域前缀：全局裸选择器 0 条', () => {
+    const offenders = allSelectors(cssText).filter(
+      (selector) =>
+        !selector.startsWith('.cw-account') &&
+        !selector.startsWith('.cw-security') &&
+        !selector.startsWith('.cw-profile') &&
+        !selector.startsWith('.cw-privacy') &&
+        !selector.startsWith('.reduce-motion '),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it('不串改他人面板：个人中心内不用全局类名作右端主语', () => {
+    const foreign = ['field-label', 'primary-action', 'subtle-button', 'danger-button', 'profile-overview-card', 'security-card-title']
+    const profileSelectors = allSelectors(cssText).filter((selector) => selector.startsWith('.cw-profile'))

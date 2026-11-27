@@ -1,0 +1,116 @@
+function cellOf(cells, index) {
+  if (index < 0) return ''
+  return cells[index] ?? ''
+}
+
+/** 顶部说明行里的三个日期：结构维护 / 环境核验与补齐 / 最近学习证据。 */
+function parseHeaderDates(text) {
+  const line = visibleLines(text).map(([, value]) => value).find((value) => value.includes('最近学习证据'))
+  if (!line) {
+    return {
+      value: null,
+      unparsed: [{ key: 'headerDates', scope: 'value', reason: '顶部说明行未找到「最近学习证据」', raw: '' }],
+    }
+  }
+  const pick = (label) => {
+    const match = new RegExp(`${label}[：:]\\s*(\\d{4}-\\d{2}-\\d{2})`).exec(plainText(line))
+    return match?.[1] ?? null
+  }
+  return {
+    value: {
+      structureUpdatedOn: pick('结构维护'),
+      environmentVerifiedOn: pick('环境核验与补齐'),
+      latestEvidenceOn: pick('最近学习证据'),
+      raw: line.trim(),
+    },
+    unparsed: [],
+  }
+}
+
+/**
+ * 解析进度追踪正文。
+ * @returns 投影对象（含 status / unparsed），无异常抛出——结构不符只降级、不失败。
+ */
+export function parseProgress(text, { path = PROGRESS_PATH } = {}) {
+  const normalized = normalizeText(text)
+  const fileHash = sha256(normalized)
+  const unparsed = []
+
+  const header = parseHeaderDates(normalized)
+  unparsed.push(...header.unparsed)
+
+  const sections = sectionsOf(normalized)
+  const require = (number) => {
+    const section = sections.get(number)
+    if (!section) {
+      unparsed.push({ key: `section-${number}`, scope: 'section', reason: `缺少「## ${number}.」小节`, raw: '' })
+      return null
+    }
+    const table = firstTable(section)
+    if (!table) {
+      unparsed.push({
+        key: `section-${number}`,
+        scope: 'section',
+        reason: `小节「${section.title}」内没有可解析的表格`,
+        raw: section.body.join('\n').trim().slice(0, 2000),
+      })
+      return null
+    }
+    return { section, table }
+  }
+
+  // §1 当前状态快照：项目 | 当前值 | 证据
+  const snapshot = { items: [], raw: '' }
+  const section1 = require('1')
+  if (section1) {
+    const valueIndex = columnIndex(section1.table.header, ['当前值'])
+    const evidenceIndex = columnIndex(section1.table.header, ['证据'])
+    if (valueIndex === -1) {
+      unparsed.push({ key: 'section-1', scope: 'section', reason: '表头缺少「当前值」列', raw: section1.table.header.join(' | ') })
+    } else {
+      for (const cells of section1.table.rows) {
+        const label = plainText(cellOf(cells, 0))
+        if (!label) continue
+        snapshot.items.push({
+          label,
+          value: plainText(cellOf(cells, valueIndex)),
+          valueRaw: cellOf(cells, valueIndex),
+          evidence: plainText(cellOf(cells, evidenceIndex)),
+        })
+      }
+      snapshot.raw = section1.section.body.join('\n').trim()
+    }
+  }
+  const itemOf = (...labels) => snapshot.items.find((item) => labels.some((label) => item.label.includes(label))) ?? null
+
+  // §3 掌握程度矩阵：技能 | 等级 | 状态 | 最新证据
+  const mastery = { rows: [], raw: '', note: '' }
+  const section3 = require('3')
+  if (section3) {
+    const levelIndex = columnIndex(section3.table.header, ['等级'])
+    const statusIndex = columnIndex(section3.table.header, ['状态'])
+    const evidenceIndex = columnIndex(section3.table.header, ['最新证据'])
+    if (levelIndex === -1) {
+      unparsed.push({ key: 'section-3', scope: 'section', reason: '表头缺少「等级」列', raw: section3.table.header.join(' | ') })
+    } else {
+      for (const cells of section3.table.rows) {
+        const skill = plainText(cellOf(cells, 0))
+        if (!skill) continue
+        const levelRaw = cellOf(cells, levelIndex)
+        const level = parseMasteryLevel(levelRaw)
+        if (level.kind === 'uncertain' && !/无法确认|未核验|待确认|暂估|未填写/.test(level.label)) {
+          // 既不是数字也不是已知的不确定词：保留原文并显式记录结构待适配。
+          // scope=value：只有这一格无法识别，不把整份投影判成结构不受支持。
+          unparsed.push({
+            key: 'section-3',
+            scope: 'value',
+            reason: `等级写法未被识别：「${plainText(levelRaw)}」`,
+            raw: `${skill} | ${levelRaw}`,
+          })
+        }
+        mastery.rows.push({
+          skill,
+          level,
+          levelRaw,
+          status: plainText(cellOf(cells, statusIndex)) || null,
+          evidence: plainText(cellOf(cells, evidenceIndex)),

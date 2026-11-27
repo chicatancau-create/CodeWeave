@@ -1,0 +1,58 @@
+              const bool empty_state = challenge_page->property("filteredChallenges").toList().isEmpty() &&
+                  empty && empty->property("visible").toBool() &&
+                  challenge_page->property("currentPage").toInt() == 1 &&
+                  !previous->property("enabled").toBool() && !next->property("enabled").toBool();
+              u3_record(*context, QStringLiteral("challenge-empty-filter-state"), empty_state);
+              QMetaObject::invokeMethod(challenge_page, "clearFilters", Qt::DirectConnection);
+              const bool reset = challenge_page->property("searchText").toString().isEmpty() &&
+                  challenge_page->property("stageFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("trackFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("difficultyFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("runnerFilter").toString() == QStringLiteral("全部") &&
+                  challenge_page->property("sortFilter").toString() == QStringLiteral("A—M 顺序") &&
+                  challenge_page->property("currentPage").toInt() == 1 &&
+                  challenge_page->property("filteredChallenges").toList() == challenges &&
+                  !previous->property("enabled").toBool() && next->property("enabled").toBool() == (expected_pages > 1);
+              u3_record(*context, QStringLiteral("challenge-filter-reset"), reset);
+
+              context->step = 205;
+              return;
+            }
+          }
+          u3_screenshot(*context, view, QStringLiteral("u3-challenge"));
+          shell.discardDraftChanges();
+          shell.selectPage(QStringLiteral("账户"));
+          context->step = 9;
+          return;
+        case 205: {
+          const auto sample = shell.challengeMeta().first().toMap();
+          auto* card = u3_find_item(view.rootObject(),
+              QStringLiteral("challengeCard-") + sample.value(QStringLiteral("id")).toString());
+          if (!card) return;
+          card->forceActiveFocus();
+          send_editor_shortcut(view, Qt::Key_Return, Qt::NoModifier);
+          u3_record(*context, QStringLiteral("challenge-card-keyboard-opens-detail"),
+              shell.challengeDetailOpen() && shell.selectedChallenge() == sample);
+          context->step = 209;
+          return;
+        }
+        case 209: {
+          const auto sample = shell.challengeMeta().first().toMap();
+          auto* detail_title = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeDetailTitle"));
+          auto* overview = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeOverviewSection"));
+          auto* lab = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeLabSection"));
+          auto* starter = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeStarterCode"));
+          auto* unavailable = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeRunUnavailable"));
+          auto* back = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("challengeDetailBack"));
+          const bool detail_loaded = shell.challengeDetailOpen() && detail_title && overview && lab && starter && unavailable &&
+              detail_title->property("text").toString() == sample.value(QStringLiteral("title")).toString() &&
+              overview->isVisible() && lab->isVisible() && !unavailable->property("enabled").toBool() &&
+              starter->property("text").toString() == sample.value(QStringLiteral("starterCode")).toString();
+          u3_record(*context, QStringLiteral("challenge-detail-metadata-and-honest-run-state"), detail_loaded);
+          u3_record(*context, QStringLiteral("challenge-detail-focuses-back-button"), back && back->hasActiveFocus());
+          context->detail_restore_size = view.size();
+          view.resize(1440, 900);
+          context->step = 206;
+          return;
+        }
+        case 206:

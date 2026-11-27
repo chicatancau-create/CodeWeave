@@ -1,0 +1,96 @@
+    std::vector<FileReceipt>& receipts, bool native = false) {
+  receipts.clear();
+  std::error_code error;
+  for (std::filesystem::recursive_directory_iterator iterator(
+           root, std::filesystem::directory_options::none, error),
+       end; iterator != end; iterator.increment(error)) {
+    if (error) return false;
+    const auto status = iterator->symlink_status(error);
+    if (error) return false;
+    if (std::filesystem::is_symlink(status)) {
+      return false;
+    }
+    if (!std::filesystem::is_regular_file(status)) continue;
+    const auto relative = std::filesystem::relative(iterator->path(), root, error);
+    if (error) return false;
+    if (relative.generic_string().find_first_of("\r\n") != std::string::npos) return false;
+    if (relative.generic_string() == kMarker ||
+        relative.generic_string() == kBackupMarker ||
+        (native && relative.filename() == ".native.lock")) continue;
+    FileReceipt receipt{relative.generic_string(), 0, 0};
+    if (!fingerprint(iterator->path(), receipt.size, receipt.fingerprint)) return false;
+    receipts.push_back(std::move(receipt));
+  }
+  if (error) return false;
+  std::sort(receipts.begin(), receipts.end(),
+      [](const auto& left, const auto& right) {
+        return left.relative_path < right.relative_path;
+      });
+  return true;
+}
+
+bool verify(const std::filesystem::path& root,
+    const std::vector<FileReceipt>& receipts) {
+  for (const auto& receipt : receipts) {
+    std::uintmax_t size = 0;
+    std::uint64_t value = 0;
+    if (!fingerprint(root / std::filesystem::path(receipt.relative_path),
+                     size, value) ||
+        size != receipt.size || value != receipt.fingerprint) {
+      return false;
+    }
+  }
+  return true;
+}
+
+app::Result copy_tree(const std::filesystem::path& source,
+    const std::filesystem::path& target, Report& report, bool native = false) {
+  if (!valid_roots(source, target)) {
+    return app::Result::failure("备份源和目标必须是不同的绝对路径");
+  }
+  if (has_symlink_component(target.parent_path())) {
+    return app::Result::failure("备份目标父目录不能经过符号链接");
+  }
+  if (!native && !marked_fixture(source)) {
+    return app::Result::failure("只允许带迁移夹具标记的隔离源");
+  }
+  std::error_code error;
+  const auto target_status = std::filesystem::symlink_status(target, error);
+  if (error && error != std::make_error_code(std::errc::no_such_file_or_directory) &&
+      error.value() != ERROR_FILE_NOT_FOUND && error.value() != ERROR_PATH_NOT_FOUND) {
+    return app::Result::failure("读取备份目标失败");
+  }
+  if (!error && target_status.type() != std::filesystem::file_type::not_found) {
+    return app::Result::failure("备份目标必须不存在，避免覆盖已有数据");
+  }
+  error.clear();
+  if (!collect(source, report.receipts, native)) {
+    return app::Result::failure("读取隔离夹具失败");
+  }
+  report.source_verified = verify(source, report.receipts);
+  if (!report.source_verified) {
+    return app::Result::failure("隔离源校验失败");
+  }
+  std::filesystem::create_directories(target.parent_path(), error);
+  if (error || !std::filesystem::create_directory(target, error) || error) {
+    return app::Result::failure("创建备份目标失败或目标已被占用");
+  }
+  for (const auto& receipt : report.receipts) {
+    const auto from = source / std::filesystem::path(receipt.relative_path);
+    const auto to = target / std::filesystem::path(receipt.relative_path);
+    std::filesystem::create_directories(to.parent_path(), error);
+    if (error) break;
+    std::filesystem::copy_file(from, to, std::filesystem::copy_options::none,
+        error);
+    if (error) break;
+  }
+  if (!error) {
+    std::ofstream marker(target / (native ? kBackupMarker : kMarker), std::ios::binary | std::ios::trunc);
+    marker << (native ? "CodeWeave native data backup v1\n" : "fixture-backup\n");
+    if (native) {
+      for (const auto& receipt : report.receipts) {
+        marker << receipt.size << ' ' << receipt.fingerprint << ' '
+            << std::quoted(receipt.relative_path) << '\n';
+      }
+    }
+    if (!marker) error = std::make_error_code(std::errc::io_error);

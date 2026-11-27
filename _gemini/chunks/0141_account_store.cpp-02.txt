@@ -1,0 +1,94 @@
+  return app::Result::success("账户文件已保存");
+}
+
+bool same_identifier(const Record& record, std::string_view identifier) {
+  return record.id == identifier || (!record.email.empty() && record.email == identifier) || (!record.phone.empty() && normalized_phone(record.phone) == normalized_phone(identifier));
+}
+
+bool constant_time_equal(std::string_view left, std::string_view right) {
+  const size_t length = std::max(left.size(), right.size()); unsigned char difference = static_cast<unsigned char>(left.size() ^ right.size());
+  for (size_t index = 0; index < length; ++index) {
+    const unsigned char lhs = index < left.size() ? static_cast<unsigned char>(left[index]) : 0; const unsigned char rhs = index < right.size() ? static_cast<unsigned char>(right[index]) : 0; difference = static_cast<unsigned char>(difference | (lhs ^ rhs));
+  }
+  return difference == 0;
+}
+
+bool is_missing_path_error(const std::error_code& error) {
+  if (!error) return false;
+  if (error == std::make_error_code(std::errc::no_such_file_or_directory)) return true;
+#ifdef _WIN32
+  return error.value() == ERROR_FILE_NOT_FOUND || error.value() == ERROR_PATH_NOT_FOUND;
+#else
+  return false;
+#endif
+}
+
+bool has_symlink_component(const std::filesystem::path& value) {
+  auto current = std::filesystem::path{};
+  std::error_code error;
+  for (const auto& component : value) {
+    current /= component;
+    if (current == value.root_name() || current == value.root_path()) continue;
+    const auto status = std::filesystem::symlink_status(current, error);
+    if (!error && std::filesystem::is_symlink(status)) return true;
+    if (is_missing_path_error(error)) {
+      error.clear();
+      continue;
+    }
+    if (error) return true;
+  }
+  return false;
+}
+
+app::Result list_accounts_unlocked(const std::filesystem::path& path,
+    const std::filesystem::path& data_root, std::vector<Record>& records) {
+  records.clear();
+  if (data_root.empty() || !data_root.is_absolute()) {
+    return app::Result::failure("账户数据根必须是绝对路径");
+  }
+  std::error_code status_error;
+  const auto file_status = std::filesystem::symlink_status(path, status_error);
+  if (status_error && status_error.value() != ERROR_FILE_NOT_FOUND &&
+      status_error.value() != ERROR_PATH_NOT_FOUND &&
+      status_error != std::make_error_code(std::errc::no_such_file_or_directory)) {
+    return app::Result::failure("读取账户文件状态失败");
+  }
+  status_error.clear();
+  if (file_status.type() == std::filesystem::file_type::not_found) {
+    return app::Result::success("账户文件尚不存在");
+  }
+  if (std::filesystem::is_symlink(file_status) ||
+      !std::filesystem::is_regular_file(file_status)) {
+    return app::Result::failure("账户文件类型无效");
+  }
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return app::Result::failure("打开账户文件失败");
+  std::error_code size_error;
+  if (const auto size = std::filesystem::file_size(path, size_error);
+      size_error || size > kMaxAccountFileBytes) {
+    return app::Result::failure("账户文件超过大小上限");
+  }
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty()) continue;
+    if (line.size() > kMaxAccountLineBytes) return app::Result::failure("账户记录超过大小上限");
+    Record record;
+    if (!parse(line, record)) return app::Result::failure("账户文件存在无效记录");
+    records.push_back(std::move(record));
+  }
+  return input.eof() ? app::Result::success("账户已读取")
+                    : app::Result::failure("读取账户文件失败");
+}
+
+}  // namespace
+
+AccountStore::AccountStore(std::filesystem::path data_root) : data_root_(std::move(data_root)) {}
+std::filesystem::path AccountStore::path() const { return data_root_ / "profile" / "accounts.v1.tsv"; }
+
+app::Result AccountStore::list_accounts(std::vector<Record>& records) const {
+  std::lock_guard lock(mutex_);
+  return list_accounts_unlocked(path(), data_root_, records);
+}
+
+app::Result AccountStore::register_account(const Record& record) {
+  std::lock_guard lock(mutex_);

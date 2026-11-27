@@ -1,0 +1,72 @@
+          <UserRound size={15} aria-hidden="true" />个人中心
+        </button>
+      </nav>
+      <nav className="breadcrumbs" aria-label="当前位置">
+        <span className="breadcrumbs__trail">
+          <span className="breadcrumbs__root">Code Canvas</span>
+          {/* 分隔符是装饰：显式排除出朗读顺序，避免 AT 念出「Code Canvas 斜杠 挑战」 */}
+          <span className="breadcrumbs__sep" aria-hidden="true">
+            /
+          </span>
+          <span className="breadcrumbs__crumb">{breadcrumbLabel}</span>
+          {contextTitle && (
+            <>
+              <span className="breadcrumbs__sep" aria-hidden="true">
+                /
+              </span>
+              <span className="breadcrumbs__crumb">{contextTitle}</span>
+            </>
+          )}
+        </span>
+        <span className="breadcrumbs__sep" aria-hidden="true">
+          /
+        </span>
+        <strong className="breadcrumbs__entry">
+          {currentEntry.index && <span className="breadcrumbs__index">{currentEntry.index}</span>}
+          {currentEntry.label}
+        </strong>
+      </nav>
+      <GlobalSearch
+        targets={searchTargets}
+        recentViews={recentViews}
+        onPickLesson={onPickLesson}
+        onPickChallenge={onPickChallenge}
+        onPickProject={onPickProject}
+        onNavigateRecent={onNavigateView}
+      />
+      <div className="topbar-actions">
+        {quickActionsWired && onContinueLesson && onGoReviews && onOpenHelp && (
+          <QuickActions
+            recommended={recommendedLesson}
+            dueCount={reviewDueCount}
+            onContinue={onContinueLesson}
+            onGoReviews={onGoReviews}
+            onOpenHelp={onOpenHelp}
+          />
+        )}
+        <NotificationCenter
+          items={notifications}
+          onNavigateView={onNavigateView}
+          onClose={closeNotifications}
+        />
+        <span className="desktop-local"><span aria-hidden="true" />本机工作空间</span>
+        <button
+          ref={settingsTriggerRef}
+          className="icon-button"
+          onClick={onOpenSettings}
+          aria-label="打开设置"
+        >
+          <Settings size={17} aria-hidden="true" />
+        </button>
+        <AccountMenu
+          user={user}
+          onNavigateProfile={navigateToProfile}
+          onNavigateSecurity={onNavigateSecurity}
+          onNavigateData={onNavigateData}
+          onExportData={onExportData}
+          onLogout={onLogout}
+        />
+      </div>
+    </header>
+  )
+}

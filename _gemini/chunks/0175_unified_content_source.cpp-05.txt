@@ -1,0 +1,92 @@
+    QString::fromLatin1(digest(origin_.toEncoded() + '\0' + learningScope().toUtf8())) + QStringLiteral(".json"));
+}
+
+void UnifiedContentSource::recordCheckin() {
+  if (!connected() || syncBusy_ ||
+      !catalog_.value("capabilities").toStringList().contains(QStringLiteral("learningSync"))) return;
+  const auto outbox = checkinOutboxPath();
+  if (outbox.isEmpty()) return;
+  const auto bytes = loadFile(outbox);
+  const auto prior = QJsonDocument::fromJson(bytes);
+  if (QFile::exists(outbox) && !prior.isArray()) {
+    syncStatus_ = QStringLiteral("待同步打卡文件无法读取");
+    emit changed();
+    return;
+  }
+  auto changes = prior.array();
+  const auto now = QDateTime::currentDateTime();
+  const auto date = now.date().toString(Qt::ISODate);
+  if (checkinDates_.contains(date)) return;
+  for (const auto& existing : changes) {
+    if (existing.toObject().value("localDate").toString() == date) {
+      refreshLearningFacts();
+      return;
+    }
+  }
+  const auto zone = QTimeZone::systemTimeZoneId();
+  changes.append(QJsonObject{
+    {"schemaVersion", 1}, {"changeId", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+    {"deviceId", QString::fromLatin1(digest(QSysInfo::machineUniqueId() + '\0' + learningScope().toUtf8()))},
+    {"kind", QStringLiteral("learning.checkin.recorded")}, {"occurredAt", now.toUTC().toString(Qt::ISODateWithMs)},
+    {"localDate", date}, {"timeZone", QString::fromLatin1(zone.isEmpty() ? QByteArrayLiteral("UTC") : zone)},
+    {"payload", QJsonObject{}},
+  });
+  if (!QDir().mkpath(cacheDir_) || !saveFile(outbox, QJsonDocument(changes).toJson(QJsonDocument::Compact))) {
+    syncStatus_ = QStringLiteral("无法保存待同步打卡");
+    emit changed();
+    return;
+  }
+  refreshLearningFacts();
+}
+
+void UnifiedContentSource::flushCheckinOutbox(const QString& scope, const QString& path) {
+  if (scope != learningScope()) {
+    syncBusy_ = false;
+    emit changed();
+    return;
+  }
+  const auto changes = QJsonDocument::fromJson(loadFile(path));
+  if (!changes.isArray()) {
+    syncBusy_ = false;
+    syncStatus_ = QStringLiteral("待同步打卡文件无法读取");
+    emit changed();
+    return;
+  }
+  auto pending = changes.array();
+  if (pending.isEmpty()) {
+    pullLearningFacts({}, {});
+    return;
+  }
+  const auto event = pending.first().toObject();
+  const auto id = event.value("changeId").toString().toUtf8();
+  run(QStringLiteral("/api/sync/push"), QJsonDocument(event).toJson(QJsonDocument::Compact),
+    [this, scope, path, pending = std::move(pending)](int status, const QByteArray& bytes, const QNetworkReply&) mutable {
+      if (scope != learningScope() || status != 200 || responseData(bytes).value("status").toString() != QStringLiteral("accepted")) {
+        syncBusy_ = false;
+        const auto errorCode = QJsonDocument::fromJson(bytes).object().value("code").toString();
+        syncStatus_ = status == 0 ? QStringLiteral("待同步打卡已保留")
+          : QStringLiteral("待同步打卡已保留（%1）").arg(errorCode.isEmpty() ? QString::number(status) : errorCode);
+        emit changed();
+        return;
+      }
+      pending.removeFirst();
+      if (!saveFile(path, QJsonDocument(pending).toJson(QJsonDocument::Compact))) {
+        syncBusy_ = false;
+        syncStatus_ = QStringLiteral("待同步打卡已保留");
+        emit changed();
+        return;
+      }
+      flushCheckinOutbox(scope, path);
+    }, id);
+}
+
+void UnifiedContentSource::pullLearningFacts(const QString& cursor, QStringList dates) {
+  auto path = QStringLiteral("/api/sync/pull");
+  if (!cursor.isEmpty()) path += QStringLiteral("?cursor=") + parameter(cursor);
+  run(path, {}, [this, cursor, dates = std::move(dates)](int status, const QByteArray& bytes, const QNetworkReply&) mutable {
+    const auto page = responseData(bytes);
+    const auto nextCursor = page.value("cursor").toString();
+    if (status != 200 || nextCursor.isEmpty() || nextCursor == cursor) {
+      if (status == 401 || status == 403) checkinDates_.clear();
+      syncStatus_ = QStringLiteral("当前无法同步学习记录");
+    } else {

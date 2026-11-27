@@ -1,0 +1,130 @@
+            "color": "rgb(142, 213, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(142, 213, 255)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(142, 213, 255)",
+            "outlineOffset": "0px"
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 1100,
+        "height": 720
+      },
+      "shell": {
+        "text": "CodeCanvasWEB工作区个人中心Code Canvas/课程/01学习路径本机工作空间R",
+        "geometry": {
+          "x": 240,
+          "y": 0,
+          "width": 860,
+          "height": 64
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgb(11, 16, 24)",
+          "borderWidth": "0px 0px 1px",
+          "borderStyle": "none none solid",
+          "borderColor": "rgb(226, 231, 239) rgb(226, 231, 239) rgba(34, 211, 238, 0.2)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "brand": {
+        "text": "CodeCanvasWEB",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areas": {
+        "text": "工作区个人中心",
+        "geometry": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "computed": {
+          "fontSize": "14px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "22.4px",
+          "color": "rgb(226, 231, 239)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(226, 231, 239)",
+          "borderRadius": "0px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(226, 231, 239)",
+          "outlineOffset": "0px"
+        }
+      },
+      "areaButtons": [
+        {
+          "text": "工作区",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(226, 231, 239)",
+            "borderRadius": "0px",
+            "outlineWidth": "3px",
+            "outlineColor": "rgb(226, 231, 239)",
+            "outlineOffset": "0px"
+          }
+        },
+        {
+          "text": "个人中心",
+          "geometry": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          },
+          "computed": {
+            "fontSize": "14px",
+            "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "fontWeight": "400",
+            "lineHeight": "22.4px",
+            "color": "rgb(226, 231, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",

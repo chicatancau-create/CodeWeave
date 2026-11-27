@@ -1,0 +1,89 @@
+        () => new Promise<{ ok: boolean; message: string }>((res) => { release = res }),
+      ),
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    const box = screen.getByRole('checkbox') as HTMLInputElement
+    fireEvent.click(box)
+    await waitFor(() => expect(content.setVisibility).toHaveBeenCalledWith(true))
+
+    const hint = container.querySelector<HTMLElement>('.vp-disabled-hint')
+    expect(hint?.getAttribute('role')).toBe('status')
+    expect(hint?.textContent).toContain('现在不能再用：上一步绑定操作还没返回')
+    expect(box.disabled).toBe(true)
+    expect(box.getAttribute('aria-disabled')).toBe('true')
+    expect(box.getAttribute('aria-describedby')).toBe(hint?.id)
+    const unbind = screen.getByRole('button', { name: /解除绑定/ })
+    expect(unbind.getAttribute('aria-disabled')).toBe('true')
+    expect(unbind.getAttribute('aria-describedby')).toBe(hint?.id)
+
+    release({ ok: true, message: '可见范围已更新' })
+    await waitFor(() => expect(box.disabled).toBe(false))
+    expect(box.hasAttribute('aria-disabled')).toBe(false)
+    expect(container.querySelector('.vp-disabled-hint')).toBeNull()
+  })
+
+  it('§4 disabled：未绑定那一档的绑定按钮同样说条件，不只把字压淡', async () => {
+    let release: (value: { ok: boolean; message: string }) => void = () => {}
+    const content = makeContent({
+      learningStatus: UNBOUND_STATUS,
+      bindOwner: vi.fn(() => new Promise<{ ok: boolean; message: string }>((res) => { release = res })),
+    })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+      </ContentProviderHost.Provider>,
+    )
+    const bind = screen.getByRole('button', { name: '将当前账户设为资料库拥有者' })
+    expect(bind.hasAttribute('aria-disabled')).toBe(false)
+    fireEvent.click(bind)
+    await waitFor(() => expect(content.bindOwner).toHaveBeenCalled())
+    const busyBind = screen.getByRole('button', { name: '绑定中…' })
+    expect((busyBind as HTMLButtonElement).disabled).toBe(true)
+    expect(busyBind.getAttribute('aria-disabled')).toBe('true')
+    const hint = container.querySelector<HTMLElement>('.vp-disabled-hint')
+    expect(busyBind.getAttribute('aria-describedby')).toBe(hint?.id)
+    expect(hint?.textContent).toContain('现在不能再用')
+    release({ ok: true, message: '已绑定' })
+  })
+})
+
+describe('M4 正式进度 · 非拥有者读不到私人进度与证据', () => {
+  it('数据层即便返回完整进度，非拥有者界面也不渲染任何私人事实', async () => {
+    const content = makeContent({ learningStatus: OTHER_STATUS })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(content.loadVaultProgress).toHaveBeenCalled())
+    expect(container.textContent).toContain(
+      '未授权：正式进度与学习日志只对资料库拥有者可见。本页下方显示的都是本机历史活动，不是资料库事实。',
+    )
+    // 私密值一个都不许出现
+    expect(container.textContent).not.toContain('S2 并发基础')
+    expect(container.textContent).not.toContain('deadbeef')
+    expect(container.textContent).not.toContain('并发模型')
+    expect(container.textContent).not.toContain('补齐线程观测记录')
+    expect(container.textContent).not.toContain('资料库/进度追踪.md')
+    expect(container.querySelectorAll('table.vp-ledger')).toHaveLength(0)
+    expect(fields(container).map((item) => item.key)).toEqual(FIVE_ZONES)
+    expect(fields(container)[1]?.value).toContain('不返回资料库文件路径与指纹')
+    expect(container.querySelector('.vp-mark')?.getAttribute('data-vp-mark')).toBe('unknown')
+  })
+
+  it('未绑定时说明暂不对任何账户开放，而不是空白或 0', () => {
+    const content = makeContent({ learningStatus: UNBOUND_STATUS })
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    expect(container.textContent).toContain('资料库拥有者尚未绑定，正式进度暂不对任何账户开放。')
+    expect(container.textContent).not.toMatch(/当前阶段[：:]\s*0/)
+  })
+
+  it('§4 loading：读取期间挂占位块，撤掉后不留任何进度值', async () => {

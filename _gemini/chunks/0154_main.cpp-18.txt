@@ -1,0 +1,92 @@
+    EnumChildWindows(window, [](HWND child, LPARAM value) -> BOOL { SendMessageW(child, WM_SETFONT, static_cast<WPARAM>(value), TRUE); return TRUE; }, reinterpret_cast<LPARAM>(g_ui_font));
+  }
+  ShowWindow(window, smoke ? SW_SHOWNOACTIVATE : SW_SHOWDEFAULT); UpdateWindow(window);
+  MSG message{}; while (GetMessageW(&message, nullptr, 0, 0) > 0) { TranslateMessage(&message); DispatchMessageW(&message); }
+  const auto exit_code = smoke ? (g_gui_smoke_ok ? 0 : 1) : static_cast<int>(message.wParam);
+  CloseHandle(g_single_instance);
+  g_single_instance = nullptr;
+  if (g_ui_font) { DeleteObject(g_ui_font); g_ui_font = nullptr; }
+  CoUninitialize();
+  return exit_code;
+}
+#endif
+
+bool run_self_test() {
+  const auto root = std::filesystem::temp_directory_path() / ("codeweave-native-startup-test-" + std::to_string(std::random_device{}()));
+  std::error_code error; std::filesystem::create_directories(root / "config", error); if (error) return false;
+  std::ofstream(root / "config" / "codeweave.config.example.json") << "{}\n";
+  codeweave::app::ApplicationCore core; if (!core.open_workspace(root).ok || !core.save_draft("startup", "native\n").ok) return false;
+  std::string content;
+  const bool passed = core.load_draft("startup", content).ok && content == "native\n";
+  if (!core.close_workspace().ok) return false;
+  std::filesystem::remove_all(root, error);
+  return passed && !error;
+}
+
+bool run_gui_smoke(bool interaction_smoke);
+
+bool run_gui_smoke() {
+  return run_gui_smoke(false);
+}
+
+bool run_gui_smoke(bool interaction_smoke) {
+#ifdef _WIN32
+  const auto root = std::filesystem::temp_directory_path() / ("codeweave-native-gui-smoke-" + std::to_string(std::random_device{}()));
+  std::error_code error;
+  std::filesystem::create_directories(root / "config", error);
+  if (error) return false;
+  std::ofstream(root / "config" / "codeweave.config.example.json") << "{}\n";
+  SetEnvironmentVariableW(L"CODEWEAVE_NATIVE_WORKSPACE", root.wstring().c_str());
+  const auto data_root = root / L"isolated-data";
+  SetEnvironmentVariableW(L"CODEWEAVE_NATIVE_DATA_ROOT", data_root.wstring().c_str());
+  const auto result = run_window(GetModuleHandleW(nullptr), true, interaction_smoke);
+  SetEnvironmentVariableW(L"CODEWEAVE_NATIVE_WORKSPACE", nullptr);
+  SetEnvironmentVariableW(L"CODEWEAVE_NATIVE_DATA_ROOT", nullptr);
+  std::filesystem::remove_all(root, error);
+  return result == 0 && !error;
+#else
+  return false;
+#endif
+}
+}  // namespace
+
+int main(int argc, char** argv);
+
+int main(int argc, char** argv) {
+  if (argc > 1) {
+    if (argc == 2 && std::string_view(argv[1]) == "--self-test") return run_self_test() ? 0 : 1;
+    if (argc == 2 && std::string_view(argv[1]) == "--gui-smoke") return run_gui_smoke() ? 0 : 1;
+    if (argc == 2 && std::string_view(argv[1]) == "--gui-interaction-smoke") {
+      return run_gui_smoke(true) ? 0 : 1;
+    }
+    return 2;
+  }
+#ifdef _WIN32
+  return run_window(GetModuleHandleW(nullptr));
+#else
+  return run_self_test() ? 0 : 1;
+#endif
+}
+
+#if defined(_WIN32) && defined(_MSC_VER)
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
+  int argc = 0;
+  LPWSTR* wide_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  if (!wide_argv) return 1;
+  int result = 0;
+  if (argc > 1) {
+    const std::wstring_view argument(wide_argv[1]);
+    if (argc == 2 && argument == L"--self-test") result = run_self_test() ? 0 : 1;
+    else if (argc == 2 && argument == L"--gui-smoke") result = run_gui_smoke() ? 0 : 1;
+    else if (argc == 2 && argument == L"--gui-interaction-smoke") {
+      result = run_gui_smoke(true) ? 0 : 1;
+    } else {
+      result = 2;
+    }
+  } else {
+    result = run_window(GetModuleHandleW(nullptr));
+  }
+  LocalFree(wide_argv);
+  return result;
+}
+#endif

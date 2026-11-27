@@ -1,0 +1,78 @@
+  return !error && std::filesystem::create_directory(target, error) && !error;
+}
+void remove_created_target(const std::filesystem::path& target) {
+  std::error_code ignored; std::filesystem::remove_all(target, ignored);
+}
+bool no_sensitive_fields(const Json& value) {
+  for (const auto& [key,item] : value.object) {
+    auto lower = key;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (lower == "password" || lower == "passwordhash" || lower == "token" ||
+        lower == "cookie" || lower == "secret" || lower == "apikey" ||
+        lower == "authorization" || !no_sensitive_fields(item)) return false;
+  }
+  for (const auto& item : value.array) if (!no_sensitive_fields(item)) return false;
+  return true;
+}
+}  // namespace
+
+app::Result import_legacy_users(const std::filesystem::path& source,
+    const std::filesystem::path& target, LegacyImportReport& report) {
+  report = {};
+  Json root; std::string contents;
+  if (!read_json(source, contents, root) || root.type != Json::Type::Array ||
+      root.array.empty() || root.array.size() > 10000) return app::Result::failure("旧账户 JSON 格式或大小无效");
+  std::vector<account::Record> accounts;
+  std::set<std::string> ids, emails, phones;
+  for (const auto& user : root.array) {
+    account::Record record;
+    if (!fields(user, {"id","name","email","phone","passwordHash","bio","createdAt"}) ||
+        !field(user,"id",record.id) || !field(user,"name",record.name) ||
+        !field(user,"email",record.email,true) || !field(user,"phone",record.phone,true) ||
+        !field(user,"passwordHash",record.password_hash) || !account::validate(record).ok ||
+        !ids.insert(record.id).second ||
+        (!record.email.empty() && !emails.insert(record.email).second) ||
+        (!record.phone.empty() && !phones.insert(account::normalized_phone(record.phone)).second)) {
+      return app::Result::failure("旧账户存在无效字段或重复标识");
+    }
+    for (const auto key : {"bio", "createdAt"}) {
+      std::string ignored; if (!field(user,key,ignored,true)) return app::Result::failure("旧账户元数据类型无效");
+    }
+    accounts.push_back(std::move(record));
+  }
+  if (!create_target(target)) return app::Result::failure("导入目标必须是尚不存在的绝对目录");
+  account::AccountStore store(target);
+  for (const auto& account : accounts) {
+    if (!store.register_account(account).ok) {
+      remove_created_target(target); return app::Result::failure("账户导入失败，未提交新目录");
+    }
+  }
+  // Preserve legacy profile metadata (bio/createdAt) alongside the converted
+  // store instead of silently dropping fields the native record does not own.
+  bool archived = false;
+  {
+    std::ofstream archive(target / "profile" / "legacy-users.json", std::ios::binary);
+    archive.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    archive.flush(); archived = archive.good();
+  }
+  Json verified; std::string archived_contents;
+  if (!archived || !read_json(target / "profile" / "legacy-users.json", archived_contents, verified) ||
+      archived_contents != contents) {
+    remove_created_target(target); return app::Result::failure("旧账户元数据存档校验失败");
+  }
+  report = {true, accounts.size(), 0, target};
+  return app::Result::success("旧账户已导入新目录，原文件未修改");
+}
+
+app::Result import_legacy_learning(const std::filesystem::path& source,
+    const std::string& account_id, const std::filesystem::path& target,
+    LegacyImportReport& report) {
+  report = {};
+  Json root; std::string contents, schema, scope, exported;
+  if (!read_json(source, contents, root) ||
+      !fields(root, {"schema","version","exportedAt","scope","categories","data"}) ||
+      !field(root,"schema",schema) || schema != "codeweave.learning-data" ||
+      !field(root,"scope",scope) || scope != account_id || scope.empty() ||
+      !field(root,"exportedAt",exported) || exported.empty()) return app::Result::failure("学习导出文件或账户范围无效");
+  const auto version = root.object.find("version"), data = root.object.find("data"),

@@ -1,0 +1,27 @@
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('animation: none')
+    expect(system).toContain('transition: none')
+    expect(
+      declarationBlock(
+        '.reduce-motion .cw-vault, .reduce-motion .cw-vault *, .reduce-motion .cw-vault *::before, .reduce-motion .cw-vault *::after',
+      ),
+    ).toContain('animation: none')
+  })
+})
+
+describe('M4 正式进度 · 无障碍（axe-core）', () => {
+  it('绑定面板 + 三张进度表无 axe 违规', async () => {
+    const content = makeContent()
+    const { container } = render(
+      <ContentProviderHost.Provider value={content}>
+        <VaultBindingPanel />
+        <VaultProgressCard />
+      </ContentProviderHost.Provider>,
+    )
+    await waitFor(() => expect(container.querySelectorAll('table.vp-ledger').length).toBe(3))
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } },
+    })
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+  })
+})

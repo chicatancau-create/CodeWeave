@@ -1,0 +1,125 @@
+            "textTruncated": false,
+            "titleText": "Tab 缩进宽度（待接入）",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 153
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 405,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsPreferenceToggle6",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "descriptionText": "开着长行折进本栏；关着长行走横向滚动条（默认）",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 299
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 6,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "代码自动换行（待接入）",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 154
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsEditorLineNumbersToggle",
+            "controlEnabled": true,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "descriptionText": "关掉只是不画左栏那一列，代码文本一个字都不变",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 286
+                },
+                "truncated": false,
+                "visible": true,

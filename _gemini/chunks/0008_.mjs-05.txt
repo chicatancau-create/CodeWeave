@@ -1,0 +1,80 @@
+                  await writeFile(disconnect, 'offline', { flag: 'wx' })
+                  break
+                }
+                await delay(100)
+              }
+              if (testOutbox) {
+                for (let retry = 0; retry < 260 && qtProcess.exitCode === null; retry += 1) {
+                  if (await readFile(disconnect + '.queued', 'utf8').catch(() => null) === 'pending') {
+                    await start()
+                    await writeFile(disconnect + '.online', 'online', { flag: 'wx' })
+                    break
+                  }
+                  await delay(100)
+                }
+              }
+              assert.equal((await done)[0], 0)
+            } finally {
+              if (qtProcess.exitCode === null && qtProcess.signalCode === null) qtProcess.kill()
+            }
+          }
+        } catch (error) {
+          throw new Error((await readFile(report, 'utf8').catch(() => 'Qt smoke report missing')) +
+            '\n' + (error.stderr?.toString() ?? error.message))
+        }
+        const qt = JSON.parse(await readFile(report, 'utf8'))
+        for (const field of ['serviceInstance', 'vaultId', 'bundleId', 'manifestHash']) {
+          assert.equal(qt[field], catalog[field])
+        }
+        assert.equal(qt.contentId, contentId)
+        assert.equal(qt.exerciseCount, 1)
+        if (testOutbox) {
+          assert.equal(qt.outboxSynced, true)
+          const record = (await request('/api/sync/pull', { cookie: owner.cookie })).payload.data
+          assert.equal(record.events.filter(({ change }) => change.kind === 'learning.checkin.recorded').length, 1)
+          await page.reload()
+          await page.locator('.streak-card.checked-in').waitFor({ state: 'visible' })
+        } else {
+          assert.equal(qt.checkinCount, 1)
+        }
+        if (disconnect) assert.equal(qt.offlineOpened, true)
+        console.log(JSON.stringify({ qt: 'passed', chromeReload: true, ...qt }))
+        if (disconnect && !testOutbox && process.platform === 'win32') {
+          const restoredPath = join(temporary, 'qt-restored.json')
+          execFileSync(executable, ['--unified-content-smoke', restoredPath, '--restore-unified-session'], {
+            ...options,
+            env: {
+              ...options.env, CODEWEAVE_SMOKE_LOGIN: '', CODEWEAVE_SMOKE_PASSWORD: '',
+              CODEWEAVE_SMOKE_CHECKIN: '', CODEWEAVE_SMOKE_DISCONNECT: '',
+            },
+          })
+          const restored = JSON.parse(await readFile(restoredPath, 'utf8'))
+          assert.equal(restored.restoredSession, true)
+          assert.equal(restored.offline, true)
+          assert.equal(restored.bundleId, qt.bundleId)
+          assert.equal(restored.contentId, qt.contentId)
+          console.log(JSON.stringify({ qtRestart: 'passed', ...restored }))
+        }
+      }
+    } finally { await browser.close() }
+  }
+  progress = '跨资料库绑定拒绝读取与写回'
+  if (server.exitCode !== null || server.signalCode !== null) await start()
+  const sourceManifest = join(vault, 'CodeWeave', 'content-manifest.json')
+  const beforeSwitch = await readFile(sourceManifest)
+  const switched = JSON.parse(beforeSwitch)
+  switched.vaultId = 'synthetic-different-vault'
+  await writeFile(sourceManifest, JSON.stringify(switched))
+  for (const endpoint of ['/api/content/catalog', bundlePath + '/payload', '/api/sync/state', '/api/learning/vault-progress']) {
+    const rejected = await request(endpoint, { cookie: owner.cookie, status: 403 })
+    assert.equal(rejected.payload.code, 'owner_vault_mismatch')
+  }
+  assert.equal((await request('/api/learning/evidence-commit', {
+    cookie: owner.cookie, status: 403, body: {},
+  })).payload.code, 'owner_vault_mismatch')
+  await writeFile(sourceManifest, beforeSwitch)
+  console.log(JSON.stringify({ result: 'passed', bundleId: catalog.bundleId, contentId, crossVaultDenied: 5 }))
+} catch (error) {
+  console.error(progress, error.message)
+  if (logs.length) console.error(logs.join('').replaceAll(temporary, '<fixture>'))
+  process.exitCode = 1

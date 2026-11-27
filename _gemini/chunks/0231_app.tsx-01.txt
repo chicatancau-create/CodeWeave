@@ -1,0 +1,87 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { lazy, Suspense } from 'react'
+import {
+  Activity,
+  BookOpen,
+  CalendarCheck,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  FolderKanban,
+  MoreHorizontal,
+  Sparkles,
+  Trophy,
+} from 'lucide-react'
+import { deriveNotifications, visibleNotifications } from './utils/notifications'
+import type { SearchTarget } from './utils/search'
+import { AuthView } from './components/auth-view'
+import { ErrorBoundary } from './components/error-boundary'
+import { DesktopLearningHome } from './components/desktop-learning-home'
+import { HelpModal, SettingsModal, type AppSettings } from './components/modals'
+import { GlobalTopbar } from './components/topbar'
+import { Clock } from './components/clock'
+import { computeWeeklyStats, countPassedChallenges } from './utils/analytics'
+import { mergeTransientEvents, type NotificationItem } from './utils/notifications'
+import { groupReviews, lessonCompletionNote } from './data/mastery'
+import { aggregateMasteryByStage } from './utils/mastery-view'
+import { useAuth, type AuthUser } from './hooks/use-auth'
+import { useChallengeProgress } from './hooks/use-challenge-progress'
+import { useCheckin } from './hooks/use-checkin'
+import { useDebounce } from './hooks/use-debounce'
+import { useExecution } from './hooks/use-execution'
+import { useLocalStorage } from './hooks/use-local-storage'
+import { useProjects } from './hooks/use-projects'
+import { useReducedMotion } from './hooks/use-reduced-motion'
+import { useReviewSchedule } from './hooks/use-review-schedule'
+import { getChallenges } from './data/challenges'
+import { getDefaultLesson } from './data/lessons'
+import { ContentProvider, useContent } from './content/provider'
+import { ContentSourceBanner } from './components/content-source-view'
+import { VaultBindingPanel } from './components/vault-progress-view'
+import { type MasteryRecord } from './data/mastery'
+import { buildMonthGrid, getLocalDateKey } from './utils/date-helpers'
+import {
+  commitSaveSnapshot,
+  createSaveSnapshot,
+  getLessonCode,
+  readWorkspace,
+  saveWorkspace,
+  type SaveSnapshot,
+} from './utils/lesson-helpers'
+import { scopedKey, STORAGE_KEYS } from './utils/constants'
+import { buildExportPayload, clearLocalData, type ClearResult } from './utils/local-data'
+import { summarizeExternalEvidence } from './utils/external-evidence'
+import { completionSourceOf, deriveLessonEvidenceStates, hasCompletionEvidence, holdsCompletion, type LessonEvidenceStates } from './utils/lesson-evidence'
+import { useLessonSignals } from './hooks/use-lesson-signals'
+import { useLocalDay } from './hooks/use-local-day'
+import { useEscapeToClose, useModalFocusTrap } from './hooks/use-modal-focus'
+import type { LessonCompletionPayload } from './components/learning-workspace-view'
+import type {
+  AchievementObservation,
+  Challenge,
+  ChallengeJudgeMode,
+  ChallengeProgressStatus,
+  ExecutionTier,
+  LanguageId,
+  Lesson,
+} from './types/lesson'
+import type { ExternalEvidence } from './utils/external-evidence'
+
+/**
+ * 01 号方案 §6 第 1 条「首屏只加载认证、导航和当前主视图」：以下八个区域只在**入口被
+ * 真正使用到的那一刻**才下载。判据不是猜哪些页面重要，而是两条实测事实：
+ *  - 默认视图是 `path`（`useState<ViewId>('path')`），列表页之外的区域首屏必然不画；
+ *  - 主 chunk 改版前 429.15 kB / gzip 138.62 kB，其中挑战、写回、工作台三块占了大头。
+ * 静态导入仍保留给首屏就要的东西：AuthView、LearningPathView、GlobalTopbar、Sidebar、
+ * 弹层（Settings/Help，点开就晚一帧会被当成故障）、ContentProvider 与各 hooks。
+ *
+ * `.then((m) => ({ default: m.X }))` 是把具名导出转成 lazy 需要的默认导出形态，
+ * 不改动被懒加载模块自身的导出形状（测试与取证脚本仍按具名导入直接 mount 单个视图）。
+ */
+const ChallengesView = lazy(() => import('./components/challenges-view').then((m) => ({ default: m.ChallengesView })))
+const LearningWorkspaceView = lazy(() =>
+  import('./components/learning-workspace-view').then((m) => ({ default: m.LearningWorkspaceView })),
+)
+const ProjectsView = lazy(() => import('./components/projects-view').then((m) => ({ default: m.ProjectsView })))
+const ReviewCenterView = lazy(() =>

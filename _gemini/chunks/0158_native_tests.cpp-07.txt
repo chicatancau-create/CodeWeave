@@ -1,0 +1,84 @@
+  const auto result = repository.list_exercises("lesson-01", exercises);
+  assert(result.ok && exercises.size() == 1);
+  assert(exercises.front().exercise_id == "exercise-01");
+  assert(exercises.front().expected_output == "42");
+  assert(!repository.list_exercises("draft-01", exercises).ok);
+}
+
+void test_content_contract_rejects_invalid_exercise_utf8() {
+  const codeweave::content::Exercise invalid_output{
+      "lesson-01", "exercise-01", std::string("bad\xC3\x28"), "L1"};
+  assert(!codeweave::content::validate(invalid_output).ok);
+
+  const codeweave::content::Exercise invalid_id{
+      "lesson-01", "exercise\xC3\x28", "42", "L1"};
+  assert(!codeweave::content::validate(invalid_id).ok);
+}
+
+void test_learning_contract_preserves_uncertainty_and_evidence_boundaries() {
+  const auto numeric = codeweave::learning::parse_mastery_level("2 级");
+  assert(numeric.kind == codeweave::learning::MasteryKind::Numeric);
+  assert(numeric.value == 2);
+  const auto range = codeweave::learning::parse_mastery_level("0—1 级");
+  assert(range.kind == codeweave::learning::MasteryKind::Range);
+  assert(range.low == 0 && range.high == 1);
+  const auto uncertain = codeweave::learning::parse_mastery_level("无法确认");
+  assert(uncertain.kind == codeweave::learning::MasteryKind::Uncertain);
+  assert(codeweave::learning::parse_mastery_level("999999999999999999999 级").kind ==
+      codeweave::learning::MasteryKind::Uncertain);
+
+  codeweave::learning::EvidenceRecord valid{
+      "evidence-01", "java-01", "exercise-01", "2026-10-04",
+      "应输出 42", "输出 42", codeweave::learning::RanBy::Learner,
+      true, "L2", {"run-log"}, {"无"}, codeweave::learning::EvidenceState::Pending};
+  valid.operation_id = "op-abc123-0123ab";
+  assert(codeweave::learning::validate_evidence(valid).ok);
+  assert(codeweave::learning::is_operation_id("op-abc123-0123ab"));
+  assert(!codeweave::learning::is_operation_id("op-invalid"));
+  valid.ran_by = codeweave::learning::RanBy::Assistant;
+  assert(!codeweave::learning::validate_evidence(valid).ok);
+  valid.ran_by = codeweave::learning::RanBy::Learner;
+  valid.actual_result = std::string("bad\xC3\x28");
+  assert(!codeweave::learning::validate_evidence(valid).ok);
+  valid.actual_result = "输出 42";
+  valid.artifact_refs = {std::string("bad\xC3\x28")};
+  assert(!codeweave::learning::validate_evidence(valid).ok);
+  valid.artifact_refs = {"run-log"};
+  valid.at = "2026/10/04";
+  assert(!codeweave::learning::validate_evidence(valid).ok);
+  valid.at = "2026-02-30";
+  assert(!codeweave::learning::validate_evidence(valid).ok);
+  valid.at = "2026-10-04";
+  valid.hint_level = "L3";
+  assert(!codeweave::learning::validate_evidence(valid).ok);
+}
+
+void test_mastery_contract_matches_web_semantics_and_eligibility_gate() {
+  using namespace codeweave::learning;
+  const MasteryEvidence passed{
+      "mastery-evidence-01", MasteryEvidenceKind::Challenge, "lesson-01", "通过挑战",
+      "2026-10-05T00:00:00.000Z", true, CompletionVerification::AutoVerified,
+      RanBy::Learner, true, "L1", "op-mastery-0123ab"};
+  assert(validate_mastery_evidence(passed).ok);
+  assert(mastery_eligible(passed));
+  MasteryRecord record;
+  assert(apply_mastery_evidence(nullptr, passed, 6, record).ok);
+  assert(record.level == 1 && record.evidence.size() == 1 && record.review_step == 0);
+
+  auto guided = passed;
+  guided.id = "mastery-evidence-02";
+  guided.operation_id = "op-mastery-0123ac";
+  guided.independent = false;
+  assert(validate_mastery_evidence(guided).ok);
+  assert(!mastery_eligible(guided));
+  MasteryRecord guided_result;
+  assert(apply_mastery_evidence(&record, guided, 6, guided_result).ok);
+  assert(guided_result.level == 1 && guided_result.evidence.size() == 2);
+
+  auto failed_review = passed;
+  failed_review.id = "mastery-evidence-03";
+  failed_review.operation_id = "op-mastery-0123ad";
+  failed_review.kind = MasteryEvidenceKind::Review;
+  failed_review.passed = false;
+  failed_review.note = "忘记边界条件";
+  MasteryRecord lowered;

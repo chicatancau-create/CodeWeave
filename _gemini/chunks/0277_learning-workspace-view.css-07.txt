@@ -1,0 +1,129 @@
+  transition: color var(--cw-dur) var(--cw-ease), border-color var(--cw-dur) var(--cw-ease);
+}
+.cw-workspace .reset-button,
+.cw-workspace .step-button {
+  color: var(--cw-fg-dim);
+}
+.cw-workspace .reset-button:hover,
+.cw-workspace .step-button:hover,
+.cw-workspace .subtle-button:hover:not(:disabled) {
+  color: var(--cw-fg);
+  border-color: var(--cw-fg-dim);
+}
+
+.cw-workspace .reset-button:active,
+.cw-workspace .step-button:active,
+.cw-workspace .subtle-button:active:not(:disabled) {
+  background: var(--ds-wash-hover, rgba(220, 233, 251, 0.1));
+}
+/* 主操作：实底场景色 + 黑字（对 #000 为 8.08:1），无渐变、无投影 */
+.cw-workspace .run-button {
+  min-width: 116px;
+  color: var(--cw-on-scene);
+  background: var(--cw-scene);
+  border-color: var(--cw-scene);
+  font-weight: 700;
+}
+.cw-workspace .run-button:hover {
+  color: var(--cw-scene);
+  background: transparent;
+  border-color: var(--cw-scene);
+}
+
+/* 主操作按下回到实底：与 hover 的「透明 + 场景色字」形成一次明确的开合，
+   比再压深一档底色更贴模板「细线药丸」的唯一实心形态（site.css L392-L394）。 */
+.cw-workspace .run-button:active {
+  color: var(--cw-on-scene);
+  background: var(--cw-scene);
+}
+.cw-workspace .subtle-button {
+  color: var(--cw-fg);
+}
+.cw-workspace .subtle-button:disabled {
+  color: var(--cw-fg-dim);
+  background: transparent;
+  border-style: dashed;
+  opacity: 1;
+}
+.cw-workspace .lesson-complete-row {
+  margin-top: var(--ds-space-2, 2px);
+  padding-top: var(--ds-space-14, 14px);
+  border-top: var(--cw-line-width) solid var(--cw-line);
+}
+.cw-workspace .lesson-complete-done {
+  gap: var(--ds-space-8, 8px);
+  color: var(--cw-ok);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  letter-spacing: 0.06em;
+}
+
+/* ── LEARN-01 第 5 条：该题验收点逐条状态 ─────────────────────────────
+   命中/未命中同时用三个通道表达（符号 + 边框样式 + 颜色），不单靠颜色。
+   细线一律 --cw-line-width（1px），粗边由发丝线 + 边框样式承担（本仓守卫）。
+
+   共享层 `.lesson-complete-row` 是 `display: flex` 且不换行（styles.css:1092），
+   而 flex 子项默认 `min-width: auto`——长句子当子项时不但不折行，还会把整页推出视口
+   （真机量到 320 档溢出 180px）。所以这里先把行放开换行，再给两个块 `min-width: 0` 与整行宽。 */
+.cw-workspace .lesson-complete-row {
+  flex-wrap: wrap;
+}
+.cw-workspace .cw-verify-cases,
+.cw-workspace .cw-verify-none {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+/* 原生 button 带 UA 的 `white-space: nowrap`——文案一长就把整页顶宽（真机量到 159px）。
+   这里放开折行，配合上面的 flex-wrap，任何措辞都不再能撑破页面。 */
+.cw-workspace .lesson-complete-row .subtle-button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* ── 验收点逐条状态：读数盘（2026-09-29 重做） ───────────────────────────
+   旧形状是「一行一条，左边一根 1px 竖线」——和页面上其它列表长得一样，
+   所以学习者扫过去只会看到「打了个勾」，看不到**这是一份判定结果**。
+   现在把整块当成一块仪表读数：外框一圈发丝线 + 内凹顶光，每一条是一格
+   读数行，左侧一格方形指示灯，右侧一条点状引导线把「期望值」和「为什么」
+   连起来。改动只在这一层（形状 / 间距 / 颜色），DOM 与类名一字未动。
+
+   通道表（命中与否绝不靠颜色单传，§5.1）：
+     命中 is-hit  —— 指示灯实心描边 + `✓` + 绿色 + 引导线实点
+     未命中 is-miss —— 指示灯虚线描边 + `×` + 红边 + 引导线虚点
+     多余 is-extra —— 无指示灯 + 点状左轨 + 次级文字
+   数值与色值一律走 --cw-* 别名（带模板原值兜底）；发光只走 --cw-glow-*，
+   模糊与位移恒为 0，无 @keyframes —— 本屏是静态/低动态环境（§5.3）。 */
+.cw-workspace .cw-verify-cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2, 2px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  list-style: none;
+  border: var(--cw-line-width) solid var(--cw-line);
+  box-shadow: var(--cw-glow-inset);
+  font-family: var(--cw-mono);
+  font-size: var(--ds-size-control, 13px);
+  line-height: 1.6;
+}
+/* 一条读数行：指示灯 / 期望值 / 引导线 / 理由。这里**不**给每行画序号——
+   父级 `<ul>` 自己就带顺序，再印一遍 `01/02/03` 只会挤掉正文，且那是装饰微字档
+   （§2.2），不该在这块必读的判定结果里出现。 */
+.cw-workspace .cw-verify-cases li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-6, 6px) 0 var(--ds-space-6, 6px) var(--ds-space-10, 10px);
+  border-inline-start: var(--cw-line-width) solid var(--cw-line);
+  overflow-wrap: anywhere;
+}
+/* 指示灯：一格方窗。命中实线框、未命中虚线框——形状通道先于颜色把结果说出来。 */
+.cw-workspace .cw-verify-glyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  padding: 0 var(--ds-space-4, 4px);

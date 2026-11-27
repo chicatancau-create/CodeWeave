@@ -1,0 +1,71 @@
+                                             && uiShell.executionOutput.length > 0
+                                    onClicked: {
+                                        outputArea.selectAll();
+                                        outputArea.copy();
+                                        outputArea.deselect();
+                                        editorPage.consoleCopyStatus = "已复制";
+                                    }
+                                    Accessible.name: editorPage.consoleCopyStatus || "复制执行输出"
+                                }
+                                QuietButton {
+                                    id: clearOutputButton
+                                    objectName: "clearOutputButton"
+                                    ds: editorPage.ds
+                                    label: "清空"
+                                    enabled: !editorPage.consoleOutputCleared
+                                             && uiShell.executionOutput.length > 0
+                                    onClicked: {
+                                        editorPage.consoleOutputCleared = true;
+                                        editorPage.consoleCopyStatus = "";
+                                    }
+                                    Accessible.name: "清空控制台显示，不删除执行记录"
+                                }
+                            }
+                            ScrollView {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                                TextArea {
+                                    id: outputArea
+                                    objectName: "outputArea"
+                                    focus: true
+                                    text: editorPage.consoleOutputCleared ? "" : uiShell.executionOutput
+                                    readOnly: true
+                                    wrapMode: TextArea.Wrap
+                                    color: uiShell.executionOutputError ? ds.danger : ds.success
+                                    font.family: ds.mono
+                                    font.pixelSize: 12
+                                    background: null
+                                    placeholderText: "运行后显示输出"
+                                    placeholderTextColor: ds.faint
+                                    Accessible.name: "执行输出"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        }
+    ShellDialog {
+        id: courseGuide
+        objectName: "workspaceCourseGuide"
+        ds: editorPage.ds
+        parent: Overlay.overlay
+        title: "课程指南"
+        width: Math.min(760, editorPage.hostRoot.width - editorPage.ds.s32)
+        height: Math.min(640, editorPage.hostRoot.height - editorPage.ds.s32)
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        onClosed: guideButton.forceActiveFocus(Qt.PopupFocusReason)
+        contentItem: ScrollView {
+            id: guideScroll
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            LessonGuide {
+                width: guideScroll.availableWidth
+                ds: editorPage.ds
+                lesson: editorPage.currentLesson
+            }
+        }
+    }
+    }

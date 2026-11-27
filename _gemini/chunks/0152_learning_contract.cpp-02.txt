@@ -1,0 +1,61 @@
+      if (std::isdigit(character) == 0) return std::nullopt;
+      const int digit = character - '0';
+      if (result > (1000000 - digit) / 10) return std::nullopt;
+      result = result * 10 + digit;
+    }
+    return result;
+  };
+  if (separator.first == std::string::npos) {
+    if (const auto value = parse_number(text)) {
+      return {MasteryKind::Numeric, *value, 0, 0, std::to_string(*value) + " 级"};
+    }
+  } else {
+    const auto low = parse_number(std::string_view(text).substr(0, separator.first));
+    const auto high = parse_number(std::string_view(text).substr(separator.first + separator.second));
+    if (low && high && *low <= *high) {
+      return {MasteryKind::Range, 0, *low, *high, std::to_string(*low) + "—" + std::to_string(*high) + " 级"};
+    }
+  }
+  const std::string original(raw);
+  return {MasteryKind::Uncertain, 0, 0, 0, original.empty() ? "未填写" : original};
+}
+
+bool is_operation_id(std::string_view value) {
+  static const std::regex pattern(R"(^op-[a-z0-9]{6,20}-[0-9a-f]{6}$)");
+  return std::regex_match(value.begin(), value.end(), pattern);
+}
+
+app::Result validate_evidence(const EvidenceRecord& record) {
+  if (!safe_identifier(record.evidence_id, 96)) return app::Result::failure("证据 ID 格式无效");
+  if (!safe_identifier(record.content_id, 128)) return app::Result::failure("证据内容 ID 格式无效");
+  if (!record.exercise_id.empty() && !safe_identifier(record.exercise_id, 128)) {
+    return app::Result::failure("证据练习 ID 格式无效");
+  }
+  if (!date_value(record.at)) return app::Result::failure("证据日期格式无效");
+  if (record.expected_result.size() > 4000 || record.actual_result.size() > 8192 ||
+      !valid_utf8_without_nul(record.expected_result) ||
+      !valid_utf8_without_nul(record.actual_result)) {
+    return app::Result::failure("证据结果过长");
+  }
+  if (record.ran_by == RanBy::Assistant && record.independent) {
+    return app::Result::failure("AI 执行不能标记为学习者独立完成");
+  }
+  if (!valid_hint(record.hint_level)) return app::Result::failure("提示等级无效");
+  if (record.independent && (record.hint_level == "L3" || record.hint_level == "L4")) {
+    return app::Result::failure("L3/L4 提示下的作答不能标记为独立完成");
+  }
+  if (record.artifact_refs.size() > 20 || record.unfinished_items.size() > 20) {
+    return app::Result::failure("证据列表条数超限");
+  }
+  for (const auto& artifact : record.artifact_refs) {
+    if (artifact.empty() || artifact.size() > 900 || !valid_utf8_without_nul(artifact)) return app::Result::failure("产物引用无效");
+  }
+  for (const auto& item : record.unfinished_items) {
+    if (item.empty() || item.size() > 300 || !valid_utf8_without_nul(item)) return app::Result::failure("未完成项无效");
+  }
+  if (!valid_state(record.state)) return app::Result::failure("证据状态无效");
+  if (!is_operation_id(record.operation_id)) return app::Result::failure("证据 operationId 无效");
+  return app::Result::success("证据记录有效");
+}
+
+}  // namespace codeweave::learning

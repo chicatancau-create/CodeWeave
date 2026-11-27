@@ -1,0 +1,95 @@
+        return
+      }
+      const blocking = result.report.blocking
+      lastReport = { finishedAt: new Date().toISOString(), ...result.report }
+      active.report = result.report
+      if (blocking.length > 0) {
+        lastError = { code: blocking[0].code, message: `校验未通过（${blocking.length} 项）：${blocking[0].message}` }
+        active.status = STATUS.INVALID
+        active.error = lastError
+        active.published = false
+        return
+      }
+      if (dryRun) {
+        active.status = STATUS.READY
+        active.published = false
+        active.dryRun = true
+        lastError = null
+        return
+      }
+      try {
+        await reconcileOnce()
+        const freshManifest = await loadManifest()
+        const fresh = await compileContent({ manifest: freshManifest.manifest, rootOverride: freshManifest.root, previousBundle: previous.bundle })
+        if (!fresh.ok || freshManifest.manifestSourceHash !== loaded.manifestSourceHash ||
+            fresh.bundle.bundleId !== result.bundle.bundleId || fresh.report.blocking.length ||
+            stableStringify(fresh.report.sourceHashes) !== stableStringify(result.report.sourceHashes)) {
+          active.status = STATUS.INVALID
+          active.error = { code: 'approval_stale', message: '候选内容或配置已变化，请重新校验' }
+          return
+        }
+        const finished = await publishTransaction({
+          root: loaded.root,
+          bundle: result.bundle,
+          nextManifest: result.nextManifest,
+        assetObjects: fresh.assetObjects,
+        receipt: receiptFor?.(active),
+          syncEntry: {
+            finishedAt: new Date().toISOString(),
+            bundleId: result.bundle.bundleId,
+            counts: result.bundle.counts,
+            rulesStatus: result.bundle.rules?.status ?? null,
+            addedTopics: result.report.addedTopics,
+            movedTopics: result.report.movedTopics,
+            retiredTopics: result.report.retiredTopics,
+            gapSummary: {
+              emptyTopics: result.report.gaps.emptyTopics.length,
+              uncoveredTopics: result.report.gaps.uncoveredTopics.length,
+              publishedWithoutExercise: result.report.gaps.publishedWithoutExercise.length,
+              unmappedLegacy: result.report.gaps.unmappedLegacy.length,
+            },
+          },
+        })
+        active.operationId = finished.operationId
+        active.retention = { keepWindow: KEEP_SNAPSHOTS, retired: finished.retired, kept: await store.listSnapshots() }
+      } catch (error) {
+        lastError = { code: 'publish_failed', message: `发布失败，继续使用上次有效快照：${error?.message ?? error}` }
+        active.status = STATUS.INVALID
+        active.error = lastError
+        return
+      }
+      lastError = null
+      active.status = STATUS.READY
+      active.published = true
+    })
+    return { reused, job }
+  }
+
+  /** 目录：阶段 + 课程摘要。所有页面共用同一 bundleId。 */
+  async function catalog(bundleId, vaultId) {
+    const current = await store.readBundle(bundleId, vaultId)
+    if (!current.bundle) {
+      return { ok: false, code: current.status, message: '尚无可用内容快照' }
+    }
+    const bundle = current.bundle
+    const payload = {
+      bundleId: bundle.bundleId,
+      vaultId: bundle.vaultId,
+      manifestHash: current.pointer.payloadHash,
+      legacyAliases: bundle.legacyAliases ?? {},
+      aliasVersion: bundle.aliasVersion ?? null,
+      schemaVersion: bundle.schemaVersion,
+      buildTime: bundle.buildTime,
+      rules: { status: bundle.rules?.status ?? 'missing', reason: bundle.rules?.reason ?? '' },
+      stages: bundle.stages,
+      milestones: bundle.rules?.milestones ?? [],
+      masteryLevels: bundle.rules?.masteryLevels ?? [],
+      hintLevels: bundle.rules?.hintLevels ?? [],
+      reviewOffsetsDays: bundle.rules?.reviewOffsetsDays ?? [],
+      lessons: bundle.lessons.map(lessonSummary),
+      counts: bundle.counts,
+    }
+    return { ok: true, etag: sha256(stableStringify(payload)).slice(0, 32), data: payload }
+  }
+
+  async function lesson(contentId, bundleId, vaultId) {

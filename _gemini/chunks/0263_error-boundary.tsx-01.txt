@@ -1,0 +1,133 @@
+import { Component, useState, type ErrorInfo, type ReactNode } from 'react'
+import { AlertTriangle, Copy, RefreshCcw, RotateCw } from 'lucide-react'
+import './error-boundary.css'
+
+type ErrorBoundaryProps = {
+  children: ReactNode
+  fallback?: (error: Error, reset: () => void) => ReactNode
+  scope?: 'app' | 'view'
+}
+
+type ErrorBoundaryState = {
+  hasError: boolean
+  error: Error | null
+  /** React 给出的组件栈：让「哪个组件树出的问题」可复制、可上报（§11.2 明确错误） */
+  componentStack: string | null
+  /** 出错时刻，供复制件里定位用 */
+  occurredAt: string | null
+}
+
+/** 堆栈文本上限：足够定位，又不至于把剪贴板与页面撑爆。 */
+const STACK_LIMIT = 4000
+
+function truncate(text: string): string {
+  if (text.length <= STACK_LIMIT) return text
+  return `${text.slice(0, STACK_LIMIT)}\n…（已截断，共 ${text.length} 个字符）`
+}
+
+/**
+ * 复制用的纯文本报告。§11.2「缺失/损坏/断连 → 有明确错误、有效旧快照或恢复入口」
+ * 要求错误信息可核对，所以这里给的是**原始事实**：类型、消息、堆栈、组件栈、时间，
+ * 不做美化也不改写。
+ */
+export function buildErrorReport(error: Error, componentStack: string | null, occurredAt: string | null): string {
+  const lines = [
+    'CodeWeave 错误边界捕获到的异常',
+    `发生时间：${occurredAt || '未记录'}`,
+    `错误类型：${error.name || 'Error'}`,
+    `错误消息：${error.message || '（该异常没有提供消息文本）'}`,
+    '',
+    '调用堆栈：',
+    truncate(error.stack ?? '（无堆栈信息）'),
+  ]
+  if (componentStack) {
+    lines.push('', '组件栈（React）：', truncate(componentStack))
+  }
+  return lines.join('\n')
+}
+
+/** 显示用时间：中文本地格式；复制件里保留 ISO，便于跨端对齐日志。 */
+function formatOccurred(iso: string | null): string {
+  if (!iso) return '未记录'
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString('zh-CN')
+}
+
+/**
+ * 复制到剪贴板：优先异步 Clipboard API，浏览器未开放时退回临时只读文本域 +
+ * execCommand。返回值如实反映是否真的复制成功——失败时界面会改为提示手动选取，
+ * 不会显示「已复制」。
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+  if (clipboard?.writeText) {
+    try {
+      await clipboard.writeText(text)
+      return true
+    } catch {
+      /* 继续走兜底通道 */
+    }
+  }
+  if (typeof document === 'undefined') return false
+  const area = document.createElement('textarea')
+  area.value = text
+  area.setAttribute('readonly', '')
+  area.style.position = 'fixed'
+  area.style.top = '-1000px'
+  document.body.appendChild(area)
+  area.select()
+  let ok: boolean
+  try {
+    ok = document.execCommand('copy')
+  } catch {
+    ok = false
+  }
+  document.body.removeChild(area)
+  return ok
+}
+
+type CopyState = 'idle' | 'copied' | 'failed'
+
+function DefaultErrorScreen({ error, componentStack, occurredAt, onReset, scope }: {
+  error: Error
+  componentStack: string | null
+  occurredAt: string | null
+  onReset: () => void
+  scope: 'app' | 'view'
+}) {
+  const [copyState, setCopyState] = useState<CopyState>('idle')
+  const report = buildErrorReport(error, componentStack, occurredAt)
+
+  const copy = async () => {
+    setCopyState('idle')
+    setCopyState((await copyToClipboard(report)) ? 'copied' : 'failed')
+  }
+
+  const retry = () => {
+    setCopyState('idle')
+    onReset()
+  }
+
+  return (
+    <div className="error-boundary cw-error" role="alert" aria-labelledby="cw-error-title">
+      <div className="error-boundary-content cw-error-panel">
+        <p className="cw-error-eyebrow">
+          <AlertTriangle className="error-icon cw-error-mark" size={16} aria-hidden="true" />
+          错误边界 · 已拦截
+        </p>
+        <h2 id="cw-error-title" className="cw-error-title">
+          {scope === 'app' ? '应用发生错误，请刷新重试' : '这一屏没能显示出来'}
+        </h2>
+        <p className="cw-error-lede">
+          {scope === 'app'
+            ? '应用界面暂时无法继续显示。重新载入页面会重新启动前端，不会改动任何数据。下面依次是：出了什么事、你的数据现在怎么样、下一步做什么。'
+            : '异常被组件树拦下，只影响这一块区域；页面其余部分与导航仍可使用。下面依次是：出了什么事、你的数据现在怎么样、下一步做什么。'}
+        </p>
+
+        <section className="cw-error-block" aria-label="错误详情">
+          <h2 className="cw-error-block-title">
+            <span className="cw-error-step" aria-hidden="true">01</span>
+            出了什么错
+          </h2>
+          <p className="cw-error-facts">
+            <span className="cw-error-kv">

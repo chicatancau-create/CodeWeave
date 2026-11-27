@@ -1,0 +1,55 @@
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              auto* select_text = u3_find_item(row, control_name + QStringLiteral("Text"));
+              if ((index == 4 || index == 5) &&
+                  (std::abs(control->width() - (index == 4 ? 81 : 72)) > 0.01 ||
+                   std::abs(control->height() - 44) > 0.01 ||
+                   !select_text || select_text->property("truncated").toBool() ||
+                   select_text->property("font").value<QFont>().pixelSize() != 14 ||
+                   !u3_find_item(row, control_name + QStringLiteral("Indicator")) ||
+                   !u3_find_item(row, control_name + QStringLiteral("Background")))) {
+                diagnostic = QStringLiteral("Settings preference select %1 mismatch: size=%2x%3 text=%4 truncated=%5 font=%6 textWidth=%7 paintedWidth=%8 display=%9 leftPadding=%10 rightPadding=%11")
+                    .arg(index).arg(control->width()).arg(control->height()).arg(select_text != nullptr)
+                    .arg(select_text && select_text->property("truncated").toBool())
+                    .arg(select_text ? select_text->property("font").value<QFont>().pixelSize() : -1)
+                    .arg(select_text ? select_text->width() : -1)
+                    .arg(select_text ? select_text->property("paintedWidth").toReal() : -1)
+                    .arg(select_text ? select_text->property("text").toString() : QString())
+                    .arg(select_text ? select_text->property("leftPadding").toReal() : -1)
+                    .arg(select_text ? select_text->property("rightPadding").toReal() : -1);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+              smoke_settings_rows.append(QJsonObject{{"index", index}, {"height", row->height()},
+                  {"rowWidth", row->width()}, {"controlRightInset", control_right_inset},
+                  {"control", control_name}, {"fullyVisible", true},
+                  {"controlEnabled", control->property("enabled").toBool()},
+                  {"controlX", control->mapToItem(row, QPointF()).x()},
+                  {"controlWidth", control->width()}, {"controlHeight", control->height()},
+                  {"textTruncated", select_text && select_text->property("truncated").toBool()},
+                  {"titleTextTruncated", title_text && title_text->property("truncated").toBool()},
+                  {"descriptionTextTruncated", description_text && description_text->property("truncated").toBool()},
+                  {"titleTextMetrics", title_metrics}, {"descriptionTextMetrics", description_metrics},
+                  {"titleText", title_text ? title_text->property("text").toString() : QString()},
+                  {"descriptionText", description_text ? description_text->property("text").toString() : QString()}});
+            }
+            auto* middle_row = u3_find_item(settings_scroll, QStringLiteral("settingsPreferenceRow4"));
+            const auto middle_origin = middle_row->mapToItem(flick, QPointF());
+            const auto middle_content_y = flick->property("contentY").toReal();
+            flick->setProperty("contentY", std::clamp(
+                middle_content_y + middle_origin.y() + middle_row->height() / 2 - flick->height() / 2,
+                0.0, content_height - flick->height()));
+            QCoreApplication::processEvents();
+            if (!fully_visible(middle_row) ||
+                !capture_topbar(QStringLiteral("topbar-settings-middle-small"))) {
+              if (diagnostic == QStringLiteral("running"))
+                diagnostic = QStringLiteral("Settings middle rows could not be captured");
+              write_smoke_report();
+              application.exit(1);
+              return;
+            }
+            flick->setProperty("contentY", content_height - flick->height());
+            QCoreApplication::processEvents();

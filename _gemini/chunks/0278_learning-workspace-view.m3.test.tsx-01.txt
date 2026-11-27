@@ -1,0 +1,108 @@
+// @vitest-environment jsdom
+/**
+ * M3 视觉竖切 · 学习工作台契约测试（01 号方案 §3.2 主工作台 + §2.2 动效与降级 + §8 验收清单）
+ *
+ * 四组断言，各自对应本轮任务的一个硬要求：
+ * 1. 业务行为：编辑 / 保存态 / 运行 / 单步回放与结果 / 来源查看 / 标记完成 / 返回，改版后仍成立；
+ * 2. 分栏结构：阅读 · 代码 · 变量 · 控制台四区都有锚点，导航只列真实存在的分区（320px 靠锚点可达）；
+ * 3. 持续资源审计（§5.3.3/.4）：先把本页与复用子组件的**源码字节**逐个扫一遍，
+ *    再用运行时探针证明「挂载—交互—卸载」期间没有 RAF 循环、没有 canvas/getContext、
+ *    没有 setInterval，且注册过的原生监听器成对摘除。**没有**持续资源时如实断言为 0，
+ *    不为凑要求虚构渲染器或 GPU 抽象（本页确实没有 WebGPU 路径，见 §5.3.2 结论）。
+ * 4. CSS 不变式：jsdom 不做层叠与布局，故按样式表源码文本核对（与
+ *    tests/styles.focus.test.mjs 同一口径）：无全局裸选择器、无泛光与玻璃、
+ *    编辑器字号只消费 --editor-font-size 且永不赋值、reduce-motion 两道开关真停止。
+ *
+ * 断言风格与项目现有 jsdom 测试一致：直接读 DOM 结构与文本，不依赖 jest-dom 匹配器。
+ */
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { LearningWorkspaceView } from './learning-workspace-view'
+import type { ExecutionResult, Lesson, TraceEvent, VariableValue } from '../types/lesson'
+
+/**
+ * 组件源码字节走 Vite 的 `?raw` glob：项目没有安装 @types/node，直接
+ * `import 'node:fs'` 会让 `tsc -b` 报错；`import.meta.url` 在 jsdom 环境里也不是
+ * file 协议，fileURLToPath 会抛错。（样式表文本另走读盘，见下方 beforeAll。）
+ */
+const rawSources = import.meta.glob(
+  [
+    './learning-workspace-view.tsx',
+    './code-editor.tsx',
+    './console-panel.tsx',
+    './variable-panel.tsx',
+    './runtime-controls.tsx',
+    './flow-chart.tsx',
+    './content-source-view.tsx',
+    '../content/markdown.tsx',
+    '../content/markdown-body.ts',
+    '../content/wiki-link.tsx',
+  ],
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>
+
+/* ────────────────────────────── 夹具 ────────────────────────────── */
+
+const LONG_LINE = '    return a + b  # 这一行故意写得很长，用来验证代码行是横向滚动而不是被挤压折行'
+
+const baseLesson = (overrides: Partial<Lesson> = {}): Lesson =>
+  ({
+    id: 'vault-py-func',
+    language: 'python',
+    languageLabel: 'Python',
+    label: 'S1',
+    title: '函数与返回值',
+    description: '写出带返回值的函数',
+    duration: '20 min',
+    level: '入门',
+    progress: 0,
+    code: `def add(a, b):\n${LONG_LINE}\n\nprint(add(2, 3))`,
+    flow: [
+      { id: 'start', label: '开始', kind: 'start', tone: 'purple' },
+      { id: 'call', label: '调用 add', kind: 'process', tone: 'blue', line: 4 },
+      { id: 'check', label: '是否三参数', kind: 'decision', tone: 'yellow', line: 2 },
+      { id: 'end', label: '结束', kind: 'end', tone: 'green' },
+    ],
+    insight: '返回值是函数与外部世界之间唯一的合法出口。',
+    fileName: 'add.py',
+    runtime: '教学模拟器 · Python 子集',
+    contentId: 'topic-py-func',
+    subject: 'Python',
+    subjectId: 'python',
+    legacy: false,
+    executable: true,
+    source: {
+      path: '资料库/Python/函数.md',
+      headingPath: ['函数', '返回值'],
+      verificationStatus: '外部未复核',
+      sourceIds: ['py-func-01'],
+    },
+    reading: {
+      markdown: '## 返回值\n\n函数用 `return` 把结果交回调用方。\n\n- 有返回值才能继续参与计算\n- 打印不等于返回\n\n' + '```python\ndef sub(a, b):\n    return a - b\n```\n\n> 先想清楚要交回什么，再决定参数。',
+      path: '资料库/Python/函数.md',
+      headingPath: ['函数', '返回值'],
+      verificationStatus: '外部未复核',
+      headings: [{ level: 2, title: '返回值', line: 1 }],
+    },
+    acceptance: { rubric: [], evidenceChecklist: [], testCases: ['add(2, 3) == 5'], hints: ['检查是否写了 return'] },
+    content: {
+      objective: '写出并调用一个带返回值的函数',
+      prerequisites: ['变量与类型'],
+      explanation: ['def 定义函数体'],
+      examples: [{ good: 'return a + b', bad: 'print(a + b)', why: '返回值可继续参与计算' }],
+      guidedSteps: ['定义 add', '调用并打印'],
+      exercise: '实现 sub(a, b) 返回差',
+      variant: '让 add 支持三个参数',
+      projectTask: '把计算器函数整理成模块',
+      mistakes: ['忘记 return'],
+      runCommand: 'python add.py',
+      completion: '输出 5',
+      reviewOffsetsDays: [1, 7],
+      stageId: 'S1',
+      estimatedMinutes: 20,
+    },
+    ...overrides,
+  }) as Lesson
+
+const startEvent: TraceEvent = { id: 'e1', type: 'start', line: 1, label: '开始', detail: '', variables: [], nodeId: 'start' }

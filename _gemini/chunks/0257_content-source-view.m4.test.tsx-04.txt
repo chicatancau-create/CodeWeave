@@ -1,0 +1,90 @@
+  it('未连接时明确说明当前是旧内置课程，五块仍然齐备', () => {
+    const { container } = render(
+      <ContentProviderHost.Provider value={legacyContent}>
+        <ContentSourceBanner />
+      </ContentProviderHost.Provider>,
+    )
+    expect(container.textContent).toContain('当前显示的是')
+    expect(container.textContent).toContain('旧内置课程')
+    expect(container.textContent).toContain('未找到资料库目录')
+    expect(fields(container).map((item) => item.key)).toEqual(FIVE_ZONES)
+    expect(fields(container)[2]?.value).toContain('未经资料库侧核验，不显示为已核实')
+  })
+
+  it('校验未通过 / 使用旧快照两种状态各自保留原文案，不合并成「已同步」', () => {
+    for (const [state, expected] of [
+      ['stale', '资料库暂不可用，正在使用上次成功快照'],
+      ['invalid', '上次同步未通过校验，仍使用上一个有效快照'],
+      ['scanning', '正在扫描资料库'],
+      ['validating', '正在校验内容'],
+    ] as const) {
+      const { container } = render(
+        <ContentProviderHost.Provider value={{ ...legacyContent, state } as unknown as ContentContextValue}>
+          <ContentSourceBanner />
+        </ContentProviderHost.Provider>,
+      )
+      expect(container.textContent).toContain(expected)
+      // 「不显示为已核实」是否定句，允许出现；单独宣称「已核实 / 已同步」不允许
+      expect(container.textContent).not.toMatch(/(?<!不显示为)已核实|已同步/)
+      cleanup()
+    }
+  })
+
+  it('重试同步按钮走 content.sync，忙态文案不改语义', async () => {
+    const sync = vi.fn(async () => ({ ok: true, message: '同步完成：仍在等待校验' }))
+    const { container } = render(
+      <ContentProviderHost.Provider value={{ ...legacyContent, sync } as unknown as ContentContextValue}>
+        <ContentSourceBanner />
+      </ContentProviderHost.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /重试同步/ }))
+    expect(sync).toHaveBeenCalledTimes(1)
+    await screen.findByText(/同步完成：仍在等待校验/)
+    expect(container.textContent).not.toMatch(/同步成功，内容已核实/)
+  })
+
+  /**
+   * §4 loading 行：改版前「正在读」这一档直接落进 warn 分支，说的是
+   * 「当前显示的是旧内置课程」——读取中不等于旧课程，那句话在取数期间是错的。
+   */
+  it('§4 loading：读取中不宣布旧内置课程，五块仍在、结构同形', () => {
+    const { container } = render(
+      <ContentProviderHost.Provider value={{ ...legacyContent, loading: true } as unknown as ContentContextValue}>
+        <ContentSourceBanner />
+      </ContentProviderHost.Provider>,
+    )
+    const banner = container.querySelector('[data-cs-banner="loading"]')
+    expect(banner).toBeTruthy()
+    expect(banner?.getAttribute('role')).toBe('status')
+    expect(banner?.getAttribute('aria-busy')).toBe('true')
+    expect(banner?.textContent).toContain('正在读取教材目录')
+    expect(banner?.textContent).toContain('读取完成前不宣布当前显示的是哪一套内容')
+    // 关键：这一档不许出现「旧内置课程 / 未迁移」这类结论
+    expect(banner?.textContent).not.toContain('旧内置课程')
+    expect(banner?.textContent).not.toContain('未迁移到资料库')
+    expect(fields(banner as HTMLElement).map((item) => item.key)).toEqual(FIVE_ZONES)
+    expect(fields(banner as HTMLElement)[2]?.value).toContain('读取中：本轮没有核验结论')
+    expect(fields(banner as HTMLElement)[4]?.value).toBe('无：读取完成前不给任何来源结论，也不用 0 或猜测值占位')
+    expect((banner as HTMLElement).querySelector('.view-skeleton__shape')?.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('§4 loading：扫描 / 校验这两档也走读取中，不落进旧课程那一版', () => {
+    for (const state of ['scanning', 'validating'] as const) {
+      const { container } = render(
+        <ContentProviderHost.Provider
+          value={{ ...legacyContent, state, loading: false } as unknown as ContentContextValue}
+        >
+          <ContentSourceBanner />
+        </ContentProviderHost.Provider>,
+      )
+      expect(container.querySelector('[data-cs-banner="loading"]')).toBeTruthy()
+      expect(container.textContent).toContain(state === 'scanning' ? '正在扫描资料库' : '正在校验内容')
+      expect(container.textContent).not.toContain('旧内置课程')
+      cleanup()
+    }
+  })
+
+  it('§4 disabled：同步忙态的按钮带 aria-disabled，并有一句说明条件的可见文字', async () => {
+    let release: (value: { ok: boolean; message: string }) => void = () => {}
+    const sync = vi.fn(() => new Promise<{ ok: boolean; message: string }>((res) => { release = res }))
+    const { container } = render(

@@ -1,0 +1,80 @@
+      INSERT INTO learning_checkins
+      SELECT account_id, vault_id, json_extract(event_json, '$.change.localDate'),
+        json_extract(event_json, '$.change.timeZone'), min(sequence)
+      FROM learning_events
+      WHERE json_extract(event_json, '$.change.kind') = 'learning.checkin.recorded'
+      GROUP BY account_id, vault_id, json_extract(event_json, '$.change.localDate'),
+        json_extract(event_json, '$.change.timeZone');
+      PRAGMA user_version = 5;
+    `)
+    db.exec('COMMIT')
+  } catch (error) {
+    db.close()
+    throw error
+  }
+
+  const locate = db.prepare('SELECT id, request_hash, result FROM publication_jobs WHERE vault_id = ? AND account_id = ? AND idempotency_key = ?')
+  const running = db.prepare("SELECT id, attempt, result FROM publication_jobs WHERE state IN ('scanning', 'validating')")
+  const insert = db.prepare('INSERT INTO publication_jobs VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+  const select = db.prepare('SELECT account_id, vault_id, state, result FROM publication_jobs WHERE id = ?')
+  const finish = db.prepare("UPDATE publication_jobs SET state = ?, result = ? WHERE id = ? AND attempt = ? AND state IN ('scanning', 'validating')")
+  const getAttempt = db.prepare('SELECT attempt, state, result FROM publication_jobs WHERE id = ?')
+
+  function reserve({ vaultId, accountId, key, requestHash, dryRun, rateLimited = false, active = false }) {
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      const prior = locate.get(vaultId, accountId, key)
+      let outcome
+      if (prior) {
+        outcome = prior.request_hash === requestHash
+          ? { reused: true, job: JSON.parse(prior.result) }
+          : { code: 'idempotency_conflict' }
+      } else if (rateLimited) {
+        outcome = { code: 'sync_rate_limited' }
+      } else if (active || running.get()) {
+        outcome = { code: 'publish_busy' }
+      } else {
+        const job = {
+          jobId: randomUUID(), status: 'scanning', dryRun, published: false,
+          startedAt: new Date().toISOString(), finishedAt: null, error: null, summary: null,
+        }
+        const attempt = randomUUID()
+        insert.run(job.jobId, vaultId, accountId, key, requestHash, attempt, job.status, JSON.stringify(job))
+        outcome = { reused: false, job, attempt }
+      }
+      db.exec('COMMIT')
+      return outcome
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  function complete(jobId, attempt, result) {
+    if (RUNNING.includes(result.status)) throw new Error('发布作业缺少终态')
+    const updated = finish.run(result.status, JSON.stringify(result), jobId, attempt)
+    if (updated.changes === 1) return
+    const prior = getAttempt.get(jobId)
+    if (prior?.attempt !== attempt || prior?.state !== result.status || prior?.result !== JSON.stringify(result)) {
+      throw new Error('发布作业已失效或终态不一致')
+    }
+  }
+
+  function get(jobId, { vaultId, accountId, isOwner }) {
+    const row = select.get(jobId)
+    if (!row || row.vault_id !== vaultId || (!isOwner && row.account_id !== accountId)) return null
+    return JSON.parse(row.result)
+  }
+
+  function recoverInterrupted() {
+    const prior = running.get()
+    if (!prior) return
+    complete(prior.id, prior.attempt, {
+      ...JSON.parse(prior.result), status: 'unavailable', finishedAt: new Date().toISOString(),
+      error: { code: 'publish_interrupted', message: '服务重启前作业未完成，请重新提交' },
+    })
+  }
+
+  const findGrant = db.prepare('SELECT 1 FROM publication_grants WHERE vault_id = ? AND account_id = ?')
+  return { database: db, reserve, complete, get, recoverInterrupted, canPublish: (vaultId, accountId) => Boolean(findGrant.get(vaultId, accountId)), close: () => db.close() }
+}

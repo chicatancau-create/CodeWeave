@@ -1,0 +1,131 @@
+  color: var(--cw-warn);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.1em;
+}
+.cw-workspace .cw-save-hint {
+  font-family: var(--cw-mono);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.cw-workspace kbd {
+  padding: var(--ds-space-hair, 1px) var(--ds-space-6, 6px);
+  color: var(--cw-fg);
+  background: transparent;
+  border: var(--cw-line-width) solid var(--cw-line-raised);
+  border-radius: var(--ds-shape-none, 0);
+  font-family: inherit;
+  font-size: var(--cw-label); /* 快捷键名是必读元信息，不在本文件自设的 12px 地板之下 */
+}
+
+/* ── 阅读区（§5.3 第 1 条：静态；§5.4：正文 ~16px / 行高 1.6–1.75） ───── */
+.cw-workspace .reading-pane {
+  padding: 0;
+  max-height: clamp(220px, 44vh, 520px);
+  overflow: auto;
+}
+/* #105：详情在路上的占位。给的是**下限**而不是精确高度——原文实际多高只有读回来才知道，
+   这里要的是「别让下面整列往下跳」而不是伪造一份内容。数值与上面 `.reading-pane` 的
+   可视区间同档（clamp 到 36vh/420px 之间），落地后按 terminal110 的回流读数复核。 */
+.cw-workspace .cw-reading-pending {
+  min-height: clamp(180px, 36vh, 420px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px) var(--ds-space-16, 16px);
+}
+
+.cw-workspace .cw-reading-pending-text {
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+}
+
+.cw-workspace .cw-reading-pending-note {
+  max-width: 62ch;
+  margin: var(--ds-space-12, 12px) 0 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-ui);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+  overflow-wrap: anywhere;
+}
+
+/* 01 号方案 §4 的 error 行 + §2.1 的状态层：语义色之外必须同时有文字与边界，
+   不只靠颜色承载（00 号方案 §6「不能只靠颜色」）。占位下限沿用 pending 那一档，
+   重试期间这块不塌，避免内容落地时把下面整列推走。 */
+.cw-workspace .cw-reading-error {
+  min-height: clamp(180px, 36vh, 420px);
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px) var(--ds-space-16, 16px);
+  border-left: var(--cw-line-width) solid var(--cw-err);
+}
+
+.cw-workspace .cw-reading-error-label {
+  color: var(--cw-err);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  letter-spacing: 0.12em;
+}
+
+.cw-workspace .cw-reading-error-reason {
+  max-width: 62ch;
+  margin: var(--ds-space-12, 12px) 0 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: var(--cw-label);
+  line-height: var(--cw-leading);
+  overflow-wrap: anywhere;
+}
+
+.cw-workspace .cw-reading-error-note {
+  max-width: 62ch;
+  margin: var(--ds-space-8, 8px) 0 0;
+  color: var(--cw-fg-dim);
+  font-family: var(--cw-ui);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+  overflow-wrap: anywhere;
+}
+
+.cw-workspace .cw-reading-retry {
+  margin-top: var(--ds-space-14, 14px);
+}
+.cw-workspace .reading-pane .md-view {
+  max-width: 72ch;
+  padding: var(--ds-space-14, 14px) var(--ds-space-16, 16px) var(--ds-space-16, 16px);
+  color: var(--cw-fg);
+  font-family: var(--cw-ui);
+  font-size: var(--cw-body);
+  line-height: var(--cw-leading);
+}
+.cw-workspace .reading-pane .md-view h3,
+.cw-workspace .reading-pane .md-view h4,
+.cw-workspace .reading-pane .md-view h5,
+.cw-workspace .reading-pane .md-view h6 {
+  margin: var(--ds-space-20, 20px) 0 var(--ds-space-8, 8px);
+  color: var(--cw-fg);
+  font-family: var(--cw-mono);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+.cw-workspace .reading-pane .md-view h3:first-child {
+  margin-top: 0;
+}
+.cw-workspace .reading-pane .md-view p,
+.cw-workspace .reading-pane .md-view ul,
+.cw-workspace .reading-pane .md-view ol,
+.cw-workspace .reading-pane .md-view blockquote {
+  margin: var(--ds-space-10, 10px) 0;
+}
+.cw-workspace .reading-pane .md-view li {
+  margin: var(--ds-space-6, 6px) 0;
+}
+.cw-workspace .reading-pane .md-view blockquote {
+  padding: var(--ds-space-4, 4px) 0 var(--ds-space-4, 4px) var(--ds-space-14, 14px);
+  color: var(--cw-fg-dim); /* 0.56 在遮光层上 5.39:1，可承载引用正文 */
+  background: transparent;
+  border-left: 2px solid var(--cw-line-raised);
+}
+/* 行内代码与围栏代码：长行横向滚动，不折行挤压 */
+.cw-workspace .reading-pane .md-view code,
+.cw-workspace .lesson-source .md-view code {

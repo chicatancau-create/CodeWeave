@@ -1,0 +1,64 @@
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(records().size() == 5 && records().back().passed);
+    assert(records().back().verification == codeweave::learning::CompletionVerification::SelfDeclared);
+    shell.discardDraftChanges();
+    shell.openPublishedContent(shell.publishedIds().indexOf("csharp-loop-sum"));
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.lessonAssessment().value("external").toBool());
+    shell.completeLesson({});
+    assert(!shell.operationBusy() && records().size() == 5);
+    QVariantMap fields{{"environment", "Windows .NET isolated test"}, {"command", "dotnet run"},
+        {"resultSummary", QStringLiteral("能不看示例写出循环累加，并解释任意一轮 total 的值。输出 15。")},
+        {"artifactRef", "fixture-log.txt"}, {"reproducedOn", QDate::currentDate().toString(Qt::ISODate)}};
+    auto invalid = fields; invalid["reproducedOn"] = "2999-01-01";
+    shell.completeLesson(invalid);
+    assert(!shell.operationBusy() && records().size() == 5);
+    invalid = fields; invalid["command"] = "password=example-secret";
+    shell.completeLesson(invalid);
+    assert(!shell.operationBusy() && records().size() == 5);
+    invalid = fields; invalid["resultSummary"] = "zzzzzzzzzz";
+    shell.completeLesson(invalid);
+    assert(!shell.operationBusy() && records().size() == 5);
+    shell.saveExternalEvidence(fields["environment"].toString(), fields["command"].toString(),
+        fields["resultSummary"].toString(), fields["artifactRef"].toString(), fields["reproducedOn"].toString());
+    wait_for([&] { return !shell.operationBusy(); });
+    auto states = shell.lessonEvidenceStates().value("csharp-loop-sum").toMap();
+    assert(states.value("submittedEvidence").toBool() && !states.value("selfDeclaredPassed").toBool());
+    assert(!shell.lessonAssessment().value("completed").toBool());
+    shell.completeLesson(fields);
+    wait_for([&] { return !shell.operationBusy(); });
+    states = shell.lessonEvidenceStates().value("csharp-loop-sum").toMap();
+    assert(states.value("selfDeclaredPassed").toBool() && !states.value("autoVerifiedPassed").toBool());
+    assert(records().size() == 6 && records().back().passed);
+    assert(records().back().verification == codeweave::learning::CompletionVerification::SelfDeclared);
+    assert(shell.clearAccountContext());
+    assert(shell.lessonEvidenceStates().isEmpty() && !shell.lessonAssessment().value("canComplete").toBool());
+    assert(shell.setAccountContext(learner, workspace, data));
+    wait_for([&] { return !shell.contentBusy(); });
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.lessonEvidenceStates().value("stage-d").toMap().value("autoVerifiedPassed").toBool());
+    assert(shell.lessonAssessment().value("completed").toBool());
+    const auto damaged = root / "learning/mastery.v1.log";
+    std::ofstream(damaged, std::ios::trunc | std::ios::binary) << "invalid isolated lesson fixture\n";
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(!shell.lessonEvidenceReady() && !shell.lessonAssessment().value("canComplete").toBool());
+    shell.markLessonRead();
+    shell.completeLesson(fields);
+    assert(!shell.operationBusy() && read_file(damaged) == "invalid isolated lesson fixture\n");
+  }
+  {
+    using namespace codeweave::learning;
+    codeweave::account::AccountService learner(store);
+    assert(learner.register_account("Analytics learner", "analytics@example.test", "Test-Password-123!").ok);
+    std::filesystem::path root;
+    assert(learner.learning_data_root(data, root).ok);
+    UiShell shell;
+    assert(shell.setAccountContext(learner, workspace, data));
+    wait_for([&] { return !shell.contentBusy(); });
+    const auto today = QDate::currentDate();
+    const auto timestamp = [&](int offset, QTime time = QTime(12, 0)) {
+      return QDateTime(today.addDays(offset), time).toUTC().toString(Qt::ISODateWithMs).toStdString();
+    };
+    const auto refresh = [&] {

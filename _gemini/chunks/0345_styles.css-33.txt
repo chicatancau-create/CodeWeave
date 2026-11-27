@@ -1,0 +1,151 @@
+.evidence-writeback code {
+  font-size: var(--editor-font-size);
+  word-break: break-all;
+}
+
+.evidence-form-block summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--ds-size-body);
+  margin: var(--ds-space-10, 10px) 0 var(--ds-space-6, 6px);
+}
+
+.evidence-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  margin-bottom: var(--ds-space-8, 8px);
+}
+
+.evidence-wide {
+  grid-column: 1 / -1;
+}
+
+.evidence-independent {
+  grid-column: 1 / -1;
+}
+
+.evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px);
+  margin-top: var(--ds-space-8, 8px);
+}
+
+.evidence-queue {
+  margin-top: var(--ds-space-12, 12px);
+}
+
+.evidence-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--ds-space-6, 6px) 0;
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+}
+
+.evidence-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-6, 6px) var(--ds-space-8, 8px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+}
+
+.evidence-list label {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+}
+
+.evidence-topic {
+  font-weight: 600;
+  font-size: var(--ds-size-body);
+}
+
+.evidence-list small {
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+}
+
+/* M4 死规则核对删除：.evidence-message(.ok/.bad) / .evidence-targets(含 code) /
+   .evidence-diffs(含 li) / .evidence-pre 实测 0 引用 —— 证据回写页改版后由
+   components/evidence-writeback-view.css 的 .ewb-* 前缀承担。
+   同一段里原先有**两份** .evidence-blocked/.evidence-notices 列表规则与**两份**
+   .evidence-before/.evidence-after，且后一份把 .evidence-after 的颜色写成了
+   var(--accent)（场景点缀色），违反 §5.1「成功/错误不得跟随场景色」。这里合并为
+   一份并固定为 --ds-status-success（--c-green）。 */
+.evidence-preview,
+.evidence-conflict {
+  margin-top: var(--ds-space-12, 12px);
+  padding: var(--ds-space-10, 10px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--scrim);
+}
+
+.evidence-conflict {
+  border-color: var(--ds-status-danger-edge, rgba(255, 131, 113, 0.45));
+  background: var(--bad-wash);
+}
+
+.evidence-subtitle {
+  margin: var(--ds-space-10, 10px) 0 var(--ds-space-4, 4px);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: var(--track-title);
+}
+
+.evidence-blocked,
+.evidence-notices {
+  list-style: none;
+  padding: 0;
+  margin: var(--ds-space-6, 6px) 0;
+  display: grid;
+  gap: var(--ds-space-4, 4px);
+  font-size: var(--ds-size-body);       /* §5.4 正文档：待处理/说明清单是必读信息 */
+  line-height: var(--leading-body);
+}
+
+.evidence-before {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* 语义状态固定色（§5.1 末段），不指向 --accent */
+.evidence-after {
+  color: var(--c-green);
+  font-weight: 600;
+}
+
+.evidence-blocked li {
+  color: var(--c-yellow);
+}
+
+.evidence-notices li {
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------------------
+   `.ds-*` 共享原语整段已删（阶段C 死规则核对，脚本与命中清单见本段末尾的口径）。
+   名单：.ds-panel / .ds-panel--sunken / .ds-scrim / .ds-scrim-raised / .ds-display /
+   .ds-title / .ds-eyebrow / .ds-lead / .ds-decor / .ds-num / .ds-btn / .ds-btn--pill /
+   .ds-btn--danger / .ds-field / .ds-label / .ds-pill / .ds-pill--ok|-warn|-bad|-info /
+   .ds-ring / .ds-focusable / .ds-table（组里只摘掉这一项，.data-table 留着）。
+   判据：这些类名在 app/src 的 .ts/.tsx、各页自有 CSS、app/tests 与 tools/visual 的探针里
+   实测 0 引用——M3 当时立这批新类名是为了给四个代表页复用，实际每一页改用了自有前缀
+   （.lp-* / .cw-* / .cv-* / .an-* / .ewb-* / .rv-*），这一层就成了没有人穿的样板。
+   同一段里还留着一处 `font-size: 12`（缺单位，浏览器直接丢弃该行），随段一起消失。
+   删除前先取了 §5.4 全矩阵快照（terminal111，12 页 × 6 视口 = 72 格），删除后在新构建上
+   重跑同一矩阵与状态段，逐列比对结果记在 CHANGELOG.md 的阶段C 批次账里
+   （旧 `docs/M6-整体验收-执行记录.md` §16.4 那张表是这条线的历史账，四文件收口后该文档
+   只存在于 Git 历史，新批次不再往里追加）。
+   另外 `.challenge-empty`（本文件与 challenges-view.css 各一条）同批删除，理由一样。
+   通用标题 / 按钮 / 标签的**在用**原语在上面的「共享原语：黑场 + 发丝线 + 暖白」那一段（L781 一带），
+   那一段是活代码，不在本条删除名单里。

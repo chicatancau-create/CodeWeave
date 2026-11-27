@@ -1,0 +1,77 @@
+    const results = await axe.run(container, {
+      rules: {
+        // jsdom 无真实布局：色彩对比与触控尺寸由上面的 CSS 源码不变式与浏览器复核承担
+        'color-contrast': { enabled: false },
+        'target-size': { enabled: false },
+      },
+    })
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+  })
+})
+
+/* ────────────── 阶段能力点与「未掌握」（LEARN-01 第 3 条） ────────────── */
+
+describe('M3 学习路径 · 阶段能力点与未掌握', () => {
+  const stageS0: CurriculumStage = {
+    id: 'S0',
+    title: '环境核验',
+    track: '通用',
+    summary: '把工具链清点成一份可核对的记录',
+    topics: [],
+    checkpoint: '能独立跑通一次环境清点并记录版本',
+    deliverables: ['环境清单表', '版本记录'],
+    prerequisites: [],
+    externalTools: [],
+  }
+  const states = (overrides: Partial<LessonEvidenceStates> = {}): LessonEvidenceStates => ({
+    read: false,
+    practiced: false,
+    submittedEvidence: false,
+    selfDeclaredPassed: false,
+    autoVerifiedPassed: false,
+    reviewMastered: false,
+    ...overrides,
+  })
+  const block = () => document.querySelector('.lp-stage-competence')
+
+  it('资料库写的阶段验收与交付物真的摆上路径（此前除校验器外零渲染点）', () => {
+    renderView([baseLesson()], { stages: [stageS0] })
+    expect(block()?.textContent).toContain('能独立跑通一次环境清点并记录版本')
+    expect(Array.from(block()?.querySelectorAll('.lp-stage-deliverables li') ?? []).map((li) => li.textContent)).toEqual([
+      '环境清单表',
+      '版本记录',
+    ])
+  })
+
+  it('一条完成证据都没有时按「未掌握」读；只有阅读与练习痕迹不算掌握', () => {
+    renderView([baseLesson()], { stages: [stageS0], lessonStates: { 'vault-s0-1': states({ read: true, practiced: true }) } })
+    expect(block()?.textContent).toContain('0/1 个单元有完成证据')
+    expect(block()?.textContent).toContain('未掌握')
+  })
+
+  it('自评通过就不再报未掌握，但交付物依旧不逐条打勾（本机没比对过它们）', () => {
+    renderView([baseLesson()], { stages: [stageS0], lessonStates: { 'vault-s0-1': states({ selfDeclaredPassed: true }) } })
+    const text = block()?.textContent ?? ''
+    expect(text).toContain('1/1 个单元有完成证据')
+    expect(text).not.toContain('未掌握')
+    expect(text).toContain('不逐条打勾')
+    expect(block()?.querySelectorAll('input[type=checkbox]').length).toBe(0)
+    expect(Array.from(block()?.querySelectorAll('.lp-stage-deliverables li') ?? []).every((li) => !/[✓×]/.test(li.textContent || ''))).toBe(true)
+  })
+
+  it('上层没递阶段表时如实说「无从显示」，不编一份能力点出来', () => {
+    renderView([baseLesson()])
+    expect(block()?.textContent).toContain('阶段表未载入，能力点无从显示')
+    expect(block()?.textContent).toContain('无从显示：上层没递阶段表')
+  })
+
+  it('空阶段只报缺口，不拿「0/0 个单元」冒充一次判断', () => {
+    renderView([baseLesson(), lessonAtStage({ id: 'vault-s2-1', stage: 'S2' })], { stages: [stageS0] })
+    const blocks = Array.from(document.querySelectorAll('.lp-stage-competence'))
+    expect(blocks.length).toBe(3) // S0 / S1 / S2 都各有一块
+    const s1 = blocks[1] as Element
+    expect(s1.textContent).toContain('资料库这一阶段没写验收点')
+    expect(s1.textContent).not.toContain('个单元有完成证据')
+    expect((blocks[0] as Element).textContent).toContain('0/1 个单元有完成证据')
+  })
+})

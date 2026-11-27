@@ -1,0 +1,87 @@
+  async function publishTransaction({ root, bundle, nextManifest, syncEntry, assetObjects, receipt }) {
+    const operationId = `pub-${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}`
+    const previousPointer = await store.readPointer()
+    await store.assets.add(assetObjects)
+    const staged = await store.stageCandidate(bundle)
+    const journal = {
+      operationId,
+      stage: 'candidate',
+      bundleId: staged.bundle.bundleId,
+      payloadHash: staged.payloadHash,
+      candidateCreated: staged.created,
+      receipt,
+      previousPointer,
+      root,
+      manifest: nextManifest,
+      syncEntry: { ...syncEntry, operationId },
+      startedAt: new Date().toISOString(),
+    }
+    await store.writeJournal(journal)
+    await publicationCheckpoint('candidate')
+
+    await store.flipPointer(staged.bundle.bundleId, staged.payloadHash, {
+      schemaVersion: staged.bundle.schemaVersion,
+      publishedAt: staged.publishedAt,
+    })
+    await publicationCheckpoint('pointer_switched')
+    await store.writeJournal({ ...journal, stage: 'pointer', updatedAt: new Date().toISOString() })
+
+    await publicationCheckpoint('pointer_logged')
+    await writeManifest(root, nextManifest)
+    await publicationCheckpoint('manifest_written')
+    await store.writeJournal({ ...journal, stage: 'manifest', updatedAt: new Date().toISOString() })
+
+    await publicationCheckpoint('manifest_logged')
+    await appendSyncLog(root, journal.syncEntry)
+    await publicationCheckpoint('sync_log_written')
+    if (receipt) await recordCommitted(receipt)
+    await publicationCheckpoint('job_committed')
+    await store.clearJournal()
+    const retired = await store.retireOldSnapshots(staged.bundle.bundleId)
+    return { operationId, bundleId: staged.bundle.bundleId, retired }
+  }
+
+  /**
+   * 启动或同步前收尾：处理上一次崩溃留下的发布事务。
+   * 返回 null 表示没有待处理事务。
+   */
+  async function reconcilePublishJournal() {
+    const journal = await store.readJournal()
+    const pointer = await store.readPointer()
+    if (journal === null) {
+      if (pointer) await store.readVerifiedBundle(pointer)
+      return null
+    }
+    const root = configuredRoot()
+    const validJournal = root.ok && root.root === journal.root &&
+      ['candidate', 'pointer', 'manifest'].includes(journal.stage) &&
+      typeof journal.operationId === 'string' && Boolean(journal.operationId) &&
+      journal.syncEntry?.operationId === journal.operationId && journal.manifest?.schemaVersion === 1 &&
+      typeof journal.bundleId === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(journal.bundleId) &&
+      /^[a-f0-9]{64}$/.test(journal.payloadHash ?? '')
+    if (!validJournal) throw new Error('发布日志无法与当前资料库对账')
+
+    const outcome = { operationId: journal.operationId, stage: journal.stage, bundleId: journal.bundleId }
+    const pointsAtCandidate = pointer?.bundleId === journal.bundleId && pointer.payloadHash === journal.payloadHash
+    const previous = journal.previousPointer ?? null
+    const pointsAtPrevious = pointer === null ? previous === null
+      : pointer.bundleId === previous?.bundleId && pointer.payloadHash === previous?.payloadHash
+
+    // candidate 阶段也可能已经切换指针。先证明当前指向旧包，再决定是否删除本次创建的候选。
+    if (journal.stage === 'candidate' && !pointsAtCandidate && pointsAtPrevious) {
+      if (pointer) await store.readVerifiedBundle(pointer)
+      if (journal.candidateCreated === true && previous?.bundleId !== journal.bundleId) {
+        await store.discardCandidate(journal.bundleId)
+      }
+      await store.clearJournal()
+      return { ...outcome, action: 'aborted' }
+    }
+    if (!pointsAtCandidate) throw new Error('发布日志与当前快照指针不一致')
+    await store.readVerifiedBundle(pointer)
+
+    // 保留日志直到对账完整结束。写回失败时下次重试前滚，避免只恢复指针却留下新清单。
+    if (journal.stage !== 'manifest') {
+      await writeManifest(root.root, journal.manifest)
+      await store.writeJournal({ ...journal, stage: 'manifest', updatedAt: new Date().toISOString() })
+    }
+    await appendSyncLog(root.root, journal.syncEntry)

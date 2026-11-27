@@ -1,0 +1,116 @@
+// @vitest-environment jsdom
+/**
+ * M4 全站统一 · 项目页契约测试（01 号方案 §3.4 挑战与项目 + §2.2 令牌 + §5 无障碍 + §8 验收清单）
+ *
+ * 本仓此前**没有** projects-view 的测试文件（自检命令里那一条即为空跑说明），
+ * 这一批用例是把改版前后的行为钉住的第一份基线：
+ * 1. 编号清单：项目与检查点都是真实文本编号，结构是 `<ol role="list"> + <li>`；
+ * 2. 两个状态区：01 本机草稿（虚线、写「未快照」）/ 02 检查点快照（实线、写「可恢复」），
+ *    检查点保存与恢复的回调口径一字不改（恢复前由 use-projects 自动留安全点）；
+ * 3. 轻边界信息区与恒定语义色（删除=危险档，不跟随场景点缀）；
+ * 4. §5.4：16px/1.7、44px、长中文项目名折行、长代码行横向滚动、320px、双路径真停。
+ */
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import axe from 'axe-core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ProjectsView } from './projects-view'
+import type { Project } from '../types/lesson'
+
+const fsSpecifier: string = 'node:fs'
+const { readFileSync } = (await import(fsSpecifier)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
+const moduleDir = (import.meta as unknown as { dirname?: string }).dirname ?? '.'
+const cssText = readFileSync(`${moduleDir}/projects-view.css`, 'utf8')
+const tsxText = readFileSync(`${moduleDir}/projects-view.tsx`, 'utf8')
+const cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '')
+
+const normalize = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+/** 取某条规则的声明体：支持逗号选择器列表，并剥掉媒体块收尾的 `}`。 */
+function rulesFor(selector: string): string[] {
+  const wanted = normalize(selector)
+  const bodies: string[] = []
+  const pattern = /([^{}]+)\{([^{}]*)\}/g
+  let match: RegExpExecArray | null = pattern.exec(cssText)
+  while (match) {
+    const selText = (match[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/}/g, ' ')
+    const parts = selText.split(',').map((part) => normalize(part))
+    if (normalize(selText) === wanted || parts.some((part) => part === wanted)) bodies.push(match[2] ?? '')
+    match = pattern.exec(cssText)
+  }
+  return bodies
+}
+
+/** 找不到规则时返回哨兵串，避免「断言空字符串」假绿。 */
+function ruleBody(selector: string): string {
+  const bodies = rulesFor(selector)
+  if (bodies.length === 0) return `__NO_RULE_FOR__${selector}__`
+  return bodies[0]!
+}
+
+function mediaBlock(query: string): string {
+  const at = cssText.indexOf(`@media (${query})`)
+  if (at === -1) return ''
+  const open = cssText.indexOf('{', at)
+  let depth = 0
+  for (let index = open; index < cssText.length; index += 1) {
+    const char = cssText[index]
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) return cssText.slice(open + 1, index)
+    }
+  }
+  return ''
+}
+
+/** 括号外切分的逗号才算是选择器分隔符（:is(a, b) 内部不算）。 */
+function allSelectors(): string[] {
+  const splitTopLevel = (value: string): string[] => {
+    const parts: string[] = []
+    let depth = 0
+    let current = ''
+    for (const char of value) {
+      if (char === '(' || char === '[') depth += 1
+      else if (char === ')' || char === ']') depth -= 1
+      if (char === ',' && depth === 0) {
+        parts.push(current)
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    parts.push(current)
+    return parts
+  }
+  return [...cssCode.matchAll(/([^{}]+)\{/g)]
+    .map((match) => normalize((match[1] ?? '').replace(/}/g, ' ')))
+    .filter((selector) => selector.length > 0 && !selector.startsWith('@'))
+    .flatMap((selector) => splitTopLevel(selector).map((part) => normalize(part)))
+}
+
+const file = (overrides: Partial<Project['files'][number]> = {}): Project['files'][number] => ({
+  id: 'file-1',
+  name: 'main.py',
+  language: 'python',
+  code: 'print("hello")',
+  updatedAt: '2026-09-10T00:00:00.000Z',
+  ...overrides,
+})
+
+const project = (overrides: Partial<Project> = {}): Project => ({
+  id: 'p-1',
+  name: '循环累加练习',
+  description: '把 1—100 累加并留档',
+  files: [file()],
+  updatedAt: '2026-09-12T00:00:00.000Z',
+  checkpoints: [],
+  ...overrides,
+})
+
+function renderView(props: Partial<Parameters<typeof ProjectsView>[0]> = {}) {
+  const projects = props.projects ?? [project(), project({ id: 'p-2', name: '一个特别长的中文项目名用来验证不破版的能力要求' })]
+  const handlers = {
+    onCreate: vi.fn(),
+    onSelect: vi.fn(),

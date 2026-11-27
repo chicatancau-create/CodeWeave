@@ -1,0 +1,14 @@
+describe('会话说明文案必须与 server.mjs 的行为一致', () => {
+  it('说清滑动过期、实例级上限与 LRU 淘汰，不再出现旧的三种错写法', () => {
+    renderSecurity()
+    const notes = [...document.querySelectorAll('.cw-account-list li')].map((li) => li.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+    const all = notes.join('\n')
+    expect(all).toContain('连续空闲满 7 天')
+    expect(all).toContain('CODE_CANVAS_MAX_SESSIONS')
+    expect(all).toContain('最久未使用')
+    expect(all).toContain('不是每个账号各 500 个')
+    expect(all).not.toContain('同一账号最多 500')
+    expect(all).not.toContain('最早登录')
+    expect(all).toContain('修改密码后，除当前设备外的所有会话立即失效')
+  })
+})

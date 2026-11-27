@@ -1,0 +1,81 @@
+              反过来会让 chunk 网络失败绕过边界（React 文档要求 Suspense 在边界内侧）。 */}
+          <ErrorBoundary>
+            <Suspense fallback={<ViewFallback view={view} />}>
+            {view === 'path' && !activeLesson && (
+              <DesktopLearningHome
+                dueCount={mastery.dueReviews.length}
+                onGoReviews={() => setView('reviews')}
+                subjectId={subjectId}
+                subjects={content.subjects}
+                lessons={pathLessons}
+                lessonStates={lessonStates}
+                /* LEARN-01 第 3 条：阶段能力点与「这一阶段有没有完成证据」按**展示口径**给——
+                   资料库未连接时退回旧 A—M 并已在别处标注，这里不另取一份阶段表。 */
+                stages={displayStages}
+                selectedLessonId={effectiveLessonId}
+                recommended={
+                  recommendedLesson ? { label: recommendedLesson.label, title: recommendedLesson.title } : null
+                }
+                onSubjectChange={handleSubjectChange}
+                onLessonChange={handleLessonChange}
+                onContinue={() => {
+                  if (selectedLesson) handleLessonChange(selectedLesson)
+                }}
+              />
+            )}
+            {view === 'path' && activeLesson && selectedLesson && (
+              <LearningWorkspaceView
+                lesson={activeLesson}
+                code={code}
+                isDirty={savedRevision !== currentRevision}
+                saveFeedback={saveFeedback}
+                currentEvent={execution.currentEvent}
+                runStatus={execution.runStatus}
+                eventIndex={execution.eventIndex}
+                execution={execution.execution}
+                visibleOutput={execution.visibleOutput}
+                variables={execution.variables}
+                editorTabSize={settings.editorTabSize ?? 2}
+                editorWordWrap={settings.editorWordWrap ?? false}
+                editorLineNumbers={settings.editorLineNumbers ?? true}
+                completed={holdsCompletion(lessonStates[activeLesson.id])}
+                completionSource={completionSourceOf(lessonStates[activeLesson.id])}
+                evidenceStates={lessonStates[activeLesson.id] ?? null}
+                detailPending={detailPendingId === activeLesson.id}
+                detailError={detailFailure?.lessonId === activeLesson.id ? detailFailure.message : null}
+                onRetryDetail={() => requestLessonDetail(activeLesson)}
+                onMarkRead={lessonSignals.markRead}
+                readMarked={lessonSignals.readMarked}
+                onComplete={handleLessonCompleted}
+                onBack={closeWorkspace}
+                onHelp={() => setHelpOpen(true)}
+                onCodeChange={handleCodeChange}
+                onRun={() => void execution.handleRun()}
+                onPlay={() => void execution.handlePlay()}
+                onStep={() => void execution.handleStep()}
+                onSeek={execution.handleSeek}
+                onReset={execution.handleReset}
+              />
+            )}
+            {view === 'challenges' && (
+              <ChallengesView
+                challenges={challenges}
+                progress={challengeProgress.progress}
+                unitsByStage={unitsByStage}
+                focusChallengeId={focusChallengeId}
+                scope={scope}
+                onOpenUnit={(lessonId) => {
+                  const lesson = content.lessons.find((item) => item.id === lessonId)
+                  if (lesson) handleLessonChange(lesson)
+                }}
+                onSubmit={handleChallengeSubmit}
+                onVerifySubmission={handleVerifySubmission}
+                onRejectSubmission={handleRejectSubmission}
+              />
+            )}
+            {view === 'projects' && (
+              <ProjectsView
+                projects={projects.projects}
+                selectedProjectId={projects.selectedProjectId}
+                onCreate={projects.handleCreateProject}
+                onSelect={projects.setSelectedProjectId}

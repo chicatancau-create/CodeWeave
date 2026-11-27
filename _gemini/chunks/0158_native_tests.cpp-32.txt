@@ -1,0 +1,63 @@
+  assert(std::filesystem::remove(local_module) && std::filesystem::is_empty(execution_root));
+  const auto global = run("var total = 7;\nconsole.log(this === globalThis, globalThis.total);\n");
+  assert(global.process->exit_code == 0 && global.process->output == "true 7\n");
+  assert(std::none_of(global.trace->events().begin(), global.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"Symbol(") != std::string::npos;
+  }));
+  assert(std::any_of(global.trace->events().begin(), global.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto shadowed = run("const JSON = 7;\nconst Object = 9;\nconsole.log(JSON + Object);\n");
+  assert(shadowed.process->exit_code == 0 && shadowed.process->output == "16\n");
+  const auto shebang = run("#!/usr/bin/env node\nlet total = 7;\nconsole.log(total);\n");
+  assert(shebang.process->exit_code == 0 && shebang.process->output == "7\n");
+  assert(std::none_of(shebang.trace->events().begin(), shebang.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        (event.payload.find("\"line\":4") != std::string::npos ||
+         event.payload.find("\"line\":5") != std::string::npos);
+  }));
+  assert(std::any_of(shebang.trace->events().begin(), shebang.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"line\":3") != std::string::npos &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto asynchronous = run("setTimeout(() => {\nlet total = 7;\nconsole.log(total);\n}, 20);\n");
+  assert(asynchronous.process->exit_code == 0 && asynchronous.process->output == "7\n");
+  assert(std::any_of(asynchronous.trace->events().begin(), asynchronous.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep &&
+        event.payload.find("\"total\":\"7\"") != std::string::npos;
+  }));
+  const auto bounded = run("const object = { get dangerous() { throw new Error('getter executed'); } };\n"
+      "let total = 0;\nfor (let i = 0; i < 2000; ++i) {\ntotal += i;\n}\nconsole.log(total);\n");
+  assert(bounded.process->exit_code == 0 && bounded.process->output == "1999000\n");
+  assert(std::count_if(bounded.trace->events().begin(), bounded.trace->events().end(), [](const auto& event) {
+    return event.kind == codeweave::execution::EventKind::SourceStep;
+  }) == 512);
+  const auto timeout = service.run({"javascript-trace-timeout", "javascript", "while (true) {}\n", 100, 4096},
+      runtime, execution_root);
+  assert(timeout.process && timeout.process->timed_out);
+  assert(std::filesystem::is_empty(execution_root));
+#else
+  (void)runtime;
+#endif
+}
+
+void test_execution_stream_arrives_before_exit(const std::filesystem::path& tool,
+    std::string language, std::string source, bool expect_source = true) {
+#ifdef _WIN32
+  if (tool.empty()) return;
+  Fixture fixture;
+  const auto execution_root = fixture.root / "stream-execution";
+  assert(std::filesystem::create_directory(execution_root));
+  std::atomic_bool cancellation{false};
+  std::vector<codeweave::execution::TraceEvent> observed;
+  std::string output;
+  bool source_seen = false;
+  const auto result = codeweave::execution::ExecutionService{}.run(
+      {"live-" + language, language, std::move(source), 20'000, 4096}, tool, execution_root,
+      &cancellation, nullptr, [&](const auto& event) {
+        observed.push_back(event);
+        if (event.kind == codeweave::execution::EventKind::SourceStep) source_seen = true;
+        if (event.kind == codeweave::execution::EventKind::Output) output += event.payload;

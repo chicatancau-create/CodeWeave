@@ -1,0 +1,150 @@
+  line-height: var(--pv-leading);
+}
+
+.projects-view .empty-state strong {
+  color: var(--pv-ink);
+  font-size: var(--pv-body);
+}
+
+.projects-view .empty-state svg {
+  color: var(--pv-faint);
+}
+
+/* ============================================================================
+   3. 详情：轻边界信息区 + 两个状态区
+   ========================================================================== */
+
+.projects-view .project-detail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-14, 14px), 2vw, var(--ds-space-24, 24px));
+  min-width: 0;
+  padding: var(--pv-pad);
+  border: var(--pv-hair-width) solid var(--pv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  box-shadow: var(--pv-glow-panel);
+}
+
+.projects-view .detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-14, 14px);
+  flex-wrap: wrap;
+  padding-bottom: var(--pv-pad);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .detail-header h2 {
+  margin: 0;
+  color: var(--pv-ink);
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: 1.25;
+}
+
+.projects-view .detail-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-8, 8px);
+  flex-wrap: wrap;
+}
+
+.projects-view .detail-actions .subtle-button,
+.projects-view .checkpoint-actions .subtle-button,
+.projects-view .checkpoint-row .subtle-button {
+  min-height: var(--pv-tap);
+  color: var(--pv-ink);
+  border: var(--pv-hair-width) solid var(--pv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  box-shadow: var(--pv-glow-inset);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  font-weight: 400;
+  white-space: normal;
+}
+
+.projects-view .detail-actions .subtle-button:hover,
+.projects-view .checkpoint-actions .subtle-button:hover,
+.projects-view .checkpoint-row .subtle-button:hover {
+  color: var(--pv-ink);
+  border-color: var(--pv-edge-active);
+  background: var(--pv-scrim);
+}
+
+.projects-view .detail-actions .subtle-button:active,
+.projects-view .checkpoint-actions .subtle-button:active,
+.projects-view .checkpoint-row .subtle-button:active {
+  background: var(--pv-scrim-raised);
+}
+
+/* 删除 = 不可撤销：恒定危险色 + 文字，不跟随场景色 */
+.projects-view .detail-actions .danger-button {
+  min-height: var(--pv-tap);
+  color: var(--pv-bad);
+  border: var(--pv-hair-width) solid var(--pv-bad);
+  border-radius: var(--ds-radius-control, 0);
+  background: var(--pv-bad-wash);
+  box-shadow: var(--pv-glow-inset);
+  font-family: var(--pv-mono);
+  font-size: var(--pv-body);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.projects-view .detail-actions .danger-button:hover {
+  border-color: var(--pv-bad);
+  background: var(--pv-bad-wash);
+  color: var(--pv-bad);
+}
+
+/* 危险操作按下：走暖白遮光层而不是加深红底，避免与「已确认」的实红混淆 */
+.projects-view .detail-actions .danger-button:active {
+  border-color: var(--pv-bad);
+  background: var(--pv-scrim-raised);
+  color: var(--pv-bad);
+}
+
+/* 两个状态区：草稿=虚线边、快照=实线边（形状通道，不靠颜色单传） */
+.projects-view .project-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+  padding: var(--pv-pad);
+  border: var(--pv-hair-width) solid var(--pv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+}
+
+.projects-view .project-zone--draft {
+  border-style: dashed;
+  background: none;
+}
+
+.projects-view .project-zone--snapshot {
+  border-style: solid;
+  background: var(--pv-scrim);
+}
+
+.projects-view .project-zone-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding-bottom: var(--ds-space-10, 10px);
+  border-bottom: var(--pv-hair-width) solid var(--pv-hair);
+}
+
+.projects-view .project-zone-no {
+  color: var(--pv-scene);
+  font-size: var(--pv-meta);
+  font-weight: 600;
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.projects-view .project-zone-title {
+  color: var(--pv-ink);

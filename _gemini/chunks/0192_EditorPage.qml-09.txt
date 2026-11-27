@@ -1,0 +1,73 @@
+                                    enabled: uiShell.hasSelectedContent && !uiShell.contentBusy
+                                    onToggled: uiShell.independentAttempt = checked
+                                    Accessible.name: "标记为独立完成"
+                                }
+                                PrimaryButton {
+                                    ds: editorPage.ds
+                                    objectName: "workspaceRunCode"
+                                    label: uiShell.executionBusy ? "取消" : "运行"
+                                    enabled: uiShell.hasActiveAccount
+                                             && uiShell.starterLanguage.length > 0
+                                             && !uiShell.contentBusy
+                                    onClicked: uiShell.executionBusy
+                                               ? uiShell.cancelExecution()
+                                               : uiShell.runCode()
+                                }
+                                QuietButton {
+                                    ds: editorPage.ds
+                                    label: "暂停"
+                                    enabled: uiShell.executionBusy && !uiShell.executionPaused
+                                    onClicked: uiShell.pauseExecution()
+                                }
+                                QuietButton {
+                                    ds: editorPage.ds
+                                    label: "继续"
+                                    enabled: uiShell.executionBusy && uiShell.executionPaused
+                                    onClicked: uiShell.resumeExecution()
+                                }
+                                QuietButton {
+                                    ds: editorPage.ds
+                                    label: "单步"
+                                    enabled: uiShell.executionBusy && uiShell.executionPaused
+                                    onClicked: uiShell.stepExecution()
+                                }
+                            }
+                        }
+                    }
+
+                    // Output strip
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 130
+                        radius: ds.radius
+                        color: ds.panel
+                        border.color: ds.line
+                        border.width: 1
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: ds.s12
+                            spacing: ds.s6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: ds.s6
+                                Text {
+                                    text: "输出"
+                                    color: uiShell.executionOutputError ? ds.danger : ds.muted
+                                    font.family: ds.ui
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    visible: uiShell.executionOutputError
+                                    text: "运行错误"
+                                    color: ds.danger
+                                    font.family: ds.ui
+                                    font.pixelSize: 11
+                                }
+                                Item { Layout.fillWidth: true }
+                                QuietButton {
+                                    id: copyOutputButton
+                                    objectName: "copyOutputButton"
+                                    ds: editorPage.ds
+                                    label: editorPage.consoleCopyStatus || "复制"
+                                    enabled: !editorPage.consoleOutputCleared

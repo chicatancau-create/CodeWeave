@@ -1,0 +1,102 @@
+      await rm(currentPath, { force: true })
+      return null
+    }
+    const temp = `${currentPath}.${process.pid}.tmp`
+    await writeFile(temp, JSON.stringify(previous), 'utf8')
+    await rename(temp, currentPath)
+    return previous
+  }
+
+  async function discardCandidate(bundleId) {
+    if (!validBundleId(bundleId)) throw new Error('无效的候选快照标识')
+    if ((await readPointer())?.bundleId === bundleId || await readOptionalJson(markerPath(bundleId))) {
+      throw new Error('禁止删除已发布快照')
+    }
+    await rm(snapshotPath(bundleId), { force: true })
+  }
+
+  // --- 发布事务日志（DATA-05）：跨进程重启也能判断停在哪一步 ---
+  const journalPath = join(baseDir, 'publish-journal.json')
+
+  async function readJournal() {
+    return readOptionalJson(journalPath)
+  }
+
+  async function writeJournal(journal) {
+    await ensureDirs()
+    const temp = `${journalPath}.${process.pid}.tmp`
+    await writeFile(temp, `${JSON.stringify(journal, null, 2)}\n`, 'utf8')
+    await rename(temp, journalPath)
+    return journal
+  }
+
+  async function clearJournal() {
+    await rm(journalPath, { force: true })
+  }
+
+  /**
+   * 原子发布候选包（无跨文件事务需求的调用方使用）。
+   * 失败时抛错并由上层保留旧包。
+   */
+  async function publish(bundle) {
+    const staged = await stageCandidate(bundle)
+    await flipPointer(staged.bundle.bundleId, staged.payloadHash, {
+      schemaVersion: staged.bundle.schemaVersion,
+      publishedAt: staged.publishedAt,
+    })
+    await retireOldSnapshots(staged.bundle.bundleId)
+    return readRecord(staged.bundle.bundleId)
+  }
+
+  /** 同步任务的互斥入口：进行中直接返回同一 job。 */
+  function runExclusive(work) {
+    if (activeJob) return { reused: true, job: activeJob }
+    const job = {
+      jobId: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      status: STATUS.SCANNING,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      report: null,
+      error: null,
+      published: false,
+    }
+    activeJob = job
+    job.promise = (async () => {
+      try {
+        await work(job)
+      } finally {
+        job.finishedAt = new Date().toISOString()
+        activeJob = null
+      }
+    })()
+    return { reused: false, job }
+  }
+
+  function currentJob() {
+    return activeJob
+  }
+
+  return {
+    baseDir,
+    publish,
+    stageCandidate,
+    flipPointer,
+    restorePointer,
+    discardCandidate,
+    readRecord,
+    readJournal,
+    writeJournal,
+    clearJournal,
+    retireOldSnapshots,
+    currentPath,
+    readVerifiedBundle,
+    readBundle,
+    assets,
+    readCurrent,
+    readPointer,
+    listSnapshots,
+    runExclusive,
+    currentJob,
+    hasSnapshot: () => existsSync(currentPath),
+  }
+}

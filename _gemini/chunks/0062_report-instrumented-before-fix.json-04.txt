@@ -1,0 +1,125 @@
+            "control": "settingsPreferenceToggle0",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "descriptionText": "在本机保留学习提醒状态",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 143
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "学习提醒（待接入）",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 126
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 12
+            },
+            "titleTextTruncated": false
+        },
+        {
+            "control": "settingsPreferenceToggle1",
+            "controlEnabled": false,
+            "controlHeight": 28,
+            "controlRightInset": 3,
+            "controlWidth": 48,
+            "controlX": 442,
+            "descriptionText": "修改课程代码时自动保存到本机",
+            "descriptionTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 182
+                },
+                "truncated": false,
+                "visible": true,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "descriptionTextTruncated": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1,
+            "rowWidth": 493,
+            "textTruncated": false,
+            "titleText": "编辑器自动保存（待接入）",
+            "titleTextMetrics": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "found": true,
+                "height": 23,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 22.400000000000002
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 168
+                },

@@ -1,0 +1,128 @@
+        "npx webpack 构建成功日志",
+        "产物文件列表",
+        "一次 Tree Shaking 前后的体积对比"
+      ],
+      "hint": "先让最小配置跑通，再逐项加 loader/plugin，每加一项都构建验证。",
+      "explanation": "构建工具的报错信息是主要学习材料；把每次故障与修复写进提交记录。"
+    },
+    {
+      "id": "stage-g",
+      "stageId": "G",
+      "track": "Java 后端",
+      "title": "G 关卡验收：JavaWeb + MySQL CRUD",
+      "description": "完成 Servlet + JDBC + MySQL 的完整增删改查（外部环境实验）。 本关聚焦：HTTP、REST、状态码、Cookie、Session。",
+      "language": "java",
+      "stack": [
+        "Servlet",
+        "JDBC",
+        "MySQL",
+        "Tomcat"
+      ],
+      "difficulty": "基础",
+      "runner": "external",
+      "prerequisites": [
+        "stage-b"
+      ],
+      "starterCode": "SELECT id, name, status FROM tasks WHERE status = ?;\n-- 配合 PreparedStatement 防注入",
+      "targetOutput": [
+        "完成 Servlet + JDBC + MySQL CRUD"
+      ],
+      "evidence": [
+        "数据库建表 SQL",
+        "一次插入与查询的执行结果",
+        "开启事务回滚的验证记录"
+      ],
+      "hint": "本地启动 MySQL 后用真实 JDBC 连接；参数一律用 PreparedStatement 占位符。",
+      "explanation": "数据库和容器环境无法被模拟；SQL 注入防护必须在真实连接上验证。"
+    },
+    {
+      "id": "stage-h",
+      "stageId": "H",
+      "track": "Java 后端",
+      "title": "H 关卡验收：SSM 分层项目",
+      "description": "用 Spring + Spring MVC + MyBatis 交付分层 CRUD（外部环境实验）。 本关聚焦：IoC、DI、Bean、AOP。",
+      "language": "java",
+      "stack": [
+        "Spring",
+        "Spring MVC",
+        "MyBatis"
+      ],
+      "difficulty": "进阶",
+      "runner": "external",
+      "prerequisites": [
+        "stage-g"
+      ],
+      "starterCode": "@RestController\n@RequestMapping(\"/tasks\")\npublic class TaskController {\n    // 依赖 service，不要在 controller 里直接操作 Mapper\n}",
+      "targetOutput": [
+        "完成可测试的完整 SSM CRUD 项目"
+      ],
+      "evidence": [
+        "分层目录结构说明",
+        "Mapper 单元测试通过记录",
+        "统一异常处理器演示"
+      ],
+      "hint": "先跑通一条从 Controller 到 Mapper 的链路，再补校验、异常和事务。",
+      "explanation": "分层的价值在于可测试与可替换；用测试证明每一层职责边界清晰。"
+    },
+    {
+      "id": "stage-i",
+      "stageId": "I",
+      "track": "Java 后端",
+      "title": "I 关卡验收：Spring Boot 单体服务",
+      "description": "把 SSM 项目迁移到 Spring Boot 并增加业务功能（外部环境实验）。 本关聚焦：Starter、自动配置、多环境配置。",
+      "language": "java",
+      "stack": [
+        "Spring Boot",
+        "Maven"
+      ],
+      "difficulty": "进阶",
+      "runner": "external",
+      "prerequisites": [
+        "stage-h"
+      ],
+      "starterCode": "@SpringBootApplication\npublic class App {\n    public static void main(String[] args) {\n        SpringApplication.run(App.class, args);\n    }\n}",
+      "targetOutput": [
+        "迁移 SSM 项目并独立增加业务功能"
+      ],
+      "evidence": [
+        "jar 包启动日志",
+        "Actuator /health 返回 UP",
+        "新增业务功能的接口测试"
+      ],
+      "hint": "用 starter 替代手写配置；迁移以“能启动、能访问、能测试”为顺序。",
+      "explanation": "自动配置改变的是装配方式而不是分层结构；迁移后行为要与原项目一致。"
+    },
+    {
+      "id": "stage-j",
+      "stageId": "J",
+      "track": "安全",
+      "title": "J 关卡验收：安全基础（哈希与净化）",
+      "description": "在沙箱中实现口令哈希校验与输入净化的纯函数。 本关聚焦：密码哈希、Session、Token、JWT。",
+      "language": "javascript",
+      "stack": [
+        "认证与授权",
+        "安全基线"
+      ],
+      "difficulty": "进阶",
+      "runner": "javascript-sandbox",
+      "prerequisites": [
+        "stage-i"
+      ],
+      "starterCode": "function simpleHash(text) {\n  let hash = 0;\n  for (const ch of text) {\n    hash = (hash * 31 + ch.charCodeAt(0)) % 99991;\n  }\n  return hash;\n}\nfunction sanitize(text) {\n  return text.replace(/[<>&\"']/g, \"\");\n}\nconsole.log(sanitize(\"<script>alert(1)</script>\"));\nconsole.log(simpleHash(\"password123\") === simpleHash(\"password123\"));",
+      "targetOutput": [
+        "scriptalert(1)/script",
+        "true"
+      ],
+      "evidence": [
+        "净化函数移除了危险字符",
+        "相同口令哈希一致、不同口令哈希不同",
+        "说明为什么不能存明文密码"
+      ],
+      "hint": "沙箱禁止网络与 DOM；把注意力放在纯函数的正确性与可解释性上。",
+      "explanation": "真实系统用 scrypt/bcrypt 等慢哈希加随机盐；本练习演示的是“校验流程”，不是生产算法。"
+    },
+    {
+      "id": "stage-k",
+      "stageId": "K",
+      "track": "分布式",
+      "title": "K 关卡验收：微服务与网关",

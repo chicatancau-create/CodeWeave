@@ -1,0 +1,145 @@
+          "三类载荷验证记录"
+        ]
+      }
+    },
+    {
+      "id": "j3-csrf-cors-boundary",
+      "language": "javascript",
+      "languageLabel": "安全",
+      "label": "J3",
+      "title": "CSRF、CORS 与请求边界",
+      "description": "谁有权发起这个请求",
+      "duration": "35 min",
+      "level": "进阶",
+      "code": "# CSRF 与 CORS 观察（本项目 API）：\n# 1. 从另一源（如 file:// 或其他端口页面）fetch 本项目 /api/profile\n# 2. 观察响应头是否含 Access-Control-Allow-Origin\n# 3. 带 Cookie 的跨站表单 POST：被 SameSite=Lax 拦截还是放行？",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "跨源请求",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "浏览器 CORS 预检",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "服务端响应头",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "放行或拦截",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "CORS 是浏览器对响应的放行规则，CSRF 是“借用户身份发请求”的攻击——两者常被混为一谈。",
+      "fileName": "boundary-notes.md",
+      "runtime": "外部环境 · 浏览器 + curl",
+      "content": {
+        "objective": "独立完成一次跨源请求观察，并解释 SameSite 与 CORS 各自拦截的是哪一类风险。",
+        "prerequisites": [
+          "j1-auth-session-flow"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "J",
+        "explanation": [
+          "CORS：浏览器允许跨源读取响应的前提是服务端返回正确的 Access-Control 头。",
+          "CSRF：攻击者诱导已登录用户的浏览器向目标站点发请求；SameSite/CSRF Token 是主要防线。",
+          "预检（OPTIONS）：非简单请求先问后发，服务端必须显式应答允许的方法与头。"
+        ],
+        "examples": [
+          {
+            "good": "跨源 API 只放行已知来源列表并配合凭证策略",
+            "bad": "Access-Control-Allow-Origin: * 同时 Allow-Credentials: true（浏览器会直接拒绝）",
+            "why": "凭证跨源必须指名来源"
+          }
+        ],
+        "guidedSteps": [
+          "从不同源页面 fetch 本项目 API，记录预检与响应头。",
+          "检查本项目 Cookie 的 SameSite 属性并解释其拦截范围。",
+          "构造一个跨站表单 POST 场景（本地两端口），观察是否被拦。"
+        ],
+        "exercise": "独立整理“CSRF vs CORS vs XSS”三者的攻击面与防线对照表。",
+        "variant": "为本项目 API 设计一段 CORS 中间件配置，并说明为什么不能写星号。",
+        "projectTask": "请求边界对照表进入 J 阶段验收的安全测试用例清单。",
+        "mistakes": [
+          "遇到跨域就加星号响应头",
+          "认为 CORS 是服务端安全（它管的是浏览器读取，不是服务端鉴权）"
+        ],
+        "runCommand": "浏览器跨源页面 + curl -H Origin（真实行为）",
+        "completion": "三概念对照表完整，跨源实验有两源实测记录。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 35,
+        "acceptanceCriteria": [
+          "跨源请求预检与响应头记录完整",
+          "能区分 CSRF 与 CORS 的拦截对象",
+          "SameSite 行为有实测"
+        ],
+        "evidenceChecklist": [
+          "跨源实验记录",
+          "三者对照表"
+        ]
+      }
+    }
+  ],
+  "challenges": [
+    {
+      "id": "stage-a",
+      "stageId": "A",
+      "track": "环境与工具",
+      "title": "A 关卡验收：开发环境与基本操作",
+      "description": "建立可复现、能排错的开发环境，并留下可追溯的记录。 本关聚焦：JDK、Node.js、Maven、MySQL、Git。",
+      "language": "java",
+      "stack": [
+        "JDK",
+        "Node.js",
+        "Maven",
+        "Git"
+      ],
+      "difficulty": "入门",
+      "runner": "external",
+      "prerequisites": [],
+      "starterCode": "# 环境检查清单\n# java -version\n# node -v\n# mvn -v\n# git --version\n# 把每条命令的输出记录下来，并标注用途",
+      "targetOutput": [
+        "独立启动项目并定位一次构建错误"
+      ],
+      "evidence": [
+        "四个工具链的版本输出记录",
+        "一次构建报错的完整日志",
+        "错误原因与修复步骤说明"
+      ],
+      "hint": "先用 --version 确认工具可用，再故意制造一次构建失败并阅读第一行错误信息。",
+      "explanation": "环境问题的根因通常是版本不匹配或路径错误；把每次排错写成记录，下次就能直接复用。"
+    },
+    {
+      "id": "stage-b",
+      "stageId": "B",
+      "track": "Java 后端",
+      "title": "B 关卡验收：Java 核心编程",

@@ -1,0 +1,129 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { validateJavaScriptSandbox, executeJavaScript } from './javascript-sandbox'
+import { DEFAULT_JUDGE_MODE, judgeOutput } from './challenge-judge'
+import { challenges } from '../data/challenges'
+import { EXECUTION_SETTINGS } from '../utils/constants'
+import type { Lesson } from '../types/lesson'
+
+const mockLesson: Lesson = {
+  id: 'test-js',
+  language: 'javascript',
+  languageLabel: 'JavaScript',
+  label: '01',
+  title: 'Test JS',
+  description: 'Test',
+  duration: '5 min',
+  level: '入门',
+  progress: 0,
+  code: '',
+  flow: [],
+  insight: '',
+  fileName: 'test.js',
+  runtime: 'Browser JS',
+  content: {
+    objective: '',
+    prerequisites: [],
+    explanation: [],
+    examples: [],
+    guidedSteps: [],
+    exercise: '',
+    variant: '',
+    projectTask: '',
+    mistakes: [],
+    runCommand: '',
+    completion: '',
+    reviewOffsetsDays: [],
+  },
+}
+
+type WorkerOutbound = { type: string; value?: string; message?: string; line?: number }
+
+/**
+ * 本仓库未安装 @types/node（不新增依赖），沿用 learning-path-view.m3.test.tsx 的手法：
+ * 变量说明符 + 动态 import，并只给用到的那两个 API 做局部类型收窄。
+ */
+const vmSpecifier: string = 'node:vm'
+const { Script, createContext } = (await import(vmSpecifier)) as {
+  Script: new (source: string, options?: { filename?: string }) => { runInContext: (context: unknown) => unknown }
+  createContext: (sandbox: object) => object
+}
+
+/**
+ * 在非浏览器测试环境里跑**引擎真正生成的那份 Worker 脚本**。
+ *
+ * 为什么不是旧的「postMessage 里 new Function 一下」：那样 fake 实现的是测试自己想象的协议，
+ * 引擎生成什么它不看什么。CSP 拦掉 `new Function` 那次（历史执行记录 docs/M6-整体验收-执行记录.md §19）就是这么躲过去的——
+ * jsdom 没有 CSP，也没有真实的 Worker 脚本文本。现在 FakeWorker 直接把 `new Blob([...])`
+ * 收下的源码取出来，用 `node:vm` 以真实脚本形态编译（filename 与脚本内的 `__cwSelfUrl` 对上），
+ * 于是输出上限、console 包装、错误行号折算这些**脚本里的逻辑**第一次真的被执行到。
+ */
+const SCRIPT_NAME = 'cw-sandbox-worker.js'
+let lastWorkerSource = ''
+
+class FakeBlob {
+  constructor(parts: unknown[]) {
+    lastWorkerSource = parts.map((p) => String(p)).join('')
+  }
+}
+
+class FakeWorker {
+  static instances: FakeWorker[] = []
+  onmessage: ((event: { data: WorkerOutbound }) => void) | null = null
+  onerror: ((event: { message: string; lineno?: number }) => void) | null = null
+  terminated = false
+
+  constructor(_url: string) {
+    FakeWorker.instances.push(this)
+    queueMicrotask(() => this.run())
+  }
+
+  private deliver(message: WorkerOutbound) {
+    if (this.terminated) return
+    this.onmessage?.({ data: message })
+  }
+
+  private run() {
+    if (this.terminated) return
+    const context = createContext({
+      self: {
+        location: { href: SCRIPT_NAME },
+        postMessage: (message: WorkerOutbound) => this.deliver(message),
+      },
+    })
+    // vm.Script 而不是 new Function：函数构造器给正文加两行包装，堆栈行号整体下移，
+    // 行号折算那条判据就成了假绿。编译与执行同在一个 try 里——编译不过等于浏览器那边的
+    // 「脚本没能开始执行」，走 onerror；用户代码里的异常由生成脚本自带的 try/catch 兜住。
+    try {
+      new Script(lastWorkerSource, { filename: SCRIPT_NAME }).runInContext(context)
+    } catch (error) {
+      const detail = error instanceof Error ? error : new Error(String(error))
+      const lineno = Number(String(detail.stack || '').match(/cw-sandbox-worker\.js:(\d+)/)?.[1] ?? 0)
+      this.onerror?.({ message: detail.message, lineno: lineno || 1 })
+    }
+  }
+
+  terminate() {
+    this.terminated = true
+  }
+}
+
+describe('javascript-sandbox', () => {
+  describe('validateJavaScriptSandbox', () => {
+    it('should block fetch calls', () => {
+      const error = validateJavaScriptSandbox('fetch("https://api.example.com")')
+      expect(error).toBeDefined()
+      expect(error?.message).toContain('沙箱禁止')
+    })
+
+    it('should block eval calls', () => {
+      expect(validateJavaScriptSandbox('eval("alert(1)")')).toBeDefined()
+    })
+
+    it('should block window access', () => {
+      expect(validateJavaScriptSandbox('window.location = "/"')).toBeDefined()
+    })
+
+    it('should allow safe console.log', () => {
+      expect(validateJavaScriptSandbox('console.log("Hello")')).toBeUndefined()
+    })
+

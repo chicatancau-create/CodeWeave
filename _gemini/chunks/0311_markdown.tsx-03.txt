@@ -1,0 +1,97 @@
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <span className="md-attachment md-attachment--error" role="note" style={IMAGE_NOTE_STYLE}>
+        {alt ? `${alt}：` : ''}附件不可用（未发布或类型不允许）
+      </span>
+    )
+  }
+  return (
+    <span className="md-attachment">
+      <img src={src} alt={alt} title={relPath} style={IMAGE_STYLE} loading="lazy" onError={() => setFailed(true)} />
+    </span>
+  )
+}
+
+/**
+ * 把一个 `![说明](目标)` 令牌渲染成图片，或按今天的方式退回纯文本。
+ * 判定完全交给 `wikilink.ts`（`rejectReasonFor` + 位图白名单），这里不重复路径规则。
+ */
+function renderImageToken(token: string, key: string, bundleId?: string): ReactNode {
+  const parsed = IMAGE_TOKEN.exec(token)
+  if (!parsed) return token
+  const decision = resolveImageAttachment(parsed[2] ?? '')
+  if (decision.kind !== 'image') return token
+  const src = bundleId ? decision.src + '&bundleId=' + encodeURIComponent(bundleId) : decision.src
+  return <MarkdownImage key={src + ':' + key} src={src} alt={parsed[1] ?? ''} relPath={decision.relPath} />
+}
+
+/** 行内格式：`code`、**bold**、![说明](白名单图片)、[[双链]]。其余（含 HTML 片段与链接语法）按纯文本输出。 */
+function renderInline(text: string, keyPrefix: string, links: LinkOptions): ReactNode[] {
+  const nodes: ReactNode[] = []
+  const pattern = /(`[^`]+`)|(\*\*[^*]+\*\*)|(!\[[^\]]*\]\([^)\n]*\))|(\[\[[^\]]+\]\])/g
+  let last = 0
+  let match: RegExpExecArray | null
+  let counter = 0
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) nodes.push(text.slice(last, match.index))
+    const token = match[0]
+    counter += 1
+    const key = `${keyPrefix}-i${counter}`
+    if (token.startsWith('`')) nodes.push(<code key={key}>{token.slice(1, -1)}</code>)
+    else if (token.startsWith('**')) nodes.push(<strong key={key}>{token.slice(2, -2)}</strong>)
+    // 图片：库根相对路径 + 位图白名单才给同源 src；其余保持纯文本（见 README-attachments.md §4）
+    else if (token.startsWith('!')) nodes.push(renderImageToken(token, key, links.bundleId))
+    // 双链：已发布才可跳转；未发布/危险目标只作为文本 + 明确提示（见 wiki-link.tsx）
+    else nodes.push(<WikiLink key={key} raw={token.slice(2, -2)} depth={links.depth} onNavigate={links.onNavigate} />)
+    last = match.index + token.length
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes
+}
+
+function renderBlocks(markdown: string, links: LinkOptions): ReactNode[] {
+  return parseMarkdownBlocks(markdown).map((block, index) => {
+    const key = `b${index}`
+    if (block.kind === 'heading') {
+      const level = Math.min(Math.max(block.level, 3), 6)
+      const Tag = `h${level}` as 'h3' | 'h4' | 'h5' | 'h6'
+      return <Tag key={key}>{renderInline(block.text, key, links)}</Tag>
+    }
+    if (block.kind === 'code') {
+      return (
+        <pre key={key} className="md-code">
+          <code>{block.code}</code>
+        </pre>
+      )
+    }
+    if (block.kind === 'list') {
+      const items = block.items.map((item, itemIndex) => (
+        <li key={`${key}-${itemIndex}`}>{renderInline(item, `${key}-${itemIndex}`, links)}</li>
+      ))
+      return block.ordered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>
+    }
+    if (block.kind === 'quote') {
+      return (
+        <blockquote key={key}>
+          {block.lines.map((line, lineIndex) => (
+            <p key={`${key}-${lineIndex}`}>{renderInline(line, `${key}-${lineIndex}`, links)}</p>
+          ))}
+        </blockquote>
+      )
+    }
+    if (block.kind === 'table') {
+      // role="table" + th[scope] 给出表格语义；单元格内容一律走行内解析（文本节点）
+      return (
+        <div key={key} className="md-table-wrap" style={{ overflowX: 'auto' }}>
+          <table role="table" className="md-table data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {block.header.map((cell, cellIndex) => (
+                  <th key={`${key}-h${cellIndex}`} scope="col">
+                    {renderInline(cell, `${key}-h${cellIndex}`, links)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>

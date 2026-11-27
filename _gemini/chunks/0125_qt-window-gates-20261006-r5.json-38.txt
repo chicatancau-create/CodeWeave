@@ -1,0 +1,45 @@
+      "startup_scope": "process main entry to exposed window + loaded catalog + event loop tick; excludes OS loader"
+    }
+  ],
+  "limitations": [
+    "warm OS cache; synthetic workload",
+    "frameSwapped is not DWM presentation",
+    "startup from main entry excludes OS loader",
+    "not a Win32 parity comparison"
+  ],
+  "metrics": {
+    "main_thread_ms": {
+      "count": 4082,
+      "p50": 0.026999980211257935,
+      "p95": 0.5815999805927277,
+      "max": 274.0367000102997,
+      "budget": 16.7,
+      "passed": true
+    },
+    "frame_interval_ms": {
+      "count": 679,
+      "p50": 15.481600016355515,
+      "p95": 16.952899992465973,
+      "max": 18.541900008916855,
+      "budget": 20,
+      "passed": true
+    },
+    "edit_ms": {
+      "count": 180,
+      "p50": 15.794800013303757,
+      "p95": 16.68189999461174,
+      "max": 18.12270000576973,
+      "budget": 50,
+      "passed": true
+    },
+    "cancel_ms": {
+      "count": 30,
+      "p50": 57.06659999489784,
+      "p95": 73.654599994421,
+      "max": 79.80239999294281,
+      "budget": 100,
+      "passed": true
+    }
+  },
+  "status": "passed"
+}

@@ -1,0 +1,138 @@
+/**
+ * 资料库正式进度的只读投影（LINK-08，02 号方案 §4 正式学习事实规则）。
+ *
+ * 铁律（依据 `进度追踪.md` 自身的更新规则与 §8 声明）：
+ * - **只读**：本项目不修改进度追踪、不写回、不重排任何笔记。
+ * - **不确定必须保持不确定**：`无法确认`、`暂估`、`0—1 级` 不能折算成一个整数。
+ *   只有 `N 级` 才是确定数值；区间仍是区间。
+ * - **解析不了就展示原文**：任何结构不符的块进入 `unparsed`，附原文与原因
+ *   （界面显示「结构待适配」），绝不默认成 0、绝不用猜测值覆盖。
+ * - **环境核验 ≠ 学习证据**：环境核验日期单独保留，不推导「环境齐全 = 阶段通过」。
+ *
+ * 解析范围（用户可见的正式事实）：
+ * 当前阶段、阶段状态、证据日期、下一步行动、掌握矩阵、阶段状态总表、环境清单。
+ */
+import { headings, normalizeText, parseRestrictedFrontmatter, sha256, visibleLines } from '../content/markdown.mjs'
+
+export const PROGRESS_PATH = '全栈工程师学习计划/进度追踪.md'
+
+export const PROGRESS_STATUS = {
+  OK: 'ok',
+  PARTIAL: 'partial',
+  STRUCTURE_UNSUPPORTED: 'structure_unsupported',
+  MISSING: 'missing',
+}
+
+/** 章节按 `## <编号>. 标题` 的编号定位：标题改名不影响解析，编号缺失才判结构不符。 */
+const SECTION_NUMBER = /^(\d+)\.\s*(.*)$/
+
+/**
+ * 掌握等级：只有 `N 级` 是确定数值。
+ * @returns {{kind:'numeric',value:number,label:string}
+ *   | {kind:'range',low:number,high:number,label:string}
+ *   | {kind:'uncertain',label:string}}
+ */
+export function parseMasteryLevel(raw) {
+  const text = plainText(raw).trim()
+  if (!text) return { kind: 'uncertain', label: '未填写' }
+  const numeric = /^(\d+)\s*级$/.exec(text)
+  if (numeric) {
+    const value = Number(numeric[1])
+    return { kind: 'numeric', value, label: `${value} 级` }
+  }
+  const range = /^(\d+)\s*[—–\-~至]\s*(\d+)\s*级$/.exec(text)
+  if (range) {
+    const low = Number(range[1])
+    const high = Number(range[2])
+    return { kind: 'range', low, high, label: `${low}—${high} 级` }
+  }
+  // `无法确认` / `未核验` / `待确认` / `暂估` 等都是不确定，不得转成数字
+  return { kind: 'uncertain', label: text }
+}
+
+/** 去掉 Markdown 行内标记，得到可比对的纯文本（保留原文另存）。 */
+export function plainText(raw) {
+  return normalizeText(String(raw ?? ''))
+    .replace(/\\\|/g, '|')
+    .replace(/\[\[([^\]]+)\]\]/g, (_match, body) => body.split('|').at(-1) ?? body)
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .trim()
+}
+
+/** 拆分表格行；支持单元格内的转义竖线 `\|`。 */
+export function parseTableRow(line) {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('|')) return null
+  const cells = []
+  let current = ''
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed[index]
+    if (char === '\\' && trimmed[index + 1] === '|') {
+      current += '|'
+      index += 1
+      continue
+    }
+    if (char === '|') {
+      cells.push(current)
+      current = ''
+      continue
+    }
+    current += char
+  }
+  cells.push(current)
+  // 首尾竖线产生空壳单元格，去掉
+  if (cells[0]?.trim() === '') cells.shift()
+  if (cells.at(-1)?.trim() === '') cells.pop()
+  return cells.map((cell) => cell.trim())
+}
+
+const isSeparatorRow = (cells) => cells.every((cell) => /^:?-{2,}:?$/.test(cell.replace(/\s/g, '')))
+
+/** 按 `## N.` 小节切分，返回每个小节的正文行。 */
+function sectionsOf(text) {
+  const lines = text.split('\n')
+  const marks = headings(text).filter((heading) => heading.level === 2)
+  const sections = new Map()
+  for (let index = 0; index < marks.length; index += 1) {
+    const match = SECTION_NUMBER.exec(marks[index].title)
+    if (!match) continue
+    const number = match[1]
+    const end = marks[index + 1]?.line ?? lines.length + 1
+    sections.set(number, {
+      number,
+      title: match[2].trim(),
+      headingLine: marks[index].line,
+      body: lines.slice(marks[index].line, end - 1),
+    })
+  }
+  return sections
+}
+
+/** 取小节里第一张表格（表头 + 数据行）。 */
+function firstTable(section) {
+  const rows = []
+  for (const line of section.body) {
+    const cells = parseTableRow(line)
+    if (!cells) {
+      if (rows.length > 0) break
+      continue
+    }
+    rows.push(cells)
+  }
+  if (rows.length < 2) return null
+  const header = rows[0]
+  const body = rows.slice(1).filter((cells) => !isSeparatorRow(cells))
+  return { header, rows: body }
+}
+
+/** 表头列名 → 索引；列名变化时返回 -1，由调用方记录「结构待适配」。 */
+function columnIndex(header, names) {
+  for (const name of names) {
+    const index = header.findIndex((cell) => plainText(cell) === name)
+    if (index !== -1) return index
+  }
+  return -1
+}
+

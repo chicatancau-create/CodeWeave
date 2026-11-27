@@ -1,0 +1,24 @@
+                                Layout.topMargin: 0
+                                Layout.preferredWidth: analyticsPage.tblW
+                                visible: modelData.note !== ""
+                                text: modelData.note
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                                topPadding: ds.s12
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                visible: modelData.note !== ""
+                                Layout.topMargin: 0
+                                height: 1
+                                color: ds.line
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }

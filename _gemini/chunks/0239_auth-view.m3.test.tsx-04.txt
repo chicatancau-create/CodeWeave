@@ -1,0 +1,57 @@
+    fireEvent.change(screen.getByLabelText('邮箱或手机号'), { target: { value: 'a@b.com' } })
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } })
+    fireEvent.click(submitButton())
+    expect(onSubmit).toHaveBeenCalledWith({ identifier: 'a@b.com', password: 'password123' })
+  })
+
+  it('注册：切换手机号后按 contactType 送字段，忙态按钮与切换都禁用', () => {
+    const onSubmit = vi.fn()
+    render(<AuthView {...baseProps} mode="register" onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '学习者' } })
+    fireEvent.change(screen.getByLabelText('联系方式'), { target: { value: 'phone' } })
+    fireEvent.change(screen.getByLabelText('手机号'), { target: { value: '13800138000' } })
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } })
+    fireEvent.click(submitButton())
+    expect(onSubmit.mock.calls[0]![0]).toMatchObject({
+      name: '学习者',
+      phone: '13800138000',
+      contactType: 'phone',
+      password: 'password123',
+    })
+
+    cleanup()
+    const busyView = render(<AuthView {...baseProps} mode="register" busy onSubmit={onSubmit} />)
+    expect(submitButton().getAttribute('data-busy')).toBe('true')
+    expect((screen.getByRole('button', { name: '返回登录' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(busyView.container.querySelector('form')!.getAttribute('aria-busy')).toBe('true')
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('错误提示：role=alert 并由密码栏 aria-describedby 关联；服务端错误优先于连接提示', () => {
+    const { rerender } = render(<AuthView {...baseProps} error="账号或密码不正确" connectionError="unavailable" />)
+    const alert = screen.getByRole('alert')
+    expect(alert.id).toBe('auth-error')
+    expect(screen.getByLabelText('密码').getAttribute('aria-describedby')).toBe('auth-error')
+    expect(screen.queryByText(/无法连接本地服务/)).toBeNull()
+
+    rerender(<AuthView {...baseProps} connectionError="unavailable" />)
+    expect(screen.getByRole('alert').id).toBe('auth-connection')
+    expect(screen.getByLabelText('密码').getAttribute('aria-describedby')).toBe('auth-connection')
+    expect(screen.getByText(/无法连接本地服务/)).toBeTruthy()
+  })
+
+  it('注册态（含错误与场景层）与登录态（含连接故障）都无 axe 违规', async () => {
+    const { container } = render(<AuthView {...baseProps} mode="register" error="该邮箱已注册" />)
+    const registerResults = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } },
+    })
+    expect(registerResults.violations.map((violation) => violation.id)).toEqual([])
+
+    cleanup()
+    const login = render(<AuthView {...baseProps} connectionError="unavailable" busy />)
+    const loginResults = await axe.run(login.container, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } },
+    })
+    expect(loginResults.violations.map((violation) => violation.id)).toEqual([])
+  })
+})

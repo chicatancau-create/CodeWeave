@@ -1,0 +1,60 @@
+      for (auto* loader : loaders) {
+        if (loader->property("status").toInt() == 3) {
+          diagnostic = QStringLiteral("Page Loader reported an error");
+          write_smoke_report();
+          application.exit(1);
+          return;
+        }
+      }
+      const QStringList pages{QStringLiteral("挑战"), QStringLiteral("草稿"), QStringLiteral("复习与进度"),
+          QStringLiteral("分析"), QStringLiteral("账户"), QStringLiteral("账户安全"),
+          QStringLiteral("数据与隐私"), QStringLiteral("编辑器")};
+      if (qml_smoke_page < pages.size()) {
+        shell.selectPage(pages.at(qml_smoke_page++));
+        return;
+      }
+      for (auto* loader : loaders) {
+        if (loader->property("status").toInt() != 1) {
+          diagnostic = QStringLiteral("Visited page Loader is not ready (status %1)").arg(loader->property("status").toInt());
+          write_smoke_report();
+          qWarning("QML smoke: visited page Loader is not ready (status %d)", loader->property("status").toInt());
+          application.exit(1);
+          return;
+        }
+      }
+      auto* quick = view.rootObject()->findChild<QObject*>(QStringLiteral("quickPopup"));
+      auto* account = view.rootObject()->findChild<QObject*>(QStringLiteral("accountPopup"));
+      auto* trigger = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("quickButton"));
+      auto* first = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("continueAction"));
+      auto* review = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("reviewAction"));
+      auto* help = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("helpAction"));
+      auto* profile = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("profileAction"));
+      auto* security = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("securityAction"));
+      auto* privacy = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("privacyAction"));
+      auto* export_action = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("exportAction"));
+      auto* logout_action = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("logoutAction"));
+      auto* notifications = view.rootObject()->findChild<QObject*>(QStringLiteral("notificationPopup"));
+      auto* notification_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("notificationButton"));
+      auto* settings = view.rootObject()->findChild<QObject*>(QStringLiteral("settingsDialog"));
+      auto* settings_scroll = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("settingsScroll"));
+      auto* settings_button = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("settingsButton"));
+      auto* help_dialog = view.rootObject()->findChild<QObject*>(QStringLiteral("helpDialog"));
+      auto* search = view.rootObject()->findChild<QObject*>(QStringLiteral("searchPopup"));
+      auto* search_field = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("globalSearchField"));
+      auto* search_results = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("searchResultsView"));
+      if (!notifications || !notification_button || !settings || !settings_scroll || !settings_button || !help_dialog ||
+          !search || !search_field || !search_results) {
+        diagnostic = QStringLiteral("Topbar smoke objects are missing");
+        write_smoke_report();
+        application.exit(1);
+        return;
+      }
+      const auto inspect_settings_text = [&](const QString& viewport) {
+        for (int index = 0; index < 8; ++index) {
+          auto* row = u3_find_item(settings_scroll,
+              QStringLiteral("settingsPreferenceRow%1").arg(index));
+          auto* title = row ? u3_find_item(row,
+              QStringLiteral("settingsPreferenceTitle%1").arg(index)) : nullptr;
+          auto* description = row ? u3_find_item(row,
+              QStringLiteral("settingsPreferenceDescription%1").arg(index)) : nullptr;
+          const auto text_metrics = [&](QQuickItem* item) {

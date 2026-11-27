@@ -1,0 +1,151 @@
+  gap: var(--ds-space-2, 2px) var(--ds-space-10, 10px);
+  margin: 0 0 var(--ds-space-10, 10px);
+  color: var(--ewb-ink-2);
+  font-family: var(--ewb-mono);
+  font-size: var(--ewb-meta);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+/* 六列在 320px 下靠 .ewb-scroll 横向滚动，不压缩到不可读（与目标清单同一处置） */
+.evidence-writeback .ewb-table--steps {
+  min-width: 620px;
+}
+
+.evidence-writeback .ewb-tx-outcome {
+  display: grid;
+  gap: var(--ds-space-8, 8px);
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-hair);
+  border-inline-start-width: 3px;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-tx-outcome--done {
+  border-inline-start-color: var(--ewb-ok);
+}
+
+.evidence-writeback .ewb-tx-outcome--blocked {
+  border-inline-start-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-tx-outcome--failed {
+  border-inline-start-color: var(--ewb-bad);
+}
+
+.evidence-writeback .ewb-tx-outcome-text {
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-tx-outcome-extra {
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-meta);
+  line-height: 1.6;
+}
+
+.evidence-writeback .ewb-tx-blockers {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-tx-blockers li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-8, 8px) var(--ds-space-12, 12px);
+  padding: var(--ds-space-8, 8px) 0;
+  border-bottom: var(--ds-line-width, 1px) solid var(--ewb-hair);
+}
+
+.evidence-writeback .ewb-blocker-kind {
+  color: var(--ewb-ink);
+  font-size: var(--ewb-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+}
+
+.evidence-writeback .ewb-blocker-path {
+  min-width: 0;
+  color: var(--ewb-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.evidence-writeback .ewb-blocker-reason {
+  min-width: 0;
+  flex: 1 1 20ch;
+  color: var(--ewb-ink);
+}
+
+/* 回滚确认块：危险边界用 1px 危险色实线（与 .ewb-state--failed 同档），不加卡片不加投影 */
+.evidence-writeback .ewb-rollback {
+  margin-top: var(--ds-space-12, 12px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--ds-line-width, 1px) solid var(--ewb-bad);
+  min-width: 0;
+}
+
+.evidence-writeback .ewb-rollback-lead {
+  margin: 0;
+  color: var(--ewb-ink);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-rollback-list {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+  margin: var(--ds-space-8, 8px) 0 0;
+  padding-inline-start: var(--ds-space-24, 24px);
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+.evidence-writeback .ewb-rollback-limit {
+  margin: var(--ds-space-10, 10px) 0 0;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* 「这笔不能回滚」的说明是只读文字，不是禁用的假按钮：少一个可点却不做事的控件 */
+.evidence-writeback .ewb-rollback-none {
+  margin: var(--ds-space-12, 12px) 0 0;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border: var(--ds-line-width, 1px) var(--ewb-hair) dashed;
+  color: var(--ewb-ink-2);
+  font-size: var(--ewb-body);
+  line-height: var(--ewb-leading);
+}
+
+/* ── 13. 工具类（本文件私有，不动全局样式表）────────────────────────────── */
+.evidence-writeback .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: var(--ds-space-seam, -1px);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  color: var(--ewb-ink-2);
+}
+
+/* 高对比模式：发丝线全部提到可辨阈值 */
+@media (forced-colors: active) {
+  .evidence-writeback .ewb-table th,
+  .evidence-writeback .ewb-table td,
+  .evidence-writeback .ewb-mark,
+  .evidence-writeback .ewb-banner,
+  .evidence-writeback .evidence-list li,
+  .evidence-writeback .ewb-confirm {
+    border-color: CanvasText;
+  }
+}

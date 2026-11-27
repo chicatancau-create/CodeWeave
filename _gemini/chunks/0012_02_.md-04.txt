@@ -1,0 +1,111 @@
+    "vaultId": "内容相关事件必填",
+    "contentId": "原始或canonical稳定ID",
+    "bundleId": "canonical事件可选；legacy ID或待解析outbox必填来源包",
+    "aliasVersion": "legacy ID必填，必须与来源bundleId对应"
+  },
+  "baseRevision": "可变草稿需要；事件可为空",
+  "payload": {}
+}
+```
+
+约束：
+
+- 账户 ID 由服务端会话决定，不能信任请求体里的 `userId`。
+- 以 `(accountId, changeId)` 为幂等作用域，持久保存规范化请求指纹、处理状态和原结果；幂等记录与事件追加处于同一事务。同键同请求返回原结果，同键不同请求返回 409 `idempotency_conflict`；跨账户同键互不泄露。
+- 进度、掌握度和复习排期由已验证事件重放/投影，客户端不能直接伪造正式等级。内容相关事件保留稳定 canonical content ID，同时可记录产生时的 bundleId；不能按每次发布重置进度。
+- `contentId` 为 legacy ID 时，服务端必须使用事件来源的 `bundleId + aliasVersion` 解析，禁止改按 current。来源包已退役、来源包不含该 alias 或解析结果不明确时返回 `conflict` 并保留 outbox，不能把旧事实重定向到另一 canonical ID。
+- 打卡使用 `localDate + timeZone`；业务发生时间使用 UTC，但**日志排序只能使用服务端持久序号**，不能用客户端时间。
+- cursor 内部绑定 `serviceInstance + vaultId + accountId + syncEpoch + 日志/schema 版本`。跨账户、跨实例、跨 epoch 或无法证明连续的游标必须拒绝并触发全量重同步，不能返回“已最新”。
+- pull 的全量快照与增量必须有一致边界；tombstone、幂等记录和冲突元数据的保留期不得短于仍可能重试/同步的设备窗口。日志压缩后旧游标不可继续时返回稳定 `sync_cursor_expired`。
+- 删除形成 tombstone；草稿冲突保留双方，禁止默认 last-write-wins。服务端从旧备份恢复导致日志倒退时提升 syncEpoch 并要求全量重同步。
+- outbox、cursor 和请求代次按 `serviceInstance + vaultId + accountId + deviceId` 隔离。账户切换立即取消旧代次请求；A 的迟到响应、附件和事件不能写入 B，也不能在 B 会话下重放 A 的 outbox。
+- 错误继续采用稳定 `code`，不向后端或客户端暴露绝对路径和堆栈；未知事件类型或 schema 不支持时保留 outbox，禁止丢弃字段后假报成功。
+
+### 5.3 契约版本与能力协商
+
+“不改变旧 URL”不等于向后兼容。权限收紧、注册关闭、真实发布需要审批、新增 409/410 和事件语义变化都必须在契约中显式版本化：
+
+- 内容表示版本、OpenAPI 契约版本和各类同步事件 `schemaVersion` 分开管理；新增可选字段、行为变化和不兼容变化分别记录。
+- 健康/状态响应提供 `contractVersion`、支持的最低客户端版本、事件 kind/schema 和能力位。旧客户端—新服务、新客户端—旧服务均使用共享 fixtures 验证。
+- 不支持的能力返回稳定 `contract_version_unsupported` 或对应能力错误；写请求保持待处理，不静默降级。新增可选响应字段不能导致旧客户端整页崩溃，未知枚举不得被当成成功。
+- 任何破坏性变化按现有 OpenAPI 版本规则升级并记录迁移说明；三端不能只改 URL 就宣称契约兼容。
+
+### 5.4 契约归属
+
+建议把权威 OpenAPI 和共享 JSON fixtures 逐步提升到中立位置：
+
+```text
+工程文件/contracts/
+  ├─ openapi.yaml
+  ├─ content/*.json
+  └─ sync/*.json
+```
+
+网页端现有 `sync-contract.mjs --check` 继续作为门禁；应用端 C++ 和移动端 Kotlin 不直接 import TypeScript，而是消费同一 JSON 契约/夹具并做兼容性测试。避免三端各自手写一套字段含义。
+
+## 6. 各端接法
+
+### 6.1 网页端：最小改动，先完成真实闭环
+
+**复用点**
+
+- `src/content/api.ts`
+- `src/content/provider.tsx`
+- `src/content/adapter.ts`
+- `server/service/server/content/*`
+- `server/service/server/learning/*`
+
+**需要补的工作**
+
+1. 在 `网页端/项目/server/config/codeweave.local.json` 显式配置资料库和隔离运行根；该文件保持本机忽略，不提交真实路径。
+2. 首次真实发布前先完成 G1：服务端发布权限、附件 CAS、精确审批、提交幂等、持久 job 和 journal 对账；不得把这些留到发布后的“加固阶段”。
+3. 将 `ContentProvider.sync()` 改为提交后轮询 `fetchSyncJob()`，直到 ready/invalid/unavailable；区分 dry-run 成功与真实发布成功，只有 `ready + published=true` 才刷新目录。
+4. 为目录、详情、练习、附件建立固定 bundle 读取上下文和 304 处理；页面卸载/切课取消旧请求，迟到响应不得覆盖新 bundle。
+5. 保留 `legacy` 兼容层。**U01 候选已发布且映射为空**的验收基线应看到 1 门资料库课程和 61 门旧内置课程；这不代表当前未发布运行根已出现新课程。启用 reviewed exact alias 后总数必须相应去重，不能继续把 62 门当固定验收值。
+6. localStorage 暂不清空。后续按注册表逐类接入同步，并把当前选课、最后位置、草稿和待上传记录纳入迁移；不得删除浏览器缓存后宣称迁移完成。
+
+**隔离配置示例（仅供实施时使用，本次未写入）：**
+
+```json
+{
+  "schemaVersion": 1,
+  "vaultRoot": "G:/CodeWeave/工作区/全栈工程师学习资料库",
+  "dataDir": "G:/CodeWeave/工作区/data/runtime/unified-pilot",
+  "port": 4173
+}
+```
+
+这里使用新运行根是为了避免把既有 desktop 账户或真实进度带入试点；正式账户迁移必须另走导出、预检和确认流程。
+
+### 6.2 应用端：新增同步源，保留离线原生链
+
+**复用点**
+
+- `ContentRepository` 的校验思想和现有 `Unit/LoadedUnit/Exercise` 领域对象。
+- `UiShell.loadPublishedContent()` / `reloadPublishedContent()` 的页面入口。
+- 现有后台任务、账户代次、取消和草稿保护。
+- `EvidenceStore`、`ProgressStore`、`MasteryStore` 的幂等记录和 `operationId`。
+- 现有资料库预览、确认、事务和回滚交互。
+
+**建议结构**
+
+```text
+ContentSource（接口/门面）
+  ├─ PackagedContentSource  → 现有 native/content，默认离线回退
+  └─ SyncedContentSource    → 统一服务快照 + 本地已校验缓存
+
+SyncCoordinator
+  ├─ Qt 网络客户端（HTTPS、会话、超时、取消）
+  ├─ 内容版本下载与哈希校验
+  ├─ 学习事件 outbox / pull cursor
+  └─ 冲突、重试、账户切换与代次保护
+```
+
+实施要求：
+
+1. 不重写现有 `ContentRepository`；先抽取门面，再新增同步实现。
+2. 同步内容写到用户数据根下的独立 `content/<bundleId>/`，先校验 manifest、全部正文和附件哈希，再切换本地 current；不得覆盖源码目录 `native/content`，下载中断不得留下可被误用的半包。
+3. 在线内容不可用时继续上一份已验证同步快照；再不可用时明确回退到内置包，并显示来源，不能把回退包说成最新资料库。
+4. 未开启在线模式时保持“不监听 TCP、不依赖 Node 服务”的现有行为。
+5. 在线模式的资料库写回改走统一服务；Qt 直写入口在该模式下停用。离线默认只暂存证据，不与服务端并发写资料库。
+6. 原生旧账本先保留为只读迁移来源；通过现有导出/迁移契约做 dry-run，不自动把旧账户 ID 绑定到新服务账户。

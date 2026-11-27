@@ -1,0 +1,117 @@
+  --cv-mono: var(--ds-font-mono, ui-monospace, Consolas, 'Microsoft YaHei', monospace);
+  --cv-body: var(--ds-size-body, 16px);                            /* §5.4 正文约 16px */
+  --cv-leading: var(--ds-leading-body, 1.7);                       /* §5.4 行高 1.6–1.75 */
+  --cv-meta: 13px;                                                 /* 产品最小档：徽章/键名，高于模板 10.5px HUD */
+  --cv-tap: var(--ds-tap-min, 44px);                               /* §5.4 主要触控目标 ≥44px */
+  --cv-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); /* L28 */
+  --cv-quick: var(--ds-dur-quick, 150ms);
+  --cv-base: var(--ds-dur-base, 220ms);
+  --cv-pad: clamp(14px, 2.2vw, 26px);
+  --cv-gap: clamp(10px, 1.4vw, 16px);
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--ds-space-20, 20px), 2.4vw, var(--ds-space-28, 28px));
+  min-width: 0;
+  color: var(--cv-ink);
+  background: var(--cv-canvas);                                    /* §5.1 全站黑场 */
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;                              /* 编号成列 */
+}
+
+.challenges-view *,
+.challenges-view *::before,
+.challenges-view *::after {
+  box-sizing: border-box;
+}
+
+.challenges-view :is(h1, h2, h3, h4, p, ul, ol, li, dl, dt, dd, figure, header) {
+  margin: 0;
+  padding: 0;
+}
+
+.challenges-view :is(ul, ol) {
+  list-style: none;                                                /* 编号是真实文本，不用 marker/counter */
+}
+
+/* 长中文标题与长代码行都不许撑破 320px 版面（§5.4）：
+   文字侧靠换行，代码侧靠横向滚动（见 .challenge-editor / .challenge-result）。 */
+.challenges-view :is(h1, h2, h3, p, span, li, dt, dd, label, button, code, strong, small) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* ── 焦点：黑场上必须高于发丝线一档（tokens §5 产品规则值） ─────────────────── */
+.challenges-view :focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ============================================================================
+   1. 概览：展示标题 + 进度细线（信息区 = 上下两条发丝线，不铺卡）
+   ========================================================================== */
+
+.challenges-view .challenge-overview {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(var(--ds-space-16, 16px), 3vw, var(--ds-space-40, 40px));
+  flex-wrap: wrap;
+  padding: 0 0 var(--cv-pad);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  margin-bottom: 0;
+}
+
+.challenges-view .challenge-overview h1 {
+  margin: var(--ds-space-6, 6px) 0 var(--ds-space-8, 8px);
+  color: var(--cv-ink);
+  font-family: var(--cv-mono);
+  font-size: clamp(1.7rem, 3.6vw, 3.4rem);                          /* tokens §6 --ds-size-title */
+  font-weight: var(--ds-weight-display, 200);
+  letter-spacing: var(--ds-track-title, -0.02em);
+  line-height: var(--ds-leading-title, 1.15);
+}
+
+.challenges-view .challenge-overview > div > p:not(.eyebrow) {
+  max-width: 60ch;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-overview .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  font-weight: 400;
+  letter-spacing: var(--ds-track-eyebrow, 0.24em);                  /* site.css L243 */
+  text-transform: uppercase;
+}
+
+/* 圆点 = geometry.md §2 允许的「局部圆环」：描边环，不带泛光 */
+.challenges-view .challenge-overview .eyebrow-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--cv-hair-width) solid var(--cv-scene);
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;
+}
+
+.challenges-view .challenge-overview-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--ds-space-10, 10px);
+  min-width: min(240px, 100%);
+  padding: var(--ds-space-12, 12px) 0 0;
+  border: 0;

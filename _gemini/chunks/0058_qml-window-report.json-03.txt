@@ -1,0 +1,140 @@
+                "label": "开始",
+                "line": 1,
+                "tone": "purple"
+            },
+            {
+                "id": "init",
+                "kind": "process",
+                "label": "total = 0",
+                "line": 1,
+                "tone": "blue"
+            },
+            {
+                "id": "condition",
+                "kind": "decision",
+                "label": "i ≤ 5 ?",
+                "line": 2,
+                "tone": "yellow"
+            },
+            {
+                "id": "update",
+                "kind": "process",
+                "label": "total += i",
+                "line": 3,
+                "tone": "coral"
+            },
+            {
+                "id": "output",
+                "kind": "output",
+                "label": "输出 total",
+                "line": 0,
+                "tone": "green"
+            },
+            {
+                "id": "end",
+                "kind": "end",
+                "label": "结束",
+                "line": 0,
+                "tone": "purple"
+            }
+        ],
+        "id": "python-loop-sum",
+        "label": "01",
+        "language": "python",
+        "languageLabel": "Python",
+        "level": "入门",
+        "prerequisites": [
+            "知道什么是变量",
+            "会读写一行代码"
+        ],
+        "title": "循环是怎么工作的？"
+    },
+    "settingsRows": [
+        {
+            "control": "settingsPreferenceToggle0",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0
+        },
+        {
+            "control": "settingsPreferenceToggle1",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1
+        },
+        {
+            "control": "settingsPreferenceToggle2",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 2
+        },
+        {
+            "control": "settingsReducedMotionToggle",
+            "controlEnabled": true,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3
+        },
+        {
+            "control": "settingsEditorFontSize",
+            "controlEnabled": true,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4
+        },
+        {
+            "control": "settingsPreferenceSelect5",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 5
+        },
+        {
+            "control": "settingsPreferenceToggle6",
+            "controlEnabled": false,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 6
+        },
+        {
+            "control": "settingsEditorLineNumbersToggle",
+            "controlEnabled": true,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 7
+        }
+    ],
+    "topbarGeometry": [
+        {
+            "height": 32,
+            "name": "topbarBrand",
+            "width": 210,
+            "x": 24,
+            "y": 18
+        },
+        {
+            "height": 44,
+            "name": "topbarAreas",
+            "width": 193,
+            "x": 254,
+            "y": 12
+        },
+        {
+            "height": 41,
+            "name": "globalSearchBox",
+            "width": 653,
+            "x": 469,
+            "y": 14
+        },
+        {
+            "height": 36,
+            "name": "topbarActions",
+            "width": 272,
+            "x": 1144,
+            "y": 16
+        }
+    ]
+}

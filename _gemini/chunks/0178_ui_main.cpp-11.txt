@@ -1,0 +1,61 @@
+            if (!item) return QJsonObject{{"found", false}, {"fitsRow", false}};
+            const auto metric = [item](const char* name) {
+              bool valid = false;
+              const auto value = item->property(name).toDouble(&valid);
+              return QJsonObject{{"valid", valid}, {"value", value}};
+            };
+            const auto origin = item->mapToItem(row, QPointF());
+            const auto implicit_height = metric("implicitHeight");
+            const auto painted_width = metric("paintedWidth");
+            const auto painted_height = metric("paintedHeight");
+            const auto content_height = metric("contentHeight");
+            const auto within = [&](const QJsonObject& value, double limit) {
+              const auto number = value.value("value").toDouble();
+              return value.value("valid").toBool() && std::isfinite(number) && number <= limit + 1;
+            };
+            const bool fits_row = row && item->isVisible() && !item->property("truncated").toBool() &&
+                item->width() > 0 && item->height() > 0 && origin.x() >= -1 && origin.y() >= -1 &&
+                origin.x() + item->width() <= row->width() + 1 &&
+                origin.y() + item->height() <= row->height() + 1 &&
+                within(implicit_height, item->height()) && within(content_height, item->height()) &&
+                within(painted_width, item->width()) && within(painted_height, item->height());
+            return QJsonObject{{"found", true}, {"fitsRow", fits_row},
+                {"x", origin.x()}, {"y", origin.y()}, {"width", item->width()},
+                {"height", item->height()}, {"implicitHeight", implicit_height},
+                {"contentHeight", content_height}, {"paintedWidth", painted_width},
+                {"paintedHeight", painted_height},
+                {"truncated", item->property("truncated").toBool()}};
+          };
+          const auto title_metrics = text_metrics(title);
+          const auto description_metrics = text_metrics(description);
+          const bool passed = row && row->isVisible() && title_metrics.value("fitsRow").toBool() &&
+              description_metrics.value("fitsRow").toBool() &&
+              view.size() == (viewport == QStringLiteral("1440x900")
+                  ? QSize(1440, 900) : QSize(1100, 720));
+          QJsonObject result{{"viewport", viewport}, {"windowWidth", view.width()},
+              {"windowHeight", view.height()}, {"storageReady", shell.preferenceStorageReady()},
+              {"index", index}, {"rowWidth", row ? row->width() : -1},
+              {"rowHeight", row ? row->height() : -1}, {"title", title_metrics},
+              {"description", description_metrics}, {"passed", passed}};
+          smoke_settings_text.append(result);
+          if (!passed) {
+            diagnostic = QStringLiteral("Settings text geometry failed at %1 row %2: %3")
+                .arg(viewport).arg(index)
+                .arg(QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact)));
+            return false;
+          }
+        }
+        return true;
+      };
+      const auto require_reference_close_style = [&](QObject* dialog) {
+        auto* tokens = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+        auto* close = dialog->findChild<QQuickItem*>(QStringLiteral("shellDialogHeaderClose"));
+        const auto move_pointer = [&](const QPointF& point) {
+          QMouseEvent move(QEvent::MouseMove, point, point, view.mapToGlobal(point.toPoint()),
+              Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+          QCoreApplication::sendEvent(&view, &move);
+          QCoreApplication::processEvents();
+        };
+        move_pointer(QPointF(1, 1));
+        const bool resting_style = tokens && close && close->isVisible() && std::abs(close->width() - 44) < 0.01 &&
+            std::abs(close->height() - 44) < 0.01 && close->property("radius").toReal() == 0 &&

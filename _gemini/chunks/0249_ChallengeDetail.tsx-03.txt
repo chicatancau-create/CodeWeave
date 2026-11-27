@@ -1,0 +1,108 @@
+                <code key={index} className={item ? (item.matched ? 'hit' : 'miss') : ''}>
+                  {target}
+                </code>
+              )
+            })}
+          </div>
+        </div>
+        <div className="detail-block">
+          <h3 className="detail-block-title">证据清单（提交前请逐项确认）</h3>
+          <ul className="detail-evidence-list">
+            {challenge.evidence.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="detail-block">
+          <h3 className="detail-block-title">技术栈与说明</h3>
+          <div className="challenge-meta">
+            <span>{challenge.stack.join(' / ')}</span>
+          </div>
+          <p className="challenge-explanation">{challenge.explanation}</p>
+        </div>
+        {units.length > 0 && (
+          <div className="challenge-units">
+            <span>关联课程单元</span>
+            <div>
+              {units.map((unit) => (
+                <button key={unit.id} className="subtle-button" onClick={() => onOpenUnit(unit.id)}>
+                  <BookOpenCheck size={12} />
+                  {unit.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div {...panelProps('lab')}>
+        {isExternal ? (
+          <div className="challenge-external-note">
+            <p>
+              本关卡需要真实环境（{challenge.stack.join('、')}）。本页面不会伪造真实运行结果。
+            </p>
+            <p>
+              请在本地完成后，到「提交记录」页填写结构化证据：执行环境、执行命令、结果摘要与复现日期。
+              提交后状态为<strong>待人工确认</strong>，系统不会自动判定为通过。
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="challenge-editor-wrap">
+              <div className="terminal-chrome">
+                <span className="terminal-dots" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="terminal-title">
+                  solution.{LANGUAGE_EXTENSIONS[challenge.language]} — {RUNNER_LABELS[challenge.runner]}
+                </span>
+                <span className="terminal-index">
+                  第 {sequence} / {total} 关
+                </span>
+              </div>
+              <label className="field-label">
+                你的代码
+                <textarea
+                  className="challenge-editor"
+                  value={draft}
+                  onChange={(event) => onDraftChange(event.target.value)}
+                  spellCheck="false"
+                  aria-label={`${challenge.title} 代码编辑器`}
+                />
+              </label>
+              <button className="subtle-button challenge-run-button" onClick={onRun} disabled={busy}>
+                <Play size={12} aria-hidden="true" />
+                {busy ? '运行中…' : '运行检查'}
+              </button>
+            </div>
+            {/* 草稿态就地声明：编辑器里的内容只是本机草稿，未提交前不影响进度 */}
+            <p className="challenge-draft-state challenge-draft-state--code">
+              <SquareDashed size={13} aria-hidden="true" />
+              <span className="challenge-draft-state-label">代码草稿</span>
+              <span>{draftCodeState}</span>
+            </p>
+            {runResultBlock}
+          </>
+        )}
+      </div>
+
+      <div {...panelProps('evidence')}>
+        {!isExternal && runResultBlock}
+
+        {/* ── 区 01 本地草稿：未提交，只在本机 ───────────────────────────── */}
+        <section className="challenge-zone challenge-zone--draft" aria-label="本地草稿（尚未提交）">
+          <header className="challenge-zone-head">
+            <span className="challenge-zone-no" aria-hidden="true">
+              01
+            </span>
+            <h3 className="challenge-zone-title">本地草稿</h3>
+            <span className="challenge-zone-scope">未提交 · 只存在这台设备上，改写它不影响学习进度</span>
+          </header>
+
+          {isExternal ? (
+            <ExternalEvidenceForm
+              challengeId={challenge.id}
+              evidence={externalEvidence}
+              check={externalCheck}

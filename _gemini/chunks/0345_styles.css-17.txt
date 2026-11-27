@@ -1,0 +1,104 @@
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-10, 10px) var(--ds-space-16, 16px);
+  border-radius: var(--radius-pill);
+  color: var(--ink-strong);            /* 暖白 18.66:1；原为白字压实心深蓝 */
+  background: transparent;
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+  transition: color var(--ds-dur-quick) var(--ease);
+}
+.moving-border:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.moving-border:hover:not(:disabled) .moving-border__content { color: var(--accent); }
+@keyframes moving-border-spin { to { transform: rotate(360deg); } }
+
+/* CHAL-01 列表页：等节奏网格；详情页为独立视图，不再与网格并排 */
+.challenge-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ds-space-10, 10px); }
+.challenge-grid-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  min-height: 180px;
+  place-content: center;
+  border: var(--hair) dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: var(--ds-size-control, 13px);
+}
+.stage-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  min-height: 132px;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--hair) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);            /* 原为「顶部玻璃高光渐变 + 面板底色」，§5.1 移除玻璃 */
+  box-shadow: var(--ds-shadow-panel);
+  text-align: left;
+  transition: border-color var(--ds-dur-base) var(--ease), background var(--ds-dur-base) var(--ease);
+}
+.stage-card:hover { border-color: var(--line-strong); background: var(--scrim); }
+/* 选中态：不再「渐变底 + 上浮 + 泛光」，改为发丝线抬档 + 2px 实心场景色竖条 */
+.stage-card.selected {
+  border-color: var(--accent-ring);
+  background: var(--accent-soft);
+}
+.stage-card.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--accent);
+}
+.stage-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-8, 8px);
+  width: 100%;
+}
+/* 编号徽标（§5.1 形态：编号 + 局部圆环）：细线方框 + 等宽数字 */
+.stage-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  border: var(--hair) solid var(--accent-ring);
+  border-radius: var(--radius);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 700;
+}
+/* 徽章与语义状态（§5.1 末段：成功/错误/警告**不跟随场景色**，且颜色不得是唯一载体）
+   —— 颜色取恒定的 --ds-status-*（--c-green/--c-yellow/--c-coral），永不指向 --accent；
+   —— 每档再配一个**形状**标识（::before，用 currentColor 描边/填充），
+      与右侧文字共同构成「形状 + 文字」双通道，色盲与黑白打印下仍可读。 */
+.stage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-2, 2px) var(--ds-space-8, 8px);
+  border-radius: var(--radius);
+  font-size: var(--ds-size-control, 13px);
+  font-weight: 600;
+}
+.stage-status::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: var(--hair) solid currentColor;
+}
+.stage-status.status-not-started { color: var(--muted); border: var(--hair) solid var(--line-strong); }
+.stage-status.status-not-started::before { border-style: dashed; }
+.stage-status.status-external-pending { color: var(--c-yellow); border: var(--hair) solid var(--ds-status-warning-edge, rgba(255, 196, 87, 0.45)); background: var(--warn-wash); }
+.stage-status.status-external-pending::before { border-radius: var(--radius-circle); background: currentColor; }
+.stage-status.status-unsupported { color: var(--c-coral); border: var(--hair) solid var(--ds-status-danger-edge, rgba(255, 131, 113, 0.45)); background: var(--bad-wash); }
+.stage-status.status-unsupported::before { border-style: dashed; transform: rotate(45deg); }
+.stage-status.status-ready-to-submit { color: var(--c-cyan); border: var(--hair) solid var(--ds-scene-tides-edge, rgba(63, 240, 200, 0.45)); background: var(--accent-2-soft); }

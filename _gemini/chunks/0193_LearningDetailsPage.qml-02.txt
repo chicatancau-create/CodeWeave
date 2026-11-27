@@ -1,0 +1,61 @@
+                Repeater {
+                    model: details.statistics
+                    delegate: ColumnLayout {
+                        required property var modelData
+                        required property int index
+                        objectName: "detailStatistic-" + index
+                        Layout.fillWidth: true
+                        spacing: 0
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: ds.s12
+                            Layout.bottomMargin: ds.s12
+                            spacing: ds.s12
+                            Text { Layout.preferredWidth: 84; text: modelData.label; color: ds.muted; font.family: ds.ui; font.pixelSize: 12 }
+                            Text { Layout.fillWidth: true; text: modelData.value; color: ds.ink; font.family: ds.ui; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                        }
+                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
+                    }
+                }
+            }
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ds.line }
+            Text { text: "01  科目 · " + subjects.length + " 个可选"; color: ds.ink; font.family: ds.ui; font.pixelSize: 16; font.weight: Font.DemiBold }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: details.width < 1000 ? 2 : 3
+                columnSpacing: ds.s10
+                rowSpacing: 0
+                Repeater {
+                    model: details.subjects
+                    delegate: Button {
+                        id: subjectButton
+                        required property string modelData
+                        required property int index
+                        readonly property var summary: Catalog.subjectSummary(details.catalogLessons, modelData)
+                        objectName: "detailSubject-" + index
+                        Layout.fillWidth: true
+                        implicitHeight: Math.max(68, subjectContent.implicitHeight + ds.s24)
+                        leftPadding: ds.s4
+                        rightPadding: ds.s4
+                        text: String(index + 1).padStart(2, "0") + "  " + modelData
+                        onClicked: details.subjectChosen(index)
+                        onActiveFocusChanged: details.reveal(subjectButton)
+                        Accessible.name: text
+                        background: Rectangle {
+                            color: subjectButton.index === details.subjectIndex || subjectButton.hovered ? ds.accentSoft : "transparent"
+                            border.color: subjectButton.activeFocus ? ds.accent : "transparent"
+                            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: ds.line }
+                        }
+                        contentItem: RowLayout {
+                            id: subjectContent
+                            spacing: ds.s10
+                            Text { Layout.preferredWidth: 24; text: String(subjectButton.index + 1).padStart(2, "0"); color: ds.muted; font.family: ds.mono; font.pixelSize: 11 }
+                            Rectangle {
+                                implicitWidth: 32; implicitHeight: 32
+                                color: "transparent"; border.color: ds.lineRaised
+                                Text { anchors.centerIn: parent; text: subjectButton.modelData.slice(0, 2).toUpperCase(); color: ds.muted; font.family: ds.mono; font.pixelSize: 10 }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: ds.s4
+                                Text { Layout.fillWidth: true; text: subjectButton.modelData; color: subjectButton.index === details.subjectIndex ? ds.accent : ds.ink; font.family: ds.ui; font.pixelSize: 13; wrapMode: Text.WordWrap }

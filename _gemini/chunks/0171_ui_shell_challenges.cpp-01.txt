@@ -1,0 +1,83 @@
+#include "ui_shell.hpp"
+#include "challenge_submission_store.hpp"
+#include "external_evidence_service.hpp"
+
+#include <QDateTime>
+#include <QJsonValue>
+#include <QMetaObject>
+#include <QRegularExpression>
+#include <QSet>
+#include <QUuid>
+#include <algorithm>
+
+bool UiShell::mentionsAcceptance(const QString& summary, const QVariantMap& challenge) {
+  static const QRegularExpression separators(QStringLiteral(R"([\s，。、；：！？,.;:!?/|（）()【】\[\]“”"'`]+)"));
+  static const QRegularExpression whitespace(QStringLiteral("\\s+"));
+  static const QRegularExpression number(QStringLiteral("^[0-9.]+$"));
+  const auto normalized = [](QString text) { return text.remove(whitespace).toLower(); };
+  QStringList source;
+  for (const auto* field : {"targetOutput", "evidence"})
+    for (const auto& value : challenge.value(field).toList()) source.append(value.toString());
+  const auto tokens = source.join(' ').split(separators, Qt::SkipEmptyParts);
+  const auto actual = normalized(summary);
+  bool has_keywords = false;
+  for (const auto& token : tokens) {
+    if (token.size() < 2 || number.match(token).hasMatch()) continue;
+    has_keywords = true;
+    const auto keyword = normalized(token);
+    if (actual.contains(keyword)) return true;
+    QSet<QChar> characters;
+    for (const auto character : keyword) characters.insert(character);
+    qsizetype hits = 0;
+    for (const auto character : characters) if (actual.contains(character)) ++hits;
+    // Match the web's loose 60% character coverage, never execution truth.
+    if (characters.isEmpty() || hits * 5 >= characters.size() * 3) return true;
+  }
+  return !has_keywords;
+}
+
+QVariantList UiShell::challengeHistory() const {
+  QVariantList history;
+  const auto id = selected_challenge_.value("id").toString();
+  for (auto it = challenge_submissions_.crbegin(); it != challenge_submissions_.crend(); ++it)
+    if (it->toMap().value("challengeId").toString() == id) history.append(*it);
+  return history;
+}
+
+QVariantMap UiShell::challengeProgress() const {
+  QVariantMap progress;
+  for (const auto& record : challenge_submissions_) {
+    const auto item = record.toMap();
+    const auto id = item.value("challengeId").toString();
+    const auto previous = progress.value(id).toMap().value("status").toString();
+    if ((previous == "verified" || previous == "passed") && item.value("status") == "submitted") continue;
+    progress[id] = item;
+  }
+  return progress;
+}
+
+void UiShell::performChallengeHistoryTask(bool write,
+    std::function<codeweave::app::Result(const ChallengeSubmissionStore&, QVariantList&)> work) {
+  if (closing_ || challenge_history_busy_ || !hasActiveAccount()) return;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto root = QString::fromStdWString(data_root_.wstring());
+  const auto records = std::make_shared<QVariantList>();
+  const auto task = QStringLiteral("qt-challenge-history-%1").arg(next_task_id_++);
+  challenge_history_task_id_ = task;
+  challenge_history_busy_ = true;
+  challenge_history_write_ = write;
+  challenge_history_status_ = write ? QStringLiteral("正在保存挑战记录…") : QStringLiteral("正在读取挑战记录…");
+  emit challengeHistoryChanged();
+  codeweave::backend::TaskRequest request;
+  request.task_id = task.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = write ? codeweave::backend::TaskKind::Evidence : codeweave::backend::TaskKind::Read;
+  request.work = [root, records, work = std::move(work)](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("挑战记录操作已取消");
+    return work(ChallengeSubmissionStore(root), *records);
+  };
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, task, account, generation, records](codeweave::backend::TaskResult result) mutable {
+        QMetaObject::invokeMethod(this, [this, task, account, generation, records, result = std::move(result)] {

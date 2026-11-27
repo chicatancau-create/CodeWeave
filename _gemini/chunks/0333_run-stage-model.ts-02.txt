@@ -1,0 +1,134 @@
+    const key = cellKey(v)
+    return {
+      name: v.name,
+      value: v.value,
+      type: v.type,
+      born: beforeKeys === null ? true : !beforeKeys.has(key) && !beforeByName.has(v.name),
+      changed: beforeByName.has(v.name) && beforeByName.get(v.name) !== key,
+    }
+  })
+}
+
+/**
+ * 折出第 `index` 拍的一整帧。`index` 越界（含 `events` 为空）返回 null——
+ * 没有拍就没有帧，不拿空数据画假节点。
+ */
+export function stageFrameAt(events: TraceEvent[], steps: StageStep[], index: number): StageFrame | null {
+  if (events.length === 0) return null
+  if (!Number.isInteger(index) || index < 0 || index >= events.length) return null
+
+  const cells = cellsAt(events, index)
+  const activeNodeId = events[index]?.nodeId
+
+  /**
+   * 每个节点到这一拍为止被走到过几次。
+   * 只数**到当前拍为止**的事件——这正是「这一拍画布上的样子」的定义。
+   */
+  const visits = new Map<string, number>()
+  const firstOrdinal = new Map<string, number>()
+  for (let i = 0; i <= index; i++) {
+    const nodeId = events[i]?.nodeId
+    if (!nodeId) continue
+    visits.set(nodeId, (visits.get(nodeId) ?? 0) + 1)
+    if (!firstOrdinal.has(nodeId)) firstOrdinal.set(nodeId, i + 1)
+  }
+
+  const nodes: StageNode[] = steps.map((step) => {
+    const visit = visits.get(step.id) ?? 0
+    const hit = visit > 0
+    // 该节点当前这一拍的事件：从当前拍往回找最近一次命中它的那一拍。
+    // 用反向扫描而不是 Map 缓存，是因为 `events[index].nodeId` 只有一处是本拍的。
+    let event: TraceEvent | undefined
+    if (hit) {
+      if (activeNodeId === step.id) event = events[index]
+      for (let i = index; i >= 0 && !event; i--) {
+        if (events[i]?.nodeId === step.id) event = events[i]
+      }
+    }
+    return {
+      id: step.id,
+      label: step.label,
+      kind: asKind(step.kind),
+      tone: asTone(step.tone),
+      ordinal: firstOrdinal.get(step.id) ?? step.ordinal ?? null,
+      state: step.id === activeNodeId ? 'now' : hit ? 'done' : 'todo',
+      line: hit ? (event?.line ?? step.line ?? null) : (step.line ?? null),
+      // 数据格只挂在**当前这一拍命中的节点**上：其他节点此刻画出来的是它们自己那一拍的
+      // 旧快照，摆在「现在」的画布上会说谎。没走到就是空数组，一个假值都不填。
+      cells: step.id === activeNodeId ? cells : [],
+      visit,
+    }
+  })
+
+  /**
+   * 回边：第一个「被访问过两次以上」的节点。取 `nodes` 里的下标而不是事件下标，
+   * 因为画布是按骨架画的，回边要从骨架上的那一格起弧。
+   */
+  let loopBackFrom: number | null = null
+  let loops = 0
+  nodes.forEach((node, i) => {
+    if (node.visit > 1) {
+      loops += node.visit - 1
+      if (loopBackFrom === null) loopBackFrom = i
+    }
+  })
+
+  const outputLines = events
+    .slice(0, index + 1)
+    .filter((e) => e.type === 'output')
+    .map((e) => e.label)
+
+  return {
+    index,
+    total: events.length,
+    nodes,
+    loopBackFrom,
+    loops,
+    caption: events[index]?.label ?? '',
+    line: events[index]?.line ?? null,
+    outputLines,
+  }
+}
+
+/**
+ * 每一拍折一帧。只服务测试与将来的导出——界面每帧调 `stageFrameAt` 一次即可
+ * （避免把整段运行都算一遍，`events` 长的时候那是白算的）。
+ */
+export function stageFrames(events: TraceEvent[], steps: StageStep[]): StageFrame[] {
+  const out: StageFrame[] = []
+  for (let i = 0; i < events.length; i++) {
+    const frame = stageFrameAt(events, steps, i)
+    if (frame) out.push(frame)
+  }
+  return out
+}
+
+/**
+ * 还没运行时的那一帧：**只有骨架，没有一个假值**（2026-10-04）。
+ *
+ * 为什么要有它：在此之前，没点过运行的工作台里，右栏画布是整块不画的
+ * （`stageFrameAt` 对空 `events` 返回 null），同一位置露出的是那条**文字**拍轨
+ * （`.flow-chart`，「01 进入 main / L1 / 场景」）。用户看过成品后的原话是
+ * 「你现在的画布效果一直就是个文字而已」——运行之后画布接棒了，但**运行之前
+ * 这一眼仍然是文字**，而运行前恰恰是用户第一眼看到工作台的时候。
+ *
+ * 所以补这一个函数：把骨架按图形画出来（节点盒、形状、箭头、回边），
+ * 每个节点都是 `todo`（还没走到），没有数据格、没有输出、没有当前拍。
+ * 它说的是「这段程序有这几步」，**不冒充任何执行结果**——
+ * `ordinal` 全是 null（画 `--`）、`line` 用骨架自己的静态行号、`cells` 空数组、
+ * `caption` 是空串、`outputLines` 空。一个字都不编。
+ *
+ * 与 `stageFrameAt` 的分工：那个是「跑到第 N 拍的样子」，这个是「还没跑的样子」。
+ * 上层只在 `stageFrameAt` 返回 null（没事件）时才取它，所以两者不会打架。
+ */
+export function skeletonStageFrame(steps: StageStep[]): StageFrame | null {
+  if (steps.length === 0) return null
+  return {
+    index: 0,
+    // 没有拍就是 0 拍：计数器会显示 `01 / 00` 吗？不会——上层用 `stepTotal` 判断，
+    // 为 0 时整个控制条不画（见 `RunStage` 的 `canStep`）。
+    total: 0,
+    nodes: steps.map((step) => ({
+      id: step.id,
+      label: step.label,
+      kind: asKind(step.kind),

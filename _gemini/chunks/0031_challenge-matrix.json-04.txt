@@ -1,0 +1,20 @@
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-challenge-detail.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-challenge-detail-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-drafts-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-learning-empty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-learning-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-learning-details.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-learning-details-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-learning-details-selected.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-review-nonempty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-review-updated.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-2-2-18d27a55/u3-analysis.png"
+    ]
+}

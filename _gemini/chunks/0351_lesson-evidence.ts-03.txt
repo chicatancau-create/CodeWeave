@@ -1,0 +1,7 @@
+export function lessonAcceptancePoints(lesson: Lesson): Pick<Challenge, 'targetOutput' | 'evidence'> {
+  const checklist = lesson.content.evidenceChecklist ?? lesson.acceptance?.evidenceChecklist ?? []
+  return {
+    targetOutput: lesson.exercise?.expectedOutput ?? [],
+    evidence: [...checklist, lesson.content.completion ?? ''].filter((item) => item.trim() !== ''),
+  }
+}

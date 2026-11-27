@@ -1,0 +1,79 @@
+                <span>项目文件</span>
+              </div>
+
+              {selectedProject.files.map((file) => (
+                <div key={file.id} className="project-file">
+                  <div className="file-meta">
+                    <Code2 size={12} aria-hidden="true" />
+                    <strong>{file.name}</strong>
+                    <span>最后编辑：{new Date(file.updatedAt).toLocaleDateString('zh-CN')}</span>
+                  </div>
+                  <textarea
+                    className="project-code"
+                    value={file.code}
+                    onChange={(e) => {
+                      const updatedFiles = selectedProject.files.map((f) =>
+                        f.id === file.id ? { ...f, code: e.target.value, updatedAt: new Date().toISOString() } : f,
+                      )
+                      onUpdate(selectedProject.id, { files: updatedFiles })
+                    }}
+                    placeholder="在这里输入代码..."
+                  />
+                </div>
+              ))}
+            </section>
+
+            {/* ── 区 02 检查点快照：已固化的事实，可恢复；恢复前自动留安全点 ─── */}
+            <section className="project-zone project-zone--snapshot" aria-label="检查点快照（可恢复）">
+              <header className="project-zone-head">
+                <span className="project-zone-no" aria-hidden="true">
+                  02
+                </span>
+                <h3 className="project-zone-title">检查点快照</h3>
+                <span className="project-zone-scope">已固化的文件副本 · 本地保留最近 10 个</span>
+              </header>
+
+              <div className="checkpoint-actions">
+                <button className="subtle-button" onClick={() => onSaveCheckpoint(selectedProject.id)}>
+                  <Save size={12} aria-hidden="true" />
+                  保存检查点
+                </button>
+                <span className="checkpoint-counter">
+                  已存 {pad(selectedProject.checkpoints?.length ?? 0)} / 10
+                </span>
+              </div>
+
+              <p className="checkpoint-note">
+                <History size={13} aria-hidden="true" />
+                <span>恢复前会先用当前草稿自动留一个安全点，再回滚到所选快照；安全点同样占用 10 个名额里的一格。</span>
+              </p>
+
+              {(selectedProject.checkpoints?.length ?? 0) === 0 ? (
+                <p className="checkpoint-empty">
+                  还没有检查点。运行记录暂未与项目关联 —— 先保存检查点，随时可恢复到该时刻的文件。
+                </p>
+              ) : (
+                <ol className="checkpoint-list" role="list" aria-label="检查点编号清单">
+                  {selectedProject.checkpoints!.map((checkpoint, index) => (
+                    <li key={checkpoint.id} className="checkpoint-row">
+                      <span className="checkpoint-no">{pad(index + 1)}</span>
+                      <span className="checkpoint-at">{new Date(checkpoint.at).toLocaleString('zh-CN')}</span>
+                      <span className="checkpoint-files">{checkpoint.files.length} 个文件</span>
+                      <button
+                        className="subtle-button"
+                        onClick={() => onRestoreCheckpoint(selectedProject.id, checkpoint.id)}
+                      >
+                        <Undo2 size={12} aria-hidden="true" />
+                        恢复到该快照
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}

@@ -1,0 +1,64 @@
+              onChange={onExternalEvidenceChange}
+            />
+          ) : (
+            <label className="field-label">
+              完成证据说明
+              <textarea
+                className="challenge-evidence"
+                value={evidence}
+                onChange={(event) => onEvidenceChange(event.target.value)}
+                placeholder="描述你完成了什么、留下了哪些证据（运行输出、截图位置、排错记录…）"
+                maxLength={400}
+              />
+            </label>
+          )}
+
+          <p className="challenge-draft-state challenge-draft-state--evidence">
+            <SquareDashed size={13} aria-hidden="true" />
+            <span className="challenge-draft-state-label">证据草稿</span>
+            <span>
+              {isExternal
+                ? `结构化证据已填 ${externalFilled} / ${EXTERNAL_FIELDS.length} 项，未提交前不写入进度记录`
+                : draftEvidenceState}
+            </span>
+          </p>
+
+          {hintOpen && (
+            <div className="hint-box">
+              <Lightbulb size={14} aria-hidden="true" />
+              <span>{challenge.hint}</span>
+            </div>
+          )}
+
+          <div className="challenge-actions">
+            <button className="subtle-button" onClick={onToggleHint}>
+              <CircleHelp size={14} aria-hidden="true" />
+              {hintOpen ? '收起提示' : '查看提示'}
+            </button>
+            {showSubmitAction && (
+              <MovingBorderButton
+                className="challenge-submit"
+                beam={canSubmit}
+                onClick={onSubmit}
+                disabled={!canSubmit}
+              >
+                {isExternal ? <ClipboardCheck size={14} aria-hidden="true" /> : <Trophy size={14} aria-hidden="true" />}
+                {isExternal ? '提交证据（待人工确认）' : '提交答案'}
+              </MovingBorderButton>
+            )}
+          </div>
+        </section>
+
+        {/* ── 区 02 已提交记录：已写入进度，不随编辑器改变 ─────────────────── */}
+        <SubmissionHistory
+          challengeId={challenge.id}
+          record={record}
+          onVerifySubmission={onVerifySubmission}
+          onRejectSubmission={onRejectSubmission}
+        />
+      </div>
+    </div>
+  )
+}
+
+export const ChallengeDetail = memo(ChallengeDetailPanel)

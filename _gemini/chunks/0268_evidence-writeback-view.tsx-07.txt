@@ -1,0 +1,92 @@
+              ? '读取失败，计数不可用'
+              : '正在读取，计数未定'
+            : `${queue.pending.length} 条暂存 / ${queue.synced.length} 条已同步`}
+          ）
+        </h4>
+
+        <section className="ewb-zone ewb-zone--pending" aria-label="待处理队列">
+          <h5 className="ewb-zone-head">
+            <span className="ewb-num" aria-hidden="true">
+              01
+            </span>
+            <StateMark tone="pending" />
+            <span className="ewb-zone-title">待处理 · 尚未写入资料库任何文件</span>
+          </h5>
+
+          {/* 挂账②的另一半：**重读**失败也不能被吞掉。已经读到过数据时不退回加载态、
+              更不把列表清空，只单独标出「这一次没读回来」，并给出同一个重试入口。 */}
+          {queue !== null && queuePhase === 'failed' && (
+            <p className="ewb-banner ewb-banner--bad" role="status">
+              <StateMark tone="failed" />
+              <span className="ewb-banner-body">
+                队列重读失败：{queueFailure?.reason || '服务端未给出原因'}（错误码 {queueFailure?.code || 'unknown'}）。
+                下面仍是上一次成功读到的条目，未清空，也不代表这次读取成功。
+                <button className="subtle-button" disabled={busy} onClick={() => void refreshQueue()}>
+                  <RefreshCw size={16} aria-hidden="true" /> 重新读取队列
+                </button>
+              </span>
+            </p>
+          )}
+
+          {/* 挂账②已修：读取失败不再借加载态的外观。四态各自成文——
+              加载中（这一次读还没回来）/ 读取失败（带原因与重试入口）/ 空 / 有数据。
+              失败态绝不说成「没有待写回证据」（§11.2「缺失/损坏/断连」：不空数据覆盖）。 */}
+          {queueLoading && (
+            <div className="ewb-state ewb-state--loading" aria-label="队列加载中">
+              <p className="ewb-state-line">
+                <StateMark tone="loading" />
+                <span className="ewb-state-text">正在读取暂存证据…</span>
+              </p>
+              <p className="ewb-skeleton" aria-hidden="true">
+                <span className="ewb-skeleton-bar" />
+                <span className="ewb-skeleton-bar" />
+              </p>
+            </div>
+          )}
+
+          {queueFailed && (
+            <div className="ewb-state ewb-state--failed" aria-label="队列读取失败">
+              <p className="ewb-state-line">
+                <StateMark tone="failed" />
+                <span className="ewb-state-text">
+                  读取暂存证据失败：{queueFailure?.reason || '服务端未给出原因'}（错误码 {queueFailure?.code || 'unknown'}）
+                </span>
+              </p>
+              <p className="ewb-state-text">
+                这里不会被说成「队列为空」：读不到不等于没有条目，暂存的证据也没有因此消失。
+              </p>
+              <div className="evidence-actions">
+                <button className="subtle-button" disabled={busy} onClick={() => void refreshQueue()}>
+                  <RefreshCw size={16} aria-hidden="true" /> 重新读取队列
+                </button>
+              </div>
+            </div>
+          )}
+
+          {queue !== null && pendingRecords.length === 0 && (
+            <p className="ewb-state ewb-state--empty">
+              <StateMark tone="empty" />
+              <span className="ewb-state-text vault-progress-empty">没有待写回证据。暂存只是本机保存，不会自动写进资料库。</span>
+            </p>
+          )}
+
+          {queue !== null && pendingRecords.length > 0 && (
+            <ul className="evidence-list">
+              {pendingRecords.map((record) => (
+                <li key={record.evidenceId} className={`ewb-row ewb-row--${record.state}`}>
+                  <label>
+                    <StateMark tone={recordTone(record)} />
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(record.evidenceId)}
+                      onChange={() => toggle(record.evidenceId)}
+                    />
+                    <span className="evidence-topic">{record.topic}</span>
+                    <small>{evidenceMeta(record)}</small>
+                  </label>
+                  <button
+                    className="subtle-button"
+                    disabled={busy}
+                    onClick={() => void content.removeEvidence(record.evidenceId).then(() => refreshQueue())}
+                  >
+                    <Trash2 size={16} aria-hidden="true" /> 删除

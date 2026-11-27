@@ -1,0 +1,49 @@
+                          {group.lessons.map((lesson, index) => (
+                            <LessonRow
+                              key={lesson.id}
+                              lesson={lesson}
+                              index={index}
+                              numbered={group.numbered}
+                              groupTitle={group.title}
+                              isSelected={lesson.id === selectedLessonId}
+                              states={lessonStates?.[lesson.id]}
+                              onSelect={() => onLessonChange(lesson)}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })
+        )}
+
+        <p className="lp-footnote">
+          阶段名称、检查点与达标条件属于资料库阶段清单（S0—S9），当前视图未接收该数据，因此只显示编号与真实计数；
+          缺口标识仅登记现有字段可证实的缺失，不代表资料库判定该主题不存在。旧口径单元不会自动并入新阶段。
+        </p>
+      </section>
+
+      {selectedLesson ? (
+        <div className="lp-continue" aria-labelledby="lp-continue-heading">
+          <p className="lp-eyebrow">
+            <span className="lp-eyebrow-idx">GO</span>
+            已选单元
+          </p>
+          <h2 className="lp-continue-title" id="lp-continue-heading">
+            {selectedLesson.title}
+          </h2>
+          <p className="lp-continue-desc">{selectedLesson.description}</p>
+          <button type="button" className="lp-cta" onClick={onContinue}>
+            进入学习
+            <span className="lp-cta-arrow" aria-hidden="true">
+              →
+            </span>
+          </button>
+        </div>
+      ) : null}
+    </section>
+  )
+}

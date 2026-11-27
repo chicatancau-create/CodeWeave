@@ -1,0 +1,14 @@
+      tone: asTone(step.tone),
+      ordinal: null,
+      state: 'todo',
+      line: step.line ?? null,
+      cells: [],
+      visit: 0,
+    })),
+    loopBackFrom: null,
+    loops: 0,
+    caption: '',
+    line: null,
+    outputLines: [],
+  }
+}

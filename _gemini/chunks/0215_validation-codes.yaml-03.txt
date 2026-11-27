@@ -1,0 +1,33 @@
+      - "${autoRetired.length} 个主题因来源消失且无显式映射而自动退役（${autoRetired.slice(0, 8).join('、')}${autoRetired.length > 8 ? ' 等' : ''}）。若这是改名或拆分，请补 topic-id-map.json 记录。"
+  - code: topic_index_absent
+    module: server
+    messages:
+      - "主题定位索引不存在，无法核对两端口径（资料库侧运行 build_topic_index.py 生成）"
+  - code: topic_index_mismatch
+    module: server
+    messages:
+      - "主题口径与定位索引不一致：应用侧多 ${topicIndexDiff.nodeOnly.length} 项"
+  - code: topic_registry_reset
+    module: server
+    messages:
+      - "主题登记表为空，但上次发布的内容包里有 ${(previousBundle?.topics ?? []).length} 条主题。ID 登记是源资产，不能当缓存清空重建；请从备份恢复 content-manifest.json 的 topics。"
+  - code: topic_too_large
+    module: server
+    messages:
+      - "主题 ${topic.topicId} 正文超过单主题上限"
+  - code: unknown_stage
+    module: server
+    messages:
+      - "阶段未在规则投影中定义：${stageId}"
+  - code: unknown_topic
+    module: server
+    messages:
+      - "primaryTopicId 未登记：${unit.primaryTopicId}"
+  - code: unsupported_id_map
+    module: server
+    messages:
+      - "${wl.topicIdMapPath}: schemaVersion ${idMapRaw.schemaVersion} 高于本版本支持的 ${ID_MAP_SCHEMA_VERSION}，请先升级应用"
+  - code: vault_unavailable
+    module: server
+    messages:
+      - "资料库未连接，附件不可读"

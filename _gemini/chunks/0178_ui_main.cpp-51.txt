@@ -1,0 +1,50 @@
+          const auto subjects = study->property("subjectOptions").toStringList();
+          QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection,
+              Q_ARG(QVariant, subjects.indexOf(QStringLiteral("Python"))));
+          const auto lessons = shell.lessonMeta();
+          for (qsizetype index = 0; index < lessons.size(); ++index) {
+            if (lessons.at(index).toMap().value(QStringLiteral("id")) == QStringLiteral("python-condition"))
+              QMetaObject::invokeMethod(study, "selectCourse", Qt::DirectConnection, Q_ARG(QVariant, index));
+          }
+          context->step++;
+          return;
+        }
+        case 81: {
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          auto* hero = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningHeroTitle"));
+          auto* plan = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningPlanTitle"));
+          auto* code = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningCodePreview"));
+          const auto selected = view.rootObject()->property("selectedLesson").toMap();
+          u3_record(*context, QStringLiteral("learning-selection-updates-hero-plan-and-code"),
+              study && hero && plan && code && selected.value(QStringLiteral("id")) == QStringLiteral("python-condition") &&
+              hero->property("text") == selected.value(QStringLiteral("title")) &&
+              plan->property("text") == selected.value(QStringLiteral("title")) &&
+              code->property("text").toString() == selected.value(QStringLiteral("code")).toString().split('\n').mid(0, 13).join('\n'));
+          auto* completed = u3_find_item(view.rootObject(), QStringLiteral("lessonStatusFilter-2"));
+          if (completed) QMetaObject::invokeMethod(completed, "choose", Qt::DirectConnection);
+          context->step++;
+          return;
+        }
+        case 82: {
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          auto* empty = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("learningEmptyFilter"));
+          u3_record(*context, QStringLiteral("learning-completed-filter-empty-state"),
+              study && study->property("filteredLessons").toList().isEmpty() && empty && empty->isVisible());
+          u3_record(*context, QStringLiteral("learning-empty-screenshot"),
+              u3_screenshot(*context, view, QStringLiteral("u3-learning-empty")));
+          // All records are written inside the matrix's disposable account, never the user's workspace.
+          codeweave::learning::MasteryStore mastery(shell.nativeDataRoot() / "accounts" / shell.activeAccountId().toStdWString());
+          using Kind = codeweave::learning::MasteryEvidenceKind;
+          using Verification = codeweave::learning::CompletionVerification;
+          const auto append = [&](const std::string& id, const std::string& ref, Kind kind, bool passed,
+              Verification verification, const std::string& note) {
+            const codeweave::learning::MasteryEvidence record{id, kind, ref, note, "2025-01-01T00:00:00Z", passed,
+                verification, codeweave::learning::RanBy::Learner, true, "L1", "op-matrix-" +
+                    QCryptographicHash::hash(QByteArray::fromStdString(id), QCryptographicHash::Sha256).toHex().left(6).toStdString()};
+            bool duplicate = false;
+            return mastery.append_idempotent(record, duplicate).ok && !duplicate;
+          };
+          const bool seeded = append("matrix-read", "python-loop-sum", Kind::Lesson, false, Verification::SelfDeclared,
+                  "学习信号：已阅读 · 已读原文") &&
+              append("matrix-self", "python-condition", Kind::Lesson, true, Verification::SelfDeclared, "完成声明") &&
+              append("matrix-auto", "java-loop-sum", Kind::Lesson, true, Verification::AutoVerified, "自动验证 fixture") &&

@@ -1,0 +1,110 @@
+      await Promise.all([refreshLedger(), refreshQueue(), loadDetail(operationId)])
+    },
+    [refreshLedger, refreshQueue, loadDetail],
+  )
+
+  /** 预览区的确认勾选：状态仍然只在本面板，子组件只转达用户的勾选结果。 */
+  const handleConfirmChange = useCallback((checked: boolean) => {
+    setConfirmed(checked)
+  }, [])
+
+  /** 交给 memo 子组件的四个动作全部在此固化身份；调用序与判据不变（M4 拆分说明）。 */
+  const commitPreview = useCallback(
+    (operationId: string, expectedHashes: ExpectedHashes) => {
+      void runCommit(operationId, expectedHashes)
+    },
+    [runCommit],
+  )
+  const askRollback = useCallback((operationId: string) => {
+    setRollbackConfirmId(operationId)
+  }, [])
+  const cancelRollback = useCallback(() => {
+    setRollbackConfirmId(null)
+  }, [])
+  const confirmRollback = useCallback(
+    (operationId: string) => {
+      void runRollback(operationId)
+    },
+    [runRollback],
+  )
+
+  const exportPending = async () => {
+    setBusy(true)
+    setError('')
+    const result = await content.exportEvidence(selected.length > 0 ? selected : undefined)
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    const blob = new Blob([result.data.markdown], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `codeWeave-待保存证据-${todayLocal()}.md`
+    link.click()
+    URL.revokeObjectURL(url)
+    setMessage('已导出待保存 Markdown（导出不等于已同步；只有实际写入并复核后才显示已同步）')
+  }
+
+  const pendingRecords = queue?.pending ?? []
+  const syncedRecords = queue?.synced ?? []
+  /** 尚未读到任何数据时，才由 queuePhase 决定显示加载态还是失败态（挂账②）。 */
+  const queueLoading = queue === null && queuePhase === 'loading'
+  const queueFailed = queue === null && queuePhase === 'failed'
+
+  // -------------------------------------------------------------------------
+  // 事务账本的派生读数（挂账 #35）
+  // -------------------------------------------------------------------------
+  /**
+   * 服务端账本里「确实只写了一部分、还等补齐」的那笔事务。列表本身就是新→旧，
+   * 所以 `find` 拿到的就是最近一笔；一步都没写的 partial 不算（那是冲突，见 ledgerTone）。
+   */
+  const serverPartial = ledger?.transactions.find(isResumable) ?? null
+  /**
+   * 02 区说哪一笔：本页这次中断优先（它还带着那次预览的上下文），
+   * 否则说服务端读回来的那笔——这就是「刷新后横幅不再消失」的全部机制。
+   */
+  const shownPartial: PartialTransaction | WritebackTransactionSummary | null = partial ?? serverPartial
+  /** 本页手上有没有指纹：null 表示只有服务端记录，重试时才去把基线读回来。 */
+  const partialHashes = partial ? partial.expectedHashes : null
+
+  // 与绑定面板一致：绑定状态未知（未登录 / 还没加载）时不渲染，
+  // 避免先闪一句「当前账户不是拥有者」这种可能不成立的判断。
+  // M4 拆分说明：这一句从各 handler 之前挪到了全部钩子之后——`runCommit` / `loadDetail` /
+  // `toggleTransaction` / `runRollback` 为了交给 memo 子组件改成了 useCallback，
+  // 钩子不能落在提前 return 之后。渲染结果与改前逐字节一致：status 为空仍然整块不渲染。
+  if (!status) return null
+
+  return (
+    <section className="profile-overview-card evidence-writeback" aria-label="学习证据写回">
+      <header className="ewb-head">
+        <h3 className="security-card-title ewb-title">
+          <UploadCloud className="ewb-title-icon" size={16} aria-hidden="true" /> 学习证据写回（确认式）
+        </h3>
+        <p className="vault-progress-notice ewb-lede">
+          顺序固定：<strong>学习日志 → 进度追踪 → 总计划日志索引</strong>。未预览、未确认就不会写入；
+          导入、阅读或 AI 运行都不会自动提升掌握等级。
+        </p>
+        {!isOwner && (
+          <p className="ewb-banner ewb-banner--notice" role="status">
+            <StateMark tone="notice" />
+            <span className="ewb-banner-body">
+              当前账户不是资料库拥有者：可以暂存与导出自己的证据，但不能写入资料库正式记录。
+            </span>
+          </p>
+        )}
+      </header>
+
+      <div className="evidence-form-block ewb-step">
+        <details>
+          <summary>
+            <FileText size={16} aria-hidden="true" /> ① 暂存一条证据（只落应用数据，不改资料库）
+            <StateMark tone="pending" />
+          </summary>
+          <div className="evidence-form">
+            <label className="field-label">
+              学习日期
+              <input type="date" value={form.at} onChange={(event) => setForm({ ...form, at: event.target.value })} />
+            </label>
+            <label className="field-label">

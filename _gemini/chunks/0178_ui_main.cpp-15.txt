@@ -1,0 +1,55 @@
+              if (!control || control->property("enabled").toBool() || !description ||
+                  !description->property("text").toString().endsWith(QStringLiteral("（本机配置不可用）"))) {
+                diagnostic = QStringLiteral("Unavailable preference storage state is missing at row %1").arg(index);
+                write_smoke_report();
+                application.exit(1);
+                return;
+              }
+            }
+            if (!capture_topbar(QStringLiteral("topbar-settings"))) { application.exit(1); return; }
+            smoke_expected_size = QSize(1100, 720);
+            view.setMinimumSize(QSize(1100, 720));
+            view.setMaximumSize(QSize(1100, 720));
+            view.setWindowState(Qt::WindowNoState);
+            view.resize(1100, 720);
+            break;
+          }
+          {
+            auto* toggle = u3_find_item(settings_scroll, QStringLiteral("settingsReducedMotionToggle"));
+            auto* design_system = view.rootObject()->findChild<QObject*>(QStringLiteral("designSystem"));
+            auto* popup_enter = quick ? quick->findChild<QObject*>(QStringLiteral("popupEnterAnimation")) : nullptr;
+            auto* popup_exit = quick ? quick->findChild<QObject*>(QStringLiteral("popupExitAnimation")) : nullptr;
+            auto* busy_indicator = u3_find_item(view.rootObject(), QStringLiteral("topbarBusyIndicator"));
+            auto* restore = u3_find_item(settings_scroll, QStringLiteral("settingsRestoreDefaults"));
+            auto* font_size = u3_find_item(settings_scroll, QStringLiteral("settingsEditorFontSize"));
+            auto* line_toggle = u3_find_item(settings_scroll, QStringLiteral("settingsEditorLineNumbersToggle"));
+            const auto require_toggle_thumb = [&](QQuickItem* item) {
+              auto* thumb = u3_find_item(item, item->objectName() + QStringLiteral("Thumb"));
+              const auto expected_x = item->property("checked").toBool() ? 26.0 : 6.0;
+              if (thumb && thumb->isVisible() && thumb->parentItem() == item &&
+                  std::abs(item->width() - 48) < 0.01 && std::abs(item->height() - 28) < 0.01 &&
+                  item->property("radius").toReal() == 0 &&
+                  std::abs(thumb->width() - 16) < 0.01 && std::abs(thumb->height() - 16) < 0.01 &&
+                  std::abs(thumb->x() - expected_x) < 0.01 && std::abs(thumb->y() - 6) < 0.01) return true;
+              diagnostic = QStringLiteral("Settings toggle thumb did not reflect its checked state: %1")
+                  .arg(item->objectName());
+              write_smoke_report();
+              application.exit(1);
+              return false;
+            };
+            auto* spinner = busy_indicator
+                ? u3_find_item(busy_indicator, QStringLiteral("motionSpinner")) : nullptr;
+            auto* static_ring = busy_indicator
+                ? u3_find_item(busy_indicator, QStringLiteral("motionStaticRing")) : nullptr;
+            auto* static_dot = busy_indicator
+                ? u3_find_item(busy_indicator, QStringLiteral("motionStaticDot")) : nullptr;
+            if (!toggle || !design_system || !popup_enter || !popup_exit ||
+                popup_enter->property("duration").toInt() != 150 || popup_exit->property("duration").toInt() != 150 ||
+                !busy_indicator || !spinner || !static_ring || !static_dot || !restore ||
+                !font_size || !line_toggle || !font_size->property("enabled").toBool() ||
+                !line_toggle->property("enabled").toBool() || shell.editorFontSize() != 13 ||
+                !shell.editorLineNumbers() || font_size->property("currentIndex").toInt() != 1 ||
+                !line_toggle->property("checked").toBool() ||
+                !shell.preferenceStorageReady() || !toggle->property("enabled").toBool() ||
+                toggle->property("checked").toBool() || shell.reducedMotion() ||
+                design_system->property("durQuick").toInt() != 150) {

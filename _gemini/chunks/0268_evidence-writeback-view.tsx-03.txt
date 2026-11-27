@@ -1,0 +1,123 @@
+    if (!hasLedgerRef.current) setLedgerPhase('loading')
+    const loaded = await loadWritebackLedgerState()
+    if (loaded.status === 'ready') {
+      hasLedgerRef.current = true
+      setLedger(loaded.ledger)
+      setLedgerFailure(null)
+      setLedgerPhase('ready')
+      return
+    }
+    // 重读失败时不清 ledger：下面仍是上一次读到的记录（与队列同一口径）。
+    setLedgerFailure({ code: loaded.code, reason: loaded.reason })
+    setLedgerPhase('failed')
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled || !status) return
+      await refreshQueue()
+      // 事务端点只对拥有者开放：非拥有者不请求，也就不会把 403 显示成「没有写回事务」。
+      if (status.isOwner === true) await refreshLedger()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [status, refreshQueue, refreshLedger])
+
+  const toggle = (evidenceId: string) => {
+    setSelected((current) =>
+      current.includes(evidenceId) ? current.filter((id) => id !== evidenceId) : [...current, evidenceId],
+    )
+  }
+
+  const stage = async () => {
+    setBusy(true)
+    setError('')
+    setMessage('')
+    const input: EvidenceInput = {
+      at: form.at,
+      topic: form.topic.trim(),
+      stage: form.stage.trim() || null,
+      contentId: form.contentId.trim() || null,
+      exerciseId: form.exerciseId.trim() || null,
+      bundleId: content.bundleId,
+      expected: form.expected.trim(),
+      actual: form.actual.trim(),
+      ranBy: form.ranBy,
+      independent: form.ranBy === 'learner' && form.independent,
+      hintLevel: (form.hintLevel || null) as EvidenceHintLevel,
+      artifacts: toLines(form.artifacts),
+      unfinished: toLines(form.unfinished),
+      notes: '',
+    }
+    const result = await content.stageEvidence(input)
+    if (!result.ok) {
+      setBusy(false)
+      setError(result.message)
+      return
+    }
+    setMessage(result.message)
+    setForm((current) => ({ ...current, topic: '', expected: '', actual: '', artifacts: '', unfinished: '' }))
+    // 暂存只落应用数据；队列显示由本面板自己再读一次
+    // （挂账②后界面不再消费 Provider 的队列副本）。
+    await refreshQueue()
+    setBusy(false)
+  }
+
+  const runPreview = async () => {
+    setBusy(true)
+    setError('')
+    setMessage('')
+    setPreview(null)
+    setConflict(null)
+    setPartial(null)
+    setConfirmed(false)
+    const result = await content.previewEvidence(selected)
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message)
+      if (result.code === 'sync_conflict' || result.code === 'progress_pending') {
+        setConflict((result.details as WritebackConflictDetails) ?? null)
+      }
+      return
+    }
+    setPreview(result.data)
+  }
+
+  /**
+   * 提交与重试的唯一出口（原 `runCommit`，逐行未改）：改成 useCallback 是为了交给
+   * memo 化的预览区，调用序与判据不变。
+   */
+  const runCommit = useCallback(
+    async (
+      operationId: string,
+      expectedHashes: ExpectedHashes,
+      hashSource: PartialTransaction['source'] = 'preview',
+    ) => {
+      setBusy(true)
+      setError('')
+      const result = await content.commitEvidence(operationId, expectedHashes)
+      setBusy(false)
+      if (!result.ok) {
+        const details = (result.details as WritebackConflictDetails | undefined) ?? null
+        // 事务半完成：日志已落盘，保留 operationId **与本次预览的真实指纹**等待补齐（挂账⑤）。
+        if (result.code === 'progress_pending' || details?.logSaved) {
+          setConflict(null)
+          setPartial({ operationId, message: result.message, expectedHashes, source: hashSource })
+          setPreview(null)
+          setConfirmed(false)
+          // 账本同步重读：横幅从此有服务端这一份事实兜着，刷新也不会再丢掉（挂账 #35）。
+          await Promise.all([refreshQueue(), refreshLedger()])
+          return
+        }
+        // 冲突或预览已过期：旧预览的指纹在写入后不再代表当前文件，
+        // 必须连预览一起撤下，否则失效预览与冲突块并存，
+        // 页面上还会留下一个不能再用的「确认写入」（挂账③④）。
+        if (result.code === 'sync_conflict' || result.code === 'stale_preview') {
+          setPreview(null)
+          setConfirmed(false)
+          setPartial(null)
+          // 只有服务端确实给出逐字段差异，才宣称「检测到第三方改动」；
+          // stale_preview 只说明页面基于旧预览，不能冒充冲突。

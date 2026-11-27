@@ -1,0 +1,10 @@
+          </button>
+          <button type="button" className="rs-btn" onClick={onNext} disabled={atEnd}>
+            下一步
+            <SkipForward size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+})

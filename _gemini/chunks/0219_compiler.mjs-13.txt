@@ -1,0 +1,27 @@
+    prerequisiteRefs: unit.prerequisiteRefs,
+    exerciseIds: unit.exerciseIds,
+    projectTaskRef: unit.projectTaskRef,
+    runEnvironment: unit.runEnvironment,
+    executionPolicy: unit.executionPolicy,
+    estimatedMinutes: unit.estimatedMinutes,
+    reviewOffsetsDays: unit.reviewOffsetsDays.length > 0 ? unit.reviewOffsetsDays : null,
+    verificationStatus: unit.verificationStatus,
+    sourceIds: unit.sourceIds,
+    status: unit.status,
+    legacyRefs: unit.legacyRefs,
+    reading: body
+      ? {
+          path: topic.path,
+          headingPath: topic.headingPath,
+          headings: headings(body.bodyText).map(({ level, title, line }) => ({ level, title, line })),
+          markdown: body.bodyText,
+          contentHash: topic.contentHash,
+          fileHash: topic.fileHash,
+          verificationStatus: topic.verificationStatus,
+        }
+      : null,
+    sectionRefs: unit.sectionRefs.map((ref) => ({ path: ref.path, headingPath: ref.headingPath })),
+    exerciseCount: exercises.filter((exercise) => unit.exerciseIds.includes(exercise.exerciseId)).length,
+    sourceHash: unit.sourceHash,
+  }
+}

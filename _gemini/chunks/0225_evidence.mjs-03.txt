@@ -1,0 +1,62 @@
+      if (!Array.isArray(parsed?.records)) return []
+      return parsed.records
+    } catch {
+      // 损坏的暂存文件不静默当空：由调用方看到 corrupt 标记。
+      throw Object.assign(new Error('证据暂存文件损坏'), { code: 'evidence_store_corrupt' })
+    }
+  }
+
+  async function writeAll(userId, records) {
+    await mkdir(root, { recursive: true })
+    const filePath = filePathOf(userId)
+    const temp = `${filePath}.${process.pid}.tmp`
+    await writeFile(temp, `${JSON.stringify({ schemaVersion: EVIDENCE_SCHEMA_VERSION, records }, null, 2)}\n`, 'utf8')
+    await rename(temp, filePath)
+    return records
+  }
+
+  async function stage(userId, value) {
+    const records = await readAll(userId)
+    const record = {
+      schemaVersion: EVIDENCE_SCHEMA_VERSION,
+      evidenceId: `ev-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`,
+      userId,
+      state: EVIDENCE_STATE.PENDING,
+      createdAt: new Date().toISOString(),
+      operationId: null,
+      syncedAt: null,
+      logPath: null,
+      ...value,
+    }
+    records.push(record)
+    await writeAll(userId, records)
+    return record
+  }
+
+  async function list(userId) {
+    return readAll(userId)
+  }
+
+  async function get(userId, evidenceId) {
+    return (await readAll(userId)).find((record) => record.evidenceId === evidenceId) ?? null
+  }
+
+  async function remove(userId, evidenceId) {
+    const records = await readAll(userId)
+    const next = records.filter((record) => record.evidenceId !== evidenceId)
+    if (next.length === records.length) return { removed: false }
+    await writeAll(userId, next)
+    return { removed: true }
+  }
+
+  /** 更新指定证据的状态（写回成功/部分成功后回写应用侧状态）。 */
+  async function updateRecords(userId, evidenceIds, patch) {
+    const records = await readAll(userId)
+    const target = new Set(evidenceIds)
+    const next = records.map((record) => (target.has(record.evidenceId) ? { ...record, ...patch } : record))
+    await writeAll(userId, next)
+    return next
+  }
+
+  return { stage, list, get, remove, updateRecords, filePathOf }
+}

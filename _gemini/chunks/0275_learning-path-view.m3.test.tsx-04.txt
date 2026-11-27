@@ -1,0 +1,96 @@
+    expect(screen.getByText('资料库/Java/并发模型.md')).toBeTruthy()
+    expect(screen.getByText(/› Java > 并发模型/)).toBeTruthy()
+    expect(screen.getByText(/· 核验：待核验/)).toBeTruthy()
+  })
+
+  it('科目切换：点击科目上抛 subjectId，当前项 aria-pressed=true', () => {
+    const props = renderView([baseLesson()], {
+      subjects: [
+        javaSubject,
+        { ...javaSubject, id: 'python', label: 'Python', short: 'PY', hasVaultContent: false, executable: false },
+      ],
+    })
+    const python = screen.getByRole('button', { name: /Python/ })
+    expect(python.getAttribute('aria-pressed')).toBe('false')
+    expect(python.textContent).toContain('不可自动执行')
+    fireEvent.click(python)
+    expect(props.onSubjectChange).toHaveBeenCalledWith('python')
+    const pressed = [...document.querySelectorAll('.lp-subject[aria-pressed="true"]')]
+    expect(pressed).toHaveLength(1)
+    expect(pressed[0]?.textContent).toContain('Java')
+  })
+
+  it('时长口径不重复渲染：预计时长整页只出现一次（保住 R2-E getByText 契约）', () => {
+    renderView([baseLesson()])
+    expect(screen.getAllByText(/预计 45 分钟/)).toHaveLength(1)
+    expect(screen.queryByText('45 min')).toBeNull()
+  })
+})
+
+describe('M3 学习路径 · 来源与缺口标识', () => {
+  it('来源三态：资料库正式内容 / 旧内置课程 / 来源未标注', () => {
+    renderView([
+      baseLesson(),
+      baseLesson({
+        id: 'legacy-1',
+        title: '旧内置单元',
+        contentId: undefined,
+        legacy: true,
+        source: undefined,
+        exercise: undefined,
+      }),
+      baseLesson({
+        id: 'unknown-1',
+        title: '未标来源单元',
+        contentId: undefined,
+        legacy: undefined,
+        source: undefined,
+        exercise: undefined,
+      }),
+    ])
+    expect(screen.getByText('资料库正式内容')).toBeTruthy()
+    expect(screen.getByText('旧内置课程 · 未迁入资料库')).toBeTruthy()
+    expect(screen.getByText('来源未标注')).toBeTruthy()
+  })
+
+  it('缺口只登记现有字段可证实的缺失：缺练习契约时标注，齐备时不标', () => {
+    renderView([baseLesson(), baseLesson({ id: 'vault-s0-2', title: '缺练习的单元', exercise: undefined })])
+    expect(screen.getAllByText('无练习契约（已登记于同步报告）')).toHaveLength(1)
+    expect(document.querySelector('[data-lesson-id="vault-s0-2"]')?.textContent).toContain('无练习契约')
+    expect(document.querySelector('[data-lesson-id="vault-s0-1"]')?.textContent).not.toContain('无练习契约')
+  })
+
+  it('页眉 specs 的计数与逐条标识同口径，不另算一套', () => {
+    renderView([baseLesson(), baseLesson({ id: 'vault-s0-2', title: '缺练习的单元', exercise: undefined })])
+    expect(screen.getByText('2 个')).toBeTruthy()
+    expect(screen.getByText('1 / 10 个已发布')).toBeTruthy()
+    expect(screen.getByText('1 个单元 · 0 处阶段缺口')).toBeTruthy()
+  })
+
+  it('标识不依赖颜色：每条标识都有固定字符徽记 + 中文说明，徽记对读屏隐藏', () => {
+    renderView([baseLesson(), baseLesson({ id: 'vault-s0-2', title: '缺练习的单元', exercise: undefined })])
+    const marks = [...document.querySelectorAll<HTMLElement>('.lp-mark')]
+    expect(marks.length).toBeGreaterThan(1)
+    for (const mark of marks) {
+      const glyph = mark.querySelector('.lp-mark-glyph')
+      const text = mark.querySelector('.lp-mark-text')
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+      expect((text?.textContent ?? '').length).toBeGreaterThan(1)
+      expect(mark.getAttribute('data-lp-mark')).toBeTruthy()
+    }
+  })
+
+  it('缺口标识另有边框样式与点线下划线差异，不仅靠颜色区分', () => {
+    expect(declarationBlock('.lp-mark--gap')).toContain('border-style: dotted')
+    expect(declarationBlock('.lp-mark--vault')).toContain('border-style: solid')
+    expect(declarationBlock('.lp-mark--legacy')).toContain('border-style: dashed')
+    expect(declarationBlock('.lp-mark--gap .lp-mark-text')).toContain('text-decoration-style: dotted')
+  })
+})
+
+describe('M3 学习路径 · CSS 视觉不变式（源码文本核对）', () => {
+  it('正文约 16px、行高落在 1.6–1.75，长中文标题不 nowrap', () => {
+    expect(cssText.length).toBeGreaterThan(4000)
+    expect(declarationBlock('.lp-view')).toContain('--lp-body: var(--ds-size-body, 16px)')
+    expect(declarationBlock('.lp-view')).toContain('--lp-leading: var(--ds-leading-body, 1.7)')
+    expect(cssCode.match(/white-space: nowrap/g)?.length ?? 0).toBeLessThanOrEqual(1)

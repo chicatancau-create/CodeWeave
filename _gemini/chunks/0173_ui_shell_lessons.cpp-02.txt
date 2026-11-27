@@ -1,0 +1,76 @@
+    if ((completion && item.passed && (item.kind == MasteryEvidenceKind::Lesson || item.kind == MasteryEvidenceKind::Review)) ||
+        (!completion && item.kind == MasteryEvidenceKind::Lesson && QString::fromUtf8(item.note).startsWith(prefix)))
+      return codeweave::app::Result::success("该学习事实已记录，未重复写入");
+  }
+  const auto unique = QUuid::createUuid().toString(QUuid::Id128).toStdString();
+  const MasteryEvidence evidence{"lesson-" + unique, MasteryEvidenceKind::Lesson,
+      document.toStdString(), note.toUtf8().toStdString(),
+      QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs).toStdString(), completion,
+      verified ? CompletionVerification::AutoVerified : CompletionVerification::SelfDeclared,
+      RanBy::Learner, completion && independent, hintsViewed ? "L3" : "L1",
+      "op-" + unique.substr(0, 20) + "-" + unique.substr(26)};
+  bool duplicate = false;
+  // Completion is a fact even without independent mastery eligibility. Replay
+  // retains the existing eligibility gate for level and review-plan changes.
+  const auto saved = store.append_idempotent(evidence, duplicate);
+  if (!saved.ok) return saved;
+  return codeweave::app::Result::success(completion ? "课程完成证据已保存" : "学习痕迹已保存，不计为完成");
+}
+
+void UiShell::saveLessonFact(const QString& signal, const QString& note, bool verified) {
+  const auto root = data_root_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto document = selected_content_id_;
+  const bool independent = independent_attempt_ && !hints_viewed_;
+  const bool hintsViewed = hints_viewed_;
+  const auto task = QStringLiteral("qt-lesson-%1").arg(next_task_id_++);
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  request.task_id = task.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Evidence;
+  request.work = [root, document, signal, note, verified, independent, hintsViewed](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("课程证据保存已取消");
+    return recordLessonFact(root, document, signal, note, verified, independent, hintsViewed);
+  };
+  operation_task_id_ = task;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, task](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, task, result = std::move(result)] {
+          if (task != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (closing_ || account != active_account_id_ || generation != account_generation_) return;
+          setOperationStatus(result.cancelled ? QStringLiteral("课程证据保存已取消") : QString::fromUtf8(result.result.message));
+          if (result.result.ok && !result.cancelled) refreshReviewSummary();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::markLessonRead() {
+  if (!lessonAssessment().value("canMarkRead").toBool()) return;
+  saveLessonFact("read", QStringLiteral("学习信号：已阅读 · 课程「%1」：学习者标记读过正文，不构成完成证明，不推进掌握等级")
+      .arg(selected_content_id_), false);
+}
+
+void UiShell::completeLesson(const QVariantMap& externalEvidence) {
+  const auto assessment = lessonAssessment();
+  if (!assessment.value("canComplete").toBool()) {
+    setOperationStatus(assessment.value("buttonLabel").toString());
+    return;
+  }
+  const bool verified = assessment.value("autoVerified").toBool();
+  QString note = verified ? QStringLiteral("本课验收点逐行命中（exact-lines），学习者标记完成")
+      : QStringLiteral("学习者自行声明完成，系统未比对输出");
+  if (assessment.value("external").toBool()) {
+    codeweave::learning::EvidenceRecord prepared;

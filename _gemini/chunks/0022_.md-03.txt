@@ -1,0 +1,94 @@
+### 变更登记 YYYY-MM-DD-编号
+- 目标：
+- 类型：新增 / 修 bug / 修改 / 删除 / 清理
+- 允许修改：明确文件列表
+- 禁止修改：网页端、移动端、UI 呈现、真实数据
+- 数据所有者：
+- 输入与输出：
+- 失败与回滚：
+- 测试夹具：
+- 临时路径：
+- 删除核验：
+- 实际命令与结果：
+- 结果状态：[通过] / [部分完成] / [失败] / [未执行]
+```
+
+## 12. 当前缺口与后续路线
+
+当前原生便携主链已接通；2026-10-05 新增 Qt/QML 正式方案，以总工程 U0–U4 为后续主序：
+
+1. 先完成 U0 后台任务与 U1 Qt 原型实测，再通过 U2/U3 适配与功能验收，最后编写普通 Windows 安装器，保持程序目录和 `%LOCALAPPDATA%/CodeWeave` 数据分离。
+2. 在干净 Windows 环境验证安装、升级、卸载后的账户和进度保留。
+3. 跨盘备份 C: → G: 已有上一轮实测记录；未来改动须回归。在允许创建符号链接的令牌下补此前跳过的专项。
+4. 安装器完成后再由用户决定是否正式发布。
+
+这些工作完成前，不得把便携目录称为安装包，不得宣称公共证书已消除 SmartScreen 警告，也不得上传项目。
+
+## 13. 变更登记
+
+- 2026-10-05：统一当前原生架构、模块边界、Flash 低复杂度开发规范、功能增删改流程和临时脚本清理规范；未修改 UI。
+
+## 14. Qt/QML UI 替换的后端准备
+
+UI 替换不改变后端事实源。Qt 只是可替换的呈现壳，后端必须先提供稳定、低复杂度、线程安全的命令和状态接口。Flash 不得为了接 Qt 重写现有 Store、账本或执行规则。
+
+### 14.1 后端与 UI 的目标边界
+
+```text
+QML 页面 / 输入法 / 动画
+        ↓ QObject facade：命令、属性、信号
+UI adapter / request generation
+        ↓
+codeweave-core Service → Store / Repository / ProcessRunner
+```
+
+- facade 只能调用已有 Service；不暴露 `std::filesystem`、文件句柄、Windows HWND、账本行格式或密码 hash。
+- 状态以可复制的 DTO 返回，错误使用现有 `Result` 语义；QML 不解析错误码字符串来决定业务。
+- 长操作（备份/恢复、导入、scrypt、内容扫描）必须通过后台任务和取消令牌执行，完成后带账户 ID/代次回传；旧代次结果直接丢弃。
+- 运行输出、轨迹、进度和复习汇总使用只读快照，不能把 Store 引用或裸指针交给 UI。
+
+### 14.2 迁移前必须解决的 UI 线程阻塞
+
+当前 `main.cpp` 的数据管理调用会同步进入递归备份/恢复，`account_register/login/change_password` 在消息处理路径同步调用密码派生。上述阻塞调用链已由源码核验；尚未测实际阻塞时长，不沿用“667 处 IO/秒级假死”的未核实统计。Qt 迁移前应先把这些调用抽成 `BackendTaskService`（一对 `.hpp/.cpp`），实现固定的 `start → progress → cancel → finished` 流程；不改变业务结果、不改变控件、不引入事件总线。每个任务必须有：唯一 task ID、账户/代次、取消状态、错误结果、线程回收和关闭窗口等待规则。
+
+后端执行线程已有 `std::thread + PostMessageW + g_execution_generation` 作为行为参考。Qt 适配层可以使用 `QThread` 或标准线程，但不得让 Qt 类型进入核心库；优先让核心保持标准 C++，UI 层负责 QObject 信号转发。
+
+### 14.3 Windows 平台依赖收口
+
+当前 native/src 中有 15 个文件直接包含 `windows.h`，且密码派生在非 Windows 分支明确失败。这些包含计数含 main 与测试，不是 15 个独立缺陷。Qt-on-Windows 不要求先移走所有 Windows API。按实际重复与 facade 需要逐个考虑以下窄接口，不预建空文件：
+
+- `platform_random.*`：随机数和安全系统调用；
+- `platform_process.*`：Job Object、进程暂停/取消、句柄生命周期；
+- `platform_paths.*`：数据根、单实例和环境变量；
+- `platform_file.*`：原子替换、锁、符号链接和文件属性。
+
+先把新 Qt facade 使用的路径、任务、随机数接口接到这些窄接口；旧模块逐个迁移并保持 CTest 通过。禁止一次性把全部 Windows API 改成抽象层，也禁止为了跨平台删除现有 Windows 安全校验。
+
+### 14.4 后端验收门禁
+
+U0/U1 完成后进入 U2，U2 完成时必须通过：
+
+1. 原有 CTest 7/7 与 Node 4/4；
+2. 账户切换、坏草稿、坏提示、外部证据 Pending、备份恢复和四语言执行回归；
+3. 后台备份/恢复/密码任务期间窗口仍可响应取消和关闭；
+4. 旧代次结果不会覆盖新账户状态；
+5. Qt facade 不包含文件路径写入、账本解析、密码摘要或 HWND 操作；
+6. `codeweave-core` 可在无 Qt 依赖的测试目标中继续构建。
+
+未通过任一门禁时，继续使用现有 Win32 入口，不把 Qt 原型标为产品完成。
+
+选型参考资料：Qt Quick Scene Graph 与 D3D11（<https://doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph.html>）、QQuickWidget 性能限制（<https://doc.qt.io/qt-6/qquickwidget.html>）、Qt 许可（<https://doc.qt.io/qt-6/licensing.html>）、Qt Windows 部署（<https://doc.qt.io/qt-6/windows-deployment.html>）、QScintilla 许可（<https://www.riverbankcomputing.com/software/qscintilla/intro>）。参考资料只用于形成工程假设；版本、许可和性能必须在 U1 阶段重新核验。
+
+### 14.5 后台任务的最小实现契约（已实现并持续扩展）
+
+`BackendTaskService` 为一个可审查的串行后台任务执行器，队列有上限，忙时返回 busy，禁止每个按钮无限创建线程。TaskRequest 至少含 taskId、accountId、accountGeneration、kind 和按值复制的参数；TaskResult 含对应 ID、success/cancelled/error、用户可读信息与只读结果。沿用 app::Result，不给每个模块复制一套 Result 类。
+
+现有 AccountService 有可变 session，不能直接从多个线程调用。账户服务及账户写操作统一在一个后端拥有线程串行执行；GUI 只读返回的 session DTO。执行引擎继续专有工作线程，但传入固定账户 Store/路径快照，统一协调其写入与备份。UI 切换等待旧写入完成或取消后才关闭旧 root/锁；generation 丢弃仅用于呈现，不能撤销已经发生的业务写入。当前 `BackendTaskService` 已支持 `Read/Account/Draft/Evidence/Execute/Backup/Import` 分类，Qt facade 已接入提示读取、外部证据待核验写入、执行和备份/恢复后台入口；文件选择和完整页面交互仍归 U3。
+
+| 操作 | worker 行为 | 取消与一致性 |
+| --- | --- | --- |
+| 登录/注册/改密 | worker 内校验、派生、提交，凭据短生命周期，不写日志 | scrypt 不支持即时中断时等待安全边界；提交前检查取消，成功写入后不得假报已取消 |
+| 备份/恢复/导入 | 逐项枚举/分块复制/清单校验，进度节流最多 10 次/秒 | 暂停冲突写入或取得一致快照；只在安全边界取消；原源保留，只清理任务拥有的目标暂存 |
+| 内容/轨迹/复习读取 | worker 读取、校验、分页，返回稳定 DTO | 队列满则合并过时读请求；按 account/course/requestRevision 丢弃旧结果 |
+| 草稿保存 | 带 documentId、revision、内容快照，单文档按序原子保存 | 旧保存成功不能把新编辑标已保存；失败保留 dirty，切换/关闭等待保存或明确放弃 |
+

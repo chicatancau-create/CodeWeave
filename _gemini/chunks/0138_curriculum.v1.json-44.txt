@@ -1,0 +1,127 @@
+        ],
+        "exercise": "独立整理一张“未登录 / 登录 / 登出”三态下各接口行为的验证表。",
+        "variant": "对比 JWT：解码一段真实 JWT 的 header/payload（不签名验证），说明为何不能放敏感信息。",
+        "projectTask": "J 阶段验收（验证未登录、无权限和异常请求）的测试用例清单来自本单元。",
+        "mistakes": [
+          "把用户敏感信息放进 JWT payload（base64 不是加密）",
+          "前端只在 UI 隐藏按钮而不做后端鉴权"
+        ],
+        "runCommand": "curl -i + 本项目 /api/auth/*（真实 API）",
+        "completion": "三态验证表完整，能解释两种会话方案的取舍。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 40,
+        "acceptanceCriteria": [
+          "四步流程状态码记录完整",
+          "未登录/登出后受保护接口不可访问",
+          "能对比 Session 与 JWT"
+        ],
+        "evidenceChecklist": [
+          "curl 输出记录",
+          "三态验证表",
+          "时序对比图或文字"
+        ]
+      }
+    },
+    {
+      "id": "j2-xss-sanitize-sandbox",
+      "language": "javascript",
+      "languageLabel": "安全",
+      "label": "J2",
+      "title": "XSS 防御与输入净化（沙箱可执行）",
+      "description": "为什么转义发生在输出侧",
+      "duration": "35 min",
+      "level": "进阶",
+      "code": "function escapeHtml(text) {\n  const map = { \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\", \"'\": \"&#39;\" };\n  return text.replace(/[&<>\"']/g, (ch) => map[ch]);\n}\nconst payload = '<img src=x onerror=\"alert(1)\">';\nconsole.log(\"原始长度:\", payload.length);\nconsole.log(\"净化后:\", escapeHtml(payload));\nconsole.log(\"净化后仍含标签?\", escapeHtml(payload).includes(\"<img\"));",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "接收用户输入",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "识别危险字符",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "输出侧转义",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "安全渲染",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "XSS 的根因是“数据被当成代码执行”；转义发生在输出侧，且必须按输出上下文选择转义规则。",
+      "fileName": "xss-sanitize.js",
+      "runtime": "Browser JS 沙箱",
+      "content": {
+        "objective": "独立实现 HTML 转义函数，在沙箱中验证恶意载荷被净化，并解释三条 XSS 防线。",
+        "prerequisites": [
+          "b1-array-basics",
+          "d3-dom-events"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "J",
+        "explanation": [
+          "存储型/反射型/DOM 型 XSS 的共同点：不可信数据进入了代码执行环境。",
+          "输出侧转义（& < > \" '）让标签变成普通文本；textContent 天然安全，innerHTML 危险。",
+          "防线叠加：CSP 响应头、HttpOnly Cookie、框架默认转义——任何一层都不能单独兜底。"
+        ],
+        "examples": [
+          {
+            "good": "escapeHtml 把 <img onerror=...> 变成不可执行的文本实体",
+            "bad": "把用户输入直接 innerHTML 或拼进模板",
+            "why": "innerHTML 会解析并执行标签内的事件"
+          }
+        ],
+        "guidedSteps": [
+          "在沙箱运行示例，观察净化前后差异。",
+          "构造一个含 onclick 的载荷，验证转义后不再含活标签。",
+          "把 map 扩展支持反引号，说明为什么模板字符串里也要防。"
+        ],
+        "exercise": "独立实现 escapeHtml 并用三类载荷（img/onerror、script、javascript: 链接）验证。",
+        "variant": "写一个「安全拼接 URL」函数：只允许 http/https 协议，拒绝 javascript:。",
+        "projectTask": "净化函数接入 D 阶段待办应用的渲染层，形成“输入任意、输出安全”的示范。",
+        "mistakes": [
+          "只在输入侧过滤（绕过方式层出不穷），输出侧转义才是防线",
+          "用正则删标签当“过滤”，属性事件仍可逃逸"
+        ],
+        "runCommand": "运行按钮（浏览器沙箱真实执行）",
+        "completion": "三类载荷全部被转义，能解释输出侧转义与 CSP/HttpOnly 的分层关系。",
+        "runEnvironment": "teaching",
+        "estimatedMinutes": 35,
+        "acceptanceCriteria": [
+          "三类恶意载荷净化后不含活标签",
+          "能说出 textContent 与 innerHTML 的区别",
+          "能解释三层防线"
+        ],
+        "evidenceChecklist": [
+          "沙箱运行输出",

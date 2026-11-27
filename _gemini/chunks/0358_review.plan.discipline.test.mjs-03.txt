@@ -1,0 +1,8 @@
+    expect(adapter.code, '`?? []` 会把「本单元没写」伪装成「空计划」').not.toMatch(/reviewOffsetsDays:\s*[^,\n]*\?\?\s*\[\s*\]/)
+    expect(adapter.code, '排期标准的读取口只有一处').toMatch(/export function publishedReviewOffsets\(/)
+    const types = files.find((item) => item.path === 'src/types/lesson.ts')
+    expect(types.code, 'LessonUnit.reviewOffsetsDays 要能表达「没写」：number[] | null').toMatch(
+      /reviewOffsetsDays: number\[\] \| null/,
+    )
+  })
+})

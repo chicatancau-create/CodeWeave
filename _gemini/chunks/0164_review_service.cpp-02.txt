@@ -1,0 +1,70 @@
+      item.independent = independent;
+      item.hint_level = record.hint_level;
+      item.evidence_count = 1;
+      summary.items.push_back(std::move(item));
+    } else {
+      ++found->evidence_count;
+      if (record.at >= found->latest_at) {
+        found->latest_at = record.at;
+        found->latest_result = record.actual_result;
+        found->passed = passed;
+        found->independent = independent;
+        found->hint_level = record.hint_level;
+      }
+    }
+  }
+  std::sort(summary.items.begin(), summary.items.end(),
+      [](const auto& left, const auto& right) {
+        if (left.latest_at != right.latest_at) return left.latest_at > right.latest_at;
+        if (left.content_id != right.content_id) return left.content_id < right.content_id;
+        return left.exercise_id < right.exercise_id;
+      });
+  if (mastery_ && !today_key.empty()) {
+    const auto effective_plan = plan.offsets.empty()
+        ? effective_review_plan(std::nullopt, std::nullopt) : plan;
+    MasterySnapshot snapshot;
+    const auto replayed = MasteryService(*mastery_).replay(effective_plan, snapshot);
+    if (!replayed.ok) return replayed;
+    const auto groups = group_reviews([&] {
+      std::vector<MasteryRecord> records;
+      records.reserve(snapshot.records.size());
+      for (const auto& [ref_id, record] : snapshot.records) records.push_back(record);
+      return records;
+    }(), today_key);
+    summary.overdue_count = groups.overdue.size();
+    summary.today_count = groups.today.size();
+    summary.upcoming_count = groups.upcoming.size();
+    summary.next_due_key = groups.next_date_key;
+    for (const auto& [ref_id, record] : snapshot.records) {
+      auto found = std::find_if(summary.items.begin(), summary.items.end(),
+          [&ref_id](const auto& item) {
+            return item.content_id == ref_id && item.exercise_id.empty();
+          });
+      if (found == summary.items.end()) {
+        ReviewItem item;
+        item.content_id = ref_id;
+        item.latest_at = record.updated_at;
+        item.evidence_count = record.evidence.size();
+        summary.items.push_back(std::move(item));
+        found = std::prev(summary.items.end());
+      }
+      found->due_key = record.review_due_key;
+      found->next_node_index = record.review_step;
+      found->mastery_level = record.level;
+      found->plan_source = effective_plan.source;
+      found->group = group_name(record, today_key);
+      found->forgetting_risk = risk_name(record, today_key);
+      if (!record.evidence.empty()) {
+        const auto& latest = record.evidence.back();
+        found->latest_at = latest.at;
+        found->latest_result = latest.note;
+        found->passed = latest.passed;
+        found->independent = mastery_eligible(latest);
+        found->hint_level = latest.hint_level;
+      }
+    }
+  }
+  return app::Result::success("复习汇总已生成（只读）");
+}
+
+}  // namespace codeweave::learning

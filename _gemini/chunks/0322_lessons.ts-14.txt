@@ -1,0 +1,74 @@
+    code: 'try (Connection conn = DriverManager.getConnection(URL, USER, PASS);\n     PreparedStatement ps = conn.prepareStatement("INSERT INTO tasks(title, status) VALUES (?, ?)")) {\n    conn.setAutoCommit(false);\n    ps.setString(1, "写周报");\n    ps.setString(2, "TODO");\n    ps.executeUpdate();\n    conn.commit();\n} catch (SQLException e) {\n    // conn.rollback(); 出错回滚，避免半截数据\n}',
+    flow: sumFlow('开始', '获取连接', '预编译 SQL', '参数绑定执行', '提交或回滚'),
+    insight: 'PreparedStatement 同时解决 SQL 注入与重复编译；事务保证多语句要么全成要么全不做。', fileName: 'TaskDao.java', runtime: '外部环境 · MySQL + JDK',
+    content: unit(
+      '独立完成 tasks 表的 JDBC CRUD，并演示一次事务回滚。',
+      {
+        prerequisites: ['g2-servlet-tomcat'],
+        explanation: [
+          '参数一律用 ? 占位符 + setXxx 绑定，字符串拼接 SQL 等于开放注入。',
+          'conn.setAutoCommit(false) 后的多条语句组成事务：commit 一起生效，rollback 全部撤销。',
+          'try-with-resources 确保连接与语句必定关闭。',
+        ],
+        examples: [
+          { good: 'WHERE status = ? 加 setString(1, "TODO")', bad: '把用户输入的 status 直接字符串拼接进 SQL 语句——经典注入漏洞', why: '注入防护必须在语句构造层解决' },
+        ],
+        guidedSteps: ['本地建库建表（tasks），加载数据库驱动依赖。', '完成 insert/list/update/delete 四个方法（全部预编译）。', '写一段两步转账式演示：第二步故意失败，验证第一步被回滚。'],
+        exercise: '独立给 DAO 增加分页查询（LIMIT ? OFFSET ?）。',
+        variant: '用 HikariCP 换掉裸连接，说明连接池解决了什么问题。',
+        projectTask: 'TaskDao 直接接入 G2 的 Servlet，完成 G 阶段验收的完整闭环。',
+        mistakes: ['连接/语句不关闭导致耗尽连接', 'catch 里吞掉 SQLException 不回滚'],
+        runCommand: '本地 MySQL + JDK（真实数据库）',
+        completion: 'CRUD 四操作可用，回滚演示成功，能解释预编译与事务的价值。',
+        runEnvironment: 'external',
+        estimatedMinutes: 60,
+        acceptanceCriteria: ['四个 CRUD 方法全部可用', '事务回滚演示成功', '全部 SQL 使用预编译'],
+        evidenceChecklist: ['建表 SQL', 'CRUD 运行输出', '回滚演示记录'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'G',
+    ),
+  },
+]
+
+extraLessons.javascript.push(...stageEUnits, ...stageFUnits)
+extraLessons.java.push(...stageGUnits)
+
+/** 阶段 H：Spring、Spring MVC 与 MyBatis（外部环境实验：IDEA + MySQL） */
+const stageHUnits: Lesson[] = [
+  {
+    id: 'h1-spring-ioc-di', language: 'java', languageLabel: 'Spring', label: 'H1',
+    title: 'IoC 与 DI：把对象的装配交给容器', description: 'Bean、依赖注入与作用域', duration: '45 min', level: '进阶', progress: 0,
+    code: '@Service\npublic class TaskService {\n    private final TaskRepository repo;\n    // 构造器注入：依赖不可变且必达\n    public TaskService(TaskRepository repo) {\n        this.repo = repo;\n    }\n}',
+    flow: sumFlow('开始', '扫描 Bean 定义', '按依赖装配', '容器就绪', 'getBean 使用'),
+    insight: 'IoC 改变的是“谁负责 new”：容器装配依赖，类只声明自己需要什么。', fileName: 'TaskService.java', runtime: '外部环境 · IDEA + Spring',
+    content: unit(
+      '独立完成一个三层结构的 Spring 工程：Controller → Service → Repository 全部容器装配。',
+      {
+        prerequisites: ['g3-jdbc-mysql-crud'],
+        explanation: [
+          'IoC 容器管理 Bean 的创建与生命周期；@Service/@Repository/@Component 声明 Bean。',
+          '构造器注入让依赖不可变且必达，比字段注入更可测试。',
+          '默认单例作用域：无状态的 Service 才能安全单例。',
+        ],
+        examples: [
+          { good: '构造器注入 + final 字段，单测里直接 new TaskService(mockRepo)', bad: '@Autowired 字段注入，脱离容器无法构造，依赖可被悄悄替换', why: '可测试性来自“依赖显式可构造”' },
+        ],
+        guidedSteps: ['建 Spring 工程，写三层空实现并跑通容器启动。', '给 Service 写一个不启动容器的纯 JUnit 单测。', '故意制造循环依赖，阅读报错并解释容器为什么拒绝。'],
+        exercise: '独立增加一个 TaskValidator Bean 并注入 Service，在保存前校验标题非空。',
+        variant: '用 @Scope("prototype") 演示多例 Bean 与单例的行为差异。',
+        projectTask: '三层结构是 H 阶段验收（SSM CRUD）的骨架，Controller 不得越过 Service 访问 Repository。',
+        mistakes: ['字段注入导致单测困难', '在单例 Bean 里保存可变请求状态'],
+        runCommand: '本地 IDEA 运行 Spring 容器（真实框架行为）',
+        completion: '三层装配跑通，Service 有不依赖容器的单元测试。',
+        runEnvironment: 'external',
+        estimatedMinutes: 45,
+        acceptanceCriteria: ['三层全部容器装配', 'Service 单测不启动容器即可运行', '能解释构造器注入的收益'],
+        evidenceChecklist: ['工程结构截图', '单测运行输出'],
+        reviewOffsetsDays: [1, 3, 7, 14],
+      },
+      'H',
+    ),
+  },
+  {
+    id: 'h2-spring-mvc-validation', language: 'java', languageLabel: 'Spring MVC', label: 'H2',

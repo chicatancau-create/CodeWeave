@@ -1,0 +1,119 @@
+          setConflict(details && Array.isArray(details.files) && details.files.length > 0 ? details : null)
+          setError(result.message)
+          return
+        }
+        // 与指纹无关的失败（格式非法、断连等）：写入没有开始，预览仍然有效。
+        setConflict(null)
+        setError(result.message)
+        return
+      }
+      setMessage('已写入并复核：学习日志 → 进度追踪 → 总计划日志索引，全部成功。')
+      setPreview(null)
+      setConflict(null)
+      setPartial(null)
+      setConfirmed(false)
+      // 成功之后账本必须跟着翻页：02 区还在不在，判据是服务端还有没有未补齐的事务，
+      // 不是界面上那条 React 状态（取证闸门 ⑥ 就是钉这一条）。
+      await Promise.all([refreshQueue(), refreshLedger()])
+    },
+    [content, refreshQueue, refreshLedger],
+  )
+
+  /**
+   * 取一笔事务的逐步明细（GET /api/learning/evidence-transaction/:operationId）。
+   * 失败只影响这一块：写清楚读不回什么，不把整页退回加载态，也不把「没读到」说成「没有步骤」。
+   */
+  const loadDetail = useCallback(async (operationId: string) => {
+    setDetailPhase('loading')
+    setDetail(null)
+    setDetailFailure('')
+    const loaded = await fetchWritebackTransaction(operationId)
+    if (!loaded.ok) {
+      setDetailPhase('failed')
+      setDetailFailure(`${loaded.message}（错误码 ${loaded.code}）`)
+      return
+    }
+    setDetail(loaded.data)
+    setDetailPhase('ready')
+  }, [])
+
+  /** 展开 / 收起一笔事务的逐步明细。收起只是回到账本列表，不改动任何数据。 */
+  const toggleTransaction = useCallback(
+    (operationId: string) => {
+      setRollbackConfirmId(null)
+      if (openTxId === operationId) {
+        setOpenTxId(null)
+        setDetail(null)
+        setDetailPhase('loading')
+        setDetailFailure('')
+        return
+      }
+      setOpenTxId(operationId)
+      void loadDetail(operationId)
+    },
+    [openTxId, loadDetail],
+  )
+
+  /**
+   * 「重试补齐」的统一入口（挂账⑤ + #35）。
+   * 本页还留着那次预览的指纹时就直接用它；界面重新载入后手上没有指纹副本，
+   * 就从服务端**这笔事务自己的**记录里取回同一批预览基线再提交。
+   * 两条路都带真实指纹——传 `{}` 等于让服务端跳过这道校验，本面板不接受那种写法。
+   */
+  const retryPartial = async (operationId: string, hashes: ExpectedHashes | null, source: PartialTransaction['source']) => {
+    if (hashes && Object.keys(hashes).length > 0) {
+      await runCommit(operationId, hashes, source)
+      return
+    }
+    setBusy(true)
+    setError('')
+    const loaded = await fetchWritebackTransaction(operationId)
+    setBusy(false)
+    if (!loaded.ok) {
+      setError(`取不回这笔事务的预览基线，未能重试：${loaded.message}`)
+      return
+    }
+    const stored: ExpectedHashes = Object.fromEntries(loaded.data.targets.map((step) => [step.path, step.expectedHash]))
+    if (Object.keys(stored).length === 0) {
+      setError('这笔事务没有留下任何目标指纹，无法带校验重试；请重新预览后再提交。')
+      return
+    }
+    setPartial({ operationId, message: loaded.data.message, expectedHashes: stored, source: 'record' })
+    await runCommit(operationId, stored, 'record')
+  }
+
+  /**
+   * 回滚（挂账 #35）：确认后按真实事务发 POST /api/learning/evidence-rollback，
+   * 回来后一律以服务端读回的状态为准——成功要重读，被挡更要重读，绝不假设成功。
+   * `rollback_blocked` 的 409 与逐条 blockers 原样呈现，不吞掉。
+   */
+  const runRollback = useCallback(
+    async (operationId: string) => {
+      setRollbackConfirmId(null)
+      setRollbackBusy(true)
+      setRollbackOutcome(null)
+      const result = await rollbackWriteback(operationId)
+      if (!result.ok) {
+        const blocked = result.code === 'rollback_blocked'
+        setRollbackOutcome({
+          operationId,
+          tone: blocked ? 'blocked' : 'failed',
+          text: result.message,
+          blockers: blocked ? readRollbackBlockers(result.details) : null,
+        })
+        setRollbackBusy(false)
+        // 被挡住时事务仍是原状态：把服务端当前的说法读回来，不让界面停在旧结论上。
+        await Promise.all([refreshLedger(), loadDetail(operationId)])
+        return
+      }
+      const restored = result.data.targets.filter((step) => step.action === 'restored').length
+      const removed = result.data.targets.filter((step) => step.action === 'removed').length
+      setRollbackOutcome({
+        operationId,
+        tone: 'done',
+        text: result.data.idempotent
+          ? '服务端记录显示这笔事务此前已回滚，本次没有再改动任何文件。'
+          : `服务端已还原 ${restored} 个文件、移出本次新建的 ${removed} 个；下面的状态是回滚后重新读回来的。`,
+        blockers: null,
+      })
+      setRollbackBusy(false)

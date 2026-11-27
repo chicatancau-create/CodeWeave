@@ -1,0 +1,74 @@
+      if ((g_gui_smoke || g_gui_interaction_smoke) && wparam == 1) {
+        KillTimer(window, 1);
+        if (g_gui_interaction_smoke) {
+          const auto initial = L"中文草稿\nreturn 42;\n";
+          SetWindowTextW(g_draft_edit, initial);
+          SetFocus(g_draft_edit);
+          const bool focus_ok = GetFocus() == g_draft_edit;
+          const auto initial_length = GetWindowTextLengthW(g_draft_edit);
+          SendMessageW(g_draft_edit, EM_SETSEL, initial_length, initial_length);
+          const auto replacement = L"追加";
+          SendMessageW(g_draft_edit, EM_REPLACESEL, TRUE,
+              reinterpret_cast<LPARAM>(replacement));
+          const bool appended = control_text(g_draft_edit) ==
+              "中文草稿\nreturn 42;\n追加";
+          const bool undo_requested = SendMessageW(g_draft_edit, EM_UNDO, 0, 0) != 0;
+          const bool undo_ok = undo_requested && control_text(g_draft_edit) ==
+              "中文草稿\nreturn 42;\n";
+          const auto before_limit = GetWindowTextLengthW(g_draft_edit);
+          set_edit_limit(g_draft_edit, 8);
+          SetWindowTextW(g_draft_edit, L"");
+          SendMessageW(g_draft_edit, EM_SETSEL, 0, 0);
+          SendMessageW(g_draft_edit, EM_REPLACESEL, TRUE,
+              reinterpret_cast<LPARAM>(L"123456789012345"));
+          const bool length_limited = GetWindowTextLengthW(g_draft_edit) <= 8;
+          set_edit_limit(g_draft_edit, kMaximumDraftCharacters);
+          SetWindowTextW(g_draft_edit, initial);
+          SetWindowPos(window, nullptr, 0, 0, 960, 620,
+              SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+          RECT resized{};
+          GetClientRect(window, &resized);
+          const bool relayout_ok = resized.right > 0 && resized.bottom > 0 &&
+              before_limit > 0;
+          g_gui_smoke_ok = focus_ok && appended && undo_ok && length_limited &&
+              relayout_ok && IsWindow(g_draft_edit) && IsWindow(g_run_button) &&
+              g_core.is_open();
+          DestroyWindow(window);
+          return 0;
+        }
+        const bool account_fields_start_empty =
+            GetWindowTextLengthW(g_account_name) == 0 &&
+            GetWindowTextLengthW(g_account_identifier) == 0;
+        SetWindowTextW(g_draft_edit, L"GUI smoke 中文草稿\nreturn 42;\n");
+        SetWindowTextW(g_account_name, L"GUI Smoke");
+        SetWindowTextW(g_account_identifier, L"gui-smoke@example.test");
+        SetWindowTextW(g_account_password, L"Smoke-Password-123!");
+        SendMessageW(window, WM_COMMAND, MAKEWPARAM(kAccountRegisterId, BN_CLICKED), 0);
+        SetWindowTextW(g_draft_edit, L"GUI smoke 中文草稿\nreturn 42;\n");
+        SendMessageW(window, WM_COMMAND, MAKEWPARAM(kSaveButtonId, BN_CLICKED), 0);
+        std::string restored;
+        const auto draft_saved = g_personal_core.load_draft(draft_id(), restored).ok &&
+            restored == "GUI smoke 中文草稿\nreturn 42;\n";
+        std::vector<codeweave::account::Record> accounts;
+        const auto account_saved = g_account_store &&
+            g_account_store->list_accounts(accounts).ok && accounts.size() == 1 &&
+            g_account_service && g_account_service->authenticated();
+        g_gui_smoke_ok = IsWindow(g_draft_edit) && IsWindow(g_content_list) &&
+            IsWindow(g_content_body) && IsWindow(g_run_button) && g_core.is_open() &&
+            account_fields_start_empty && draft_saved && account_saved;
+        DestroyWindow(window);
+      }
+      return 0;
+    case WM_SIZE:
+      layout_controls(window, LOWORD(lparam), HIWORD(lparam));
+      return 0;
+    case WM_GETMINMAXINFO: {
+      auto* limits = reinterpret_cast<MINMAXINFO*>(lparam);
+      limits->ptMinTrackSize.x = kMinimumClientWidth;
+      limits->ptMinTrackSize.y = kMinimumClientHeight;
+      return 0;
+    }
+    case WM_DPICHANGED: {
+      const auto* suggested = reinterpret_cast<const RECT*>(lparam);
+      SetWindowPos(window, nullptr, suggested->left, suggested->top,
+          suggested->right - suggested->left, suggested->bottom - suggested->top,

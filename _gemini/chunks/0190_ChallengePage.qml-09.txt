@@ -1,0 +1,85 @@
+                                        lineHeight: 1.6
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Item { Layout.fillHeight: true }
+                                }
+                            }
+
+                            HoverHandler { id: chHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler {
+                                onTapped: {
+                                    challengePage.openDetail(modelData.id, challengeCard);
+                                }
+                            }
+                        }
+                        }
+                    }
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        objectName: "challengeEmptyState"
+                        width: Math.min(parent.width - ds.s32, 420)
+                        visible: challengePage.filteredChallenges.length === 0
+                        spacing: ds.s10
+                        Text {
+                            Layout.fillWidth: true
+                            text: uiShell.challengeMeta.length === 0
+                                  ? "暂无可用的挑战数据。" : "当前筛选条件下没有匹配的关卡。"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 14
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                        }
+                        QuietButton {
+                            objectName: "challengeClearEmptyFilters"
+                                ds: challengePage.ds
+                            Layout.alignment: Qt.AlignHCenter
+                            implicitHeight: 44
+                            label: "清除筛选"
+                            visible: uiShell.challengeMeta.length > 0
+                            enabled: challengePage.searchText !== "" || challengePage.stageFilter !== "全部"
+                                     || challengePage.trackFilter !== "全部"
+                                     || challengePage.difficultyFilter !== "全部"
+                                     || challengePage.sortFilter !== "A—M 顺序"
+                                     || challengePage.runnerFilter !== "全部"
+                            onClicked: challengePage.clearFilters()
+                        }
+                    }
+                }
+            }
+
+            // nav.challenge-pagination
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: ds.line
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: ds.s20
+                spacing: ds.s12
+                QuietButton {
+                    objectName: "challengePreviousPage"
+                                ds: challengePage.ds
+                    implicitHeight: 44
+                    label: "‹ 上一页"
+                    enabled: challengePage.currentPage > 1
+                    onClicked: challengePage.currentPage = Math.max(1, challengePage.currentPage - 1)
+                }
+                Item { Layout.fillWidth: true }
+                Text {
+                    text: challengePage.filteredChallenges.length === 0
+                          ? "暂无匹配关卡" : "第 " + challengePage.currentPage + " / " + challengePage.pageCount + " 页"
+                    color: ds.muted
+                    font.family: ds.ui
+                    font.pixelSize: 14
+                    font.letterSpacing: 0.8
+                    Layout.alignment: Qt.AlignVCenter
+                }
+                Item { Layout.fillWidth: true }
+                QuietButton {
+                    objectName: "challengeNextPage"
+                                ds: challengePage.ds

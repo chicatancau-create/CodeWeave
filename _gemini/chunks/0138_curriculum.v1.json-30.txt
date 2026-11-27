@@ -1,0 +1,152 @@
+        "estimatedMinutes": 45,
+        "acceptanceCriteria": [
+          "反代接入并验证",
+          "发布含备份与验证清单",
+          "回滚演练成功且限时"
+        ],
+        "evidenceChecklist": [
+          "nginx 配置",
+          "发布与回滚日志",
+          "runbook 文件"
+        ]
+      }
+    },
+    {
+      "id": "m1-requirement-modeling",
+      "language": "java",
+      "languageLabel": "综合实战",
+      "label": "M1",
+      "title": "需求拆解与实体建模",
+      "description": "限时开发从纸面开始",
+      "duration": "40 min",
+      "level": "进阶",
+      "code": "# 需求拆解模板\n# 角色：用户 / 管理员\n# 实体：Task(id, title, status, owner, createdAt)\n# 接口清单：\n#   POST   /api/tasks      创建\n#   GET    /api/tasks      列表（分页）\n#   PUT    /api/tasks/:id  更新\n#   DELETE /api/tasks/:id  删除\n# 非功能：登录才能写操作；错误统一结构",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "读需求",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "拆角色与实体",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "列接口清单",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "定验收标准",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "限时竞赛里，前 30 分钟的建模质量决定后面 4 小时的返工量。",
+      "fileName": "requirement.md",
+      "runtime": "外部环境 · 文档 + 白板",
+      "content": {
+        "objective": "独立完成一份需求拆解文档：角色、实体关系、接口清单与非功能约束。",
+        "prerequisites": [
+          "j3-csrf-cors-boundary"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7
+        ],
+        "stageId": "M",
+        "explanation": [
+          "实体建模先找名词与关系，接口清单从实体操作推导（REST 语义）。",
+          "非功能约束（权限、分页、错误结构）在拆解期就要写下，否则实现期必然遗漏。",
+          "每条接口附“完成定义”：什么状态码、什么数据算正确。"
+        ],
+        "examples": [
+          {
+            "good": "接口清单直接给出方法 + 路径 + 请求/响应示例",
+            "bad": "只写“做一个任务管理”，实现全靠临场发挥",
+            "why": "可执行的拆解才能并行动工"
+          }
+        ],
+        "guidedSteps": [
+          "读一遍题目需求，圈出角色与核心名词。",
+          "写出实体字段与关系（一对多/多对多）。",
+          "推导接口清单并给每条写完成定义。"
+        ],
+        "exercise": "独立为“投票系统”完成同规格拆解（限时 25 分钟）。",
+        "variant": "给拆解文档补一节“风险与砍功能顺序”——时间不够先砍什么。",
+        "projectTask": "M 阶段验收（限时交付）的第一份提交物，M2 的开发以此为规格。",
+        "mistakes": [
+          "建模到字段级才动手导致超时",
+          "漏掉权限与错误结构等非功能需求"
+        ],
+        "runCommand": "文档与白板（人工产出）",
+        "completion": "拆解文档齐全，接口清单可直接开工。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 40,
+        "acceptanceCriteria": [
+          "实体与关系图完整",
+          "接口清单含完成定义",
+          "非功能约束已列出"
+        ],
+        "evidenceChecklist": [
+          "需求拆解文档",
+          "接口清单"
+        ]
+      }
+    },
+    {
+      "id": "m2-timebox-mvp",
+      "language": "java",
+      "languageLabel": "综合实战",
+      "label": "M2",
+      "title": "限时最小闭环：先能跑，再变好",
+      "description": "30 分钟跑通端到端",
+      "duration": "60 min",
+      "level": "进阶",
+      "code": "# 限时节奏（以 4 小时为例）：\n# 00:00-00:30 骨架与数据库 + 健康检查\n# 00:30-02:00 核心实体 CRUD（跳过样式）\n# 02:00-03:00 登录 + 权限\n# 03:00-03:40 部署与验证清单\n# 03:40-04:00 备份、runbook、演示脚本",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "搭骨架",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "最小 CRUD",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",

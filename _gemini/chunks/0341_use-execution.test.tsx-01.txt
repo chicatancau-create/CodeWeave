@@ -1,0 +1,157 @@
+// @vitest-environment jsdom
+/**
+ * RUN-01 运行身份、取消与结果归属契约测试。
+ *
+ * 对应 T.4 RUN-01 的核心缺陷：
+ * - `handleRun` / `handleStep` 在 `await executeJavaScript(...)` **之后**才设置 running，
+ *   期间没有 runId，用户可再次触发；且重置/切课后旧 Promise 返回时仍会写回结果。
+ * - 快捷键只依赖 `enabled`，隐藏工作台仍可能响应 Ctrl+Enter。
+ *
+ * 本文件用可控的异步运行器构造"迟到的旧结果"，验证结果只在快照仍匹配时被接收。
+ */
+import { act, cleanup, render } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ExecutionResult, Lesson } from '../types/lesson'
+import { EXECUTION_SETTINGS } from '../utils/constants'
+import { useExecution } from './use-execution'
+import { useReducedMotion } from './use-reduced-motion'
+
+/** 可控运行器：测试决定何时 resolve，用于构造"迟到结果"。 */
+const pendingRuns: Array<(value: ExecutionResult) => void> = []
+
+vi.mock('../engine/javascript-sandbox', () => ({
+  executeJavaScript: vi.fn(
+    () =>
+      new Promise<ExecutionResult>((resolve) => {
+        pendingRuns.push(resolve)
+      }),
+  ),
+}))
+
+vi.mock('../engine/teaching-runtime', () => ({
+  simulateProgram: vi.fn(() => ({ events: [], output: [] }) as ExecutionResult),
+}))
+
+const lesson = {
+  id: 'lessonA',
+  language: 'javascript',
+  code: 'console.log(1)',
+  title: '测试课程',
+} as unknown as Lesson
+
+type Api = ReturnType<typeof useExecution>
+
+function harnessRef() {
+  const ref: { current: Api | null } = { current: null }
+  const onReady = (api: Api) => {
+    ref.current = api
+  }
+  return { ref, onReady }
+}
+
+/**
+ * 走 app.tsx 真实的接线：设置与系统偏好先由 `useReducedMotion` 合并，再传给 useExecution。
+ * 直接从 props 传布尔会让「系统偏好」那条路径没有任何用例覆盖。
+ */
+function Harness({
+  onReady,
+  enabled = true,
+  reducedMotion = false,
+}: {
+  onReady?: (api: Api) => void
+  enabled?: boolean
+  reducedMotion?: boolean
+}) {
+  const api = useExecution('console.log(1)', 'javascript', lesson, enabled, useReducedMotion(reducedMotion))
+  onReady?.(api)
+  return null
+}
+
+const result = (output: string[]): ExecutionResult => ({
+  events: [{ id: 'ev-1', type: 'output', line: 1, label: '输出', detail: '', variables: [] }],
+  output,
+})
+
+/** n 条输出事件：步数与末态要数得出来。 */
+const multiResult = (n: number): ExecutionResult => ({
+  events: Array.from({ length: n }, (_, i) => ({
+    id: `ev-${i}`,
+    type: 'output' as const,
+    line: i + 1,
+    label: '输出',
+    detail: '',
+    variables: [],
+  })),
+  output: Array.from({ length: n }, (_, i) => String(i + 1)),
+})
+
+beforeEach(() => {
+  pendingRuns.length = 0
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('RUN-01 运行身份与准备态', () => {
+  it('进入异步执行前即进入 preparing/running，不留"看起来没反应"的窗口', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+
+    // 触发运行：异步运行器尚未返回
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+
+    // 关键：此时必须已经是非 idle 状态
+    expect(ref.current!.runStatus).not.toBe('idle')
+
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(result(['1'])))
+    })
+  })
+
+  it('暴露当前 runId，供调用方判断结果是否属于本次运行', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+
+    const before = ref.current!.runId
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+    expect(ref.current!.runId).not.toBe(before)
+
+    await act(async () => {
+      pendingRuns.forEach((resolve) => resolve(result(['1'])))
+    })
+  })
+})
+
+describe('RUN-01 迟到结果不得覆盖', () => {
+  it('重置后旧运行返回的结果被丢弃', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+
+    await act(async () => {
+      void ref.current!.handleRun()
+    })
+    // 重置使旧 runId 失效
+    await act(async () => {
+      ref.current!.handleReset()
+    })
+
+    const stale = pendingRuns[0]!
+    await act(async () => {
+      stale(result(['旧结果']))
+    })
+
+    // 旧结果不得写回
+    expect(ref.current!.execution.output).toEqual([])
+    expect(ref.current!.runStatus).toBe('idle')
+  })
+
+  it('第二次运行的结果不被先返回的旧结果覆盖', async () => {
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+

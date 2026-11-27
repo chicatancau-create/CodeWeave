@@ -1,0 +1,153 @@
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-submitted-evidence-label {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-submitted-evidence-text {
+  color: var(--cv-ink);
+  white-space: pre-wrap;
+}
+
+.challenges-view .challenge-submitted-meta {
+  color: var(--cv-faint);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.04em;
+}
+
+/* R4 人工复核（LEARN-01 第 4 条：verified / rejected 此前在生产里没有任何入口）。
+   按钮直接复用上面 `.challenge-actions .subtle-button` 那一档（44px + 1px 细线 + 暖白字），
+   不新造控件样式；差异由图标形状与文字承载，不靠颜色单传。 */
+.challenges-view .challenge-verify-actions {
+  margin-top: 0;
+}
+
+.challenges-view .challenge-verify-note {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  line-height: var(--cv-leading);
+  overflow-wrap: anywhere;
+}
+
+.challenges-view .challenge-verify-actions .field-label {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.challenges-view .challenge-verify-select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--cv-tap);
+  padding: var(--ds-space-8, 8px) var(--ds-space-10, 10px);
+  color: var(--cv-ink);
+  background: var(--ds-canvas-solid, #000);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: 1.5;
+}
+
+.challenges-view .challenge-verify-select:focus-visible {
+  border-color: var(--cv-edge-active);
+}
+
+/* 提示框：恒定 warn 色 + 1px 细线（取消 2px 彩色左条） */
+.challenges-view .hint-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-10, 10px);
+  margin-top: 0;
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .hint-box svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+
+/* 外部关卡声明：不伪造结果的承诺必须比装饰更显眼 */
+.challenges-view .challenge-external-note {
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-warn);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-warn-wash);
+  color: var(--cv-warn);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .challenge-external-note p + p {
+  margin-top: var(--ds-space-8, 8px);
+}
+
+.challenges-view .external-evidence-form {
+  display: grid;
+  gap: var(--ds-space-12, 12px);
+  margin-top: 0;
+}
+
+.challenges-view .external-evidence-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-8, 8px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  border: var(--cv-hair-width) solid var(--cv-info);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--cv-info-wash);
+  color: var(--cv-info);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+
+.challenges-view .external-evidence-hint svg {
+  flex: 0 0 auto;
+  margin-top: var(--ds-space-4, 4px);
+}
+
+.challenges-view .external-evidence-field {
+  display: grid;
+  gap: var(--ds-space-6, 6px);
+}
+
+.challenges-view .external-evidence-required {
+  margin-left: var(--ds-space-6, 6px);
+  padding: var(--ds-space-hair, 1px) var(--ds-space-8, 8px);
+  border: var(--cv-hair-width) solid currentColor;
+  border-radius: var(--ds-shape-none, 0);
+  background: none;
+  color: var(--cv-bad);
+  font-size: var(--cv-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.challenges-view .external-evidence-input {
+  width: 100%;
+  min-height: var(--cv-tap);
+  font-size: var(--cv-body);
+}
+
+.challenges-view .external-evidence-input.invalid,
+.challenges-view .challenge-evidence.invalid {
+  border-color: var(--cv-bad);
+}
+
+.challenges-view .external-evidence-error {
+  color: var(--cv-bad);
+  font-size: var(--cv-body);

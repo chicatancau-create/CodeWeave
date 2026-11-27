@@ -1,0 +1,102 @@
+                        text: (uiShell.hasActiveAccount ? uiShell.accountName : "访客") + " 的学习区"
+                        color: ds.ink
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "全栈冲刺 · " + root.stageCount + " 阶段"
+                        color: ds.stageMetaInk
+                        font.family: ds.ui
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            // p.nav-label — 工作台
+            Text {
+                Layout.leftMargin: ds.s12
+                Layout.bottomMargin: ds.s10
+                text: "工作台"
+                color: ds.muted
+                font.family: ds.ui
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                font.letterSpacing: 1
+                font.capitalization: Font.AllUppercase
+            }
+
+            // nav.main-nav
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: ds.s6
+                NavItem {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "BookOpen"; label: "学习路径"; index: "01"
+                    active: root.page === "学习"
+                    onActivated: uiShell.selectPage("学习")
+                }
+                NavItem {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "Trophy"; label: "实战挑战"; index: "02"
+                    badge: uiShell.challengeMeta.length > 0
+                           ? "" + uiShell.challengeMeta.length : ""
+                    active: root.page === "挑战"
+                    onActivated: uiShell.selectPage("挑战")
+                }
+                NavItem {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "FolderKanban"; label: "代码草稿"; index: "03"
+                    active: root.page === "草稿"
+                    onActivated: uiShell.selectPage("草稿")
+                }
+                NavItem {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "CalendarClock"; label: "复习中心"; index: "04"
+                    objectName: "sidebarReviewNavigation"
+                    badge: Number(uiShell.analysisSnapshot.reviewDueCount || 0) > 0
+                           ? "" + uiShell.analysisSnapshot.reviewDueCount : ""
+                    active: root.page === "复习与进度"
+                    onActivated: uiShell.selectPage("复习与进度")
+                }
+                NavItem {
+                    ds: root.designSystem
+                    Layout.fillWidth: true
+                    iconName: "Activity"; label: "学习分析"; index: "05"
+                    active: root.page === "分析"
+                    onActivated: uiShell.selectPage("分析")
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+
+            // .nav-label #2 — 课程进度
+            Text {
+                Layout.leftMargin: ds.s12
+                Layout.topMargin: ds.s8
+                Layout.bottomMargin: ds.s10
+                text: "课程进度 · " + root.stageCount + " 阶段"
+                color: ds.muted
+                font.family: ds.ui
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                font.letterSpacing: 1
+                font.capitalization: Font.AllUppercase
+            }
+
+            // .sidebar-bottom
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: ds.s20
+                spacing: 0
+
+                // .streak-card
+                Rectangle {
+                    id: checkinCard
+                    objectName: "sidebarCheckinCard"

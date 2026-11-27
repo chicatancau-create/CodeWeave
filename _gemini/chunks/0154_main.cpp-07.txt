@@ -1,0 +1,73 @@
+  if (language != "cpp" && language != "java" && language != "python" && language != "javascript") {
+    set_status(L"请先选择 cpp、java、python 或 javascript 语言"); return;
+  }
+  wchar_t selected[32768]{};
+  OPENFILENAMEW dialog{};
+  dialog.lStructSize = sizeof(dialog);
+  dialog.hwndOwner = GetParent(g_status);
+  dialog.lpstrFilter = L"语言工具 (*.exe)\0*.exe\0\0";
+  dialog.lpstrFile = selected;
+  dialog.nMaxFile = static_cast<DWORD>(std::size(selected));
+  dialog.lpstrTitle = L"选择当前语言的编译器或解释器";
+  dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+  if (!GetOpenFileNameW(&dialog)) return;
+  const codeweave::execution::ProcessRequest request{selected, {}, g_core.data_root(), language};
+  const auto valid = codeweave::execution::validate_process_request(request);
+  if (!valid.ok || std::filesystem::path(selected).filename() == L"codeweave-cpp-runner.exe") {
+    set_status(L"选择的程序不是当前语言支持的编译器或解释器"); return;
+  }
+  const auto settings = g_core.data_root() / L"tools.ini";
+  const bool saved = WritePrivateProfileStringW(L"tools", wide_from_utf8(language).c_str(), selected, settings.c_str()) != FALSE;
+  set_status(saved ? L"语言工具已保存，下次启动自动使用" : L"保存语言工具配置失败");
+}
+
+std::filesystem::path choose_directory(HWND window, const wchar_t* title) {
+  BROWSEINFOW info{}; info.hwndOwner = window; info.lpszTitle = title;
+  info.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+  const auto item = SHBrowseForFolderW(&info);
+  if (!item) return {};
+  wchar_t path[MAX_PATH]{};
+  const bool valid = SHGetPathFromIDListW(item, path) != FALSE;
+  CoTaskMemFree(item);
+  return valid ? std::filesystem::path(path) : std::filesystem::path{};
+}
+
+std::filesystem::path choose_json(HWND window) {
+  wchar_t path[32768]{};
+  OPENFILENAMEW dialog{}; dialog.lStructSize = sizeof(dialog); dialog.hwndOwner = window;
+  dialog.lpstrFilter = L"JSON 文件\0*.json\0\0"; dialog.lpstrFile = path;
+  dialog.nMaxFile = static_cast<DWORD>(std::size(path)); dialog.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+  return GetOpenFileNameW(&dialog) ? std::filesystem::path(path) : std::filesystem::path{};
+}
+
+bool activate_profile(const std::filesystem::path& root) {
+  if (!account_change_allowed()) return false;
+  g_account_service->logout();
+  refresh_account_stores();
+  const auto workspace = g_core.workspace();
+  const auto previous = g_core.data_root();
+  g_core.close_workspace();
+  const auto opened = g_core.open_workspace(workspace, root);
+  if (!opened.ok) { g_core.open_workspace(workspace, previous); set_status(wide_from_utf8(opened.message)); return false; }
+  g_account_service.reset();
+  g_account_store = std::make_unique<codeweave::account::AccountStore>(root);
+  g_account_service = std::make_unique<codeweave::account::AccountService>(*g_account_store);
+  wchar_t local[32768]{};
+  if (GetEnvironmentVariableW(L"LOCALAPPDATA", local, static_cast<DWORD>(std::size(local))) > 0) {
+    const auto settings = std::filesystem::path(local) / L"CodeWeave" / L"profiles.ini";
+    std::error_code error; std::filesystem::create_directories(settings.parent_path(), error);
+    if (error || !WritePrivateProfileStringW(L"profile", L"active", root.c_str(), settings.c_str())) {
+      set_status(L"已打开新数据目录，但未能保存下次启动配置"); return false;
+    }
+  }
+  set_account_status(L"数据目录已切换，请使用导入或恢复的账户登录");
+  return true;
+}
+
+LRESULT CALLBACK evidence_window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+  switch (message) {
+    case WM_CREATE: {
+      const wchar_t* labels[] = {L"运行环境 / 工具版本", L"实际执行命令", L"结果摘要（按课程验收点填写）", L"日志 / 截图引用（可选）", L"复现日期 YYYY-MM-DD"};
+      const int top[] = {16, 88, 160, 322, 394};
+      for (int index = 0; index < 5; ++index) {
+        CreateWindowW(L"STATIC", labels[index], WS_CHILD | WS_VISIBLE, 20, top[index], 600, 22, window, nullptr, nullptr, nullptr);

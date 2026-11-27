@@ -1,0 +1,100 @@
+          return { ok: false, status: options.lessonStatus, json: async () => ({ code: 'not_found', error: '未发布的内容' }) }
+        }
+        return json({ lesson: detailLesson, exercises: detailExercises, stages: [] })
+      }
+      return { ok: false, status: 404, json: async () => ({ code: 'not_found', error: `未预置的接口：${url}` }) }
+    }) as unknown as typeof fetch,
+  )
+}
+
+beforeEach(() => {
+  calls.length = 0
+  localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+describe('双链命中已发布主题', () => {
+  it('渲染成可点击按钮，并且不生成任何 href', async () => {
+    stubVaultApi()
+    const { container } = render(
+      <ContentProvider enabled>
+        <MarkdownView markdown={'上一课是 [[Java 核心基础]]。'} />
+      </ContentProvider>,
+    )
+    const button = (await screen.findByRole('button', { name: /打开已发布主题/ })) as HTMLButtonElement
+    expect(button.textContent).toBe('Java 核心基础')
+    expect(button.getAttribute('type')).toBe('button')
+    expect(button.hasAttribute('href')).toBe(false)
+    expect(container.querySelector('a')).toBeNull()
+    expect(container.querySelector('[href]')).toBeNull()
+  })
+
+  it('宿主给了 onNavigate：把跳转交给宿主，不自行拉详情', async () => {
+    stubVaultApi()
+    const onNavigate = vi.fn()
+    render(
+      <ContentProvider enabled>
+        <MarkdownView markdown={'上一课是 [[复习大纲/01-编程语言/Java/Java核心基础|Java 基础]]。'} onNavigate={onNavigate} />
+      </ContentProvider>,
+    )
+    const button = await screen.findByRole('button', { name: /打开已发布主题/ })
+    fireEvent.click(button)
+    expect(onNavigate).toHaveBeenCalledWith({ contentId: 'cw-java-001', title: 'Java 核心基础' })
+    await waitFor(() => expect(calls).toContain('/api/content/catalog'))
+    expect(calls.some((url) => url.startsWith('/api/content/lessons/'))).toBe(false)
+  })
+
+  it('宿主没接管：用 Provider 已有的详情能力就地展开原文，表格与双链沿用同一套渲染', async () => {
+    stubVaultApi()
+    const { container } = render(
+      <ContentProvider enabled>
+        <MarkdownView markdown={'上一课是 [[Java 核心基础]]。'} />
+      </ContentProvider>,
+    )
+    const button = await screen.findByRole('button', { name: /打开已发布主题/ })
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(button)
+    expect(await screen.findByText('面向对象入门')).toBeTruthy()
+    expect(calls.some((url) => url === '/api/content/lessons/cw-java-001')).toBe(true)
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    // 展开的正文里：表格仍按表格渲染；未发布回指被明确提示；危险结构没有变成元素
+    const preview = document.querySelector('.md-wikilink-card')
+    expect(preview?.querySelector('table')?.getAttribute('role')).toBe('table')
+    expect(preview?.querySelector('table code')?.textContent).toBe('private')
+    expect(preview?.querySelector('.md-wikilink--unresolved')?.textContent).toContain('未发布')
+    expect(preview?.querySelectorAll('.md-wikilink--target')).toHaveLength(0)
+    expect(container.querySelector('script')).toBeNull()
+    // 关闭后回到只显示链接文字
+    fireEvent.click(screen.getByRole('button', { name: '关闭该主题的原文预览' }))
+    expect(document.querySelector('.md-wikilink-card')).toBeNull()
+    expect(document.activeElement).toBe(button)
+  })
+
+  it('详情读取失败：给出可读说明，不静默也不崩', async () => {
+    stubVaultApi({ lessonStatus: 404 })
+    render(
+      <ContentProvider enabled>
+        <MarkdownView markdown={'上一课是 [[Java 核心基础]]。'} />
+      </ContentProvider>,
+    )
+    const button = await screen.findByRole('button', { name: /打开已发布主题/ })
+    fireEvent.click(button)
+    expect(await screen.findByText(/详情读取失败/)).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('button', { name: '关闭该主题的原文预览' }), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(button)
+  })
+})
+
+describe('双链未命中', () => {
+  it('快照里没有的主题：明确提示未发布/未登记，且不给可点元素', async () => {
+    stubVaultApi()
+    const { container } = render(
+      <ContentProvider enabled>
+        <MarkdownView markdown={'下一课见 [[复习大纲/09-未发布/不存在的分册|未发布分册]]。'} />
+      </ContentProvider>,
+    )

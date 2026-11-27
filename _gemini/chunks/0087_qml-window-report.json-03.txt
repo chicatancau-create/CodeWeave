@@ -1,0 +1,152 @@
+        "languageLabel": "Python",
+        "level": "入门",
+        "prerequisites": [
+            "知道什么是变量",
+            "会读写一行代码"
+        ],
+        "title": "循环是怎么工作的？"
+    },
+    "settingsInitialViewport": [
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 0,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 58
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 1,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 130
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 2,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 202
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 3,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 274
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 4,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 346
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 5,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 418
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 6,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 490
+        },
+        {
+            "contentY": 0,
+            "fullyVisible": true,
+            "height": 72,
+            "index": 7,
+            "storageReady": false,
+            "viewportHeight": 638,
+            "viewportWidth": 493,
+            "width": 493,
+            "windowHeight": 900,
+            "windowWidth": 1440,
+            "x": 0,
+            "y": 562
+        }
+    ],
+    "settingsRows": [
+    ],
+    "settingsText": [
+        {
+            "description": {
+                "contentHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "fitsRow": true,
+                "found": true,
+                "height": 21,
+                "implicitHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedHeight": {
+                    "valid": true,
+                    "value": 20.8
+                },
+                "paintedWidth": {
+                    "valid": true,
+                    "value": 143
+                },
+                "truncated": false,
+                "width": 426,
+                "x": 0,
+                "y": 39
+            },
+            "index": 0,

@@ -1,0 +1,119 @@
+  line-height: var(--rv-leading);
+  text-align: left;
+}
+
+/* 01 号方案 §4 的 loading / error 两档：排期口径「正在读 / 读不到」也占一块区域，
+   沿用 .rv-empty 的细线分区，只是给它一个与落地后更接近的高度下限（不靠猜像素，
+   真实浏览器上的 CLS 原始 shift 另按 §5.4 取证）。失败档把下边框换成虚线：
+   虚线 / 实线是本页既有的非颜色通道，不用颜色单独说「出错了」。 */
+.cw-review .rv-async {
+  min-height: 6em;
+}
+
+.cw-review .rv-async--failed {
+  border-bottom-style: dashed;
+  border-bottom-color: var(--rv-field-line);
+}
+
+.cw-review .rv-footnote {
+  padding-top: var(--ds-space-12, 12px);
+  border-top: var(--ds-line-width, 1px) solid var(--rv-hair);
+  font-size: var(--rv-meta);
+  line-height: var(--rv-leading);
+  color: var(--rv-dim);
+  max-width: 88ch;
+}
+
+/* ── 响应式：窄屏不重构行结构，改为「列有可读下限 + 区域内横向滚动」 ─────────
+   这句原来写的是「收成行表头在上的两列」，但下面从来没有对应的规则把表头搬进单元格——
+   注释描述的是没实现过的布局（09-23 有数据形态第一次被量到才暴露：列被挤到 24px、
+   页面仍溢出 41px）。表格语义保持不降级，溢出由 .rv-table-scroll 承担。
+   ------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .cw-review .rv-block-note {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .cw-review .rv-col:nth-child(3),
+  .cw-review .rv-cell-mastery,
+  .cw-review .rv-col:nth-child(4),
+  .cw-review .rv-cell-plan {
+    width: 18%;
+  }
+}
+
+@media (max-width: 679px) {
+  .cw-review {
+    --rv-pad-x: 12px;
+  }
+  .cw-review .rv-ledger {
+    table-layout: auto;
+    /* 列的可读下限：低于这个宽度，标题列就会一个字一行；溢出交给 .rv-table-scroll 滚 */
+    min-width: 440px;
+  }
+  /* 复习项这一列不许被挤到 88px 以下（09-23 有数据形态实测值），溢出由滚动区承担 */
+  .cw-review .rv-cell-item {
+    min-width: 12em;
+  }
+  .cw-review .rv-col-status,
+  .cw-review .rv-cell-status {
+    width: auto;
+  }
+  .cw-review .rv-col:nth-child(2),
+  .cw-review .rv-cell-item,
+  .cw-review .rv-col:nth-child(3),
+  .cw-review .rv-cell-mastery,
+  .cw-review .rv-col:nth-child(4),
+  .cw-review .rv-cell-plan {
+    width: auto;
+  }
+  .cw-review .rv-ledger th,
+  .cw-review .rv-ledger td {
+    padding-right: var(--ds-space-8, 8px);
+  }
+}
+
+/* 320px 最小宽度：字号收一档、编号列变窄，长中文继续换行 */
+@media (max-width: 399px) {
+  .cw-review {
+    --rv-body: 15px;
+    --rv-meta: 12px;
+    padding-left: var(--ds-space-10, 10px);
+    padding-right: var(--ds-space-10, 10px);
+  }
+  .cw-review .rv-col-num,
+  .cw-review .rv-cell-num {
+    width: 2.6em;
+  }
+  .cw-review .rv-block-idx {
+    font-size: 20px;
+  }
+  .cw-review .rv-actions {
+    gap: var(--ds-space-6, 6px);
+  }
+}
+
+/* ── §5.3 第 3 条：动效真正停止（模板只把流速乘 0.35，这里必须停） ───────────
+   两条路径各自完整生效，不依赖 tokens.css 是否被引入：
+   1) 系统偏好 prefers-reduced-motion；2) 应用内「减少动效」设置的根级 .reduce-motion。
+   本页没有任何持续动画（只有 150–220ms 的 hover/focus 过渡），因此真停的内容是
+   把 transition 一律置 none，而不是「放慢一点」。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .cw-review *,
+  .cw-review *::before,
+  .cw-review *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.reduce-motion .cw-review,
+.reduce-motion .cw-review *,
+.reduce-motion .cw-review *::before,
+.reduce-motion .cw-review *::after {
+  animation: none;
+  transition: none;
+  scroll-behavior: auto;
+}

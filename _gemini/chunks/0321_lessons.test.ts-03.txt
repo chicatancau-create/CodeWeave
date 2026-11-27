@@ -1,0 +1,43 @@
+        expect(unit.content.acceptanceCriteria?.length ?? 0).toBeGreaterThan(0)
+        expect(unit.content.evidenceChecklist?.length ?? 0).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('J2 在沙箱可执行：安全校验通过且代码验证净化效果；J1/J3 为外部实验', () => {
+    const j2 = lessons.find((lesson) => lesson.id === 'j2-xss-sanitize-sandbox')!
+    expect(j2.content.runEnvironment).toBe('teaching')
+    expect(j2.language).toBe('javascript')
+    expect(validateJavaScriptSandbox(j2.code)).toBeUndefined()
+    for (const id of ['j1-auth-session-flow', 'j3-csrf-cors-boundary']) {
+      const unit = lessons.find((lesson) => lesson.id === id)!
+      expect(unit.content.runEnvironment).toBe('external')
+    }
+  })
+
+  it('H—M 全部单元 id 唯一且先修引用有效（引用的单元真实存在）', () => {
+    const ids = new Set(lessons.map((lesson) => lesson.id))
+    for (const lesson of lessons) {
+      expect(lesson.content.prerequisites.length).toBeGreaterThan(0)
+      for (const prerequisite of lesson.content.prerequisites) {
+        // 先备项允许是“人类可读描述”或“真实单元 id”；含连字符编号格式的必须真实存在
+        if (/^[a-z]\d-/.test(prerequisite)) {
+          expect(ids.has(prerequisite)).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('A—M 每个阶段现在都有至少 3 个单元', () => {
+    for (const stageId of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M']) {
+      expect(stageOf(stageId).length).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('J2 代码真实可运行：净化后不含活标签（教学语义抽查）', () => {
+    const j2 = lessons.find((lesson) => lesson.id === 'j2-xss-sanitize-sandbox')!
+    // 代码断言自查包含“净化后仍含标签?”输出行——沙箱执行逻辑由引擎测试覆盖，这里校验关键内容存在
+    expect(j2.code).toContain('escapeHtml')
+    expect(j2.code).toContain('includes("<img")')
+  })
+})

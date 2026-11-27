@@ -1,0 +1,108 @@
+    const restored = renderHook(() => useChallengeProgress('user-A'))
+    expect(restored.result.current.completedCount).toBe(1)
+    expect(restored.result.current.progress['stage-b']?.evidence).toBe('A 的证据')
+  })
+
+  it('复测失败写入 lastFailReason（最近失败原因摘要）', () => {
+    localStorage.setItem(
+      'code-canvas.mastery.v1:user-1',
+      JSON.stringify({
+        'lesson-x': {
+          refId: 'lesson-x', kind: 'lesson', level: 2, evidence: [],
+          updatedAt: new Date().toISOString(), reviewStep: 0,
+          reviewDueKey: getLocalDateKey(new Date()),
+        },
+      }),
+    )
+    const { result } = renderHook(() => useReviewSchedule('user-1', new Date()))
+    act(() => {
+      result.current.recordEvidence('lesson-x', 'review', false, '忘了 while 的更新语句')
+    })
+    expect(result.current.records['lesson-x']?.lastFailReason).toBe('忘了 while 的更新语句')
+  })
+
+  it('打卡跨午夜：次日自动回到未打卡，可再次打卡且连续天数保留', () => {
+    const day1 = new Date('2026-09-13T23:59:00')
+    const day2 = new Date('2026-09-14T00:01:00')
+    localStorage.setItem('code-canvas.checkin.v1:user-1', JSON.stringify([getLocalDateKey(day1)]))
+
+    const { result, rerender } = renderHook(({ now }) => useCheckin('user-1', now), {
+      initialProps: { now: day1 },
+    })
+    expect(result.current.checkedIn).toBe(true)
+    expect(result.current.streak).toBe(1)
+
+    rerender({ now: day2 })
+    expect(result.current.checkedIn).toBe(false)
+    expect(result.current.todayKey).toBe('2026-09-14')
+    act(() => {
+      result.current.handleCheckin()
+    })
+    expect(result.current.checkedIn).toBe(true)
+    expect(result.current.streak).toBe(2)
+  })
+})
+
+describe('useReviewSchedule', () => {
+  it('课程完成记录证据并安排 1 天后复测', () => {
+    const now = new Date()
+    const { result } = renderHook(() => useReviewSchedule('user-1', now))
+
+    act(() => {
+      result.current.markLessonCompleted('python-loop-sum', '自动验证通过：验收点 3/3', 'auto-verified')
+    })
+    const record = result.current.records['python-loop-sum']!
+    expect(record.level).toBe(1)
+    expect(record.reviewDueKey).toBe(shiftDateKey(getLocalDateKey(now), 1))
+    expect(result.current.dueReviews).toHaveLength(0)
+    // LEARN-01 第 4 条：证据要带走「谁判的」，否则自动验证与自行声明在记录里长得一样
+    expect(record.evidence.at(-1)?.verification).toBe('auto-verified')
+  })
+
+  it('自行声明那一支写 self-declared，缺省不写的旧形状不会凭空长出 verification', () => {
+    const { result } = renderHook(() => useReviewSchedule('user-1', new Date()))
+    act(() => {
+      result.current.markLessonCompleted('java-env-1', '自行声明完成（本课无结构化验收点）', 'self-declared')
+    })
+    expect(result.current.records['java-env-1']?.evidence.at(-1)?.verification).toBe('self-declared')
+    act(() => {
+      result.current.recordEvidence('java-env-2', 'challenge', true, '挑战通过')
+    })
+    expect(result.current.records['java-env-2']?.evidence.at(-1)).not.toHaveProperty('verification')
+  })
+
+  it('到期复测：通过进入下一节点，未通过降级并重排', () => {
+    const now = new Date()
+    const todayKey = getLocalDateKey(now)
+    // 直接注入一条已到期的记录
+    localStorage.setItem(
+      'code-canvas.mastery.v1:user-1',
+      JSON.stringify({
+        'python-loop-sum': {
+          refId: 'python-loop-sum',
+          kind: 'lesson',
+          level: 3,
+          evidence: [],
+          updatedAt: new Date().toISOString(),
+          reviewStep: 0,
+          reviewDueKey: todayKey,
+        },
+      }),
+    )
+
+    const { result } = renderHook(() => useReviewSchedule('user-1', now))
+    expect(result.current.dueReviews).toHaveLength(1)
+
+    act(() => {
+      result.current.recordEvidence('python-loop-sum', 'review', false, '遗忘')
+    })
+    const failed = result.current.records['python-loop-sum']!
+    expect(failed.level).toBe(2)
+    expect(failed.reviewDueKey).toBe(shiftDateKey(todayKey, 1))
+
+    act(() => {
+      result.current.recordEvidence('python-loop-sum', 'review', true, '补测通过')
+    })
+    const passed = result.current.records['python-loop-sum']!
+    expect(passed.level).toBe(3)
+    expect(passed.reviewStep).toBe(1)

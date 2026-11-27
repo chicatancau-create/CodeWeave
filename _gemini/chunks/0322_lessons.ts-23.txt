@@ -1,0 +1,34 @@
+    content: unit('理解条件表达式如何选择不同分支。', {
+      prerequisites: ['python-loop-sum 单元'],
+      explanation: ['% 是取余运算：number % 2 的结果是除以 2 的余数。', '余数为 0 说明是偶数；if 的条件是布尔值。', 'Python 用冒号加缩进表示代码块。'],
+      examples: [{ good: '8 % 2 == 0 为真 → 输出 偶数', bad: 'if number % 2 = 0: 用了一个等号，是赋值不是比较', why: '比较用 ==，赋值用 =' }],
+      guidedSteps: ['运行示例确认输出「偶数」。', '把 number 改成 7，先预测再验证。', '单步执行观察条件判断的布尔结果。'],
+      exercise: '独立判断一个数能否被 3 整除，输出「是」或「否」。',
+      variant: '判断闰年：能被 4 整除但不能被 100 整除（提示：组合两个条件）。',
+      projectTask: '通讯录项目的菜单分支（1 添加 / 2 查找 / 0 退出）就是 if / else 的应用。',
+      mistakes: ['条件后需要冒号', '分支代码需要保持缩进', '== 与 = 混用'],
+      runCommand: '运行按钮（教学运行器支持奇偶判断子集）',
+      completion: '能独立写出奇偶判断并解释取余的作用。',
+    }),
+  },
+]
+
+const allLessons = [
+  ...pythonLessons,
+  ...languages.slice(1).map(createSumLesson),
+  ...languages.flatMap((language) => extraLessons[language.id] ?? []),
+]
+/**
+ * LINK-05：旧内置课程只作为「未迁移记录」保留，全部页面数据入口已改为内容快照。
+ * 这里不再按 `code !== ''` 丢弃课程——正式笔记可能完全是讲解或外部实验，
+ * 无代码单元必须能上架（00 号方案 §3 数据与运行主链；「删除 code 不为空才上架的条件」出自旧总工程方案 §4，四文件收口后由 Git 保留）。
+ */
+export const lessons: Lesson[] = Array.from(
+  new Map(allLessons.map((lesson) => [lesson.id, lesson])).values(),
+)
+
+export function getDefaultLesson(): Lesson {
+  const lesson = lessons[0]
+  if (!lesson) throw new Error('Default lesson is missing')
+  return lesson
+}

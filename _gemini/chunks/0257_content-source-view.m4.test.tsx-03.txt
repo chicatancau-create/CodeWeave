@@ -1,0 +1,96 @@
+    expect(container.textContent).not.toMatch(/已核实|已验证/)
+  })
+
+  it('核验标识是「固定字符徽记 + 文字」双通道，徽记不进读屏顺序', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    const mark = container.querySelector<HTMLElement>('.cs-mark')
+    expect(mark?.getAttribute('data-cs-mark')).toBe('unverified')
+    const glyph = mark?.querySelector('.cs-mark-glyph')
+    expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+    expect((glyph?.textContent ?? '').length).toBeGreaterThan(0)
+    expect((mark?.querySelector('.cs-mark-text')?.textContent ?? '').length).toBeGreaterThan(1)
+  })
+
+  it('「待核验」等其它状态同样原样转述，不套到 ok 档', () => {
+    const { container } = render(
+      <LessonSourceDetail lesson={lessonAt({ source: { ...lessonAt().source!, verificationStatus: '待核验' } })} />,
+    )
+    expect(container.querySelector('.cs-mark')?.getAttribute('data-cs-mark')).toBe('unverified')
+    expect(container.textContent).toContain('待核验（资料库侧登记口径')
+  })
+
+  it('正式事实区分资料库快照与旧内置课程，不把旧课程当正式事实', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    expect(fields(container)[4]?.value).toContain('资料库快照内的正式内容')
+    cleanup()
+    const legacy = render(
+      <LessonSourceDetail
+        lesson={lessonAt({ id: 'legacy-2', legacy: true, contentId: undefined, source: lessonAt().source })}
+      />,
+    )
+    expect(fields(legacy.container)[4]?.value).toBe('旧内置课程：不作为资料库正式事实')
+    expect(legacy.container.textContent).toContain('旧阶段口径：')
+  })
+})
+
+describe('M4 来源详情 · 同步时间与 Provider 缺失', () => {
+  it('Provider 之外渲染时如实说明取不到同步时间，不编造日期', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    expect(fields(container)[3]?.value).toBe('本组件未取到快照构建时间；见顶部来源状态条')
+  })
+
+  it('在 Provider 内则显示快照与构建时间', () => {
+    const { container } = render(
+      <ContentProviderHost.Provider value={vaultContent}>
+        <LessonSourceDetail lesson={lessonAt()} />
+      </ContentProviderHost.Provider>,
+    )
+    const sync = fields(container)[3]?.value ?? ''
+    expect(sync).toContain('当前快照 bundle-1')
+    expect(sync).toContain('构建于')
+  })
+})
+
+describe('M4 来源详情 · 保留的业务行为（含 M3 工作台契约）', () => {
+  it('没有来源定位的单元整块不渲染，不显示猜测值', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt({ source: undefined })} />)
+    expect(container.querySelector('.lesson-source')).toBeNull()
+  })
+
+  it('.lesson-source 内含「资料库」与核验状态；原文按需展开（工作台的既有断言）', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    const source = container.querySelector('.lesson-source') as HTMLElement
+    expect(source.textContent).toContain('外部未复核')
+    expect(source.textContent).toContain('资料库')
+    expect(source.querySelector('.md-view')).toBeNull()
+    const toggle = screen.getByRole('button', { name: '查看主题原文' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(toggle.textContent).toBe('收起原文')
+    expect(source.querySelector('.md-view h3')?.textContent).toBe('核心概念')
+  })
+
+  it('不在常规页面暴露资料库绝对路径，只给分册相对定位与指纹', () => {
+    const { container } = render(<LessonSourceDetail lesson={lessonAt()} />)
+    expect(container.textContent).not.toMatch(/[A-Za-z]:[\\/]/)
+    expect(container.textContent).toContain('原文指纹 abcdef12')
+  })
+})
+
+describe('M4 来源状态条 · 状态文案不改强 + 五块分区', () => {
+  it('资料库就绪时显示五块，并声明逐单元状态不折算', () => {
+    const { container } = render(
+      <ContentProviderHost.Provider value={vaultContent}>
+        <ContentSourceBanner />
+      </ContentProviderHost.Provider>,
+    )
+    expect(container.querySelector('.content-source-banner')?.getAttribute('role')).toBe('status')
+    const list = fields(container)
+    expect(list.map((item) => item.key)).toEqual(FIVE_ZONES)
+    expect(list[2]?.value).toContain('资料库已连接')
+    expect(list[2]?.value).toContain('不折算')
+    expect(list[4]?.value).toContain('正式内容 12 条')
+    expect(container.textContent).not.toMatch(/已核实|已验证|完全可信/)
+  })
+

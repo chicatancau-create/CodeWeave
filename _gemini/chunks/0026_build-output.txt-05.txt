@@ -1,0 +1,36 @@
+[141/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\codeweave-qt-facade-tests_autogen\mocs_compilation.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[142/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell_draft.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[143/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[144/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell_account.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[145/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\tests\ui_shell_tests.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[146/147] Building CXX object ui-qt\CMakeFiles\codeweave-qt-facade-tests.dir\facade\ui_shell_operations.cpp.obj
+cl: 命令行 warning D9025 :正在重写“/DNDEBUG”(用“/UNDEBUG”)
+[147/147] Linking CXX executable ui-qt\codeweave-qt-facade-tests.exe
+Test project G:/CodeWeave/.local/qt/current
+    Start 1: native-core
+1/9 Test #1: native-core ......................   Passed    3.24 sec
+    Start 2: native-content-delivery
+2/9 Test #2: native-content-delivery ..........   Passed    0.04 sec
+    Start 3: native-startup
+3/9 Test #3: native-startup ...................   Passed    0.04 sec
+    Start 4: native-gui-smoke
+4/9 Test #4: native-gui-smoke .................   Passed    0.34 sec
+    Start 5: native-gui-interaction-smoke
+5/9 Test #5: native-gui-interaction-smoke .....   Passed    0.32 sec
+    Start 6: native-cpp-compile-run
+6/9 Test #6: native-cpp-compile-run ...........   Passed    5.65 sec
+    Start 7: qt-qml-load
+7/9 Test #7: qt-qml-load ......................   Passed    5.01 sec
+    Start 8: qt-learning-catalog
+8/9 Test #8: qt-learning-catalog ..............   Passed    0.17 sec
+    Start 9: qt-facade
+9/9 Test #9: qt-facade ........................   Passed   11.79 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Total Test time (real) =  26.62 sec

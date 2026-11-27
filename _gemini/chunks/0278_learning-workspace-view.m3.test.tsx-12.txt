@@ -1,0 +1,67 @@
+    const shadows = declarations.filter((decl) => /^(-webkit-)?box-shadow\s*:/.test(decl))
+    const filters = declarations.filter((decl) => /^(-webkit-)?(backdrop-)?filter\s*:/.test(decl))
+    expect(shadows.length).toBeGreaterThan(6) // styles.css 的玻璃投影/泛光确实在被覆写
+    expect(filters.length).toBeGreaterThan(3) // backdrop-filter: blur(14px) 的玻璃层确实在被取消
+    // 玻璃：只允许出现「关掉」这一种写法；泛光改走 --cw-glow-*（科技档反转，tokens §4.5）。
+    // 约束不放松 —— 不允许裸投影字面量，也不允许任何模糊函数。
+    expect(filters.every((decl) => /:\s*none$/.test(decl))).toBe(true)
+    // --cw-glow-line 是当前执行行的零模糊自发光（本质是 1px 实线，不是投影），
+    // 因此它允许在这份「形态」断言里出现；其余仍只允许三档泛光或关掉。
+    for (const decl of shadows) {
+      expect(/:\s*(none|var\(--(cw|ds)-glow-(near|panel|inset|line)(,\s*[^;]+)?\))$/.test(decl), decl).toBe(true)
+    }
+    expect(cssCode).not.toMatch(/blur\(|drop-shadow\(/)
+    expect(cssCode).not.toMatch(/@(repeating-)?(linear|radial|conic)-gradient/)
+    expect(blockOf('.cw-workspace')).toContain('--cw-canvas: var(--ds-canvas, #000)')
+    expect(blockOf('.cw-workspace .cw-pane')).toContain('background: var(--cw-canvas)')
+    expect(blockOf('.cw-workspace .cw-pane')).toContain('border: var(--cw-line-width) solid var(--cw-line)')
+    expect(cssCode).toContain('--cw-scrim: rgb(14, 14, 15)')
+    expect(blockOf('.cw-workspace .code-editor')).toContain('background: var(--cw-scrim)')
+    // 圆角只允许模板三档（0 / 50% 圆环 / 100px 药丸）与 --ds-radius-panel 的 0，不出现自造圆角卡片
+    const radii = declarations.filter((decl) => /^border-radius\s*:/.test(decl))
+    const allowedRadius = /^border-radius:\s*(0|var\(--ds-(shape-(none|circle|pill)|radius-(panel|control)),\s*[^;)]+\))$/
+    expect(radii.length).toBeGreaterThan(10)
+    expect(radii.filter((decl) => !allowedRadius.test(decl))).toEqual([])
+  })
+
+  it('场景在工作台内固定：--ds-scene-active 只被引用一次，不做逐帧变色（§5.1）', () => {
+    expect((cssCode.match(/var\(--ds-scene-active/g) ?? []).length).toBe(1)
+    expect(cssCode).toContain('--cw-scene: var(--ds-scene-active, var(--ds-scene-singularity, rgb(34, 211, 238)))')
+    // 语义状态色与场景色分家，且不参与任何动画
+    for (const token of ['--ds-status-success', '--ds-status-warning', '--ds-status-danger', '--ds-status-info']) {
+      expect(cssCode).toContain(token)
+    }
+  })
+
+  it('每个 --ds-* 令牌消费都带兜底值，且本页不 import 令牌文件（共享层负责接入）', () => {
+    expect(cssCode.match(/var\(--ds-[a-z0-9-]+\)/g) ?? []).toEqual([])
+    const tsx = sourceOf('./learning-workspace-view.tsx')
+    expect(tsx).toContain("import './learning-workspace-view.css'")
+    expect(tsx).not.toMatch(/design\/tokens\.css/)
+  })
+
+  it('本页不引入任何 @keyframes 与无限动画（§5.3.1 静态环境）', () => {
+    expect(cssCode).not.toMatch(/@keyframes/)
+    expect(cssCode).not.toMatch(/\binfinite\b/)
+    expect(cssRules.filter((rule) => rule.insideKeyframes)).toEqual([])
+    const animations = styleRules.flatMap((rule) => rule.block.split(';')).filter((decl) => /^\s*animation\s*:/.test(decl))
+    expect(animations.length).toBeGreaterThan(1)
+    expect(animations.every((decl) => /:\s*none\b/.test(decl.trim()))).toBe(true)
+  })
+
+  it('减动效两道开关都是「真正停止」：系统偏好与 .reduce-motion 都写 animation/transition: none', () => {
+    const guardStart = cssCode.indexOf('@media (prefers-reduced-motion: reduce)')
+    expect(guardStart).toBeGreaterThan(-1)
+    const guards = cssCode.slice(guardStart)
+    expect(guards).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(guards).toContain('.reduce-motion .cw-workspace')
+    expect((guards.match(/animation: none !important/g) ?? []).length).toBe(2)
+    expect((guards.match(/transition: none !important/g) ?? []).length).toBe(2)
+    expect((guards.match(/scroll-behavior: auto !important/g) ?? []).length).toBe(2)
+    // 放慢式（模板原实现：时间 ×0.35 / 只改 duration）不算停止，这里一律禁止
+    expect(guards).not.toMatch(/animation-duration|transition-duration|\*?\s*0\.35|scale\(/)
+    // !important 只允许出现在这两道减动效开关里
+    expect(cssCode.slice(0, guardStart)).not.toContain('!important')
+  })
+
+  it('焦点与触控目标：暖白焦点环（模板 0.14 细线只有 1.32:1，不能承担焦点）+ 44px', () => {

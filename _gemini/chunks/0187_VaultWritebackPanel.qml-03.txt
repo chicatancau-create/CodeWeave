@@ -1,0 +1,88 @@
+                    color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12
+                    wrapMode: Text.WordWrap
+                }
+            }
+            Repeater {
+                model: panel.preview.targets || []
+                ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Text {
+                        Layout.fillWidth: true
+                        text: modelData.path
+                        textFormat: Text.PlainText
+                        color: panel.ds.ink; font.family: panel.ds.mono; font.pixelSize: 11
+                        wrapMode: Text.WrapAnywhere
+                    }
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 150
+                        clip: true
+                        TextArea {
+                            text: modelData.preview
+                            textFormat: TextEdit.PlainText
+                            readOnly: true
+                            selectByMouse: true
+                            wrapMode: TextEdit.WrapAnywhere
+                            color: panel.ds.muted
+                            font.family: panel.ds.mono; font.pixelSize: 11
+                            background: Rectangle { color: panel.ds.page; border.color: panel.ds.line; radius: panel.ds.radius }
+                        }
+                    }
+                }
+            }
+            VaultCheckBox {
+                id: commitConsent
+                Layout.fillWidth: true
+                objectName: "vaultCommitConsent"
+                text: "已核对预览，确认写入资料库"
+                enabled: !panel.state.busy
+            }
+            PrimaryButton {
+                ds: panel.ds
+                objectName: "vaultCommit"
+                label: "确认提交"
+                enabled: commitConsent.checked && !panel.state.busy && !!panel.preview.operationId
+                onClicked: {
+                    commitConsent.checked = false;
+                    uiShell.commitVaultWriteback(panel.preview.operationId, panel.hashes(panel.preview.targets));
+                }
+            }
+        }
+        Text {
+            Layout.fillWidth: true
+            text: "已同步证据：" + String((panel.state.synced || []).length)
+            color: ds.muted; font.family: ds.ui; font.pixelSize: 12
+        }
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: panel.viewIndex === 1
+        spacing: ds.s10
+        Text {
+            Layout.fillWidth: true
+            text: !panel.state.isOwner ? "正式进度仅对资料库拥有者开放" : panel.state.progressStatus || "尚未读取资料库进度"
+            textFormat: Text.PlainText
+            color: ds.muted; font.family: ds.ui; font.pixelSize: 13
+            wrapMode: Text.WordWrap
+        }
+        Text {
+            Layout.fillWidth: true
+            visible: panel.state.progressReady === true
+            text: "最近学习证据：" + ((panel.state.progress || {}).latestEvidenceOn || "暂无数据")
+            color: ds.ink; font.family: ds.ui; font.pixelSize: 13
+        }
+        Repeater {
+            model: (panel.state.progress || {}).mastery || []
+            RowLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                Text { Layout.fillWidth: true; text: modelData.skill; textFormat: Text.PlainText; color: panel.ds.ink; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WrapAnywhere }
+                Text { text: modelData.level; textFormat: Text.PlainText; color: panel.ds.accent; font.family: panel.ds.mono; font.pixelSize: 12 }
+                Text { Layout.preferredWidth: 150; text: modelData.status; textFormat: Text.PlainText; color: panel.ds.muted; font.family: panel.ds.ui; font.pixelSize: 12; wrapMode: Text.WrapAnywhere }
+            }
+        }
+        Repeater {
+            model: (panel.state.progress || {}).stages || []
+            RowLayout {

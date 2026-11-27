@@ -1,0 +1,92 @@
+                    objectName: "checkinErrorText"
+                    Layout.fillWidth: true
+                    visible: uiShell.hasActiveAccount && !uiShell.checkinSummary.ready && !!uiShell.checkinSummary.status
+                    text: uiShell.checkinSummary.status || ""
+                    color: ds.danger; font.family: ds.ui; font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: ds.s14
+                    MotionAwareBusyIndicator {
+                        ds: root.designSystem
+                        Layout.preferredWidth: 20; Layout.preferredHeight: 20
+                        busy: uiShell.checkinSummary.busy
+                        accessibleName: "正在更新打卡状态"
+                    }
+                    QuietButton {
+                        objectName: "checkinRetryButton"
+                        ds: root.designSystem
+                        label: "重试"
+                        visible: uiShell.hasActiveAccount && !uiShell.checkinSummary.ready && !uiShell.checkinSummary.busy
+                        onClicked: uiShell.refreshCheckin()
+                    }
+                    Item { Layout.fillWidth: true }
+                    IconButton {
+                        id: checkinCalendarButton
+                        objectName: "checkinCalendarButton"
+                        ds: root.designSystem
+                        glyph: "⋯"
+                        tip: "查看打卡日历"
+                        enabled: uiShell.hasActiveAccount && uiShell.checkinSummary.ready
+                        onClicked: checkinDialog.open()
+                    }
+                }
+
+                // .profile
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: ds.s6
+                    Layout.rightMargin: ds.s6
+                    implicitHeight: 52
+                    radius: 7
+                    color: ds.raised
+                    border.color: ds.line
+                    border.width: 1
+                    RowLayout {
+                        anchors { fill: parent; leftMargin: ds.s8; rightMargin: ds.s8 }
+                        spacing: ds.s10
+                        Rectangle {
+                            implicitWidth: 30
+                            implicitHeight: 30
+                            radius: 15
+                            color: ds.inset
+                            border.color: ds.accentRing
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: uiShell.hasActiveAccount && uiShell.accountName.length > 0
+                                      ? uiShell.accountName.charAt(0) : "访"
+                                color: ds.accent
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: uiShell.hasActiveAccount ? uiShell.accountName : "访客模式"
+                            color: ds.ink
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            elide: Text.ElideRight
+                        }
+                    }
+                    TapHandler { onTapped: uiShell.selectPage("账户") }
+                }
+            }
+        }
+    }
+
+    // ── Main content ────────────────────────────────────────────────────────
+    Item {
+        id: content
+        anchors {
+            top: topbar.bottom
+            left: sidebar.right
+            right: parent.right
+            bottom: parent.bottom
+        }
+
+        StackLayout {
+            anchors.fill: parent

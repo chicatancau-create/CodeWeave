@@ -1,0 +1,109 @@
+        if (filters.status === 'not-started' && !(status === 'not-started' || status === 'external-pending')) return false
+        if (filters.status === 'ran' && !(status === 'ready-to-submit' || status === 'unsupported')) return false
+      }
+      return true
+    })
+    if (filters.sort === 'difficulty') {
+      filtered.sort(
+        (a, b) =>
+          DIFFICULTY_ORDER.indexOf(a.difficulty) - DIFFICULTY_ORDER.indexOf(b.difficulty) ||
+          a.stageId.localeCompare(b.stageId),
+      )
+    } else if (filters.sort === 'status') {
+      filtered.sort(
+        (a, b) =>
+          STATUS_RANK[cardStatus(a, progress[a.id], sessionStatusOf(a))] -
+            STATUS_RANK[cardStatus(b, progress[b.id], sessionStatusOf(b))] ||
+          a.stageId.localeCompare(b.stageId),
+      )
+    }
+    return filtered
+  }, [challenges, progress, filters, statusOf, sessionStatusOf])
+
+  const selectedChallenge = useMemo(
+    () => challenges.find((challenge) => challenge.id === selectedId) ?? challenges[0],
+    [challenges, selectedId],
+  )
+
+  const updateFilter = useCallback((updates: Partial<ChallengeFiltersValue>) => {
+    setFilters((current) => ({ ...current, ...updates }))
+    // CHAL-01：筛选（含搜索）改变后回到第一页。
+    setPage(1)
+  }, [])
+  const resetFilters = useCallback(() => updateFilter(DEFAULT_FILTERS), [updateFilter])
+  const toggleMoreFilters = useCallback(() => setMoreFiltersOpen((open) => !open), [])
+  const toggleHint = useCallback(() => setHintOpen((open) => !open), [])
+  const filtersDirty = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS)
+
+  const pageCount = Math.max(1, Math.ceil(visibleChallenges.length / PAGE_SIZE))
+  // CHAL-01：当前页因筛选收窄变空时，回退到最后一个有效页。
+  const currentPage = Math.min(page, pageCount)
+  const pagedChallenges = useMemo(
+    () => visibleChallenges.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [visibleChallenges, currentPage],
+  )
+  // 卡片要的派生数据在父层一次算好：拆出去的网格组件不再收内联函数 props，
+  // 筛选/详情/提交状态互不牵连（01 §4 的拆分理由）。
+  const gridRows = useMemo<ChallengeRow[]>(
+    () =>
+      pagedChallenges.map((challenge) => ({
+        challenge,
+        sequence: sequenceById.get(challenge.id) ?? '——',
+        status: statusOf(challenge),
+        hasActivity:
+          Boolean(progress[challenge.id]) ||
+          (drafts[challenge.id]?.code !== undefined && drafts[challenge.id]!.code !== challenge.starterCode),
+        draftFlag: drafts[challenge.id] ? '本机草稿' : '',
+      })),
+    [pagedChallenges, sequenceById, statusOf, progress, drafts],
+  )
+
+  /**
+   * 放弃当前这一跑的结论：换令牌（迟到的结果不再写回）+ 立刻收掉 busy。
+   *
+   * 改版前两处导航只做 `runTokenRef.current += 1`，而 `handleRun` 的 finally 写的是
+   * `if (token === runTokenRef.current) setBusy(false)` —— 令牌已被导航换掉，条件永远不成立，
+   * busy 就停在 true：运行途中点「返回列表」或切到别的关卡，之后**每一关**的
+   * 「运行检查」都是禁用态并写着「运行中…」，要等整页重挂才恢复。
+   * 迟到的结果依然不写回（那条语义保留），但这一跑不再拥有那个按钮 —— 所以导航处显式收尾。
+   */
+  const abandonRun = useCallback(() => {
+    runTokenRef.current += 1
+    setBusy(false)
+  }, [])
+
+  const openChallenge = useCallback((challenge: Challenge) => {
+    abandonRun()
+    lastCardIdRef.current = challenge.id
+    savedScrollRef.current = window.scrollY
+    setSelectedId(challenge.id)
+    setMode('detail')
+    setHintOpen(false)
+    setNotice(null)
+  }, [abandonRun])
+
+  const backToList = () => {
+    abandonRun()
+    restoreListRef.current = true
+    setMode('list')
+  }
+
+  /** 单一更新入口：同时写内存与账户作用域存储，避免陈旧快照覆盖。 */
+  const patchDraft = useCallback(
+    (challengeId: string, updates: Partial<{ code: string; evidence: string }>) => {
+      setDrafts((current) => {
+        // 基底不得凭空补 code：只改证据时补一个空串，读取方就会把它当成「用户清空了代码」，起始代码被顶掉
+        const base = current[challengeId] ?? { evidence: '', savedAt: '' }
+        const next = {
+          ...current,
+          [challengeId]: { ...base, ...updates, savedAt: new Date().toISOString() },
+        }
+        saveChallengeDrafts(next, scope)
+        return next
+      })
+    },
+    [scope],
+  )
+
+  /** 外部证据：整体替换单关证据（避免陈旧快照覆盖）。 */
+  const patchExternalEvidence = useCallback(

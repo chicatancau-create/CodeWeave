@@ -1,0 +1,98 @@
+        if (step.expectedHash !== null) blockers.push({ path: step.path, kind: step.kind, reason: '缺少备份文件' })
+      }
+    }
+    if (blockers.length > 0) {
+      throw new WritebackError('rollback_blocked', '检测到第三方新改动或备份缺失，已停止回滚；请人工合并', { blockers })
+    }
+
+    const restored = []
+    for (const step of [...transaction.targets].reverse()) {
+      if (!step.applied || step.skipped) continue
+      if (step.expectedHash === null) {
+        // 本次新建的文件：回滚 = 移除（用 rename 到备份目录，保留可追溯副本）。
+        const { abs } = resolveWritablePath(root, step.path)
+        if (existsSync(abs)) {
+          const dir = join(backupDir, safeSegment(operationId))
+          await mkdir(dir, { recursive: true })
+          await rename(abs, join(dir, `removed-${safeSegment(step.path.split('/').at(-1))}`))
+        }
+        restored.push({ path: step.path, kind: step.kind, action: 'removed' })
+        continue
+      }
+      if (!step.backupPath) continue
+      await writeVaultFile(root, step.path, await readFile(step.backupPath))
+      restored.push({ path: step.path, kind: step.kind, action: 'restored' })
+    }
+
+    transaction.state = WRITEBACK_STATE.ROLLED_BACK
+    transaction.rolledBackAt = new Date().toISOString()
+    await writeTransaction(transaction)
+    await evidenceStore.updateRecords(userId, transaction.evidenceIds, {
+      state: EVIDENCE_STATE.PENDING,
+      operationId: null,
+      syncedAt: null,
+      logPath: null,
+    })
+    return { rolledBack: true, idempotent: false, operationId, targets: restored }
+  }
+
+  /**
+   * 导出待保存 Markdown：未授权写回或离线时给用户拿走。
+   * 只读应用侧暂存证据，不读也不写资料库。
+   */
+  async function exportMarkdown({ userId, evidenceIds }) {
+    const all = await evidenceStore.list(userId)
+    const wanted = new Set(evidenceIds ?? all.map((record) => record.evidenceId))
+    const records = all.filter((record) => wanted.has(record.evidenceId))
+    if (records.length === 0) throw new WritebackError('no_evidence', '没有可导出的暂存证据')
+    const first = records[0]
+    return {
+      markdown: renderExportMarkdown(records, { logPath: logPathOf(first.at, first.topic) }),
+      evidenceIds: records.map((record) => record.evidenceId),
+      logPath: logPathOf(first.at, first.topic),
+    }
+  }
+
+  /**
+   * 读取事务（供界面显示「日志已保存，进度待合并」等状态与恢复入口）。
+   *
+   * 每一步都按**真实写入顺序**给出，并带上「计划 vs 实际」的可核对字段：
+   * `appliedAt` 是何时落盘的、`skipped` 是本来无需改动、`backupPresent` 与 `createdNew`
+   * 决定回滚能不能还原这一步（有备份=用备份覆盖；本次新建=回滚即移除；
+   * 连备份都没有=这一步在写之前就失败了，回滚无从恢复）。
+   * `backupPath` 只有服务端回滚时要用，绝不出网关；`expectedHash` 是预览基线，
+   * 界面重新载入后仍要带着它重试补齐（挂账⑤：不靠关闭校验把流程走通）。
+   */
+  async function transactionStatus({ userId, operationId }) {
+    const transaction = await readTransaction(operationId)
+    if (!transaction) throw new WritebackError('operation_not_found', '找不到对应的写回事务')
+    if (transaction.userId !== userId) throw new WritebackError('forbidden', '该写回事务属于其他账户')
+    return {
+      operationId: transaction.operationId,
+      state: transaction.state,
+      at: transaction.at ?? null,
+      topic: scrubLocalPaths(transaction.topic ?? ''),
+      createdAt: transaction.createdAt ?? null,
+      syncedAt: transaction.syncedAt ?? null,
+      rolledBackAt: transaction.rolledBackAt ?? null,
+      logSaved: transaction.result?.logSaved ?? false,
+      message: scrubLocalPaths(transaction.result?.message ?? ''),
+      evidenceCount: evidenceCountOf(transaction),
+      targets: stepsInWriteOrder(transaction.targets).map((step) => ({
+        path: scrubLocalPaths(step.path ?? ''),
+        kind: step.kind,
+        applied: step.applied === true,
+        appliedAt: step.appliedAt ?? null,
+        skipped: step.skipped === true,
+        backupPresent: Boolean(step.backupPath),
+        createdNew: (step.expectedHash ?? null) === null,
+        expectedHash: step.expectedHash ?? null,
+      })),
+    }
+  }
+
+  /**
+   * 事务账本（挂账 #35）：只读列出**当前用户**留在磁盘上的事务，新→旧，最多 TRANSACTION_LIST_CAP 条。
+   *
+   * 为什么要它：`transactionStatus` 要求先知道 operationId，而 operationId 此前只活在
+   * React 状态里——刷新一次界面就再也说不出「刚才那次写回做了什么」。这里以磁盘上的

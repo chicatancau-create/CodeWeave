@@ -1,0 +1,59 @@
+                                color: ds.faint
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                            }
+                        }
+                    }
+
+                    // Progress summary from the native ledger
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        spacing: 0
+                        visible: uiShell.progressSummary !== ""
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: ds.line
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.topMargin: ds.s12
+                            text: uiShell.progressSummary
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            lineHeight: 1.6
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    // .rv-footnote
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        height: 1
+                        color: ds.line
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s12
+                        Layout.preferredWidth: 616
+                        text: uiShell.analysisSnapshot.reviewScheduledCount === undefined
+                              ? "本页只列 reviewDueKey 已安排的记录；暂无排期数据。"
+                              : "本页只列 reviewDueKey 已安排的记录：逾期 "
+                                + uiShell.analysisSnapshot.reviewOverdueCount + " 项，今日 "
+                                + uiShell.analysisSnapshot.reviewTodayCount + " 项，未来 7 天 "
+                                + uiShell.analysisSnapshot.reviewFuture7Days + " 项，合计 "
+                                + uiShell.analysisSnapshot.reviewScheduledCount
+                                + " 项；没有到期安排的记录不计入任何分母。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 13
+                        lineHeight: 1.6
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+        }
+    }

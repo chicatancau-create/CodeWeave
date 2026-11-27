@@ -1,0 +1,94 @@
+    expect(onChange).toHaveBeenCalledWith('    let a = 1')
+  })
+
+  it('Shift+Tab 是退缩进，不是再插两格（改版前两者走同一条分支）', () => {
+    const onChange = vi.fn()
+    const el = editor({ code: '  let a = 1', onChange })
+    el.selectionStart = 0
+    el.selectionEnd = 11
+    const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })
+    el.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(onChange).toHaveBeenCalledWith('let a = 1')
+  })
+
+  it('按一次 Esc 之后，Tab 交还给焦点导航：不拦默认、也不改代码；再按一次收回', () => {
+    const onChange = vi.fn()
+    const el = editor({ code: 'let a = 1', onChange })
+    fireEvent.keyDown(el, { key: 'Escape' })
+    expect(document.querySelector('.editor-keyhint')?.textContent).toContain('Tab = 切换焦点')
+
+    const tabbed = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    el.dispatchEvent(tabbed)
+    expect(tabbed.defaultPrevented).toBe(false)
+    expect(onChange).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(el, { key: 'Escape' })
+    expect(document.querySelector('.editor-keyhint')?.textContent).toContain('Tab = 缩进')
+    el.selectionStart = 0
+    el.selectionEnd = 9
+    fireEvent.keyDown(el, { key: 'Tab' })
+    expect(onChange).toHaveBeenCalledWith('  let a = 1')
+  })
+
+  it('输入法合成期间的按键不归编辑器管（候选框里按 Esc 不该翻转键盘模式）', () => {
+    const onChange = vi.fn()
+    const el = editor({ code: 'let a = 1', onChange })
+    fireEvent.keyDown(el, { key: 'Escape' })
+    expect(document.querySelector('.editor-keyhint')?.textContent).toContain('Tab = 切换焦点')
+    fireEvent.keyDown(el, { key: 'Escape' }) // 收回，确认基线
+    onChange.mockClear()
+    const composing = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    Object.defineProperty(composing, 'isComposing', { value: true })
+    el.selectionStart = 0
+    el.selectionEnd = 9
+    el.dispatchEvent(composing)
+    expect(composing.defaultPrevented).toBe(false)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(document.querySelector('.editor-keyhint')?.textContent).toContain('Tab = 缩进')
+  })
+
+  it('焦点不在本编辑器时不抢别人的 Tab', () => {
+    const onChange = vi.fn()
+    editor({ code: 'let a = 1', onChange })
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    document.body.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('复制：只报真发生过的事', () => {
+  it('成功后才出「已复制到剪贴板」；await 之前一个字都不报', async () => {
+    let release: () => void = () => {}
+    const writeText = vi.fn(() => new Promise<void>((resolve) => { release = resolve }))
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    editor({ code: 'console.log(1)' })
+    fireEvent.click(screen.getByRole('button', { name: '复制代码' }))
+    expect(screen.queryByText(/已复制|复制失败/)).toBeNull()
+
+    release()
+    await waitFor(() => expect(screen.getByText('已复制到剪贴板')).toBeTruthy())
+    expect(writeText).toHaveBeenCalledWith('console.log(1)')
+  })
+
+  it('被拒绝时报失败并把手动回退说出来，同时全选代码', async () => {
+    const writeText = vi.fn(() => Promise.reject(new Error('NotAllowedError')))
+    const el = editor({ code: 'let a = 1' })
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    fireEvent.click(screen.getByRole('button', { name: '复制代码' }))
+    await waitFor(() => expect(screen.getByText('复制失败：代码已全选，请按 Ctrl+C')).toBeTruthy())
+    expect(el.selectionStart).toBe(0)
+    expect(el.selectionEnd).toBe(9)
+    expect(screen.queryByText('已复制到剪贴板')).toBeNull()
+  })
+
+  it('没有剪贴板 API 的旧环境不抛异常，走同一条失败提示', async () => {
+    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined })
+    editor({ code: 'let a = 1' })
+    fireEvent.click(screen.getByRole('button', { name: '复制代码' }))
+    await waitFor(() => expect(screen.getByText(/复制失败/)).toBeTruthy())
+  })
+
+  it('复制的是点下去那一刻的快照', async () => {
+    const writeText = vi.fn(() => Promise.resolve())

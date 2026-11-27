@@ -1,0 +1,33 @@
+        }
+    ],
+    "isolatedData": true,
+    "mode": "qt-real-window-input-matrix",
+    "passed": true,
+    "schemaVersion": 1,
+    "screenshots": [
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-learning.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-course.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-editor.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-review.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-challenge-detail.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-challenge-detail-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-challenge.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-challenge-judgement-passed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-challenge-judgement-failed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-profile.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-security.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-privacy.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-login-intro.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-drafts.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-drafts-save-error.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-drafts-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-learning-empty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-learning-completed.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-learning-details.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-learning-details-small.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-learning-details-selected.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-review-nonempty.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-review-updated.png",
+        "C:/Users/Admin/AppData/Local/Temp/CodeWeave-P2-3-20261107-42e1672/rerun/u3-analysis.png"
+    ]
+}

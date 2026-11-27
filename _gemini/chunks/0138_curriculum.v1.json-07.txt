@@ -1,0 +1,153 @@
+      "insight": "函数是一个可以重复使用的小盒子：给它输入，它会返回一个结果。",
+      "fileName": "greet.py",
+      "runtime": "Python 3.11",
+      "content": {
+        "objective": "理解参数、返回值和函数调用。",
+        "prerequisites": [
+          "python-output 单元",
+          "python-loop-sum 单元"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ],
+        "explanation": [
+          "def 定义函数；参数是函数的输入。",
+          "return 把结果交还给调用方，函数内部不负责打印。",
+          "调用 greet(\"小明\") 时，函数体内的 name 就是 \"小明\"。"
+        ],
+        "examples": [
+          {
+            "good": "return message 把结果交出来，调用方决定怎么用",
+            "bad": "在函数里 print 而 return 空，调用方拿不到值",
+            "why": "输出与计算职责要分离，函数才可复用、可测试"
+          }
+        ],
+        "guidedSteps": [
+          "运行示例确认输出「你好，小明」。",
+          "给函数增加 age 参数，输出「你好，小明（12 岁）」。",
+          "连续调用两次，观察两次结果互不影响。"
+        ],
+        "exercise": "独立写 add(a, b) 返回两数之和，并用三个不同输入验证。",
+        "variant": "写 max_of_two(a, b)，用 if 比较 a、b 并返回较大值。",
+        "projectTask": "把“添加联系人”“查找联系人”各写成一个函数，为阶段 B 的命令行 CRUD 做准备。",
+        "mistakes": [
+          "函数体需要缩进",
+          "return 只返回不负责输出",
+          "调用时实参个数与形参不一致"
+        ],
+        "runCommand": "运行按钮（教学运行器支持 greet 函数子集）",
+        "completion": "能独立定义带参数和返回值的函数，并说明调用过程。"
+      }
+    },
+    {
+      "id": "python-output",
+      "language": "python",
+      "languageLabel": "Python",
+      "label": "04",
+      "title": "让程序说话",
+      "description": "使用 print 输出文字和数字",
+      "duration": "5 min",
+      "level": "入门",
+      "code": "name = \"小明\"\nprint(\"你好，\" + name)",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "读取 name",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "准备输出？",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "拼接文本",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "输出问候",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "输出是观察程序的窗口，先让结果可见，再继续理解内部变化。",
+      "fileName": "output.py",
+      "runtime": "Python 3.11",
+      "content": {
+        "objective": "掌握文本变量与 print 输出。",
+        "prerequisites": [
+          "知道如何运行一个 Python 程序"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14,
+          30
+        ],
+        "explanation": [
+          "print() 把括号里的内容打印到控制台。",
+          "字符串必须用引号包裹，+ 可以拼接两段文本。"
+        ],
+        "examples": [
+          {
+            "good": "print(\"你好，\" + name) 输出 你好，小明",
+            "bad": "print(你好) 没有引号会当成变量名报 NameError",
+            "why": "文本是字面量，必须有引号"
+          }
+        ],
+        "guidedSteps": [
+          "运行示例确认输出「你好，小明」。",
+          "把名字改成你的名字再运行。",
+          "尝试 print(1 + 1) 与 print(\"1\" + \"1\")，解释差别。"
+        ],
+        "exercise": "输出一句话自我介绍，包含名字和年龄两个变量。",
+        "variant": "用三个 print 分别输出三行，再改成用一个 print 输出三行（提示：\\n）。",
+        "projectTask": "在命令行通讯录项目里输出格式化的联系人信息。",
+        "mistakes": [
+          "字符串必须使用引号",
+          "拼接文本与数字时要先转换类型"
+        ],
+        "runCommand": "运行按钮（教学运行器支持 print 子集）",
+        "completion": "能独立输出包含变量的问候语，并解释拼接与加法的区别。"
+      }
+    },
+    {
+      "id": "python-types",
+      "language": "python",
+      "languageLabel": "Python",
+      "label": "05",
+      "title": "数字、文字和列表",
+      "description": "认识常见数据类型并访问列表元素",
+      "duration": "8 min",
+      "level": "入门",
+      "code": "scores = [80, 92, 76]\nfirst = scores[0]\nprint(first)",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",

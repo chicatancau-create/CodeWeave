@@ -1,0 +1,64 @@
+    assert(Math.abs(styles.courseHeroWidth - styles.primaryWidth) <= 1, `course hero must fill its column at ${width}px`)
+    assert(styles.courseHeroWidth >= width - styles.sidebarWidth - styles.railWidth - (width > 1200 ? 96 : 64), `course hero clipped at ${width}px`)
+    assert(styles.courseHeroRight <= width - (width < 600 ? 4 : 12), `course hero overflows at ${width}px`)
+    if (width === 375) {
+      assert.equal(styles.sidebar, '62px')
+      assert.equal(styles.topbar, '56px')
+    }
+    if (width >= 1280) {
+      assert.equal(styles.sidebar, '240px')
+      assert.equal(styles.topbar, '68px')
+    }
+    await page.screenshot({ path: resolve(output, styles.screenshot) })
+    report.viewports.push(styles)
+    for (const name of ['账户菜单', '快捷动作']) {
+      const trigger = page.getByRole('button', { name, exact: true })
+      await trigger.click()
+      const items = page.getByRole('menuitem').filter({ hasNot: page.locator(':disabled') })
+      const first = page.locator('[role="menuitem"]:not(:disabled)').first()
+      assert(await first.evaluate((element) => element === document.activeElement), `${name} must focus its first item`)
+      await page.keyboard.press('End')
+      assert(await page.locator('[role="menuitem"]:not(:disabled)').last().evaluate((element) => element === document.activeElement))
+      await page.keyboard.press('ArrowDown')
+      assert(await first.evaluate((element) => element === document.activeElement))
+      await page.keyboard.press('Escape')
+      assert(await trigger.evaluate((element) => element === document.activeElement))
+      assert.equal(await items.count(), 0)
+      report.keyboard.push(`${width}: ${name} focus, End, wrap, Escape`)
+    }
+    const calendarTrigger = page.getByRole('button', { name: '查看打卡日历' })
+    await calendarTrigger.click()
+    const previous = page.getByRole('button', { name: '上一月' })
+    const next = page.getByRole('button', { name: '下一月' })
+    assert(await previous.evaluate((element) => element === document.activeElement))
+    await page.keyboard.press('Shift+Tab')
+    assert(await next.evaluate((element) => element === document.activeElement))
+    await page.keyboard.press('Tab')
+    assert(await previous.evaluate((element) => element === document.activeElement))
+    await page.keyboard.press('Escape')
+    assert(await calendarTrigger.evaluate((element) => element === document.activeElement))
+    report.keyboard.push(`${width}: calendar focus, Tab trap, Escape`)
+  }
+  report.motion.normal = await page.evaluate(() => ['::before', '::after'].map((pseudo) => {
+    const style = getComputedStyle(document.querySelector('.shell-decor'), pseudo)
+    return { pseudo, animation: style.animationName, transform: style.transform }
+  }))
+  await page.waitForFunction((initial) => getComputedStyle(document.querySelector('.shell-decor'), '::before').transform !== initial,
+    report.motion.normal[0].transform)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  report.motion.systemReduced = await page.evaluate(() => ['::before', '::after'].map((pseudo) =>
+    getComputedStyle(document.querySelector('.shell-decor'), pseudo).animationName))
+  assert.deepEqual(report.motion.systemReduced, ['none', 'none'])
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.evaluate(() => document.documentElement.classList.add('reduce-motion'))
+  report.motion.appReduced = await page.evaluate(() => ['::before', '::after'].map((pseudo) =>
+    getComputedStyle(document.querySelector('.shell-decor'), pseudo).animationName))
+  assert.deepEqual(report.motion.appReduced, ['none', 'none'])
+  assert.deepEqual(report.errors, [])
+  report.status = 'passed'
+  report.completedAt = new Date().toISOString()
+  await writeFile(resolve(output, 'report.json'), JSON.stringify(report, null, 2))
+  console.log(JSON.stringify(report, null, 2))
+} catch (error) {
+  report.status = 'failed'
+  report.failure = String(error)

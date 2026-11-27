@@ -1,0 +1,76 @@
+/* ============================================================================
+   CodeWeave · M3 视觉竖切 · 学习工作台（01 号方案 §2.2 / §3.2 主工作台 / §5 无障碍 / §8 验收清单）
+   ----------------------------------------------------------------------------
+   - 只服务 learning-workspace-view.tsx：**每条选择器都以 .cw-workspace 起头**，
+     不写全局裸选择器，因此挑战页 / 项目页 / 复习页共用同一批子组件时不受影响。
+   - 值一律走 --ds-*（app/src/design/tokens.css），并按仓库要求带兜底；
+     令牌尚未接入运行期时，兜底就是模板 site.css / main.js 的源码原值。
+   - §5.3 第 1 条：编辑器与长文阅读为静态/低动态环境。本文件**不含任何
+     @keyframes、不含无限动画**；box-shadow 只走 --cw-glow-* 别名（科技档反转，
+     tokens §4.5：黑投影在黑场上等于没有，层级改由冷色外发光承担），
+     且模糊位与位移恒为 0 —— 发光是静态描边式的，不是持续泛光；
+     仅保留悬停/焦点的颜色过渡，并在系统偏好与 .reduce-motion 下写成
+     `animation: none / transition: none`（真正停止，不是放慢）。
+   - 遮光层：黑场上唯一使用的层次色是 rgb(14,14,15)。暖白 --ds-text-secondary
+     在其上仍有 5.39:1（见 src/design/README.md §6），因此可以承载正文级信息。
+   - 不加 backdrop-filter / border-radius 卡片 / 渐变底：§5.1「移除玻璃卡、
+     渐变按钮、泛光」。圆环与细线药丸按模板保留。
+   ========================================================================== */
+
+.cw-workspace {
+  /* ── 本地别名：全部带模板原值兜底 ─────────────────────────────────────── */
+  --cw-canvas: var(--ds-canvas, #000);
+  --cw-scrim: rgb(14, 14, 15); /* 遮光层（分区/内凹面） */
+  --cw-fg: var(--ds-text-primary, #f4f1ee);
+  --cw-fg-dim: var(--ds-text-secondary, rgba(220, 233, 251, 0.56));
+  --cw-fg-faint: var(--ds-text-tertiary, rgba(220, 233, 251, 0.34)); /* 仅装饰：分隔点、序号底纹 */
+  --cw-line: var(--ds-line-hair, rgba(220, 233, 251, 0.14));
+  --cw-line-raised: var(--ds-line-raised, rgba(220, 233, 251, 0.16));
+  --cw-line-width: var(--ds-line-width, 1px);
+  --cw-scene: var(--ds-scene-active, var(--ds-scene-singularity, rgb(34, 211, 238)));
+  --cw-ring: var(--ds-scene-glow-ring, 1.5px);
+  /* 科技档发光（tokens §4.5）：深色画布上黑投影等于没有，层级改由冷色外发光承担。
+     与 --cw-scene 同族，都是装饰；语义状态（--cw-ok 等）一律不消费这三个值。 */
+  --cw-glow-near: var(--ds-glow-near, 0 0 0 1px rgba(34, 211, 238, 0.28), 0 0 12px rgba(34, 211, 238, 0.14));
+  --cw-glow-panel: var(--ds-glow-panel, 0 0 0 1px rgba(120, 175, 235, 0.14), 0 8px 32px rgba(0, 0, 0, 0.55));
+  --cw-glow-inset: var(--ds-glow-inset, inset 0 1px 0 rgba(180, 215, 255, 0.07));
+  --cw-glow-line: inset 0 0 0 1px var(--cw-scene); /* 当前执行行：零模糊自发光，取代旧霓虹泛光与位移 */
+  --cw-on-scene: var(--ds-text-on-accent, #000);
+  /* 语义状态固定，不跟场景（§5.1 末段）：颜色不是唯一载体，状态同时有文字。 */
+  --cw-ok: var(--ds-status-success, #3fd3a4);
+  --cw-warn: var(--ds-status-warning, #ffc457);
+  --cw-err: var(--ds-status-danger, #ff8371);
+  --cw-info: var(--ds-status-info, #4f7cff);
+  --cw-focus: var(--ds-focus-ring, rgba(220, 233, 251, 0.72));
+  --cw-focus-w: var(--ds-focus-ring-width, 2px);
+  --cw-focus-off: var(--ds-focus-offset, 2px);
+  --cw-mono: var(--ds-font-mono, ui-monospace, 'Cascadia Code', Consolas, 'Microsoft YaHei', monospace);
+  --cw-ui: var(--ds-font-cjk-ui, 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', sans-serif);
+  --cw-ease: var(--ds-ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
+  --cw-dur: var(--ds-dur-quick, 150ms);
+  --cw-body: var(--ds-size-body, 16px); /* §5.4：阅读区正文 ~16px */
+  --cw-leading: var(--ds-leading-body, 1.7); /* §5.4：行高 1.6–1.75 */
+  --cw-label: 12px; /* 分区名与元信息：结构化内容，不用模板 9.5–10.5px HUD 档 */
+  --cw-tap: var(--ds-tap-min, 44px);
+
+  min-width: 0;
+  color: var(--cw-fg);
+  font-family: var(--cw-ui);
+  font-weight: var(--ds-weight-body, 400);
+  /* 顶栏偏移：把这页钉在一屏内时，从视口高度里扣掉的外壳高度。
+     --topbar-h 64 + .content-wrap 上内边距 32 + 页头/导航约 132 + 下留白 24。
+     只是**上限**用（下面 max-height 里的减数），量多了只会让页面比一屏矮一点，
+     所以取一个保守常量而不是量出来的精确值；外层另有 min-height 兜底。 */
+  --cw-chrome-h: 252px;
+
+  /* ── 一屏化的地基（2026-10-01，用户实测反馈后修） ─────────────────────────
+     原来这套「钉进一屏」只写在 `@media (min-width: 1081px)` 里，等于**只对宽屏
+     生效**。用户的实际视口落在 1081 以下，于是：
+       1. 上限不生效 → 工作台按内容自然生长，实测 1630px 高，整页要滑 1350px；
+       2. `.learning-view` 在窄屏是**单列**（阅读 → 编辑器 → 控制条 → 完成区 → 画布
+          依次纵排），五块叠起来，正是用户说的「上下滑动非常严重」。
+     所以把上限提到基础规则：任何宽度都不许把页面撑长。语法不支持 svh 的浏览器
+     吃后一行 vh（与下面各档同一写法）。 */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--cw-chrome-h));

@@ -1,0 +1,48 @@
+              {block.rows.map((row, rowIndex) => (
+                <tr key={`${key}-r${rowIndex}`}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={`${key}-r${cellIndex}-${rowIndex}`}>{renderInline(cell, `${key}-r${cellIndex}-${rowIndex}`, links)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+    return <p key={key}>{renderInline(block.text, key, links)}</p>
+  })
+}
+
+/** 一棵可被双链面板复用的正文渲染树：`depth` 逐级 +1，用于限制嵌套展开。 */
+function MarkdownTree({ markdown, depth, onNavigate }: { markdown: string; depth: number; onNavigate?: MarkdownNavigateHandler }) {
+  const bundleId = useOptionalContent()?.pinnedBundleId
+  const renderBody = useCallback<MarkdownRenderer>(
+    (inner) =>
+      depth >= MAX_MARKDOWN_DEPTH ? (
+        <p className="md-wikilink-preview-note">已达最大嵌套层级（{MAX_MARKDOWN_DEPTH} 层），请关闭上层面板后从课程列表进入。</p>
+      ) : (
+        <MarkdownTree markdown={inner} depth={depth + 1} onNavigate={onNavigate} />
+      ),
+    [depth, onNavigate],
+  )
+  return <MarkdownBodyContext.Provider value={renderBody}>{renderBlocks(markdown, { depth, onNavigate, bundleId })}</MarkdownBodyContext.Provider>
+}
+
+export function MarkdownView({
+  markdown,
+  className,
+  onNavigate,
+}: {
+  markdown: string
+  className?: string
+  /** 宿主页面的双链跳转出口；缺省时双链在正文内就地展开已发布原文 */
+  onNavigate?: MarkdownNavigateHandler
+}) {
+  // 双链面板里的正文沿用同一套受限管线（不解析 HTML、不生成 href）
+  return (
+    <div className={className ?? 'md-view'}>
+      <MarkdownTree markdown={markdown} depth={0} onNavigate={onNavigate} />
+    </div>
+  )
+}

@@ -1,0 +1,54 @@
+  progress = '发布授权、任务幂等与审批过期'
+  const readerRejected = await submit(reader.cookie, 'fixture-key-for-reader', { dryRun: true }, 403)
+  assert.equal(readerRejected.code, 'publisher_required')
+  await submit(reader.cookie, 'fixture-key-for-reader', { dryRun: false, approvalJobId: 'irrelevant' }, 403)
+  const first = (await submit(owner.cookie, 'fixture-validation-1', { dryRun: true })).data
+  assert.equal((await submit(owner.cookie, 'fixture-validation-1', { dryRun: true })).data.jobId, first.jobId)
+  assert.equal((await awaitJob(owner.cookie, first.jobId)).status, 'ready')
+  const mapPath = join(vault, 'CodeWeave', 'mappings', 'legacy-map.json')
+  const original = await readFile(mapPath, 'utf8')
+  await writeFile(mapPath, original + '\n')
+  const changed = (await submit(owner.cookie, 'fixture-publication-stale', { dryRun: false, approvalJobId: first.jobId })).data
+  assert.equal((await awaitJob(owner.cookie, changed.jobId)).error.code, 'approval_stale')
+  for (const [index, relative] of ['mappings/topic-id-map.json', 'rules/teaching-rules.json'].entries()) {
+    const candidate = (await submit(owner.cookie, 'fixture-validation-extra-' + index, { dryRun: true })).data
+    assert.equal((await awaitJob(owner.cookie, candidate.jobId)).status, 'ready')
+    const input = join(vault, 'CodeWeave', relative)
+    await writeFile(input, (await readFile(input, 'utf8')) + '\n')
+    const stale = (await submit(owner.cookie, 'fixture-publish-stale-extra-' + index, {
+      dryRun: false, approvalJobId: candidate.jobId,
+    })).data
+    assert.equal((await awaitJob(owner.cookie, stale.jobId)).error.code, 'approval_stale')
+  }
+  const second = (await submit(owner.cookie, 'fixture-validation-2', { dryRun: true })).data
+  const checked = await awaitJob(owner.cookie, second.jobId)
+  assert.equal(checked.status, 'ready')
+  const finished = (await submit(owner.cookie, 'fixture-publication-2', { dryRun: false, approvalJobId: second.jobId })).data
+  assert.equal((await awaitJob(owner.cookie, finished.jobId)).published, true)
+  const mismatch = await submit(owner.cookie, 'fixture-publication-2', { dryRun: true }, 409)
+  assert.equal(mismatch.code, 'idempotency_conflict')
+  progress = '固定版本正文、学习事实同步与服务重启'
+  const catalog = (await request('/api/content/catalog', { cookie: owner.cookie })).payload.data
+  assert.equal(catalog.bundleId, checked.summary.bundleId)
+  assert.equal(catalog.lessons.length, 1)
+  const contentId = catalog.lessons[0].contentId
+  const detail = (await request(`/api/content/lessons/${contentId}?bundleId=${catalog.bundleId}`, { cookie: owner.cookie })).payload.data
+  assert(detail.lesson.reading.markdown.length > 0)
+  assert.equal(detail.exercises.length, 1)
+  const bundlePath = '/api/content/bundles/' + catalog.bundleId
+  const manifest = (await request(bundlePath + '/manifest', { cookie: owner.cookie })).payload.data
+  assert.equal(manifest.manifestHash, catalog.manifestHash)
+  assert.equal(manifest.files[0].sha256, catalog.manifestHash)
+  const payloadResponse = await fetch(origin + bundlePath + '/payload', { headers: { Cookie: owner.cookie } })
+  assert.equal(payloadResponse.status, 200)
+  const bytes = Buffer.from(await payloadResponse.arrayBuffer())
+  assert.equal(bytes.length, manifest.files[0].size)
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), manifest.files[0].sha256)
+  assert.equal(JSON.parse(bytes.toString()).bundleId, catalog.bundleId)
+  const etag = payloadResponse.headers.get('etag')
+  assert.equal((await fetch(origin + bundlePath + '/payload', {
+    headers: { Cookie: owner.cookie, 'If-None-Match': etag },
+  })).status, 304)
+  assert.equal((await fetch(origin + bundlePath + '/payload', { headers: { 'If-None-Match': etag } })).status, 401)
+  console.log(JSON.stringify({ offlineBundle: 'passed', bytes: bytes.length, assets: manifest.assets.length, manifestHash: catalog.manifestHash }))
+  const change = {

@@ -1,0 +1,37 @@
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "当前版本暂不支持修改昵称与个人简介。"
+                        color: ds.muted
+                        font.family: ds.ui
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }
+                    QuietButton { ds: accountPage.ds; label: "保存资料（待接入）"; enabled: false }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ds.s8
+                        QuietButton {
+                            ds: accountPage.ds
+                            objectName: "profileSecurityLink"
+                            label: "账户安全"
+                            onClicked: uiShell.selectPage("账户安全")
+                        }
+                        QuietButton {
+                            ds: accountPage.ds
+                            objectName: "profilePrivacyLink"
+                            label: "数据与隐私"
+                            onClicked: uiShell.selectPage("数据与隐私")
+                        }
+                        QuietButton {
+                            ds: accountPage.ds
+                            label: "退出登录"
+                            enabled: !uiShell.accountBusy
+                            onClicked: uiShell.logout()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

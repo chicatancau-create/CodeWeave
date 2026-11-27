@@ -1,0 +1,94 @@
+std::filesystem::path metadata_path(const std::filesystem::path& index_dir) {
+  return index_dir / "metadata.v1";
+}
+
+std::filesystem::path shard_path(const std::filesystem::path& index_dir, std::size_t shard) {
+  char suffix[3]{};
+  std::snprintf(suffix, sizeof(suffix), "%02x", static_cast<unsigned>(shard));
+  return index_dir / (std::string("shard-") + suffix + ".v1");
+}
+
+std::filesystem::path temporary_path(const std::filesystem::path& destination) {
+  return destination.string() + ".tmp." +
+      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+}
+
+std::uint64_t fnv1a_update(std::uint64_t hash, std::string_view bytes) {
+  for (const unsigned char byte : bytes) {
+    hash ^= byte;
+    hash *= kFnvPrime;
+  }
+  return hash;
+}
+
+app::Result fingerprint_ledger(const std::filesystem::path& ledger_path,
+    std::uintmax_t expected_size, std::uint64_t& fingerprint) {
+  std::ifstream input(ledger_path, std::ios::binary);
+  if (!input) return app::Result::failure("打开 operation 索引账本校验流失败");
+  std::array<char, 64 * 1024> buffer{};
+  std::uintmax_t total = 0;
+  auto hash = kFingerprintOffset;
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const auto count = input.gcount();
+    if (count <= 0) break;
+    total += static_cast<std::uintmax_t>(count);
+    hash = fnv1a_update(hash, std::string_view(buffer.data(), static_cast<std::size_t>(count)));
+  }
+  if (!input.eof() || total != expected_size) {
+    return app::Result::failure("读取 operation 索引账本校验值失败");
+  }
+  fingerprint = hash;
+  return app::Result::success();
+}
+
+app::Result read_ledger_size(const std::filesystem::path& ledger_path,
+    std::uintmax_t& size, bool& exists) {
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(ledger_path, error);
+  if (missing(error) || status.type() == std::filesystem::file_type::not_found) {
+    size = 0;
+    exists = false;
+    return app::Result::success();
+  }
+  if (error) return app::Result::failure("读取 operation 索引账本状态失败");
+  if (std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+    return app::Result::failure("operation 索引账本文件类型无效");
+  }
+  size = std::filesystem::file_size(ledger_path, error);
+  if (error) return app::Result::failure("读取 operation 索引账本大小失败");
+  exists = true;
+  return app::Result::success();
+}
+
+app::Result parse_metadata(const std::filesystem::path& index_dir,
+    std::uintmax_t ledger_size, std::uint64_t ledger_fingerprint,
+    std::size_t& record_count) {
+  std::error_code error;
+  const auto path = metadata_path(index_dir);
+  const auto status = std::filesystem::symlink_status(path, error);
+  if (missing(error)) return app::Result::failure("operation 索引元数据缺失");
+  if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+    return app::Result::failure("operation 索引元数据类型无效");
+  }
+  const auto size = std::filesystem::file_size(path, error);
+  if (error || size > 1024) return app::Result::failure("operation 索引元数据大小无效");
+  std::ifstream input(path, std::ios::binary);
+  std::string line(static_cast<std::size_t>(size), '\0');
+  input.read(line.data(), static_cast<std::streamsize>(line.size()));
+  if (!input && !input.eof()) return app::Result::failure("读取 operation 索引元数据失败");
+  if (!line.empty() && line.back() == '\n') line.pop_back();
+  const auto fields = split(line);
+  std::uintmax_t declared_size = 0;
+  std::uintmax_t declared_count = 0;
+  std::uintmax_t declared_fingerprint = 0;
+  if (fields.size() != 4 || fields[0] != kHeader || !parse_uint(fields[1], declared_size) ||
+      !parse_uint(fields[2], declared_count) || !parse_uint(fields[3], declared_fingerprint) ||
+      declared_size != ledger_size || declared_fingerprint != ledger_fingerprint ||
+      declared_count > 100'000) {
+    return app::Result::failure("operation 索引元数据内容无效");
+  }
+  record_count = static_cast<std::size_t>(declared_count);
+  return app::Result::success();
+}
+

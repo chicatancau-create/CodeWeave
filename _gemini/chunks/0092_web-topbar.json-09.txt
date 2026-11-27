@@ -1,0 +1,128 @@
+          "fontSize": "13px",
+          "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "color": "rgb(163, 175, 190)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderWidth": "0px",
+          "borderStyle": "none",
+          "borderColor": "rgb(163, 175, 190)",
+          "borderRadius": "8px",
+          "outlineWidth": "3px",
+          "outlineColor": "rgb(163, 175, 190)",
+          "outlineOffset": "0px"
+        }
+      }
+    ]
+  },
+  "searchFocus": {
+    "text": "",
+    "geometry": {
+      "x": 463.53125,
+      "y": 13.296875,
+      "width": 658.46875,
+      "height": 40.390625
+    },
+    "computed": {
+      "fontSize": "14px",
+      "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+      "fontWeight": "400",
+      "lineHeight": "22.4px",
+      "color": "rgb(226, 231, 239)",
+      "backgroundColor": "rgb(10, 14, 21)",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "borderColor": "rgb(142, 213, 255)",
+      "borderRadius": "8px",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(142, 213, 255)",
+      "outlineOffset": "2px"
+    },
+    "focused": true,
+    "focusVisible": true
+  },
+  "settings": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "rows": [
+        {
+          "index": 0,
+          "title": "学习提醒",
+          "label": {
+            "text": "学习提醒",
+            "geometry": {
+              "x": 469,
+              "y": 260.6875,
+              "width": 143,
+              "height": 22.390625
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "description": {
+            "text": "在本机保留学习提醒状态",
+            "geometry": {
+              "x": 469,
+              "y": 287.078125,
+              "width": 143,
+              "height": 20.796875
+            },
+            "computed": {
+              "fontSize": "13px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "20.8px",
+              "color": "rgb(163, 175, 190)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(163, 175, 190)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(163, 175, 190)",
+              "outlineOffset": "0px"
+            }
+          },
+          "row": {
+            "text": "学习提醒在本机保留学习提醒状态",
+            "geometry": {
+              "x": 469,
+              "y": 248.6875,
+              "width": 492,
+              "height": 71.1875
+            },
+            "computed": {
+              "fontSize": "14px",
+              "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+              "fontWeight": "400",
+              "lineHeight": "22.4px",
+              "color": "rgb(226, 231, 239)",
+              "backgroundColor": "rgba(0, 0, 0, 0)",
+              "borderWidth": "0px",
+              "borderStyle": "none",
+              "borderColor": "rgb(226, 231, 239)",
+              "borderRadius": "0px",
+              "outlineWidth": "3px",
+              "outlineColor": "rgb(226, 231, 239)",
+              "outlineOffset": "0px"
+            }
+          },
+          "control": {
+            "text": "",
+            "geometry": {

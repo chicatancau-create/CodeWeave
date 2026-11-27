@@ -1,0 +1,73 @@
+    assert(shell.draftDirty() && shell.savedRevision() == submitted_revision);
+    assert(read_file(file) == QStringLiteral("中文 first\n").toUtf8().toStdString());
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(!shell.draftDirty());
+    const auto stamp = std::filesystem::last_write_time(file);
+    shell.saveDraft();
+    assert(std::filesystem::last_write_time(file) == stamp);
+    shell.loadStarterCode();
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.draftCode() == QStringLiteral("中文 second\n") && !shell.draftDirty());
+    shell.updateDraftCode(QString(4 * 1024 * 1024 + 1, QChar('x')));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(shell.draftDirty());
+    assert(read_file(file) == QStringLiteral("中文 second\n").toUtf8().toStdString());
+    shell.discardDraftChanges();
+    shell.updateDraftCode(QString());
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(!shell.draftDirty() && read_file(file).empty());
+    shell.loadStarterCode();
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.draftCode().isEmpty() && !shell.draftDirty());
+    const auto generation = shell.accountGeneration();
+    shell.openChallenge(QStringLiteral("stage-d"));
+    shell.updateChallengeCode(QStringLiteral("console.log('account-private challenge draft');"));
+    wait_for([&] { return shell.setAccountContext(second, workspace, data); });
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(!shell.challengeDetailOpen() && shell.challengeRunResult().isEmpty());
+    shell.openChallenge(QStringLiteral("stage-d"));
+    assert(shell.challengeCode() == shell.selectedChallenge().value(QStringLiteral("starterCode")).toString());
+    shell.closeChallenge();
+    assert(shell.accountGeneration() > generation && shell.draftCode() == shell.starterCode());
+    assert(shell.progressSummary().isEmpty() && shell.reviewSummary().isEmpty());
+    shell.refreshReviewSummary();
+    wait_for([&] { return !shell.operationBusy(); });
+    assert(shell.reviewSummary().contains(QStringLiteral("证据 0 条")));
+    assert(!std::filesystem::exists(draft_path(second_root, document)));
+    shell.updateDraftCode(QStringLiteral("survives restart"));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(!shell.draftDirty());
+    // A directory at the target name forces a real write error without chmod
+    // changes, real-data access, or mocking successful persistence.
+    const auto blocked_file = draft_path(second_root, document);
+    assert(std::filesystem::remove(blocked_file));
+    std::filesystem::create_directory(blocked_file);
+    shell.updateDraftCode(QStringLiteral("cannot commit"));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(shell.draftDirty() && std::filesystem::is_directory(blocked_file));
+    assert(std::filesystem::remove(blocked_file));
+    shell.saveDraft();
+    wait_for([&] { return !shell.draftSaving(); });
+    assert(!shell.draftDirty());
+    wait_for([&] { return shell.clearAccountContext(); });
+    assert(shell.draftCode().isEmpty() && !shell.hasActiveAccount());
+    assert(shell.analysisSnapshot().isEmpty());
+    // Simulate a corrupt persisted file in our isolated fixture only.
+    std::ofstream(file, std::ios::binary | std::ios::trunc).write("bad\0text", 8);
+    wait_for([&] { return shell.setAccountContext(first, workspace, data); });
+    wait_for([&] { return !shell.contentBusy(); });
+    assert(shell.draftPersistenceBlocked());
+    shell.updateDraftCode(QStringLiteral("must not overwrite"));
+    shell.saveDraft();
+    assert(read_file(file) == std::string("bad\0text", 8));
+    wait_for([&] { return shell.clearAccountContext(); });
+    assert(shell.requestClose());
+  }
+  // Reload a submitted snapshot in another shell, then close with a write
+  // queued behind a read. Shutdown must drain the write without losing it.
+  {

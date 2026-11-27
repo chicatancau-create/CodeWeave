@@ -1,0 +1,102 @@
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'wrongpass1' })
+
+    await waitFor(() => expect(ref.current?.error).toContain('邮箱或手机号与密码不匹配'))
+    expect(ref.current?.busy).toBe(false)
+  })
+
+  it('500 → 不提示“无法连接服务”（服务可达但返回错误）', async () => {
+    stubRoutes(() => jsonResponse({ error: '服务器内部错误', code: 'internal_error' }, 500))
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+
+    await waitFor(() => expect(ref.current?.busy).toBe(false))
+    expect(ref.current?.error).not.toContain('无法连接服务')
+    expect(ref.current?.error).toContain('服务器内部错误')
+  })
+
+  it('限流 429 展示服务端提示', async () => {
+    stubRoutes(() =>
+      jsonResponse({ error: '尝试过于频繁，请稍后再试', code: 'too_many_attempts' }, 429),
+    )
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+
+    await waitFor(() => expect(ref.current?.error).toContain('过于频繁'))
+    expect(ref.current?.busy).toBe(false)
+  })
+})
+
+describe('LOGIN-02 成功载荷结构校验', () => {
+  it('返回结构不合法的 JSON 不得当作登录成功', async () => {
+    stubRoutes(() => jsonResponse({ data: { nickname: '不是合法用户' } }))
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+
+    await waitFor(() => expect(ref.current?.error).not.toBe(''))
+    expect(ref.current?.user).toBeNull()
+    expect(ref.current?.busy).toBe(false)
+  })
+
+  it('data 为 null 时不得当作登录成功', async () => {
+    stubRoutes(() => jsonResponse({ data: null }))
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+
+    await waitFor(() => expect(ref.current?.error).not.toBe(''))
+    expect(ref.current?.user).toBeNull()
+  })
+
+  it('合法 AuthUser 载荷正常写入 user', async () => {
+    stubRoutes(() => jsonResponse({ data: testUser }))
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: 'password123' })
+
+    await waitFor(() => expect(ref.current?.user?.email).toBe('student@example.com'))
+    expect(ref.current?.error).toBe('')
+  })
+})
+
+describe('LOGIN-02 密码不得外泄', () => {
+  it('错误信息不包含密码原文', async () => {
+    const secret = 'super-secret-passphrase'
+    stubRoutes(() => jsonResponse({ error: '邮箱或手机号与密码不匹配' }, 401))
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: secret })
+
+    await waitFor(() => expect(ref.current?.error).not.toBe(''))
+    expect(ref.current?.error).not.toContain(secret)
+  })
+
+  it('请求体之外的错误信息不含密码（网络失败场景）', async () => {
+    const secret = 'another-secret-passphrase'
+    stubRoutes(() => {
+      throw new TypeError('Failed to fetch')
+    })
+
+    const { ref, onReady } = harnessRef()
+    render(<Harness onReady={onReady} />)
+    await waitFor(() => expect(ref.current?.checked).toBe(true))
+    await ref.current!.handleSubmit({ identifier: 'a@b.com', password: secret })
+
+    await waitFor(() => expect(ref.current?.error).not.toBe(''))
+    expect(ref.current?.error).not.toContain(secret)
+  })
+})

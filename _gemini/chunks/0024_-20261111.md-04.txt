@@ -1,0 +1,107 @@
+| 任务 1.5 死入口 | `RunLogPage` 已移除；`evidenceDialog` 已接 `open()`（`Main.qml:50`，定义 :1368）。`ShellDialog.qml` 的 `dialog`、`ShellPopup.qml` 的 `shellPopup` 是组件自身 id，由组件 API 打开，**不是死组件** |
+| 任务 2.3 eslint 豁免 | `网页端/项目/src/` 内 `eslint-disable` **0 处** |
+| 硬性规则 1 `.bak/.old` | `git ls-files` 中 0 个 |
+| 硬性规则 6 网页端依赖 | `dependencies` 仅 `react` / `react-dom` / `lucide-react` |
+| 禁止 Qt5Compat | `ui-qt/` 内 0 命中 |
+| QML ↔ facade 契约 | QML 引用 97 个不同 `uiShell.*` 成员，**全部在 `ui_shell.hpp` 有 Q_PROPERTY/Q_INVOKABLE 声明**（声明总数 109）；未声明 0。此前 `publishedIds` 那类「测试全绿但点不动」的缺陷已系统性关闭 |
+| QML 重复 id | 0 处 |
+| C++ 异步链 | 17 个 `backend_tasks_.submit` 站点，守卫与 `result.cancelled` 分支齐全（守卫匹配 58 处、cancelled 分支 20 处）；`TODO/FIXME` 0 处 |
+| 硬性规则 5 未削弱测试 | 反而加强：`native_tests.cpp` 断言 435→**675**（2039→2705 行）；`ui_shell_tests.cpp` 断言 82→**449**（368→1301 行） |
+
+---
+
+## D. 不属于本轮完成条件，不要当缺口去追
+
+- **Android APK / Lint / 设备运行**：提示词任务 6.1 第 5 点原文豁免「无 Android SDK 时只做静态检查并在报告中标注未编译验证」。当前静态基线 + 明确披露即合规。
+- **未推送的提交**：硬性规则 7 明令「严禁 git push」。当前领先 origin 65 个提交是**守规结果**，不是失职。是否推送由用户单独授权，不在你的任务内。
+- **四页整页视觉等价**：任务 7.2 只要求「逐区块比对 + 差异记录到 Phase4 文档」，**不要求零差异**。差异已记录且明确不宣称等价，该条已满足。整页收敛属于 Phase4 额外跟踪项，需用户决定是否继续。
+- **正式账户/资料库联调、像素差异阈值门禁**：提示词未要求。
+
+---
+
+## E. 交付层事实（供用户决定，不是执行方任务）
+
+`应用端/启动应用端.lnk` → `%LOCALAPPDATA%\Programs\CodeWeave\CodeWeaveQtShell.exe`
+
+| | 时间 | 体积 | SHA-256 前 12 位 |
+|---|---|---:|---|
+| 已安装（用户双击的） | 2026-10-06 20:55 | 1,668 KiB | `8000347887a2` |
+| 当前构建产物 | 2026-11-11 22:27 | 4,671 KiB | `5d8486c0ed8e` |
+
+相差 36 天。终验报告已写明「正式安装版和启动链接未替换」，属有意保留。**不要自行替换交付入口**——提示词禁止事项与 AGENTS.md 均要求这类变更先报告。
+
+---
+
+## F. 可复跑的复核方法
+
+以下三段是本轮实际用过的检查，执行方可直接复跑来自证，不必采信本文件的结论。
+
+**F1 未声明令牌全量检索**（在 `应用端/项目/native/ui-qt/qml/` 下执行）
+
+```python
+import re, glob
+decl = set(re.findall(r'property\s+[\w<>\[\]]+\s+(\w+)\s*:',
+                      open('DesignSystem.qml', encoding='utf-8').read()))
+bad = []
+for f in glob.glob('**/*.qml', recursive=True):
+    for i, l in enumerate(open(f, encoding='utf-8').read().split('\n'), 1):
+        if l.strip().startswith('//'):
+            continue
+        for m in re.finditer(r'\b(?:ds|designSystem)\.(\w+)', l):
+            if m.group(1) not in decl:
+                bad.append((f, i, m.group(1)))
+print('未声明引用:', len(bad))
+for b in bad:
+    print(' ', b)
+```
+
+**F2 写死颜色字面量**（同上目录，排除 `DesignSystem.qml`）
+
+```python
+import re, glob
+n = 0
+for f in sorted(glob.glob('**/*.qml', recursive=True)):
+    if f.endswith('DesignSystem.qml'):
+        continue
+    for i, l in enumerate(open(f, encoding='utf-8').read().split('\n'), 1):
+        for m in re.finditer(r'Qt\.rgba\([^)]*\)|"#[0-9a-fA-F]{3,8}"', l):
+            print(f, i, m.group(0)); n += 1
+print('合计', n)
+```
+
+**F3 QML ↔ facade 契约**（在 `应用端/项目/native/ui-qt/` 下执行）
+
+```python
+import re, glob
+hpp = open('facade/ui_shell.hpp', encoding='utf-8').read()
+declared = set(re.findall(r'Q_PROPERTY\s*\(\s*[\w:<>,\s\*&]+?\s+(\w+)\s+READ', hpp))
+declared |= set(re.findall(r'Q_INVOKABLE\s+[\w:<>,\s\*&]+?\s+(\w+)\s*\(', hpp))
+used = {}
+for f in glob.glob('qml/**/*.qml', recursive=True):
+    for i, l in enumerate(open(f, encoding='utf-8').read().split('\n'), 1):
+        if l.strip().startswith('//'):
+            continue
+        for m in re.finditer(r'\buiShell\.(\w+)', l):
+            used.setdefault(m.group(1), []).append((f, i))
+missing = {k: v for k, v in used.items() if k not in declared}
+print('未声明的 uiShell 成员:', len(missing))
+for k, v in missing.items():
+    print(' ', k, v[:2])
+```
+
+**门禁入口**（提示词阶段 0 与终验报告指定，不要另造）
+
+```
+cmd /d /c 工程文件\工具\构建当前Qt.cmd
+cd 网页端/项目 && corepack pnpm verify
+node 工程文件/工具/check-layout.mjs
+node 移动端/项目/scripts/boundary-check.mjs
+```
+
+**判读注意：`LastTestsFailed.log` 是残留文件，不是本轮结论。**
+CTest 在全绿运行后**不会删除** `构建产物/qt/current/Testing/Temporary/LastTestsFailed.log`。
+实测：11-12 09:59 那轮 11/11 全绿（含 `qt-qml-load`），但该文件仍存在，内容是 `8:qt-qml-load`、mtime 为 **11-11 20:53**（前一天某次中间态失败）。
+审查方曾两次据此误判「当前是红的」。**判断本轮结果只看 `LastTest.log` 的 mtime 与 `ctest`  stdout 的 `tests passed` 行**，或先比对两个文件的 mtime；不要看到 `LastTestsFailed.log` 存在就下结论。
+
+---
+

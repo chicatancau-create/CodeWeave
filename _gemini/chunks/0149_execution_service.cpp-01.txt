@@ -1,0 +1,122 @@
+#include "execution_service.hpp"
+#include "cpp_trace_runner.hpp"
+#include "java_trace_runner.hpp"
+#include "javascript_trace_runner.hpp"
+
+#include <algorithm>
+#include <cwctype>
+#include <fstream>
+#include <memory>
+#include <random>
+#include <system_error>
+#include <thread>
+
+namespace codeweave::execution {
+
+namespace {
+
+class TemporaryFile final {
+ public:
+  explicit TemporaryFile(std::filesystem::path path) : path_(std::move(path)) {}
+  ~TemporaryFile() {
+    if (!path_.empty()) {
+      std::error_code ignored;
+      std::filesystem::remove(path_, ignored);
+    }
+  }
+  TemporaryFile(const TemporaryFile&) = delete;
+  TemporaryFile& operator=(const TemporaryFile&) = delete;
+
+ private:
+  std::filesystem::path path_;
+};
+
+class TemporaryDirectory final {
+ public:
+  explicit TemporaryDirectory(std::filesystem::path path) : path_(std::move(path)) {}
+  ~TemporaryDirectory() {
+    if (!path_.empty()) {
+      std::error_code ignored;
+      std::filesystem::remove_all(path_, ignored);
+    }
+  }
+  TemporaryDirectory(const TemporaryDirectory&) = delete;
+  TemporaryDirectory& operator=(const TemporaryDirectory&) = delete;
+
+ private:
+  std::filesystem::path path_;
+};
+
+class DebuggerControlGuard final {
+ public:
+  explicit DebuggerControlGuard(ExecutionControl* control) : control_(control) {
+    if (control_) control_->attach([](ControlCommand) {
+      return app::Result::failure("C++ 源码追踪暂不支持暂停或单步");
+    });
+  }
+  ~DebuggerControlGuard() { if (control_) control_->detach(); }
+  DebuggerControlGuard(const DebuggerControlGuard&) = delete;
+  DebuggerControlGuard& operator=(const DebuggerControlGuard&) = delete;
+
+ private:
+  ExecutionControl* control_;
+};
+
+std::filesystem::path generated_cpp_path(const ProcessPlan& plan) {
+  for (const auto& argument : plan.process.arguments) {
+    if (argument.starts_with(L"codeweave-program-")) {
+      return plan.process.working_directory / argument;
+    }
+    if (argument.starts_with(L"/Fe:")) {
+      return plan.process.working_directory / argument.substr(4);
+    }
+  }
+  return {};
+}
+
+std::filesystem::path generated_cpp_source_path(const ProcessPlan& plan) {
+  for (const auto& argument : plan.process.arguments) {
+    if (argument.starts_with(L"codeweave-source-")) {
+      return plan.process.working_directory / argument;
+    }
+  }
+  return {};
+}
+
+std::filesystem::path sibling_cpp_debugger(const std::filesystem::path& compiler) {
+  auto filename = compiler.filename().wstring();
+  std::transform(filename.begin(), filename.end(), filename.begin(), [](wchar_t value) {
+    return static_cast<wchar_t>(std::towlower(value));
+  });
+  if (filename != L"g++.exe" && filename != L"clang++.exe") return {};
+  const auto debugger = compiler.parent_path() / "gdb.exe";
+  std::error_code error;
+  return std::filesystem::is_regular_file(debugger, error) && !error ? debugger : std::filesystem::path{};
+}
+
+std::filesystem::path java_source_path(const std::filesystem::path& working_directory) {
+  return working_directory / "Main.java";
+}
+
+std::filesystem::path sibling_java_compiler(const std::filesystem::path& java_tool) {
+  return java_tool.parent_path() / "javac.exe";
+}
+
+std::filesystem::path unique_source_trace_directory(const std::filesystem::path& root,
+    std::string_view language) {
+  std::random_device random;
+  return root / (std::string(language) + "-" + std::to_string(random()) + "-" + std::to_string(random()));
+}
+
+bool write_file(const std::filesystem::path& path, std::string_view contents) {
+  std::ofstream file(path, std::ios::binary | std::ios::trunc);
+  if (!file) return false;
+  file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+  file.flush();
+  return static_cast<bool>(file);
+}
+
+ProcessResult run_cpp_debugger(const ProcessRunner& runner, const ProcessPlan& plan,
+    const std::filesystem::path& output_path, const std::atomic_bool* cancellation,
+    ExecutionControl* control, const ProcessRunner::Observer& observer) {
+  std::atomic_bool stop{cancellation && cancellation->load()};

@@ -1,0 +1,105 @@
+      "bytes": 105855220.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\开工指令-ChatGPT.md",
+      "files": 1,
+      "bytes": 15896.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\aqtinstall.log",
+      "files": 1,
+      "bytes": 26909.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\check.cmd",
+      "files": 1,
+      "bytes": 313.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\env_check.py",
+      "files": 1,
+      "bytes": 3935.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\qt-install.log",
+      "files": 1,
+      "bytes": 4249.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\开发环境\\CodeWeave-prep\\README-这是什么.txt",
+      "files": 1,
+      "bytes": 5132.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\native\\build-g1-msvc-1",
+      "files": 67,
+      "bytes": 40308875.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\native\\build-g1-msvc-release",
+      "files": 53,
+      "bytes": 32649050.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\native\\build-qt-release",
+      "files": 26,
+      "bytes": 1290493.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    },
+    {
+      "path": "G:\\CodeWeave\\应用端\\项目\\native\\stage-a4-candidate-1",
+      "files": 1,
+      "bytes": 230513.0,
+      "reason": "verified obsolete build, cache, old delivery, reference clone or superseded preparation",
+      "status": "deleted"
+    }
+  ],
+  "integration": [
+    "Root content matched native/content byte for byte; retain native/content as canonical",
+    "Configuration marker integrated into current app project/config",
+    "Current environment inspector promoted into engineering tools",
+    "DeepTutor clean upstream clone represented by upstream commit and existing current comparison documents",
+    "Old H archive contains mismatched text and binary recovery records; not imported into canonical lessons"
+  ],
+  "validation": {
+    "web": {
+      "typecheck": "passed",
+      "lint": "passed",
+      "build": "passed",
+      "vitest": "83 files, 1281 tests passed with maxWorkers=2",
+      "baseline": "default parallel coverage run had one challenge-view timeout before changes"
+    },
+    "desktop": {
+      "node": "4/4 passed",
+      "build": "fresh Qt + native build passed",
+      "ctest": "8/8 passed"
+    },
+    "mobile": {
+      "boundary": "passed",
+      "entry": "read-only check passed; no Android Studio/APK",
+      "core": "1/1 CTest passed with CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON",
+      "android": "not executed; no Gradle wrapper/Gradle command"
+    },
+    "launchSmoke": {
+      "web": {
+        "status": "passed",
+        "health": {

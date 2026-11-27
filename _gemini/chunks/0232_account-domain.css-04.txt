@@ -1,0 +1,135 @@
+/* ── 7. 列表与说明文字（旧 10–11px 档全部抬到可读档，M3 §8.3 挂账项） ────── */
+.cw-account .cw-account-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-8, 8px);
+  margin: 0;
+  padding-left: var(--ds-space-20, 20px);
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-account .cw-account-list li::marker {
+  color: var(--ca-info);
+}
+.cw-account .cw-account-list strong {
+  color: var(--ca-ink);
+  font-weight: 600;
+}
+.cw-account .cw-account-note {
+  margin: 0;
+  color: var(--ca-ink-2);
+  font-size: var(--ca-body);
+  line-height: var(--ca-leading);
+}
+.cw-account .cw-account-note--locked {
+  color: var(--ca-warn);                 /* 13.29:1；「尚未开放」是必读约束 */
+  border-left: 3px solid var(--ca-warn);
+  padding-left: var(--ds-space-12, 12px);
+}
+.cw-account .cw-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-10, 10px);
+  align-items: center;
+}
+
+/* ── 8. 焦点可见（§5.4） ─────────────────────────────────────────────────── */
+.cw-account :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--ds-focus-ring-width, 2px) solid var(--ca-focus);
+  outline-offset: var(--ds-focus-offset, 2px);
+}
+
+/* ── 9. §5.4 窄视口：320px 不破版（含 200% 缩放等效宽度） ────────────────── */
+@media (max-width: 420px) {
+  .cw-account .module-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .cw-account .cw-account-actions {
+    align-items: stretch;
+  }
+  .cw-account .cw-account-actions .cw-account-btn {
+    flex: 1 1 100%;
+  }
+  .cw-account .cw-account-table th,
+  .cw-account .cw-account-table td {
+    padding-right: var(--ds-space-8, 8px);
+  }
+}
+
+/* ── 10. §5.3 减动效：两条路径各自真停（本域只有 hover 过渡，无循环动画） ─── */
+@media (prefers-reduced-motion: reduce) {
+  .cw-account :is(a, button, input, select, textarea, .cw-account-btn) {
+    transition: none !important;
+  }
+}
+.reduce-motion .cw-account :is(a, button, input, select, textarea, .cw-account-btn),
+.cw-account.reduce-motion :is(a, button, input, select, textarea, .cw-account-btn) {
+  transition: none !important;
+}
+
+/* ── 11. 高对比模式：发丝线抬到系统描边 ─────────────────────────────────── */
+@media (forced-colors: active) {
+  .cw-account .cw-account-card,
+  .cw-account .cw-account-field input,
+  .cw-account .cw-account-field textarea,
+  .cw-account .cw-account-field select,
+  .cw-account .cw-account-table th,
+  .cw-account .cw-account-table td,
+  .cw-account .cw-account-status {
+    border-color: CanvasText;
+  }
+}
+
+/* ── 12. 本页私有工具类：表格说明只给辅助技术读（不新造全局 .sr-only，
+        避免与全局工具类撞名；evidence-writeback.css 的同类做法也是页内私有） ─ */
+.cw-account caption.cw-account-caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: var(--ds-space-seam, -1px);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  color: var(--ca-ink-2);
+}
+
+/* ===========================================================================
+   页面专属布局（这三棵子树里没有任何他人组件，可以直接沿用旧全局类名覆写；
+   个人中心例外——它嵌着资料库进度与证据写回，只用 .cw-account-* 自有类）
+   =========================================================================== */
+
+/* ── 个人中心：资料卡 / 学习概览 / 掌握度地图 ───────────────────────────── */
+.cw-profile .profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--ds-space-16, 16px);
+  align-items: start;
+}
+.cw-profile .profile-card,
+.cw-profile .profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-12, 12px);
+  min-width: 0;
+  padding: clamp(var(--ds-space-14, 14px), 2.6vw, var(--ds-space-24, 24px));
+  border: var(--ca-line) solid var(--ca-hair);
+  border-radius: var(--ca-radius);
+  background: transparent;
+  box-shadow: var(--ds-shadow-panel, none);
+}
+.cw-profile .profile-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-14, 14px);
+  padding-bottom: var(--ds-space-16, 16px);
+  border-bottom: var(--ca-line) solid var(--ca-hair);
+}
+.cw-profile .profile-large-avatar {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  display: grid;

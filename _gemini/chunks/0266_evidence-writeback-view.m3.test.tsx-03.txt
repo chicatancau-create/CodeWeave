@@ -1,0 +1,93 @@
+      expect((mark.querySelector('.ewb-mark-text')?.textContent ?? '').trim().length).toBeGreaterThan(0)
+    }
+    expect(screen.getAllByText('待处理').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('已同步').length).toBeGreaterThan(0)
+  })
+
+  it('状态色全部由本组件 css 承担：渲染结果里没有任何行内样式', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [syncedRecord] } })
+    const { container } = renderPanel()
+    await screen.findAllByText('Java Hello World')
+    expect(container.querySelector('[style]')).toBeNull()
+  })
+
+  it('一次性横幅只标「提示」，不冒领「已同步」：状态归队列区条目承担', async () => {
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:mock'), revokeObjectURL: vi.fn() })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    renderPanel()
+    await screen.findByText('Java Hello World')
+    fireEvent.click(screen.getByRole('button', { name: /导出待保存 Markdown/ }))
+
+    const body = await screen.findByText(/导出不等于已同步/)
+    const banner = body.closest('.ewb-banner')
+    expect(banner).not.toBeNull()
+    expect(banner?.querySelector('.ewb-mark--result')).not.toBeNull()
+    expect(banner?.querySelector('.ewb-mark--synced')).toBeNull()
+    // 同步区此时仍是空态：没有任何条目冒领「已同步」
+    expect(screen.getByText(/还没有已同步的证据/)).toBeTruthy()
+    expect(screen.getAllByText('已同步').length).toBe(1) // 只剩分区标题本身的状态标识
+  })
+
+  it('编号只是装饰：带 aria-hidden，不会混进无障碍名称', async () => {    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    const { container } = renderPanel()
+    await screen.findByText('Java Hello World')
+
+    const nums = Array.from(container.querySelectorAll<HTMLElement>('.ewb-num'))
+    expect(nums.length).toBeGreaterThan(0)
+    for (const num of nums) expect(num.getAttribute('aria-hidden')).toBe('true')
+    // 装饰编号不进入按钮可访问名称
+    expect(screen.getByRole('button', { name: '暂存证据' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /③ 预览将写入的内容/ })).toBeTruthy()
+  })
+})
+
+describe('M3 §5.2 细线差异预览', () => {
+  it('目标清单走细线表格：序 + 目标 + 文件 + 文字状态（含指纹）', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    renderPanel()
+    await openPreview()
+
+    expect(screen.getByRole('columnheader', { name: '序' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '当前状态' })).toBeTruthy()
+    expect(screen.getByText('不存在（将新建）')).toBeTruthy()
+    expect(screen.getByText(/已存在 · 指纹 abc12345/)).toBeTruthy()
+    expect(screen.getAllByText('01').length).toBeGreaterThan(0)
+  })
+
+  it('逐字段差异表带列标题与「旧 −／新 +」文字前缀', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    renderPanel()
+    await openPreview()
+
+    expect(screen.getByRole('columnheader', { name: '变更字段' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '写入前' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '写入后' })).toBeTruthy()
+    expect(screen.getAllByText('旧 −').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('新 +').length).toBeGreaterThan(0)
+    // 前缀只是额外通道，原值/新值仍是独立文本，可搜索可读
+    expect(screen.getByText('2026-09-14')).toBeTruthy()
+    expect(screen.getByText('2026-09-19')).toBeTruthy()
+  })
+
+  it('日志小节按追加行呈现：每行一个 + 前缀，并说明不覆盖已有内容', async () => {
+    route({ queue: { pending: [stagedRecord()], synced: [] } })
+    const { container } = renderPanel()
+    await openPreview()
+
+    expect(screen.getByText('将追加到日志的小节')).toBeTruthy()
+    expect(screen.getByText(/整段追加，不覆盖日志已有内容/)).toBeTruthy()
+    const lines = Array.from(container.querySelectorAll<HTMLElement>('.ewb-diff-line'))
+    expect(lines.length).toBe(3) // 两行内容 + 结尾换行产生的一行空白
+    for (const line of lines) expect(line.querySelector('.ewb-sign--plus')?.textContent).toBe('+')
+  })
+
+  it('冲突表沿用同一套细线结构与文字前缀', async () => {
+    route({
+      queue: { pending: [stagedRecord()], synced: [] },
+      commit: () =>
+        json(
+          {
+            error: '目标文件已被其他编辑者修改，未写入任何内容',
+            code: 'sync_conflict',
+            details: {

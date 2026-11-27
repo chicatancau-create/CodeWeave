@@ -1,0 +1,74 @@
+                            implicitHeight: 44
+                            model: challengePage.uniqueValues("stageId")
+                            currentIndex: Math.max(0, model.indexOf(challengePage.stageFilter))
+                            onActivated: { challengePage.stageFilter = currentText; challengePage.currentPage = 1; }
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "轨道"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            objectName: "challengeTrackFilter"
+                            Layout.preferredWidth: 140
+                            implicitHeight: 44
+                            model: challengePage.uniqueValues("track")
+                            currentIndex: Math.max(0, model.indexOf(challengePage.trackFilter))
+                            onActivated: { challengePage.trackFilter = currentText; challengePage.currentPage = 1; }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    QuietButton {
+                                ds: challengePage.ds
+                        implicitHeight: 44
+                        label: challengePage.moreFiltersOpen ? "收起筛选" : "更多筛选"
+                        onClicked: challengePage.moreFiltersOpen = !challengePage.moreFiltersOpen
+                    }
+                }
+
+                RowLayout {
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom;
+                              leftMargin: ds.s16; rightMargin: ds.s16; bottomMargin: ds.s12 }
+                    visible: challengePage.moreFiltersOpen
+                    spacing: ds.s12
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "难度"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            objectName: "challengeDifficultyFilter"
+                            Layout.preferredWidth: 140
+                            implicitHeight: 44
+                            model: challengePage.uniqueValues("difficulty")
+                            currentIndex: Math.max(0, model.indexOf(challengePage.difficultyFilter))
+                            onActivated: { challengePage.difficultyFilter = currentText; challengePage.currentPage = 1; }
+                        }
+                    }
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "运行方式"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            objectName: "challengeRunnerFilter"
+                            Layout.preferredWidth: 170
+                            implicitHeight: 44
+                            textRole: "label"
+                            model: [
+                                { value: "全部", label: "全部" },
+                                { value: "teaching", label: "教学运行器" },
+                                { value: "external", label: "外部环境实验" }
+                            ]
+                            currentIndex: Math.max(0, model.findIndex(function(item) {
+                                return item.value === challengePage.runnerFilter;
+                            }))
+                            onActivated: {
+                                challengePage.runnerFilter = model[currentIndex].value;
+                                challengePage.currentPage = 1;
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        spacing: ds.s4
+                        Text { text: "排序"; color: ds.muted; font.family: ds.ui; font.pixelSize: 13 }
+                        ComboBox {
+                            objectName: "challengeSortFilter"

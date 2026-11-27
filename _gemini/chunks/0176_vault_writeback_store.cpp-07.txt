@@ -1,0 +1,58 @@
+      progress_after, {}, {}, true, false, progress_after == progress_text};
+  targets.append(target_json(progress)); views.push_back(target_view(progress));
+
+  QByteArray plan_bytes; QString plan_hash; bool plan_exists = false;
+  if (!read_target(vault_root_, QString::fromUtf8(kPlanPath), plan_bytes, plan_hash, plan_exists) || !plan_exists)
+    return Result::failure("总计划索引文件不存在或不可读，预览已停止");
+  bool supported = false;
+  auto plan_after = QString::fromUtf8(plan_bytes);
+  for (const auto& [key, group] : groups) {
+    const auto at = to_utf8(group.front().at);
+    const auto group_topic = safe_topic(to_utf8(group.front().content_id));
+    const auto group_link = QStringLiteral("[[全栈工程师学习计划/学习日志/%1/%2-%3]]").arg(at.left(7), at, group_topic);
+    plan_after = insert_index(plan_after, at.left(7), QStringLiteral("- %1 — %2").arg(group_link, group_topic), supported);
+    if (!supported) return Result::failure("总计划缺少可识别的学习日志索引，未生成写回预览");
+  }
+  Target index{QString::fromUtf8(kPlanPath), QStringLiteral("index"), plan_hash,
+      plan_after, {}, {}, true, false, plan_after == QString::fromUtf8(plan_bytes)};
+  targets.append(target_json(index)); views.push_back(target_view(index));
+
+  QJsonObject tx{{"schemaVersion", 1}, {"operationId", operation},
+      {"accountId", QString::fromStdString(account_id_)}, {"state", "preview"},
+      {"at", date}, {"topic", topic}, {"evidenceIds", ids}, {"targets", targets},
+      {"vaultKey", vault_key(vault_root_)}, {"createdAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
+  const auto tx_path = account_root_ / "learning" / "writeback" / (operation.toStdWString() + L".json");
+  if (!safe_path(tx_path) || !QDir().mkpath(qpath(tx_path.parent_path()))) return Result::failure("无法创建写回事务目录");
+  QSaveFile tx_file(qpath(tx_path)); tx_file.setDirectWriteFallback(false);
+  const auto tx_bytes = QJsonDocument(tx).toJson(QJsonDocument::Compact);
+  if (!tx_file.open(QIODevice::WriteOnly) || tx_file.write(tx_bytes) != tx_bytes.size() || !tx_file.commit())
+    return Result::failure("写回事务预览保存失败");
+  result = {{"operationId", operation}, {"at", date}, {"topic", topic}, {"evidenceIds", evidence_ids},
+      {"targets", views}, {"notices", QVariantList{QStringLiteral("预览未修改资料库文件。"),
+          QStringLiteral("确认后按学习日志、进度追踪、总计划索引顺序写入。"),
+          QStringLiteral("掌握等级不会由证据自动提升。")}}};
+  return Result::success("只读写回预览已生成");
+}
+
+Result VaultWritebackStore::commit(const QString& operation_id, const QVariantMap& expected_hashes,
+    QVariantMap& result) {
+  result.clear(); bool owner = false; auto status = ownerStatus(owner);
+  if (!status.ok || !owner) return status.ok ? Result::failure("当前账户无权提交该资料库") : status;
+  if (!valid_operation(operation_id)) return Result::failure("写回事务 ID 无效");
+  const auto lock = acquire_lock(owner_root_); if (!lock) return Result::failure("另一个资料库操作正在进行");
+  const auto tx_path = account_root_ / "learning" / "writeback" / (operation_id.toStdWString() + L".json");
+  if (!safe_path(tx_path)) return Result::failure("写回事务路径无效");
+  QFile file(qpath(tx_path)); if (!file.open(QIODevice::ReadOnly) || file.size() > kMaxTransactionBytes)
+    return Result::failure("找不到可提交的写回事务");
+  QJsonParseError error; auto tx = QJsonDocument::fromJson(file.readAll(), &error).object();
+  file.close();
+  if (error.error != QJsonParseError::NoError || !valid_transaction(tx, account_root_, vault_root_, account_id_, operation_id))
+    return Result::failure("写回事务损坏或不属于当前账户");
+  if (tx.value("state") == "rolled_back" || tx.value("state") == "rolling_back") return Result::failure("回滚中的事务不能提交，请重新预览或继续回滚");
+  auto targets = tx.value("targets").toArray();
+  // Every retry must prove it came from the same preview, including missing-file baselines.
+  for (const auto& value : targets) {
+    const auto target = target_from_json(value.toObject());
+    if (!expected_hashes.contains(target.path) || expected_hashes.value(target.path).toString() != target.expected_hash)
+      return Result::failure("预览指纹缺失或已过期，请重新读取事务");
+  }

@@ -1,0 +1,19 @@
+              context->screenshots.contains(QDir(context->screenshot_dir).filePath(QStringLiteral("u3-review-hovered.png"))),
+              QString::number(context->screenshots.size()));
+          u3_record(*context, QStringLiteral("qml-no-warnings"), qml_warnings.isEmpty(), qml_warnings.join('\n'));
+          if (!u3_write_result(*context)) { application.exit(3); return; }
+          application.exit(u3_all_passed(*context) ? 0 : 3);
+          context->step = 99;
+          return;
+        case 99:
+          if (!u3_write_result(*context)) application.exit(3);
+          else application.exit(3);
+          return;
+        default:
+          return;
+      }
+    });
+    matrix_timer.start(100);
+  }
+  return application.exec();
+}

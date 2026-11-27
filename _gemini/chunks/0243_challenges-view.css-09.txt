@@ -1,0 +1,138 @@
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  overflow-x: auto;
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+}
+
+.challenges-view .target-output code {
+  padding: 0;
+  color: var(--cv-ink);
+  border: 0;
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+  white-space: pre;                                                 /* 验收点原文不许被折行改写 */
+  overflow-wrap: normal;
+}
+
+/* 代码编辑器：窗口栏 1px 发丝线；三个圆点改为描边环（去掉红绿灯语义色） */
+.challenges-view .challenge-editor-wrap {
+  margin-top: 0;
+  overflow: hidden;
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-panel, 0);
+  background: var(--ds-canvas-solid, #000);
+}
+
+.challenges-view .terminal-chrome {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10, 10px);
+  flex-wrap: wrap;
+  padding: var(--ds-space-10, 10px) var(--ds-space-12, 12px);
+  border-bottom: var(--cv-hair-width) solid var(--cv-hair);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .terminal-dots {
+  display: inline-flex;
+  gap: var(--ds-space-6, 6px);
+}
+
+.challenges-view .terminal-dots i {
+  width: 8px;
+  height: 8px;
+  border: var(--cv-hair-width) solid var(--cv-hair-raised);
+  border-radius: var(--ds-shape-circle, 50%);
+  background: none;                                                 /* 泛光/填色去掉：只留描边环（geometry.md §2 裁定 2） */
+}
+
+.challenges-view .terminal-dots i:nth-child(1),
+.challenges-view .terminal-dots i:nth-child(2),
+.challenges-view .terminal-dots i:nth-child(3) {
+  background: none;
+}
+
+.challenges-view .terminal-title {
+  color: var(--cv-dim);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.challenges-view .terminal-index {
+  margin-left: auto;
+  color: var(--cv-faint);
+  font-family: var(--cv-mono);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-hud, 0.14em);
+  font-variant-numeric: tabular-nums;
+}
+
+.challenges-view .challenge-editor-wrap .field-label {
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-12, 12px) 0;
+  color: var(--cv-dim);
+  font-size: var(--cv-meta);
+  letter-spacing: var(--ds-track-meta, 0.2em);
+  text-transform: uppercase;
+}
+
+.challenges-view .challenge-editor {
+  /* 长代码行：pre + 横向滚动，行高按 §5.4；字号仍由 --editor-font-size 用户设置驱动 */
+  overflow-x: auto;
+  line-height: var(--cv-leading);
+  white-space: pre;
+}
+
+.challenges-view .challenge-run-button,
+.challenges-view .challenge-editor-wrap .challenge-run-button {
+  align-self: flex-start;
+  min-height: var(--cv-tap);
+  margin: var(--ds-space-12, 12px);
+  color: var(--cv-ink);
+  border: var(--cv-hair-width) solid var(--cv-edge);
+  border-radius: var(--ds-radius-control, 0);
+  background: none;
+  font-family: var(--cv-mono);
+  font-size: var(--cv-body);
+  font-weight: 400;
+  transition: border-color var(--cv-quick) var(--cv-ease), background var(--cv-quick) var(--cv-ease);
+}
+
+.challenges-view .challenge-run-button:hover:not(:disabled) {
+  border-color: var(--cv-edge-active);
+  background: var(--cv-scrim);
+}
+
+.challenges-view .challenge-run-button:active:not(:disabled) {
+  border-color: var(--cv-scene);
+  background: var(--cv-scrim-raised);
+}
+
+.challenges-view .challenge-run-button:disabled {
+  color: var(--cv-faint);   /* 同上：按钮名字不是装饰（这一态只在 busy 瞬间存在，稳态不可复量） */
+  border-color: var(--cv-hair);
+  opacity: 1;
+}
+
+/* 运行结果：三态各用恒定语义色 + 图形 + 文字；长输出行横向滚动 */
+.challenges-view .challenge-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-6, 6px);
+  padding: var(--ds-space-12, 12px) var(--ds-space-14, 14px);
+  overflow-x: auto;
+  border: var(--cv-hair-width) solid var(--cv-hair);
+  border-radius: var(--ds-radius-panel, 0);
+  background: none;
+  color: var(--cv-dim);
+  font-size: var(--cv-body);
+  line-height: var(--cv-leading);
+}
+

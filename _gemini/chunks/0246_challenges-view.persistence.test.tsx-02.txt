@@ -1,0 +1,64 @@
+    const editor = screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement
+    expect(editor.value).toContain('持久草稿')
+  })
+
+  it('证据说明同样持久化并可在重挂载后恢复', () => {
+    const first = renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '完成证据说明' }), {
+      target: { value: '证据已写入真实终端并留档。' },
+    })
+    first.unmount()
+
+    renderView()
+    // 视图状态持久化：重挂载后直接恢复到 B 关详情
+    fireEvent.click(screen.getByRole('tab', { name: '提交记录' }))
+    expect((screen.getByRole('textbox', { name: '完成证据说明' }) as HTMLTextAreaElement).value).toBe(
+      '证据已写入真实终端并留档。',
+    )
+  })
+
+  it('账户作用域隔离：不同 scope 的草稿互不可见', () => {
+    const first = renderView({ scope: 'user-a' })
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    fireEvent.change(screen.getByRole('textbox', { name: /代码编辑器/ }), {
+      target: { value: '// user-a 私有草稿' },
+    })
+    first.unmount()
+
+    renderView({ scope: 'user-b' })
+    // 视图状态跨 scope 保留，但草稿按 scope 隔离：编辑器应回到起始代码
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    const editor = screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement
+    expect(editor.value).not.toContain('user-a 私有草稿')
+  })
+
+  it('草稿存储损坏时回退到起始代码，不抛出', () => {
+    localStorage.setItem(draftKey('user-1'), '{broken json')
+    renderView()
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    const editor = screen.getByRole('textbox', { name: /代码编辑器/ }) as HTMLTextAreaElement
+    expect(editor.value).toContain(challenges[1]!.starterCode.slice(0, 10))
+  })
+
+  it('未提供 scope 时退化为 guest 作用域，不串号', () => {
+    render(
+      <ChallengesView
+        challenges={challenges}
+        progress={{}}
+        unitsByStage={{}}
+        onOpenUnit={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /B 关：Java 核心编程/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '编写与运行' }))
+    fireEvent.change(screen.getByRole('textbox', { name: /代码编辑器/ }), {
+      target: { value: 'int x = 1;' },
+    })
+    expect(localStorage.getItem(draftKey('guest'))).not.toBeNull()
+  })
+})

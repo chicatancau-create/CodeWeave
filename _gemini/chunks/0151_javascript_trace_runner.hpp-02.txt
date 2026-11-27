@@ -1,0 +1,64 @@
+      readScope(index + 1);
+    });
+  }
+  readScope(0);
+});
+process.once('exit', () => session.disconnect());
+session.post('Debugger.enable');
+session.post('Debugger.setPauseOnExceptions', { state: 'uncaught' });
+const learner = new Module('[stdin]', module);
+learner.filename = path.join(process.cwd(), '[stdin]');
+learner.paths = Module._nodeModulePaths(process.cwd());
+const learnerRequire = Module.createRequire(learner.filename);
+learnerRequire.main = undefined;
+process.argv = [process.execPath, '-'];
+Object.assign(globalThis, { require: learnerRequire, module: learner, exports: learner.exports,
+  __filename: '[stdin]', __dirname: '.' });
+hostGlobals = new Set(Object.getOwnPropertyNames(globalThis));
+let compiled;
+try {
+  compiled = new vm.Script(source, { filename: sourcePath });
+} catch (error) {
+  if (error.name !== 'SyntaxError') throw error;
+  if (typeof Module.registerHooks !== 'function') {
+    fs.writeFileSync(syntaxFallbackPath, '1');
+    process.exit(1);
+  }
+  // Match Node's stdin ESM entry URL: relative imports and import.meta resolve
+  // against cwd, not against the disposable trace directory.
+  sourceUrl = pathToFileURL(path.join(process.cwd(), '[eval1]')).href;
+  for (const name of ['require', 'module', 'exports', '__filename', '__dirname']) delete globalThis[name];
+  Module.registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === sourceUrl) return { url: sourceUrl, shortCircuit: true };
+      return nextResolve(specifier, context);
+    },
+    load(url, context, nextLoad) {
+      if (url === sourceUrl) return { format: 'module', source, shortCircuit: true };
+      return nextLoad(url, context);
+    }
+  });
+  let settled = false;
+  let unresolvedExit = false;
+  process.on('beforeExit', () => {
+    if (!settled && (process.exitCode === undefined || process.exitCode === 0)) {
+      unresolvedExit = true;
+      process.exitCode = 13;
+    }
+  });
+  import(sourceUrl).then(() => {
+    settled = true;
+    if (unresolvedExit && process.exitCode === 13) process.exitCode = 0;
+  }, moduleError => {
+    settled = true;
+    // Throw outside promise/Inspector callbacks to retain ordinary uncaught
+    // failure and nonzero exit behavior; never retry learner execution.
+    setImmediate(() => { throw moduleError; });
+  });
+  return;
+}
+// Execute outside Inspector callbacks so learner exceptions retain their exit status.
+compiled.runInThisContext();
+)JS";
+
+}  // namespace codeweave::execution

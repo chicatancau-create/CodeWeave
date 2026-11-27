@@ -1,0 +1,126 @@
+            "good": "先 setContentType 再 getWriter，编码与类型一次到位",
+            "bad": "直接 getWriter 输出中文且不设编码，浏览器拿到乱码",
+            "why": "响应头必须在写体之前设置"
+          }
+        ],
+        "guidedSteps": [
+          "建 Maven Web 项目，写 TaskServlet 并配置 tomcat 插件或外置容器。",
+          "curl 访问 /tasks 拿到 JSON。",
+          "加 doPost 读取表单参数并回显。"
+        ],
+        "exercise": "独立实现 /tasks 的 GET（列表）与 POST（新增，先存内存）。",
+        "variant": "用 Filter 统一给所有响应加 CORS 头。",
+        "projectTask": "这个 Servlet 是 G 阶段验收（Servlet + JDBC + MySQL CRUD）的控制器雏形。",
+        "mistakes": [
+          "中文响应不设 UTF-8 出现乱码",
+          "在 doGet 里做业务写库却不处理异常"
+        ],
+        "runCommand": "mvn tomcat7:run 或部署到本地 Tomcat（真实容器）",
+        "completion": "两个方法都能被外部请求访问，能解释一次请求在容器内的流转。",
+        "runEnvironment": "external",
+        "estimatedMinutes": 50,
+        "acceptanceCriteria": [
+          "GET 返回合法 JSON",
+          "POST 能读取参数并响应",
+          "能解释路径映射机制"
+        ],
+        "evidenceChecklist": [
+          "Servlet 代码",
+          "curl 访问输出",
+          "容器部署说明"
+        ]
+      }
+    },
+    {
+      "id": "g3-jdbc-mysql-crud",
+      "language": "java",
+      "languageLabel": "JavaWeb",
+      "label": "G3",
+      "title": "JDBC + MySQL：带事务的 CRUD",
+      "description": "连接、预编译、事务回滚",
+      "duration": "60 min",
+      "level": "进阶",
+      "code": "try (Connection conn = DriverManager.getConnection(URL, USER, PASS);\n     PreparedStatement ps = conn.prepareStatement(\"INSERT INTO tasks(title, status) VALUES (?, ?)\")) {\n    conn.setAutoCommit(false);\n    ps.setString(1, \"写周报\");\n    ps.setString(2, \"TODO\");\n    ps.executeUpdate();\n    conn.commit();\n} catch (SQLException e) {\n    // conn.rollback(); 出错回滚，避免半截数据\n}",
+      "flow": [
+        {
+          "id": "start",
+          "label": "开始",
+          "kind": "start",
+          "tone": "purple",
+          "line": 1
+        },
+        {
+          "id": "init",
+          "label": "获取连接",
+          "kind": "process",
+          "tone": "blue",
+          "line": 1
+        },
+        {
+          "id": "condition",
+          "label": "预编译 SQL",
+          "kind": "decision",
+          "tone": "yellow",
+          "line": 2
+        },
+        {
+          "id": "update",
+          "label": "参数绑定执行",
+          "kind": "process",
+          "tone": "coral",
+          "line": 3
+        },
+        {
+          "id": "output",
+          "label": "提交或回滚",
+          "kind": "output",
+          "tone": "green"
+        },
+        {
+          "id": "end",
+          "label": "结束",
+          "kind": "end",
+          "tone": "purple"
+        }
+      ],
+      "insight": "PreparedStatement 同时解决 SQL 注入与重复编译；事务保证多语句要么全成要么全不做。",
+      "fileName": "TaskDao.java",
+      "runtime": "外部环境 · MySQL + JDK",
+      "content": {
+        "objective": "独立完成 tasks 表的 JDBC CRUD，并演示一次事务回滚。",
+        "prerequisites": [
+          "g2-servlet-tomcat"
+        ],
+        "reviewOffsetsDays": [
+          1,
+          3,
+          7,
+          14
+        ],
+        "stageId": "G",
+        "explanation": [
+          "参数一律用 ? 占位符 + setXxx 绑定，字符串拼接 SQL 等于开放注入。",
+          "conn.setAutoCommit(false) 后的多条语句组成事务：commit 一起生效，rollback 全部撤销。",
+          "try-with-resources 确保连接与语句必定关闭。"
+        ],
+        "examples": [
+          {
+            "good": "WHERE status = ? 加 setString(1, \"TODO\")",
+            "bad": "把用户输入的 status 直接字符串拼接进 SQL 语句——经典注入漏洞",
+            "why": "注入防护必须在语句构造层解决"
+          }
+        ],
+        "guidedSteps": [
+          "本地建库建表（tasks），加载数据库驱动依赖。",
+          "完成 insert/list/update/delete 四个方法（全部预编译）。",
+          "写一段两步转账式演示：第二步故意失败，验证第一步被回滚。"
+        ],
+        "exercise": "独立给 DAO 增加分页查询（LIMIT ? OFFSET ?）。",
+        "variant": "用 HikariCP 换掉裸连接，说明连接池解决了什么问题。",
+        "projectTask": "TaskDao 直接接入 G2 的 Servlet，完成 G 阶段验收的完整闭环。",
+        "mistakes": [
+          "连接/语句不关闭导致耗尽连接",
+          "catch 里吞掉 SQLException 不回滚"
+        ],
+        "runCommand": "本地 MySQL + JDK（真实数据库）",
+        "completion": "CRUD 四操作可用，回滚演示成功，能解释预编译与事务的价值。",

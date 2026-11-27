@@ -1,0 +1,111 @@
+只在**新跑一次**时拦得住（`reducedMotion && nextStatus === 'running'`）。
+「继续运行」这条路径不经过 `startRun`，原先直接 `setRunStatus('running')`，
+于是同一个开关会出现「第一次点不播、第二次点开始播」——等于绕过用户自己的设置。
+`resumeRun` 把这一档也问一遍 `reducedMotion`：命中就直接落到末态（结果一条不少，
+只是不逐帧放）。这条路径在改版前不存在（那时第一下就是 `running`），
+是「开始运行停在第一拍」之后才露出来的。
+
+**实测（546×1146 视口，`Java 的第一个循环`，15 拍）**：
+
+| 操作 | 结果 |
+|---|---|
+| 点「开始运行」 | `01 / 15`、程序开始、5 个未到节点 `opacity: 0`、按钮变「继续运行」 |
+| 点「继续运行」 | 逐拍推进到 `15 / 15`、程序结束 |
+| 重置 → 单步 ×3 | 0 节点 → `01 / 15` → `02 / 15` → `03 / 15`，上一步的节点停在原地变 `is-done` |
+
+### 2.3 代码内容占满整页
+
+`learning-workspace-view.tsx` 的 `codeMode` 初值从 `false` 改为
+`Boolean(lesson.code) || lesson.flow.length > 0`——**有代码或有画布的课一进来就是全屏**；
+纯阅读单元保持普通版式（那种课铺满整屏是空场子）。
+
+换课时按新课重算默认档，用**渲染期重置**（`codeModeLessonId !== lesson.id` 就重置）而不是
+`useEffect`：换课的这一次渲染里 `lesson.id` 已经是新的，用 effect 会先按旧值画一帧
+（全屏闪一下再收回）。同一文件对 `evidenceLessonId` 用的是同一写法。
+
+左上角的「返回」是页头本来就有的 `.back-button`，不需要新造。
+
+---
+
+### 2.5 全站一屏化（外壳永不滚，超长内容进小框）
+
+用户从第一次反馈到最近一条都在说同一件事：
+
+> 「登录进去之后点击『学习』，能不能让它一屏化？所有页面我不想要上下滑动了。」
+> 「如果里面需要上下滑动，也不要滑动总界面，你给它一个小框，我去看小框里面的滑动。
+> 外面的总界面你总是滑动干嘛？你根本看不到。」
+
+**病灶**：`src/design/desktop-theme.css` 第 64 行
+`.app-shell .content-wrap { height: 100%; overflow: auto }` —— 整页滚动就出在这里。
+实测 1480×940（`content-wrap` 可视高 872）：首页内容 1784px 要滑 912、挑战页 438、分析页 912。
+
+**改法**（只改呈现）：
+
+| 范围 | 做法 |
+|---|---|
+| 外壳 | `.content-wrap { overflow: hidden; display: flex; flex-direction: column }` —— 外壳永不滚 |
+| 首页 | 科目条/页头/工具条钉住；课程网格与右栏各自 `overflow-y: auto` 成为小框 |
+| 挑战页 | 页面根 `.challenges-view` 自己成为小框；编辑器与提交历史各给 `46svh` 上限 |
+| 分析页 | 同上，页面根 `.cw-analytics` 成为小框 |
+| 其余页 | 页面根同样吃满剩余高度并内部滚动 |
+
+`min-height: 0` 与 `flex: 1 1 auto` 必须成对出现——flex 子项默认 `min-height: auto`，
+不给 0 的话按内容撑开，`overflow-y: auto` 永远不触发。
+
+**实测（1480×940，六个视图）**：`docScroll: 0`、`content-wrap over: 0`；
+超长内容全部进小框（首页网格内滚 750、挑战页内滚 445、分析页内滚 750）。
+1280×800 与 1024×768 复测同样 `pageScroll: 0`。
+
+### 2.6 首页流动科技风背景（找回被关掉的那一层）
+
+用户从最初就点名要「首页流动科技风背景」。那套动效**一直写好了**——`src/styles.css`
+的 `.shell-decor::after` 七层背景 + `cw-bg-drift`（34s）+ `cw-bg-sheen`（26s）两条无限循环。
+但 `desktop-theme.css` 第 65 行 `.app-shell .shell-decor { display: none }` 整层关了它：
+实测首页 `decorDisplay: "none"`，样式写完了没被挂上。
+
+**为什么当初关掉**：那层 `z-index: var(--z-decor)=10` 高于内容列（1），
+而它的 `::after` 带一块不透明底色（`--ds-canvas-deep` #03050a，要压住 `--page`
+才能让光晕「从背景里透出来」）。原样放开会盖住正文。
+
+**改法**：放开的同时把它压到内容之下（`z-index: -1`）。它在 `.main-content`
+（`z-index: var(--z-content)`）的栈上下文里，`-1` 位于正文之下、页面背景之上，
+于是光晕与网格在字后面流动。既有两条开关（`.is-immersive` 与代码模式）照旧生效——
+**工作台那一屏仍然没有背景**（§5.3 第 1 条：编辑器与画布低动态）。
+
+### 2.7 文字流程图彻底退场（运行前也走画布）
+
+用户原话：「你现在的画布效果一直就是个文字而已。」
+
+之前只有**运行之后**画布才接棒，**运行前**同一位置露出的仍是那条文字拍轨
+（`.flow-chart`，「01 进入 main / L1 / 场景」）——而运行前恰恰是第一眼看到工作台的时候。
+
+**改法**：新增 `engine/run-stage-model.ts` 的 `skeletonStageFrame(steps)`——
+把「这段程序有哪几步」按图形画出来，每个节点都是未走到（`ordinal: null` 画 `--`、
+`cells: []`、`caption: ''`、`outputLines: []`），**一个假值都不编**。
+上层 `stageFrameAt(...) ?? skeletonStageFrame(...)`；`RunStage` 据此加 `.is-skeleton`
+（未到节点显形、指针不画、计数器改说「尚未运行」而不是矛盾的 `01 / 00`）。
+文字拍轨自此在任何状态下都不再出现在屏幕上。
+
+## 3. 验收
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `corepack pnpm exec tsc -b --pretty false` | exit 0 |
+| 测试 | `corepack pnpm vitest run src` | **74 files / 1234 tests passed** |
+| 构建 | `corepack pnpm build` | exit 0 |
+| 实测 | 1480×940 视口 | 两列 `666.8 / 766.8`、`pageScroll: 0` |
+| 实测 | 546×1146 视口 | 单列、五条横带 → 一条、`pageScroll: 0` |
+| 实测 | 画布 01/15 拍 | 5 个未到节点 `opacity: 0`、当前节点 `rs-node-enter`、idle 边 `opacity: 0` |
+
+基线口径：本轮开始时 `74 files / 1234 tests`；结束时同值，**未降低**。
+
+---
+
+## 4. 待办（下一轮）
+
+- `flow-chart.tsx` 仍是「一拍一行」的文字明细，尚未图形化（`run-stage.tsx` 已是 SVG）；
+  它下面挂着一串 DOM 钉子（`.flow-track`/`.flow-step`/`.flow-node`/`.flow-data`），
+  转换要加 SVG 图层而不是重写结构。
+- 用户给的第二张参考图（totuma.cn 单链表可视化）里的**左侧算法目录树**尚未复刻。
+- 参考站的「上一个 / 播放 / 下一个」控制条位置在画布**下方居中**，本端在画布下方左对齐，
+  待对齐。

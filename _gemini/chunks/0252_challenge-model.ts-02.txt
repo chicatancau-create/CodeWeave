@@ -1,0 +1,109 @@
+      typeof parsed.selectedId === 'string' && challenges.some((challenge) => challenge.id === parsed.selectedId)
+        ? parsed.selectedId
+        : ''
+    return {
+      mode: parsed.mode === 'detail' && selectedId ? 'detail' : 'list',
+      selectedId,
+      page: Number.isInteger(parsed.page) && (parsed.page as number) > 0 ? (parsed.page as number) : 1,
+    }
+  } catch {
+    return { mode: 'list', selectedId: '', page: 1 }
+  }
+}
+
+export function saveViewState(state: ChallengeViewState): void {
+  try {
+    sessionStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // 隐私模式等写入失败时退化为会话内状态
+  }
+}
+
+export function cardStatus(
+  challenge: Challenge,
+  record: ChallengeRecord | undefined,
+  sessionStatus: 'ran' | 'unsupported' | undefined,
+): CardStatus {
+  // STAT-01：与统计口径共用同一判定（含无 status 的旧记录按迁移语义视为通过）。
+  if (!record) {
+    if (challenge.runner === 'external') return 'external-pending'
+    if (sessionStatus === 'unsupported') return 'unsupported'
+    if (sessionStatus === 'ran') return 'ready-to-submit'
+    return 'not-started'
+  }
+  if (record.status === 'submitted') return 'pending-verify'
+  if (isPassedRecord(record)) return 'passed'
+  if (challenge.runner === 'external') return 'external-pending'
+  if (sessionStatus === 'unsupported') return 'unsupported'
+  if (sessionStatus === 'ran') return 'ready-to-submit'
+  return 'not-started'
+}
+
+/* §5.2「明确的提交与草稿状态」：两个信息区各自只说一件事。
+   —— submitted 区读的是**已写入进度的记录**（passed/verified/submitted），不随编辑器改动；
+   —— draft 区读的是**本机未提交的草稿**，只有在这里才可能出现提交动作。
+   判定与三分支的先后顺序沿用改版前的条件，未改动任何通过/待确认口径。 */
+export function submissionPhase(record: ChallengeRecord | undefined): {
+  passedRecord: boolean
+  submittedRecord: boolean
+  showSubmitAction: boolean
+} {
+  const passedRecord = Boolean(
+    record && (record.status === 'passed' || record.status === 'verified' || !record.status),
+  )
+  const submittedRecord = Boolean(record && record.status === 'submitted')
+  const showSubmitAction = !passedRecord && !submittedRecord
+  return { passedRecord, submittedRecord, showSubmitAction }
+}
+
+export function shortTitle(title: string): string {
+  return title.replace(/^[A-M] 关卡验收：/, '')
+}
+
+/* ----------------------------------------------------------------------------
+   §5.2「挑战与项目 = 编号列表 + 轻边界信息区 + 明确的提交与草稿状态」
+   编号是**渲染进 DOM 的真实文本**（可复制、可读屏、可搜索），不用 `counter()`
+   注入 —— 见 前端分工程方案 §8 第 4 条：伪元素文字会插进辅助技术的朗读顺序。
+   -------------------------------------------------------------------------- */
+
+/** 两位补零：让 01/02/…/13 在等宽列里对齐（编号承担骨架定位，故必须成列）。 */
+export function padOrdinal(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+/** 关卡序号：按 `challenges` 的 A—M 原始顺序编号，筛选与排序不改变身份。 */
+export function buildSequence(challenges: Challenge[]): Map<string, string> {
+  const map = new Map<string, string>()
+  challenges.forEach((challenge, index) => map.set(challenge.id, padOrdinal(index + 1)))
+  return map
+}
+
+/** 本机时间戳（草稿留痕只到分钟，不到秒：秒级跳动能让人误读成「一直在保存」）。 */
+export function formatSavedAt(iso: string): string {
+  if (!iso) return '时间未记录'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '时间未记录'
+  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+/** 代码草稿状态：只描述**本机未提交**的改动，绝不暗示已提交或已通过。 */
+export function describeCodeDraft(draft: { code?: string; savedAt: string } | undefined): string {
+  if (!draft || draft.code === undefined) return '本机无代码草稿，编辑器当前显示起始代码'
+  if (!draft.code.trim()) return '本机代码草稿为空（已清空起始代码），尚未提交'
+  return `本机代码草稿已保存（${draft.code.split('\n').length} 行 · ${formatSavedAt(draft.savedAt)}），尚未提交`
+}
+
+/** 证据草稿状态：提交前的缺口要写成文字，不能只靠按钮禁用表达。 */
+export function describeEvidenceDraft(note: string): string {
+  const length = note.trim().length
+  if (length === 0) return '证据说明草稿为空 —— 填写后即可提交，当前仅存于本机'
+  return `证据说明草稿 ${length} 字，尚未提交`
+}
+
+/** 卡片上的执行环境短标签（完整标签见 RUNNER_LABELS） */
+export const RUNNER_SHORT: Record<Challenge['runner'], string> = {
+  'javascript-sandbox': '浏览器沙箱',
+  teaching: '教学运行器',
+  external: '外部环境实验',
+}
+

@@ -1,0 +1,101 @@
+        returned.store(true, std::memory_order_release);
+      }).ok);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  while (!returned.load(std::memory_order_acquire) && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  assert(returned.load(std::memory_order_acquire));
+  assert(service.wait_closed().ok);
+}
+
+void test_workspace_can_use_independent_application_data_root() {
+  Fixture fixture;
+  const auto profile = fixture.root.parent_path() / (fixture.root.filename().string() + "-profile");
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(profile, cleanup_error);
+  codeweave::app::ApplicationCore core;
+  assert(core.open_workspace(fixture.root, profile).ok);
+  assert(core.data_root() == std::filesystem::absolute(profile));
+  assert(core.save_draft("isolated", "data").ok);
+  assert(std::filesystem::exists(profile / "drafts" / "isolated.txt"));
+  assert(!std::filesystem::exists(fixture.root / "data" / "runtime" / "native" / "drafts" / "isolated.txt"));
+  assert(core.close_workspace().ok);
+  std::filesystem::remove_all(profile, cleanup_error);
+}
+
+void test_workspace_rejects_symlink_data_root() {
+  Fixture fixture;
+  const auto outside = fixture.root.parent_path() /
+      (fixture.root.filename().string() + "-outside-data");
+  std::error_code error;
+  std::filesystem::create_directories(outside);
+  const auto alias = fixture.root.parent_path() /
+      (fixture.root.filename().string() + "-data-alias");
+  std::filesystem::create_directory_symlink(outside, alias, error);
+  if (!error) {
+    codeweave::app::ApplicationCore core;
+    assert(!core.open_workspace(fixture.root, alias).ok);
+    std::filesystem::remove(alias, error);
+  }
+  std::filesystem::remove_all(outside, error);
+}
+
+void test_invalid_ids_and_atomic_replace() {
+  Fixture fixture;
+  codeweave::app::ApplicationCore core;
+  assert(core.open_workspace(fixture.root).ok);
+  assert(!core.save_draft("../escape", "bad").ok);
+  assert(!core.save_draft("lesson/01", "bad").ok);
+  assert(!core.save_draft("lesson-nul", std::string("bad\0text", 8)).ok);
+  assert(!core.save_draft("lesson-large", std::string(4 * 1024 * 1024 + 1, 'x')).ok);
+  assert(core.save_draft("lesson-01", "first").ok);
+  assert(core.save_draft("lesson-01", "second").ok);
+  std::string restored;
+  assert(core.load_draft("lesson-01", restored).ok);
+  assert(restored == "second");
+}
+
+void test_oversized_existing_draft_is_rejected_before_reading() {
+  Fixture fixture;
+  codeweave::app::ApplicationCore core;
+  assert(core.open_workspace(fixture.root).ok);
+  const auto path = core.data_root() / "drafts" / "oversized.txt";
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << std::string(4 * 1024 * 1024 + 1, 'x');
+  output.close();
+  std::string restored;
+  assert(!core.load_draft("oversized", restored).ok);
+}
+
+void test_draft_symlink_is_rejected_before_reading() {
+  Fixture fixture;
+  codeweave::app::ApplicationCore core;
+  assert(core.open_workspace(fixture.root).ok);
+  const auto target = fixture.root / "outside-draft.txt";
+  std::ofstream(target) << "outside\n";
+  const auto link = core.data_root() / "drafts" / "linked.txt";
+  std::error_code error;
+  std::filesystem::create_symlink(target, link, error);
+  if (!error) {
+    std::string restored;
+    assert(!core.load_draft("linked", restored).ok);
+    std::filesystem::remove(link, error);
+  }
+}
+
+void test_write_before_open_is_rejected() {
+  codeweave::app::ApplicationCore core;
+  assert(!core.save_draft("lesson-01", "bad").ok);
+  std::string restored;
+  assert(!core.load_draft("lesson-01", restored).ok);
+}
+
+void test_open_workspace_is_idempotence_guarded() {
+  Fixture fixture;
+  codeweave::app::ApplicationCore core;
+  assert(core.open_workspace(fixture.root).ok);
+  assert(!core.open_workspace(fixture.root).ok);
+  assert(core.close_workspace().ok);
+  assert(core.close_workspace().ok);
+}
+

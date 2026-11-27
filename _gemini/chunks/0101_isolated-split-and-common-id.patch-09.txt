@@ -1,0 +1,78 @@
+                         Layout.fillWidth: true
+                         visible: uiShell.hasActiveAccount
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/EditorPage.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/EditorPage.qml"
+index 4c83f6a..a7e70c5 100644
+--- "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/EditorPage.qml"
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/pages/EditorPage.qml"
+@@ -1,3 +1,8 @@
++import QtQuick
++import QtQuick.Controls.Basic
++import QtQuick.Layouts
++import "../components"
++
+ Item {
+     property var hostRoot
+     property QtObject ds
+@@ -32,8 +37,7 @@ Item {
+                         enabled: uiShell.hasSelectedContent && !uiShell.draftSaving
+                         onClicked: uiShell.saveDraft()
+                     }
+-                    QuietButton { label: "知道了"; onClicked: uiShell.dismissContentStatus() }
+-                        ds: editorPage.ds
++                    QuietButton { ds: editorPage.ds; label: "知道了"; onClicked: uiShell.dismissContentStatus() }
+                 }
+             }
+ 
+@@ -41,8 +45,7 @@ Item {
+             RowLayout {
+                 Layout.fillWidth: true
+                 spacing: ds.s12
+-                QuietButton { label: "←"; onClicked: uiShell.selectPage("学习") }
+-                    ds: editorPage.ds
++                QuietButton { ds: editorPage.ds; label: "←"; onClicked: uiShell.selectPage("学习") }
+                 ColumnLayout {
+                     spacing: 2
+                     Text {
+@@ -203,6 +206,7 @@ Item {
+                                     Layout.fillHeight: true
+                                     ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                                     TextArea {
++                                        id: codeEditor
+                                         objectName: "codeEditor"
+                                         text: uiShell.draftCode
+                                         readOnly: uiShell.starterLanguage.length === 0
+diff --git "a/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/DesignSystem.qml" "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/DesignSystem.qml"
+new file mode 100644
+index 0000000..3f1a06f
+--- /dev/null
++++ "b/\345\272\224\347\224\250\347\253\257/\351\241\271\347\233\256/native/ui-qt/qml/DesignSystem.qml"
+@@ -0,0 +1,118 @@
++import QtQuick
++
++QtObject {
++    property real hostWidth: 1440
++
++    // Surfaces
++    readonly property color page:       "#0f131b"   // --page
++    readonly property color chrome:     "#0b1018"   // --chrome (topbar)
++    readonly property color sidebarBg:  "#0c1118"
++    readonly property color panel:      "#181d25"   // --panel
++    readonly property color railPanel:  "#151b24"
++    readonly property color inset:      "#0a0e15"   // --inset
++    readonly property color overlay:    "#141b25"   // --overlay
++    readonly property color raised:     "#131a24"
++    readonly property color snippetBg:  "#0b111a"
++    readonly property color editorBg:   "#0e0e0f"
++    readonly property color stageBg:    "#0b1220"
++    readonly property color markBg:     "#182632"
++    readonly property color subjectBg:  "#141a23"
++    readonly property color subjectOn:  "#153044"
++    readonly property color tabActive:  "#161a21"   // #ffffff08 over panel
++    readonly property color cardHover:  "#1b2531"
++    readonly property color hoverWash:  "#1b2531"
++    readonly property bool useLayerEffects: true
++
++    // Lines — web values are translucent; these are the resolved composites
++    readonly property color line:       "#20242b"   // #ffffff12
++    readonly property color lineRaised: "#2b313a"   // #ffffff20
++    readonly property color lineStrong: "#576578"

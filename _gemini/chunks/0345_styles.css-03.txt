@@ -1,0 +1,104 @@
+     照搬会把装饰框压在顶栏之上。geometry.md §5 末尾明确「层级常量的落地由共享层
+     在 styles.css 内决定」，故这里定义产品档位；除下列五档外不得再新增数值。
+       裁定 1  背景装饰层 -1：在内容栈上下文内置于正文后方，避免不透明背景遮挡文字。
+                工作台与弹层不挂背景装饰。
+       裁定 2  持久 chrome 收在同一档 15：顶栏与侧栏是同层的两条线，不互相遮盖
+                （原侧栏 20 > 顶栏 15）。
+       裁定 3  浮层三档：40 = 一次性浮层（账户菜单、搜索面板、通知面板、打卡日历），
+                50 = 模态遮罩 + 模态内容，60 = skip-link 与模态之上的系统级提示。
+                原 40/45/50 混用（面板比菜单高、遮罩只比面板高 5）已收拢；
+                `.global-search__input:focus` 借用的 50 随搜索面板归入 40。
+     内容列（.main-content）自身成栈上下文（1），背景装饰挂在它内部，置于正文后方。 */
+  --z-content: 1;                              /* 内容列 */
+  --z-decor: -1;                               /* 背景装饰：在内容栈内置于正文后方 */
+  --z-chrome: 15;                              /* 持久 chrome：顶栏 + 侧栏同档 */
+  --z-popover: 40;                             /* 一次性浮层 */
+  --z-modal: 50;                               /* 模态遮罩 + 模态内容 */
+  --z-system: 60;                              /* skip-link 与系统级提示 */
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+/* 原生控件与滚动条按暗色绘制（产品决定，非模板值） */
+html { color-scheme: dark; }
+
+body {
+  margin: 0;
+  min-width: 320px;                    /* §5.4 320px 最小宽度 */
+  min-height: 100vh;
+  font-family: var(--font-ui);
+  font-size: var(--size-body);         /* §5.4 正文默认 16px 左右 */
+  font-weight: var(--ds-weight-body);  /* site.css L48 → 400，模板正文无中粗 */
+  line-height: var(--leading-body);    /* 1.7（§5.4 要求 1.6–1.75） */
+  color: var(--ink);
+  /* 科技档：冷调深蓝黑底 + 两层网格坐标底纹（细网格 32px、粗网格 128px）。
+     网格用 repeating-linear-gradient 铺在 body 上，固定在视口不随滚动——
+     它承担「这是块工作台面板」的空间暗示，是科技风最省成本的一层。
+     底纹 α 极低（0.035 / 0.05），保证不与正文竞争；正文对比度不受影响（17.27:1）。 */
+  background-color: var(--page);
+  background-image:
+    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 128px),
+    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 128px),
+    repeating-linear-gradient(0deg, var(--ds-wash-grid) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, var(--ds-wash-grid) 0 1px, transparent 1px 32px);
+  background-attachment: fixed;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+button, textarea, input, select { font: inherit; }
+
+button {
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+}
+
+/* 焦点环（§5.1「关键输入/焦点边界单独提高可辨识度」+ §5.4「焦点轮廓可见」）。
+   旧值：2px 蓝 + 4px 蓝 wash（蓝 #4f7cff 对黑 5.66:1，但与暖白文字难以区分）。
+   新值：2px 暖白 α0.72（实测 9.45:1，非文本 3:1 门槛的三倍以上）+ 2px 外偏
+   + 5px 处一圈 α0.18 分离环，保证环压在任何背景上都不断线。 */
+button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+  outline: var(--ds-focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--ds-focus-offset);
+  box-shadow: 0 0 0 5px var(--focus-wash);
+}
+
+/* 选区：模板是点缀色实底 + 黑字（site.css L56），代码块大面积选中会变成整片霓虹，
+   产品改低 α 场景 wash 并保留暖白文字（README §4 排除项）。 */
+::selection { background: var(--accent-soft); color: var(--ink); }
+
+/* 滚动条：模板整站隐藏（site.css L38-L41），但长表单与长代码行需要可定位的
+   滚动指示 → 保留，色档改用发丝线同族，拇指改直角（不再有 8px 圆头）。 */
+* { scrollbar-width: thin; scrollbar-color: var(--line-raised) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--thumb-gradient);
+  border-radius: var(--ds-radius-chip, 4px);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--thumb-gradient-hover); background-clip: padding-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------------------
+   布局骨架
+   ------------------------------------------------------------------------- */
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  /* 黑场：#000 实底。原「环境光晕 + 细网格」两层径向/线性渐变（旧 .app-shell
+     ::before / ::after）属泛光与装饰底纹，§5.1 形态项要求移除，两层已删除。 */
+  background: var(--page);
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: var(--z-chrome);                /* M4 裁定 2：与顶栏同档（原 20 压住顶栏） */
+  width: var(--sidebar-w);
+  display: flex;

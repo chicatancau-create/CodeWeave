@@ -1,0 +1,80 @@
+  for (const auto& invalid : {QVariant(17), QVariant(QStringLiteral("not-a-size"))}) {
+    QSettings malformed_settings(settings_path, QSettings::IniFormat);
+    malformed_settings.setFallbacksEnabled(false);
+    malformed_settings.setValue(QStringLiteral("preferences/editorFontSize"), invalid);
+    malformed_settings.sync();
+    assert(malformed_settings.status() == QSettings::NoError);
+    UiShell malformed;
+    assert(malformed.configurePreferenceStorage(root));
+    assert(malformed.editorFontSize() == 13);
+    malformed_settings.remove(QStringLiteral("preferences/editorFontSize"));
+    malformed_settings.sync();
+  }
+}
+}  // namespace
+
+struct UiShellTestAccess {
+  static void set_today(UiShell& shell, const QDate& date) {
+    shell.local_date_ = [date] { return date; };
+    shell.refreshLocalDay();
+  }
+  static bool block_worker(UiShell& shell, std::mutex& mutex,
+      std::condition_variable& condition, bool& started, bool& release) {
+    codeweave::backend::TaskRequest request;
+    request.task_id = "qt-test-block-worker";
+    request.kind = codeweave::backend::TaskKind::Read;
+    request.work = [&mutex, &condition, &started, &release](const auto&) {
+      std::unique_lock lock(mutex);
+      started = true;
+      condition.notify_all();
+      condition.wait(lock, [&] { return release; });
+      return codeweave::app::Result::success("test blocker released");
+    };
+    return shell.backend_tasks_.submit(std::move(request), {}).ok;
+  }
+};
+
+int main(int argc, char** argv) {
+  QCoreApplication application(argc, argv);
+  if (argc == 2 && std::string_view(argv[1]) == "--challenge-worker") return challenge_worker_main();
+  assert(argc == 6);
+  test_challenge_submission_store();
+  test_checkin_store();
+  test_ui_preferences();
+  QTemporaryDir temporary;
+  assert(temporary.isValid());
+  const auto workspace = std::filesystem::path(temporary.path().toStdWString()) / L"中文工作区";
+  const auto data = workspace / L"隔离数据";
+  std::filesystem::create_directories(workspace / "config");
+  std::ofstream(workspace / "config/codeweave.config.example.json") << "{}";
+  std::ofstream(workspace / "progress.md")
+      << "结构维护：2026-10-04；最近学习证据：2026-10-03\n"
+      << "## 1. 当前状态\n\n| 项目 | 当前值 | 证据 |\n| --- | --- | --- |\n"
+      << "| 当前阶段 | A2 | fixture |\n"
+      << "## 3. 掌握程度\n\n| 技能 | 等级 | 状态 | 最新证据 |\n| --- | --- | --- | --- |\n"
+      << "| C++ | 0—1 级 | 进行中 | test |\n"
+      << "## 7. 阶段状态\n\n| 阶段 | 名称 | 状态 | 说明 |\n| --- | --- | --- | --- |\n"
+      << "| S2 | 原生重构 | 进行中 | contract |\n";
+  codeweave::account::AccountStore store(data);
+  codeweave::account::AccountService first(store), second(store), unauthenticated(store);
+  assert(first.register_account("Fixture A", "a@example.test", "Test-Password-123!").ok);
+  assert(second.register_account("Fixture B", "b@example.test", "Test-Password-123!").ok);
+  std::filesystem::path first_root, second_root;
+  assert(first.learning_data_root(data, first_root).ok);
+  assert(second.learning_data_root(data, second_root).ok);
+  QString saved_document;
+  {
+    QTemporaryDir checkin_temporary;
+    assert(checkin_temporary.isValid());
+    const auto checkin_workspace = std::filesystem::path(checkin_temporary.path().toStdWString());
+    const auto checkin_data = checkin_workspace / "checkin-data";
+    codeweave::account::AccountStore checkin_accounts(checkin_data);
+    codeweave::account::AccountService checkin_a(checkin_accounts), checkin_b(checkin_accounts);
+    assert(checkin_a.register_account("Checkin A", "checkin-a@example.test", "Test-Password-123!").ok);
+    assert(checkin_b.register_account("Checkin B", "checkin-b@example.test", "Test-Password-123!").ok);
+    std::filesystem::path checkin_root;
+    assert(checkin_a.learning_data_root(checkin_data, checkin_root).ok);
+    UiShell shell;
+    UiShellTestAccess::set_today(shell, QDate(2028, 2, 29));
+    shell.checkIn();
+    assert(!shell.checkinSummary().value("ready").toBool());

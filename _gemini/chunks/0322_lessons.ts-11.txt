@@ -1,0 +1,71 @@
+    code: '// 在本地工程中验证：\n// export const useTaskStore = defineStore("task", {\n//   state: () => ({ tasks: [] }),\n//   actions: { add(t) { this.tasks.push(t) } },\n// });',
+    flow: sumFlow('开始', '定义 store', '组件注入使用', 'action 修改状态', '多组件同步'),
+    insight: 'Pinia 把“共享状态 + 修改入口”收拢到一个可单测的普通 JS 对象。', fileName: 'task-store.ts', runtime: '外部环境 · Vite + Vitest',
+    content: unit(
+      '独立定义一个 Pinia store，并用 Vitest 为它的 action 写单元测试。',
+      {
+        prerequisites: ['e1-vue-composition', 'e2-vue-router-guard'],
+        explanation: [
+          'state 是数据源，actions 是唯一推荐修改入口，getters 是派生值。',
+          'store 是普通对象：不挂组件也能在 Vitest 里直接测 action。',
+          '组件只调用 action，不直接改 state，边界才清晰。',
+        ],
+        examples: [
+          { good: '组件里 taskStore.add(task)，修改逻辑集中在 store', bad: '两个组件各自 tasks.value.push，状态同步靠巧合', why: '共享状态的修改入口必须唯一' },
+        ],
+        guidedSteps: ['安装 Pinia 并在 main.ts 注册。', '定义 task store（state/add action/getter 计数）。', '用 Vitest 写 add 后 tasks 长度的断言。'],
+        exercise: '独立实现“完成任务”action 并为它写一个测试（含不存在 id 的边界）。',
+        variant: '给 store 加一个 persist 插件，把 tasks 同步到 localStorage。',
+        projectTask: 'E 阶段验收项目的列表数据全部走 store，为组件测试铺路。',
+        mistakes: ['在组件里直接改 store.state', '测试里忘记 setActivePinia 导致 store 未注册'],
+        runCommand: 'npx vitest run（本地工程）',
+        completion: 'store 测试通过，组件与 store 的职责边界能画图说清。',
+        runEnvironment: 'external',
+        estimatedMinutes: 40,
+        acceptanceCriteria: ['store 定义完整（state/action/getter）', '至少一个 action 有单元测试', '组件不直接改 state'],
+        evidenceChecklist: ['store 代码', 'Vitest 通过的运行输出'],
+        reviewOffsetsDays: [1, 3, 7],
+      },
+      'E',
+    ),
+  },
+]
+
+/** 阶段 F：Webpack 5（外部环境实验：Node + Webpack） */
+const stageFUnits: Lesson[] = [
+  {
+    id: 'f1-webpack-entry-loader', language: 'javascript', languageLabel: 'Webpack 5', label: 'F1',
+    title: '手工搭建：Entry、Output 与 Loader', description: '从零配置跑通第一个打包', duration: '50 min', level: '基础', progress: 0,
+    code: '// webpack.config.js（在本地工程验证）\nconst path = require("path");\nmodule.exports = {\n  mode: "development",\n  entry: "./src/index.js",\n  output: { path: path.resolve(__dirname, "dist"), filename: "bundle.js" },\n  module: { rules: [{ test: /\\.css$/, use: ["style-loader", "css-loader"] }] },\n};',
+    flow: sumFlow('开始', '定位 entry', '逐模块转译', '套用 loader', '输出 bundle'),
+    insight: 'Webpack 的本质是“从 entry 出发的依赖图遍历”，loader 负责把非 JS 资源转成模块。', fileName: 'webpack.config.js', runtime: '外部环境 · Node + Webpack',
+    content: unit(
+      '手工搭建最小 Webpack 工程并解释 entry/output/loader 各自的职责。',
+      {
+        prerequisites: ['b1-array-basics'],
+        explanation: [
+          'entry 是依赖图的起点；output 定义产物位置与命名。',
+          'loader 作用于“文件内容”的转换（css → JS 字符串模块），从右向左执行。',
+          'mode 决定内置优化：development 不压缩，production 自动压缩与作用域提升。',
+        ],
+        examples: [
+          { good: 'use: ["style-loader", "css-loader"] 从右到左：先 css-loader 再注入样式', bad: '顺序写反成 ["css-loader", "style-loader"]，css-loader 收到的是非 CSS 输入直接报错', why: 'loader 链的方向决定了转换是否成立' },
+        ],
+        guidedSteps: ['npm init 后安装 webpack/webpack-cli，写最小配置。', '建 index.js 引入一个样式文件，跑 npx webpack。', '打开 dist 产物，找到被转成模块的 CSS 内容。'],
+        exercise: '独立增加图片资源规则（asset/resource），在页面里引用一张图片。',
+        variant: '增加 html-webpack-plugin，让打包自动生成带 hash 引用的 index.html。',
+        projectTask: '这套手工配置是 F 阶段验收（Webpack 5 工程搭建 + 体积对比）的底稿。',
+        mistakes: ['output.path 用相对路径导致产物位置诡异', 'loader 写在 plugins 里（职责混淆）'],
+        runCommand: 'npx webpack（本地工程）',
+        completion: '构建成功且产物在浏览器可用，能解释三要素职责。',
+        runEnvironment: 'external',
+        estimatedMinutes: 50,
+        acceptanceCriteria: ['npx webpack 构建成功', '产物在浏览器正确加载样式', '能解释 loader 执行顺序'],
+        evidenceChecklist: ['构建日志', '配置文件', '产物加载截图'],
+        reviewOffsetsDays: [1, 3, 7],
+      },
+      'F',
+    ),
+  },
+  {
+    id: 'f2-webpack-plugin-devserver', language: 'javascript', languageLabel: 'Webpack 5', label: 'F2',

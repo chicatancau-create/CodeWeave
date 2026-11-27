@@ -1,0 +1,54 @@
+              MasteryEvidenceKind::Review, MasteryEvidenceKind::Review, MasteryEvidenceKind::Review,
+              MasteryEvidenceKind::Challenge, MasteryEvidenceKind::Challenge, MasteryEvidenceKind::Bugfix};
+          const char* refs[]{"unit-a", "unit-a", "unit-b", "old-unit", "future-unit",
+              "review-a", "review-b", "review-c", "challenge-a", "old-challenge", "unrelated"};
+          const int days[]{-6, 0, 0, -7, 1, -6, 0, 0, 0, -7, 0};
+          for (int index = 0; index < 11; ++index) {
+            const auto suffix = QString::number(index, 16).rightJustified(6, '0').toStdString();
+            const MasteryEvidence record{"matrix-analysis-" + suffix, kinds[index], refs[index],
+                "isolated analytics fixture", QDateTime(today.addDays(days[index]), QTime(0, 0)).toUTC()
+                    .toString(Qt::ISODateWithMs).toStdString(), index != 6 && index != 7,
+                CompletionVerification::SelfDeclared, RanBy::Learner, false, "L1", "op-matrixanalysis-" + suffix};
+            bool duplicate = false;
+            seeded = mastery.append_idempotent(record, duplicate).ok && !duplicate && seeded;
+          }
+          EvidenceStore evidence(root);
+          for (int index = 0; index < 2; ++index) {
+            EvidenceRecord record{"matrix-practice-" + std::to_string(index), "not-completed", "exercise",
+                today.toString(Qt::ISODate).toStdString(), "ok", "ok", RanBy::Learner, false, "L1", {}, {},
+                EvidenceState::Pending, "op-matrixpractice-00000" + std::to_string(index)};
+            bool duplicate = false;
+            seeded = evidence.append_idempotent(record, duplicate).ok && !duplicate && seeded;
+          }
+          QVariantList records;
+          const QVariantMap submission{{"id", "submission-0123456789abcdef0123456789abcdef"},
+              {"challengeId", "challenge-b"}, {"submittedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+              {"status", "passed"}, {"tier", "teaching"}, {"judgeMode", "exact-lines"},
+              {"evidence", "Isolated matrix pass"}, {"code", "print(15)"},
+              {"expected", QVariantList{QStringLiteral("15")}}, {"output", QVariantList{QStringLiteral("15")}},
+              {"observation", ""}, {"reviewedAt", ""}};
+          seeded = ChallengeSubmissionStore(QString::fromStdWString(root.wstring())).append(submission, records).ok && seeded;
+          u3_record(*context, QStringLiteral("analytics-window-fixture-created"), seeded);
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 412: {
+          if (shell.operationBusy()) return;
+          const auto snapshot = shell.analysisSnapshot();
+          bool values_match = true;
+          for (const auto& pair : {std::pair{QStringLiteral("完成课程单元"), QStringLiteral("2")},
+              std::pair{QStringLiteral("课程练习次数"), QStringLiteral("2")},
+              std::pair{QStringLiteral("挑战通过记录"), QStringLiteral("2")},
+              std::pair{QStringLiteral("复测通过"), QStringLiteral("1")},
+              std::pair{QStringLiteral("复测未通过"), QStringLiteral("2")},
+              std::pair{QStringLiteral("近 7 天复测通过率"), QStringLiteral("33%")}}) {
+            auto* value = u3_find_item(view.rootObject(), QStringLiteral("analyticsValue-") + pair.first);
+            const auto actual = value ? value->property("text").toString() : QStringLiteral("<missing>");
+            u3_record(*context, QStringLiteral("analytics-visible-") + pair.first, actual == pair.second,
+                QStringLiteral("actual=%1 expected=%2").arg(actual, pair.second));
+            values_match = values_match && actual == pair.second;
+          }
+          auto* page = u3_find_item(view.rootObject(), QStringLiteral("analyticsPageRoot"));
+          u3_record(*context, QStringLiteral("analytics-window-dates-from-facade"), page &&
+              page->property("todayKey") == snapshot.value("todayKey") &&

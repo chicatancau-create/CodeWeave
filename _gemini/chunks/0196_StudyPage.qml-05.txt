@@ -1,0 +1,77 @@
+                        Layout.preferredHeight: 226
+                        radius: 9
+                        color: "transparent"
+                        border.color: ds.heroEdge
+                        border.width: 1
+                        clip: true
+
+                        // linear-gradient(115deg, #17232f, #102331)
+                        Shape {
+                            anchors.fill: parent
+                            preferredRendererType: Shape.CurveRenderer
+                            ShapePath {
+                                strokeColor: "transparent"
+                                fillGradient: LinearGradient {
+                                    x1: hero.width * 0.5 - hero.width * 0.453
+                                    y1: hero.height * 0.5 - hero.height * 0.2115
+                                    x2: hero.width * 0.5 + hero.width * 0.453
+                                    y2: hero.height * 0.5 + hero.height * 0.2115
+                                    GradientStop { position: 0.0; color: ds.heroGradientStart }
+                                    GradientStop { position: 1.0; color: ds.heroGradientEnd }
+                                }
+                                startX: 0
+                                startY: 0
+                                PathLine { x: hero.width; y: 0 }
+                                PathLine { x: hero.width; y: hero.height }
+                                PathLine { x: 0; y: hero.height }
+                                PathLine { x: 0; y: 0 }
+                            }
+                        }
+
+                        // .desktop-course-art — fixed 190px, orbits + core + tags
+                        Item {
+                            id: heroArt
+                            width: 190
+                            height: parent.height
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            clip: true
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 180
+                                height: 180
+                                radius: 90
+                                color: "transparent"
+                                border.color: ds.heroBadgeEd
+                                border.width: 1
+                                transform: [
+                                    Rotation { origin.x: 90; origin.y: 90; angle: -35 },
+                                    Scale { origin.x: 90; origin.y: 90; yScale: 0.6 }
+                                ]
+                            }
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 212
+                                height: 212
+                                radius: 106
+                                color: "transparent"
+                                border.color: ds.heroBadgeEd
+                                border.width: 1
+                                transform: [
+                                    Rotation { origin.x: 106; origin.y: 106; angle: 38 },
+                                    Scale { origin.x: 106; origin.y: 106; yScale: 0.6 }
+                                ]
+                            }
+                            Rectangle {   // .course-art-core
+                                anchors.centerIn: parent
+                                width: 87
+                                height: 92
+                                radius: 16
+                                color: ds.heroCoreBg
+                                border.color: ds.accentRing
+                                border.width: 1
+                                rotation: -8
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "{ }"

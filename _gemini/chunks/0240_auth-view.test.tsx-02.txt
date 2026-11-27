@@ -1,0 +1,99 @@
+    expect(input.selectionStart).toBe(4)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('密码长度提示与后端 8-128 字符一致', () => {
+    render(<AuthView {...baseProps} mode="register" />)
+    const input = screen.getByLabelText('密码') as HTMLInputElement
+    expect(input.getAttribute('minlength')).toBe('8')
+    expect(input.getAttribute('maxlength')).toBe('128')
+    expect(input.getAttribute('placeholder')).toContain('8')
+  })
+})
+
+describe('LOGIN-01 注册联系方式受控', () => {
+  it('默认 contactType 为邮箱，联系方式输入 type="email"', () => {
+    render(<AuthView {...baseProps} mode="register" />)
+    const select = screen.getByLabelText('联系方式') as HTMLSelectElement
+    const contact = screen.getByLabelText('邮箱') as HTMLInputElement
+    expect(select.value).toBe('email')
+    expect(contact.getAttribute('type')).toBe('email')
+  })
+
+  it('contactType 切换后联系方式输入切换到 type="tel" 与 inputMode="tel"', () => {
+    render(<AuthView {...baseProps} mode="register" />)
+    const select = screen.getByLabelText('联系方式') as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'phone' } })
+
+    const phone = screen.getByLabelText('手机号') as HTMLInputElement
+    expect(phone.getAttribute('type')).toBe('tel')
+    expect(phone.getAttribute('inputmode')).toBe('tel')
+    // 切换后不应再残留邮箱输入
+    expect(screen.queryByLabelText('邮箱')).toBeNull()
+  })
+
+  it('注册提交按当前 contactType 发送对应字段', () => {
+    const onSubmit = vi.fn()
+    render(<AuthView {...baseProps} mode="register" onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '学习者' } })
+    fireEvent.change(screen.getByLabelText('联系方式'), { target: { value: 'phone' } })
+    fireEvent.change(screen.getByLabelText('手机号'), { target: { value: '13800138000' } })
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } })
+    fireEvent.click(submitButton())
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit.mock.calls[0]![0]).toMatchObject({
+      name: '学习者',
+      phone: '13800138000',
+      contactType: 'phone',
+      password: 'password123',
+    })
+  })
+
+  it('登录模式只提交 identifier 与 password，不发送 contactType', () => {
+    const onSubmit = vi.fn()
+    render(<AuthView {...baseProps} mode="login" onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('邮箱或手机号'), { target: { value: 'a@b.com' } })
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } })
+    fireEvent.click(submitButton())
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit.mock.calls[0]![0]).toEqual({ identifier: 'a@b.com', password: 'password123' })
+  })
+})
+
+describe('LOGIN-01 模式切换', () => {
+  it('模式切换按钮在 busy 时禁用', () => {
+    render(<AuthView {...baseProps} mode="login" busy />)
+    const switcher = screen.getByRole('button', { name: '注册新账户' }) as HTMLButtonElement
+    expect(switcher.disabled).toBe(true)
+  })
+
+  it('模式切换按钮在非 busy 时可点击并回调', () => {
+    const onModeChange = vi.fn()
+    render(<AuthView {...baseProps} mode="login" onModeChange={onModeChange} />)
+    fireEvent.click(screen.getByRole('button', { name: '注册新账户' }))
+    expect(onModeChange).toHaveBeenCalledWith('register')
+  })
+})
+
+describe('LOGIN-01 错误显示优先级', () => {
+  it('服务端错误存在时不重复显示连接提示', () => {
+    render(<AuthView {...baseProps} mode="login" error="账号或密码不正确" connectionError="unavailable" />)
+    expect(screen.queryByText(/无法连接本地服务/)).toBeNull()
+    expect(screen.getByText('账号或密码不正确')).toBeDefined()
+  })
+
+  it('无服务端错误时显示连接提示', () => {
+    render(<AuthView {...baseProps} mode="login" connectionError="unavailable" />)
+    const hint = screen.getByText(/无法连接本地服务/)
+    expect(hint).toBeDefined()
+    expect(hint.textContent).toContain('corepack pnpm server:start')
+    expect(hint.textContent).toContain('corepack pnpm dev')
+  })
+})
+
+describe('LOGIN-01 无障碍契约（axe-core）', () => {
+  it('登录态与注册态均无 axe 违规（标签、按钮名、表单结构）', async () => {
+    const { container } = render(<AuthView {...baseProps} mode="login" />)
+    const loginResults = await axe.run(container, {

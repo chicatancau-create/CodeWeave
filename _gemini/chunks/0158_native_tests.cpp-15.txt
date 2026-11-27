@@ -1,0 +1,74 @@
+  assert(save(valid).ok);
+  assert(save(valid).ok);
+  std::vector<codeweave::learning::EvidenceRecord> records;
+  assert(evidence.read_all(records).ok && records.size() == 1);
+  assert(records[0].state == codeweave::learning::EvidenceState::Pending);
+  assert(!records[0].independent && !records[0].unfinished_items.empty());
+  assert(records[0].expected_result != records[0].actual_result);
+  assert(records[0].actual_result.starts_with("执行环境：Windows 11 + JDK 21\n"));
+  std::vector<codeweave::learning::ProgressFact> facts;
+  assert(progress.read_all(facts).ok && facts.empty());
+  codeweave::learning::ReviewService review(evidence, progress);
+  codeweave::learning::ReviewSummary summary;
+  assert(review.summarize(summary).ok && summary.evidence_count == 1 &&
+      summary.passed_count == 0 && summary.independent_passed_count == 0);
+  for (const auto& secret : {"password=demo", "API_KEY: demo", "Authorization: Bearer demo",
+      "Cookie: demo", "postgres://user:demo@localhost/db", "-----BEGIN PRIVATE KEY-----"}) {
+    auto bad = valid; bad.command = secret;
+    assert(!save(bad).ok);
+  }
+  auto bad = valid; bad.environment = " \t　 ";
+  assert(!save(bad).ok);
+  bad = valid; bad.result_summary = std::string(601, 'x');
+  assert(!save(bad).ok);
+  bad = valid; bad.artifact_ref = std::string(301, 'x');
+  assert(!save(bad).ok);
+  bad = valid; bad.reproduced_on = "2025-02-29";
+  assert(!save(bad).ok);
+  bad = valid; bad.reproduced_on = "9999-01-01";
+  assert(!save(bad).ok);
+  bad = valid; bad.environment = std::string("bad\xc3\x28");
+  assert(!save(bad).ok);
+  auto chinese = valid; chinese.result_summary.clear();
+  for (int i = 0; i < 600; ++i) chinese.result_summary += "中";
+  assert(save(chinese, "op-external-0123ac").ok);
+  assert(evidence.read_all(records).ok && records.size() == 2);
+  // Even an old/malformed external Pending record with equal output cannot
+  // be promoted by review's output comparison.
+  auto forged = records[0]; forged.operation_id = "op-external-0123ad";
+  forged.evidence_id = "external-record-02"; forged.unfinished_items.clear();
+  forged.expected_result = forged.actual_result;
+  bool duplicate = false;
+  assert(evidence.append_idempotent(forged, duplicate).ok);
+  assert(review.summarize(summary).ok && summary.passed_count == 0);
+}
+
+void test_migration_staging_requires_fixture_and_rolls_back() {
+  Fixture fixture;
+  const auto source = fixture.root / "fixture-source";
+  const auto target = fixture.root / "fixture-target";
+  std::filesystem::create_directories(source / "nested");
+  std::ofstream(source / "codeweave.migration-fixture") << "codeweave.migration-fixture\n";
+  std::ofstream(source / "nested" / "sample.txt") << "non-sensitive fixture\n";
+  codeweave::migration::StagingReport report;
+  const auto staged = codeweave::migration::stage_fixture_copy(source, target, report);
+  if (!staged.ok) std::cerr << "migration stage failed: " << staged.message << "\n";
+  assert(staged.ok);
+  assert(report.fixture_only && report.staged && report.verified && report.committed &&
+      report.copied_files == 1 && report.receipts.size() == 1 && report.receipts[0].fingerprint != 0);
+  assert(std::filesystem::exists(target / "nested" / "sample.txt"));
+  assert(codeweave::migration::rollback_fixture_copy(target, report).ok && report.rolled_back);
+  assert(!std::filesystem::exists(target));
+  std::filesystem::create_directories(target);
+  std::ofstream(target / "existing.txt") << "keep";
+  codeweave::migration::StagingReport occupied;
+  assert(!codeweave::migration::stage_fixture_copy(source, target, occupied).ok);
+  assert(std::filesystem::exists(target / "existing.txt"));
+  std::filesystem::remove_all(target);
+  codeweave::migration::StagingReport blocked;
+  assert(!codeweave::migration::stage_fixture_copy(fixture.root, fixture.root / "blocked", blocked).ok);
+}
+
+void test_fixture_staging_rejects_targets_inside_source_or_through_alias() {
+  Fixture fixture;
+  const auto source = fixture.root / "fixture-source-boundary";

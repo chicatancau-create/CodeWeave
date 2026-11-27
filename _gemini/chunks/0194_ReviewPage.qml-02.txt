@@ -1,0 +1,81 @@
+                            text: "待复测 " + (uiShell.analysisSnapshot.reviewDueCount === undefined
+                                  ? "暂无数据" : uiShell.analysisSnapshot.reviewDueCount)
+                                  + " 项 · 未来 7 天 "
+                                  + (uiShell.analysisSnapshot.reviewNext7Days === undefined
+                                      ? "暂无数据" : uiShell.analysisSnapshot.reviewNext7Days) + " 项"
+                            color: ds.muted
+                            font.family: ds.ui
+                            font.pixelSize: 13
+                            Layout.alignment: Qt.AlignBottom
+                        }
+                    }
+
+                    // .rv-async.rv-empty.rv-async--failed — hairline strip
+                    Rectangle {
+                        objectName: "reviewContentError"
+                        visible: hostRoot.isErrorStatus(uiShell.contentStatus)
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        implicitHeight: asyncCol.implicitHeight + ds.s32
+                        color: "transparent"
+                        border.color: "transparent"
+                        Rectangle {
+                            anchors { left: parent.left; right: parent.right; top: parent.top }
+                            height: 1
+                            color: ds.line
+                        }
+                        Rectangle {
+                            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                            height: 1
+                            color: ds.lineStrong
+                        }
+                        ColumnLayout {
+                            id: asyncCol
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                top: parent.top
+                                topMargin: ds.s16
+                                rightMargin: ds.s16
+                            }
+                            spacing: ds.s10
+                            Text {
+                                Layout.fillWidth: true
+                                text: uiShell.contentStatus
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 14
+                                lineHeight: 1.6
+                                wrapMode: Text.WordWrap
+                            }
+                            QuietButton {
+                                ds: reviewPage.ds
+                                implicitHeight: 44
+                                label: "重试读取"
+                                enabled: !uiShell.operationBusy
+                                onClicked: uiShell.refreshReviewSummary()
+                            }
+                            QuietButton {
+                                ds: reviewPage.ds
+                                label: "知道了"
+                                onClicked: uiShell.dismissContentStatus()
+                            }
+                        }
+                    }
+
+                    // .review-center-empty — no scheduled reviews
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: ds.s24
+                        spacing: ds.s10
+                        visible: uiShell.reviewSummary === ""
+                        Rectangle {
+                            implicitWidth: 24
+                            implicitHeight: 24
+                            radius: 0
+                            color: "transparent"
+                            Layout.alignment: Qt.AlignLeft
+                            Text {
+                                anchors.centerIn: parent
+                                text: "◷"
+                                color: ds.muted

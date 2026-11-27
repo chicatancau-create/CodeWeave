@@ -1,0 +1,68 @@
+                      QString::fromUtf8(item.latest_at), item.passed ? QStringLiteral("输出通过") : QStringLiteral("待复习"),
+                      QString::fromUtf8(item.latest_result));
+            }
+            analysis_snapshot_.insert(QStringLiteral("periodStartKey"), QString::fromStdString(first_day));
+            analysis_snapshot_.insert(QStringLiteral("todayKey"), QString::fromStdString(today));
+            analysis_snapshot_.insert(QStringLiteral("completedUnits"),
+                static_cast<qulonglong>(analysis->completed_units));
+            analysis_snapshot_.insert(QStringLiteral("practiceCount"),
+                static_cast<qulonglong>(analysis->practice_count));
+            analysis_snapshot_.insert(QStringLiteral("verifiedPasses"),
+                static_cast<qulonglong>(analysis->challenge_passes));
+            analysis_snapshot_.insert(QStringLiteral("independentPasses"),
+                static_cast<qulonglong>(summary->independent_passed_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewPassed"),
+                static_cast<qulonglong>(analysis->review_passed));
+            analysis_snapshot_.insert(QStringLiteral("reviewFailed"),
+                static_cast<qulonglong>(analysis->review_failed));
+            analysis_snapshot_.insert(QStringLiteral("reviewDueCount"),
+                static_cast<qulonglong>(summary->overdue_count + summary->today_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewOverdueCount"),
+                static_cast<qulonglong>(summary->overdue_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewTodayCount"),
+                static_cast<qulonglong>(summary->today_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewFuture7Days"),
+                static_cast<qulonglong>(summary->upcoming_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewNext7Days"),
+                static_cast<qulonglong>(summary->upcoming_count));
+            analysis_snapshot_.insert(QStringLiteral("reviewScheduledCount"),
+                static_cast<qulonglong>(summary->overdue_count + summary->today_count +
+                    summary->upcoming_count));
+            analysis_snapshot_.insert(QStringLiteral("streakDays"), QStringLiteral("暂无数据"));
+            analysis_snapshot_.insert(QStringLiteral("todayCheckin"), QStringLiteral("暂无数据"));
+            analysis_snapshot_.insert(QStringLiteral("projectionStatus"),
+                *projection_found ? projection_status(projection->status) : QStringLiteral("unavailable"));
+            analysis_snapshot_.insert(QStringLiteral("projectionLatestEvidence"),
+                *projection_found && !projection->latest_evidence_on.empty()
+                    ? QString::fromUtf8(projection->latest_evidence_on)
+                    : QStringLiteral("暂无数据"));
+            analysis_snapshot_.insert(QStringLiteral("projectionMasteryCount"),
+                static_cast<qulonglong>(projection->mastery.size()));
+            analysis_snapshot_.insert(QStringLiteral("projectionStageCount"),
+                static_cast<qulonglong>(projection->stages.size()));
+          }
+          emit reviewSummaryChanged();
+          emit reviewItemsChanged();
+          setOperationStatus(QString::fromUtf8(result.result.message));
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::reviewItem(const QString& itemId, bool passed, const QString& note) {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_ || !hasActiveAccount()) {
+    setOperationStatus(QStringLiteral("请先登录，并等待当前任务完成"));
+    return;
+  }
+  const auto item = itemId.trimmed();
+  if (item.isEmpty()) {
+    setOperationStatus(QStringLiteral("复测项目标识不能为空"));
+    return;
+  }
+  const auto root = data_root_;
+  const auto account = active_account_id_;

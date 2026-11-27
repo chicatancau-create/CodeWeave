@@ -1,0 +1,50 @@
+              append("matrix-review", "c-loop-sum", Kind::Review, true, Verification::SelfDeclared, "复测通过") &&
+              append("matrix-challenge", "javascript-loop-sum", Kind::Challenge, true, Verification::AutoVerified, "挑战 fixture");
+          u3_record(*context, QStringLiteral("learning-isolated-evidence-fixture-created"), seeded);
+          shell.refreshReviewSummary();
+          context->step++;
+          return;
+        }
+        case 83: {
+          if (shell.operationBusy()) return;
+          auto* study = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("studyPageRoot"));
+          if (!study) { u3_record(*context, QStringLiteral("learning-filter-controls"), false); context->step = 99; return; }
+          const auto subjects = study->property("subjectOptions").toStringList();
+          const auto lessons = shell.lessonMeta();
+          const QStringList completed_ids{QStringLiteral("python-condition"), QStringLiteral("java-loop-sum"), QStringLiteral("c-loop-sum")};
+          bool combinations = shell.lessonEvidenceReady();
+          for (int subject = -1; subject < subjects.size(); ++subject) {
+            QMetaObject::invokeMethod(study, "selectSubject", Qt::DirectConnection, Q_ARG(QVariant, subject));
+            int expected_completed = 0;
+            for (int status = 0; status < 3; ++status) {
+              auto* filter = u3_find_item(view.rootObject(), QStringLiteral("lessonStatusFilter-") + QString::number(status));
+              combinations = combinations && filter && filter->property("available").toBool();
+              if (filter) QMetaObject::invokeMethod(filter, "choose", Qt::DirectConnection);
+              QStringList expected;
+              for (const auto& value : lessons) {
+                const auto lesson = value.toMap();
+                const auto label = lesson.value(QStringLiteral("languageLabel")).toString().isEmpty()
+                    ? lesson.value(QStringLiteral("language")).toString() : lesson.value(QStringLiteral("languageLabel")).toString();
+                const auto id = lesson.value(QStringLiteral("id")).toString();
+                if ((subject < 0 || label == subjects.at(subject)) &&
+                    (status == 0 || completed_ids.contains(id) == (status == 2))) expected.append(id);
+              }
+              QStringList actual;
+              for (const auto& value : study->property("filteredLessons").toList()) {
+                const auto lesson = value.toMap();
+                const auto original = lesson.value(QStringLiteral("originalIndex")).toInt();
+                combinations = combinations && original >= 0 && original < lessons.size() &&
+                    lessons.at(original).toMap().value(QStringLiteral("id")) == lesson.value(QStringLiteral("id"));
+                actual.append(lesson.value(QStringLiteral("id")).toString());
+              }
+              combinations = combinations && actual == expected;
+              if (status == 2) expected_completed = expected.size();
+            }
+            combinations = combinations && study->property("completedLessonCount").toInt() == expected_completed;
+          }
+          u3_record(*context, QStringLiteral("learning-all-subject-status-combinations-and-original-indices"), combinations);
+          u3_record(*context, QStringLiteral("learning-reading-and-challenge-not-completion"),
+              shell.lessonEvidenceStates().value(QStringLiteral("python-loop-sum")).toMap().value(QStringLiteral("read")).toBool() &&
+              !shell.lessonEvidenceStates().value(QStringLiteral("javascript-loop-sum")).toMap().value(QStringLiteral("selfDeclaredPassed")).toBool() &&
+              !shell.lessonEvidenceStates().value(QStringLiteral("javascript-loop-sum")).toMap().value(QStringLiteral("autoVerifiedPassed")).toBool() &&
+              !shell.lessonEvidenceStates().value(QStringLiteral("javascript-loop-sum")).toMap().value(QStringLiteral("reviewMastered")).toBool());

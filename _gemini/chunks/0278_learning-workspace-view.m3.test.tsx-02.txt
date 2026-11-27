@@ -1,0 +1,107 @@
+const callEvent: TraceEvent = { id: 'e2', type: 'line', line: 4, label: '调用 add', detail: '', variables: [], nodeId: 'call' }
+const returnEvent: TraceEvent = { id: 'e3', type: 'assign', line: 2, label: '返回和', detail: '', variables: [], nodeId: 'check' }
+
+const events: TraceEvent[] = [startEvent, callEvent, returnEvent]
+
+const executionResult = (overrides: Partial<ExecutionResult> = {}): ExecutionResult =>
+  ({ events, output: ['5'], tier: 'teaching', ...overrides }) as ExecutionResult
+
+const variables: VariableValue[] = [
+  { name: 'result', value: '5', type: 'int', color: 'blue' },
+  { name: 'table', value: '{"k": [1, 2, 3, 4, 5, 6, 7, 8, 9]}', type: 'dict', color: 'coral' },
+]
+
+function renderWorkspace(overrides: Partial<Parameters<typeof LearningWorkspaceView>[0]> = {}) {
+  const props = {
+    lesson: baseLesson(),
+    code: baseLesson().code,
+    isDirty: false,
+    currentEvent: callEvent,
+    runStatus: 'running' as const,
+    eventIndex: 1,
+    execution: executionResult(),
+    visibleOutput: ['5'],
+    variables,
+    completed: false,
+    onComplete: vi.fn(),
+    onBack: vi.fn(),
+    onHelp: vi.fn(),
+    onCodeChange: vi.fn(),
+    onRun: vi.fn(),
+    // 画布那枚「播放」的回调（2026-10-04 从 `onRun` 拆出来）：`onRun` 是运行条的
+    // 「开始运行」——第一下只落到第一拍；`onPlay` 是第一下直接放到底。两者不是同一件事，
+    // 视图受控，桩必须在这里就位。
+    onPlay: vi.fn(),
+    onStep: vi.fn(),
+    // 画布「上一步」的跳转入口（`use-execution.ts` 的 `handleSeek`）：视图是受控的，
+    // 没有人可能往下传，所以这个桩必须在这里就位，不能靠 `...overrides` 补。
+    onSeek: vi.fn(),
+    onReset: vi.fn(),
+    ...overrides,
+  }
+  const view = render(<LearningWorkspaceView {...props} />)
+  return { ...view, props }
+}
+
+/* ──────────────────── 持续资源运行时探针（§5.3.4） ─────────────────── */
+
+type NativeListenerTarget = {
+  addEventListener: (type: string, handler: unknown, options?: unknown) => void
+  removeEventListener: (type: string, handler: unknown, options?: unknown) => void
+}
+
+/** 记录 window/document 上「本探针开始后」注册的原生监听器，用于验证卸载时成对摘除。 */
+function trackNativeListeners(target: Window | Document) {
+  const t = target as unknown as NativeListenerTarget
+  const originalAdd = t.addEventListener.bind(target) as NativeListenerTarget['addEventListener']
+  const originalRemove = t.removeEventListener.bind(target) as NativeListenerTarget['removeEventListener']
+  const live = new Map<unknown, Set<string>>()
+  t.addEventListener = (type, handler, options) => {
+    const types = live.get(handler) ?? new Set<string>()
+    types.add(type)
+    live.set(handler, types)
+    originalAdd(type, handler, options)
+  }
+  t.removeEventListener = (type, handler, options) => {
+    const types = live.get(handler)
+    if (types) {
+      types.delete(type)
+      if (types.size === 0) live.delete(handler)
+    }
+    originalRemove(type, handler, options)
+  }
+  return {
+    live: () => live.size,
+    restore: () => {
+      t.addEventListener = originalAdd
+      t.removeEventListener = originalRemove
+    },
+  }
+}
+
+/* ────────────────────── CSS 源码解析（源码文本核对） ────────────────── */
+
+/**
+ * 只有样式表需要按字节读盘：vitest 的 `css: false` 会把 .css 模块（连 `?raw`/`?inline`
+ * 一起）替换成空串，模块图里拿不到样式文本。项目没装 @types/node，所以这里用
+ * `vi.importActual` 取 node 模块并自带最小签名，`tsc -b` 不会因为裸 `import 'node:fs'` 报错。
+ */
+type NodeFsModule = { readFileSync: (path: string, encoding: 'utf8') => string }
+type NodePathModule = { resolve: (...parts: string[]) => string }
+type NodeProcessModule = { cwd: () => string }
+
+type CssRule = { selector: string; insideKeyframes: boolean; block: string }
+
+let cssText = ''
+let cssCode = ''
+let baseCssCode = ''
+let cssRules: CssRule[] = []
+let styleRules: CssRule[] = []
+
+beforeAll(async () => {
+  const fs = await vi.importActual<NodeFsModule>('node:fs')
+  const path = await vi.importActual<NodePathModule>('node:path')
+  const proc = await vi.importActual<NodeProcessModule>('node:process')
+  cssText = fs.readFileSync(path.resolve(proc.cwd(), 'src/components/learning-workspace-view.css'), 'utf8')
+  /** 注释里的示例与说明不参与判定（01 号方案 §2.2：不照抄注释，只核规则）。 */
+  cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '')

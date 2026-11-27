@@ -1,0 +1,79 @@
+  const auto nested_target = source / "nested-target";
+  std::filesystem::create_directories(source);
+  std::ofstream(source / "codeweave.migration-fixture") << "fixture" << '\n';
+  std::ofstream(source / "payload.txt") << "non-sensitive fixture" << '\n';
+  codeweave::migration::StagingReport nested_report;
+  assert(!codeweave::migration::stage_fixture_copy(source, nested_target, nested_report).ok);
+  assert(!std::filesystem::exists(nested_target));
+
+  const auto alias = fixture.root / "fixture-alias";
+  std::error_code error;
+  std::filesystem::create_directory_symlink(source, alias, error);
+  if (!error) {
+    codeweave::migration::StagingReport alias_report;
+    assert(!codeweave::migration::stage_fixture_copy(alias,
+        fixture.root / "alias-target", alias_report).ok);
+    std::filesystem::remove(alias, error);
+  }
+}
+
+void test_fixture_backup_rejects_targets_inside_source() {
+  Fixture fixture;
+  const auto source = fixture.root / "backup-source-boundary";
+  const auto nested_target = source / "nested-backup";
+  std::filesystem::create_directories(source);
+  std::ofstream(source / "codeweave.migration-fixture") << "fixture" << '\n';
+  std::ofstream(source / "payload.txt") << "non-sensitive fixture" << '\n';
+  codeweave::backup::Report report;
+  assert(!codeweave::backup::create_fixture_backup(source, nested_target, report).ok);
+  assert(!std::filesystem::exists(nested_target));
+}
+
+void test_fixture_backup_restore_round_trip() {
+  Fixture fixture;
+  const auto source = fixture.root / "backup-source";
+  const auto backup = fixture.root / "backup-copy";
+  const auto restored = fixture.root / "backup-restored";
+  std::filesystem::create_directories(source / "nested");
+  std::ofstream(source / "codeweave.migration-fixture") << "fixture\n";
+  std::ofstream(source / "nested" / "draft.txt") << "中文 draft\n";
+  codeweave::backup::Report created;
+  assert(codeweave::backup::create_fixture_backup(source, backup, created).ok);
+  assert(created.source_verified && created.target_verified &&
+      created.committed && created.receipts.size() == 1);
+  codeweave::backup::Report restored_report;
+  assert(codeweave::backup::restore_fixture_backup(backup, restored,
+      restored_report).ok);
+  assert(restored_report.target_verified && restored_report.committed);
+  std::ifstream restored_file(restored / "nested" / "draft.txt");
+  std::string contents((std::istreambuf_iterator<char>(restored_file)), {});
+  assert(contents == "中文 draft\n");
+  restored_file.close();
+  const auto restored_rollback = codeweave::backup::rollback_fixture_target(restored,
+      restored_report);
+  if (!restored_rollback.ok) std::cerr << restored_rollback.message << "\\n";
+  assert(restored_rollback.ok);
+  assert(!std::filesystem::exists(restored));
+  assert(codeweave::backup::rollback_fixture_target(backup, created).ok);
+  assert(!std::filesystem::exists(backup));
+}
+
+void test_native_backup_restores_only_to_new_directory() {
+  Fixture fixture;
+  const auto source = fixture.root / "native-source";
+  const auto backup = fixture.root / "native-backup";
+  const auto restored = fixture.root / "native-restored";
+  std::filesystem::create_directories(source / "drafts");
+  std::ofstream(source / "drafts" / "sample.txt") << "native draft\n";
+  std::ofstream(source / ".native.lock") << "transient lock";
+  std::filesystem::create_directories(source / "accounts" / "user-01");
+  const auto child_lock = source / "accounts" / "user-01" / ".native.lock";
+#ifdef _WIN32
+  const auto held_lock = CreateFileW(child_lock.wstring().c_str(), GENERIC_READ,
+      FILE_SHARE_READ, nullptr, CREATE_NEW, FILE_ATTRIBUTE_HIDDEN | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+  assert(held_lock != INVALID_HANDLE_VALUE);
+#else
+  std::ofstream(child_lock) << "transient child lock";
+#endif
+  codeweave::backup::Report report;
+  const auto backup_result = codeweave::backup::create_native_backup(source, backup, report);

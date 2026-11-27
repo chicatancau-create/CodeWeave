@@ -1,0 +1,37 @@
+                    id: observation
+                    objectName: "challengeObservation-" + submission.index
+                    Layout.fillWidth: true
+                    enabled: !panel.busy
+                    model: ["不标注", "已完成", "部分完成", "已尝试"]
+                    Accessible.name: "学习状态标注"
+                    contentItem: Text {
+                        leftPadding: panel.ds.s8
+                        text: observation.displayText
+                        color: panel.ds.ink
+                        font.family: panel.ds.ui
+                        font.pixelSize: 13
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    background: Rectangle {
+                        color: panel.ds.inset
+                        border.color: observation.activeFocus ? panel.ds.accent : panel.ds.lineStrong
+                    }
+                }
+                QuietButton {
+                    objectName: "challengeVerify-" + submission.index
+                    ds: panel.ds; label: "确认通过（人工复核）"; enabled: !panel.busy
+                    onClicked: uiShell.reviewChallengeSubmission(submission.modelData.id, true,
+                        ["", "completed", "partially-completed", "attempted"][observation.currentIndex])
+                }
+                QuietButton {
+                    objectName: "challengeReject-" + submission.index
+                    ds: panel.ds; label: "标记不通过"; enabled: !panel.busy
+                    onClicked: uiShell.reviewChallengeSubmission(submission.modelData.id, false,
+                        ["", "completed", "partially-completed", "attempted"][observation.currentIndex])
+                }
+            }
+            Rectangle { Layout.fillWidth: true; height: 1; color: panel.ds.line }
+        }
+    }
+}

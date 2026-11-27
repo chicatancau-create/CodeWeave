@@ -1,0 +1,52 @@
+                    次
+                  </th>
+                  <th scope="col" className="rv-col">
+                    复习项
+                  </th>
+                  <th scope="col" className="rv-col">
+                    掌握等级
+                  </th>
+                  <th scope="col" className="rv-col">
+                    复测计划
+                  </th>
+                  <th scope="col" className="rv-col rv-col-status">
+                    到期状态
+                  </th>
+                  <th scope="col" className="rv-col">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {section.rows.map((record, index) => (
+                  <ReviewRow
+                    key={record.refId}
+                    record={record}
+                    title={titles[record.refId] ?? record.refId}
+                    tone={section.key}
+                    order={index + 1}
+                    isLesson={lessonSet.has(record.refId)}
+                    snoozeToKey={snoozeTargetKey(record, todayKey)}
+                    plan={planFor(record.refId)}
+                    defaultPlan={defaultPlan}
+                    onReview={onReview}
+                    onSnooze={onSnooze}
+                    onOpenLesson={onOpenLesson}
+                  />
+                ))}
+              </tbody>
+            </table>
+            </div>
+          </section>
+        ),
+      )}
+
+      {scheduled > 0 && (
+        <p className="rv-footnote">
+          本页只列 reviewDueKey 已安排的记录：逾期 {groups.overdue.length} 项、今日 {groups.today.length} 项、未来 7 天{' '}
+          {groups.upcoming.length} 项，合计 {scheduled} 项；没有到期安排的记录不计入任何分母。
+        </p>
+      )}
+    </section>
+  )
+}

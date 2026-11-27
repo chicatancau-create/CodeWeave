@@ -1,0 +1,72 @@
+      // existing matrix timeout, before dispatching the next keyboard input.
+      if (!view.isActive()) {
+        view.requestActivate();
+        return;
+      }
+      // Popup focus is handed back by onClosed after the exit transition.
+      // Keep the original assertions and timeout, but send the next input only
+      // after the same transition boundary used by the QML smoke.
+      for (const auto* name : {"quickPopup", "accountPopup", "notificationPopup",
+                              "searchPopup", "checkinCalendarDialog"}) {
+        const auto* popup = view.rootObject()->findChild<QObject*>(QString::fromLatin1(name));
+        if (popup && popup->property("visible").toBool() &&
+            !popup->property("opened").toBool()) return;
+      }
+      switch (context->step) {
+        case 0:
+          if (shell.contentBusy() || shell.publishedIds().isEmpty()) return;
+          shell.selectPage(QStringLiteral("学习"));
+          u3_record(*context, QStringLiteral("window-content-loaded"),
+              !shell.publishedIds().isEmpty());
+          u3_record(*context, QStringLiteral("page-learning"), shell.currentPage() == QStringLiteral("学习"));
+          {
+            auto* calendar = u3_find_item(view.rootObject(), QStringLiteral("checkinCalendarButton"));
+            u3_record(*context, QStringLiteral("checkin-guest-calendar-disabled"), calendar &&
+                !calendar->property("enabled").toBool() && !shell.checkinSummary().value("ready").toBool());
+          }
+          u3_screenshot(*context, view, QStringLiteral("u3-learning"));
+          context->step++;
+          return;
+        case 1: {
+          auto* completed = u3_find_item(view.rootObject(), QStringLiteral("lessonStatusFilter-2"));
+          const bool guest_disabled = completed && !completed->property("available").toBool();
+          if (completed) QMetaObject::invokeMethod(completed, "choose", Qt::DirectConnection);
+          u3_record(*context, QStringLiteral("learning-guest-completion-filter-disabled"),
+              guest_disabled && view.rootObject()->property("lessonStatusFilter").toInt() == 0);
+          const auto index = shell.publishedIds().indexOf(QStringLiteral("python-loop-sum"));
+          if (index < 0) {
+            u3_record(*context, QStringLiteral("course-selection"), false,
+                QStringLiteral("缺少 python-loop-sum 内容"));
+            context->step = 99;
+            return;
+          }
+          shell.openPublishedContent(index);
+          context->step++;
+          return;
+        }
+        case 2:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("course-selection"), shell.hasSelectedContent());
+          u3_screenshot(*context, view, QStringLiteral("u3-course"));
+          shell.loadStarterCode();
+          context->step++;
+          return;
+        case 3:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("starter-code"), shell.starterLanguage() == QStringLiteral("python") &&
+              !shell.starterCode().isEmpty());
+          shell.selectPage(QStringLiteral("编辑器"));
+          u3_screenshot(*context, view, QStringLiteral("u3-editor"));
+          {
+            const auto original_size = view.size();
+            view.resize(QSize(1100, 720));
+            QCoreApplication::processEvents();
+            auto* mode_toggle = u3_find_item(view.rootObject(), QStringLiteral("workspaceCodeModeToggle"));
+            const bool code_mode_initial = mode_toggle && mode_toggle->property("checked").toBool();
+            if (code_mode_initial) {
+              mode_toggle->forceActiveFocus();
+              send_editor_shortcut(view, Qt::Key_Space, Qt::NoModifier);
+              QCoreApplication::processEvents();
+            }
+            auto* breadcrumb = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbs"));
+            auto* breadcrumb_index = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("breadcrumbIndex"));

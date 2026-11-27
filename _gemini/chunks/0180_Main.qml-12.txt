@@ -1,0 +1,76 @@
+                    readonly property bool canCheckIn: uiShell.hasActiveAccount && uiShell.checkinSummary.ready
+                        && !uiShell.checkinSummary.busy && !uiShell.checkinSummary.checkedIn
+                    activeFocusOnTab: canCheckIn
+                    Keys.onReturnPressed: if (canCheckIn) uiShell.checkIn()
+                    Keys.onEnterPressed: if (canCheckIn) uiShell.checkIn()
+                    Keys.onSpacePressed: if (canCheckIn) uiShell.checkIn()
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: ds.s8
+                    implicitHeight: 60
+                    radius: 7
+                    color: streakHover.hovered ? ds.cardHover : ds.panel
+                    border.color: ds.line
+                    border.width: 1
+
+                    HoverHandler { id: streakHover; cursorShape: checkinCard.canCheckIn ? Qt.PointingHandCursor : Qt.ArrowCursor }
+
+                    // Smooth transition
+                    Behavior on color {
+                        ColorAnimation { duration: ds.durQuick; easing.type: ds.easingType }
+                    }
+                    RowLayout {
+                        anchors { fill: parent; leftMargin: ds.s10; rightMargin: ds.s10 }
+                        spacing: ds.s10
+                        Rectangle {
+                            implicitWidth: 27
+                            implicitHeight: 27
+                            radius: 14
+                            color: "transparent"
+                            border.color: ds.accentRing
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: "▲"
+                                color: ds.accentHi
+                                font.family: ds.ui
+                                font.pixelSize: 11
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Text {
+                                Layout.fillWidth: true
+                                objectName: "sidebarCheckinTitle"
+                                text: uiShell.checkinSummary.ready
+                                      ? (uiShell.checkinSummary.checkedIn ? "已打卡 · 连续 " : "连续打卡 ")
+                                        + uiShell.checkinSummary.streakDays + " 天"
+                                      : "打卡数据暂无"
+                                color: ds.ink
+                                font.family: ds.ui
+                                font.pixelSize: 13
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: uiShell.checkinSummary.busy ? "正在保存…"
+                                      : uiShell.checkinSummary.status || (uiShell.checkinSummary.ready
+                                        ? (uiShell.checkinSummary.checkedIn ? "明天继续保持" : "点击卡片完成今日打卡")
+                                        : "请登录后使用打卡")
+                                color: ds.muted
+                                font.family: ds.ui
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                    TapHandler {
+                        enabled: checkinCard.canCheckIn
+                        onTapped: uiShell.checkIn()
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: uiShell.checkinSummary.ready
+                        ? (uiShell.checkinSummary.checkedIn ? "今日已打卡" : "连续打卡 " + uiShell.checkinSummary.streakDays + " 天，点击打卡")
+                        : "打卡数据不可用"
+                }
+                Text {

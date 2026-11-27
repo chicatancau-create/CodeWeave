@@ -1,0 +1,39 @@
+.desktop-vault-settings[open] { padding: var(--ds-space-12); border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.app-shell .welcome-row { align-items: center; margin-bottom: var(--ds-space-20); }
+.app-shell .welcome-row .welcome-greeting { font: 600 25px/1.4 var(--font-ui); letter-spacing: -0.6px; }
+.app-shell .welcome-subtitle { font-size: 12px; margin-top: var(--ds-space-6); max-width: 66ch; }
+.app-shell .weekly-progress { font-size: 11px; }
+.app-shell .progress-ring { width: 44px; height: 44px; }
+.app-shell .progress-ring span { font-size: 11px; }
+.app-shell .weekly-progress strong { font-size: 12px; }
+.app-shell .primary-action { min-height: 36px; background: var(--accent); color: var(--ink-on-accent); border: 1px solid #a1ddff; border-radius: 5px; font-weight: 650; padding: var(--ds-space-8) var(--ds-space-14); box-shadow: 0 0 14px #38bdf814; }
+.app-shell .primary-action:hover { background: #b1e4ff; }
+.app-shell .subtle-button { border-radius: 5px; }
+.app-shell .module-heading h1 { font: 600 24px/1.4 var(--font-ui); letter-spacing: -0.5px; }
+.app-shell .module-heading p { font-size: 13px; }
+.app-shell :is(.challenges-view, .projects-view, .review-center, .analytics-view, .cw-workspace, .lp-view) { font-family: var(--font-ui); }
+.app-shell :is(.challenge-card, .project-card, .review-card, .analytics-card) { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: none; }
+.app-shell .challenge-grid { gap: var(--ds-space-20); }
+.app-shell .challenge-card { padding: var(--ds-space-16); }
+.app-shell .challenge-card h2, .app-shell .challenge-card h3 { font: 600 17px/1.5 var(--font-ui); }
+.app-shell .challenge-card p { font-size: 13px; }
+.app-shell .challenge-card:hover { border-color: var(--accent-ring); }
+.app-shell.is-immersive .content-wrap { padding: var(--ds-space-8) var(--ds-space-16); display: flex; flex-direction: column; gap: var(--ds-space-4); overflow: hidden; }
+.app-shell.is-immersive .desktop-vault-settings { margin-bottom: 0; }
+.app-shell.is-immersive .cw-workspace { flex: 1; min-height: 0; height: auto; --cw-chrome-h: 160px; }
+.app-shell.is-immersive .cw-workspace .learning-view { min-height: 0; flex: 1; }
+}
+
+/* Workspace home follows the reference's subject strip, hero, course grid and utility rail. */
+.desktop-learning-home { display: grid; gap: var(--ds-space-24); }
+.desktop-subjects { display: flex; overflow-x: auto; gap: var(--ds-space-8); padding-bottom: var(--ds-space-8); }
+.desktop-subjects button { display: flex; align-items: center; flex-shrink: 0; gap: var(--ds-space-8); padding: var(--ds-space-8) var(--ds-space-12); color: var(--muted); border: 1px solid var(--line); background: #141a23; border-radius: 6px; font-size: 12px; }
+.desktop-subjects button[aria-pressed='true'] { background: #153044; color: var(--accent); border-color: #38bdf859; }
+.subject-symbol { display: grid; place-items: center; min-width: 21px; height: 21px; border-radius: 4px; background: #ffffff08; font: 11px var(--font-mono); color: var(--accent); }
+.desktop-subjects small { font: 10px var(--font-mono); color: var(--faint); }
+.desktop-learning-columns { display: grid; grid-template-columns: minmax(0, 1fr) 286px; gap: var(--ds-space-24); }
+.desktop-learning-primary { min-width: 0; }
+.desktop-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--ds-space-12); margin-bottom: var(--ds-space-16); }
+.desktop-section-heading h1 { font-size: 20px; letter-spacing: -0.5px; margin: var(--ds-space-4) 0 0; }
+.desktop-eyebrow { display: flex; align-items: center; gap: var(--ds-space-8); color: var(--faint); font: 10px var(--font-mono); letter-spacing: 1px; margin: 0; }
+.desktop-text-button { display: flex; align-items: center; gap: var(--ds-space-6); color: var(--accent); border: 0; background: transparent; padding: var(--ds-space-6) 0; font-size: 12px; }

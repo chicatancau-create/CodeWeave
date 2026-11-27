@@ -1,0 +1,85 @@
+  execution_policy_ = QStringLiteral("native");
+  starter_code_ = language == "cpp" ? QStringLiteral("#include <iostream>\nint main() { std::cout << \"Hello\\n\"; }\n") :
+      language == "java" ? QStringLiteral("class Main { public static void main(String[] args) { System.out.println(\"Hello\"); } }\n") :
+      language == "python" ? QStringLiteral("print('Hello')\n") : QStringLiteral("console.log('Hello');\n");
+  draft_baseline_ = draft_code_ = draft_saved_code_ = starter_code_;
+  emit selectedContentChanged();
+  emit starterCodeChanged();
+  emit draftChanged();
+  if (hasActiveAccount()) loadAccountDraft();
+  selectPage(QStringLiteral("编辑器"));
+}
+
+void UiShell::requestToolSelection() {
+  if (!closing_ && !backend_tasks_.busy() && !starter_language_.isEmpty())
+    emit toolSelectionRequested(starter_language_);
+}
+
+void UiShell::requestDataAction(const QString& action) {
+  if (closing_ || backend_tasks_.busy() || draftDirty()) {
+    setOperationStatus(QStringLiteral("请先保存草稿并等待当前任务完成"));
+    return;
+  }
+  if (action != "backup" && action != "restore" && action != "import-users" &&
+      action != "import-learning" && action != "open") return;
+  if (!hasActiveAccount()) { setOperationStatus(QStringLiteral("请先登录")); return; }
+  emit dataActionRequested(action);
+}
+
+bool UiShell::performDataAction(const QString& action, const std::filesystem::path& source,
+    const std::filesystem::path& target) {
+  if (action == "backup") return createBackup(native_data_root_, target);
+  if (action == "restore") return restoreBackup(source, target);
+  if (closing_ || backend_tasks_.busy() || !hasActiveAccount() ||
+      (action != "import-users" && action != "import-learning")) return false;
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-import-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.kind = codeweave::backend::TaskKind::Import;
+  const auto account = active_account_id_.toStdString();
+  request.account_id = account;
+  request.account_generation = account_generation_;
+  request.work = [source, target, action, account](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("导入已取消");
+    codeweave::migration::LegacyImportReport report;
+    return action == "import-users" ? codeweave::migration::import_legacy_users(source, target, report) :
+        codeweave::migration::import_legacy_learning(source, account, target, report);
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request), [this, target, task_name](auto result) {
+    QMetaObject::invokeMethod(this, [this, target, task_name, result] {
+      if (task_name != operation_task_id_) return;
+      operation_task_id_.clear();
+      operation_busy_ = false;
+      emit operationBusyChanged();
+      if (result.cancelled) {
+        setOperationStatus(QStringLiteral("导入已取消"));
+        return;
+      }
+      setOperationStatus(QString::fromUtf8(result.result.message) +
+          (result.result.ok ? QStringLiteral("\n新目录：") + QString::fromStdWString(target.wstring()) : QString()));
+    }, Qt::QueuedConnection);
+  });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+  return submitted.ok;
+}
+
+void UiShell::refreshReviewSummary() {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_ || !hasActiveAccount()) {
+    setOperationStatus(QStringLiteral("请先登录，并等待当前任务完成"));
+    return;
+  }
+  const auto root = data_root_;
+  const auto workspace = workspace_root_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto today_date = local_date_();
+  const auto today = today_date.toString(Qt::ISODate).toStdString();
+  const auto first_day = today_date.addDays(-6).toString(Qt::ISODate).toStdString();

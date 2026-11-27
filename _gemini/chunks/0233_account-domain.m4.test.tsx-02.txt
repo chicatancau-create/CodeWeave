@@ -1,0 +1,115 @@
+  const combined = [...cssCode.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+    .filter((match) => splitSelectors(match[1] ?? '').some((part) => part.startsWith('.reduce-motion ')))
+    .reduce((total, match) => total + ((match[2]?.match(/!important/g) ?? []).length), 0)
+  return system + Math.max(classCount, combined)
+}
+
+const ACCOUNT = 'user-aa11'
+const OTHER = 'user-bb22'
+
+const user = {
+  id: ACCOUNT,
+  name: '验收账户',
+  bio: '',
+  contactType: 'phone',
+  phone: '',
+  email: '',
+  createdAt: '2026-01-02T00:00:00.000Z',
+} as unknown as AuthUser
+
+const envelope = (value: unknown) => JSON.stringify({ schemaVersion: 3, savedAt: '2026-09-20T00:00:00.000Z', data: value })
+
+function payloadFor(scope: string, data: Record<string, unknown>) {
+  return JSON.stringify({
+    schema: EXPORT_SCHEMA,
+    version: EXPORT_VERSION,
+    exportedAt: '2026-09-20T00:00:00.000Z',
+    scope,
+    categories: [{ base: STORAGE_KEYS.WORKSPACE, category: 'account', label: '课程工作区与代码草稿' }],
+    data,
+  })
+}
+
+function renderSecurity() {
+  return render(<AccountSecurityView user={user} onLogout={vi.fn()} />)
+}
+
+function renderPrivacy(clearResult: ClearResult) {
+  const onClearLocalData = vi.fn(() => clearResult)
+  const onExportData = vi.fn()
+  render(<DataPrivacyView user={user} onExportData={onExportData} onClearLocalData={onClearLocalData} />)
+  return { onClearLocalData, onExportData }
+}
+
+function renderProfile(clearResult: ClearResult) {
+  const onClearLocalData = vi.fn(() => clearResult)
+  const onExportData = vi.fn()
+  render(
+    <ProfileView
+      user={user}
+      onUpdateUser={vi.fn()}
+      onLogout={vi.fn()}
+      onNavigateReviews={vi.fn()}
+      stageMastery={[]}
+      completedLessons={0}
+      completedChallenges={0}
+      dueCount={0}
+      onExportData={onExportData}
+      onClearLocalData={onClearLocalData}
+      onNavigateSecurity={vi.fn()}
+    />,
+  )
+  return { onClearLocalData, onExportData }
+}
+
+const okClear: ClearResult = { removed: true, keys: ['k'], failedKeys: [], failures: [], categories: 1 }
+const partialClear: ClearResult = {
+  removed: false,
+  keys: [],
+  failedKeys: [`code-canvas.mastery.v1:${ACCOUNT}`],
+  failures: [{ key: `code-canvas.mastery.v1:${ACCOUNT}`, reason: 'quota' }],
+  categories: 1,
+}
+
+async function chooseFile(text: string): Promise<void> {
+  const input = (await screen.findByLabelText(/选择导出的 JSON 文件/)) as HTMLInputElement
+  fireEvent.change(input, { target: { files: [new File([text], 'export.json', { type: 'application/json' })] } })
+}
+
+beforeEach(() => {
+  localStorage.clear()
+  vi.restoreAllMocks()
+  vi.stubGlobal('fetch', vi.fn())
+})
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  document.documentElement.className = ''
+})
+
+describe('M4 账户域 · 改密（§5.2 保留行为，调用与判定不得改）', () => {
+  it('三个字段齐全才发请求，请求体只带两个密码且带 credentials', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    renderSecurity()
+    fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('当前密码'), { target: { value: 'old-secret-1' } })
+    fireEvent.change(screen.getByLabelText('新密码（至少 8 个字符）'), { target: { value: 'new-secret-2' } })
+    fireEvent.change(screen.getByLabelText('确认新密码'), { target: { value: 'new-secret-2' } })
+    fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('/api/auth/change-password')
+    expect(init.method).toBe('POST')
+    expect(init.credentials).toBe('include')
+    expect(JSON.parse(String(init.body))).toEqual({ currentPassword: 'old-secret-1', newPassword: 'new-secret-2' })
+  })
+
+  it('两次新密码不一致时不发请求，直接给可读错误', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    renderSecurity()

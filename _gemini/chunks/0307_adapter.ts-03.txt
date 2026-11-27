@@ -1,0 +1,110 @@
+function buildLesson(lesson: SnapshotLesson, exercise: SnapshotExercise | null): Lesson {
+  const language = executableLanguage(lesson.language)
+  const executable = language !== null
+  const reading = lesson.reading
+  const stageIds = lesson.stageIds ?? []
+  const unit: LessonUnit = {
+    objective: lesson.objective,
+    prerequisites: lesson.prerequisiteRefs ?? [],
+    // 讲解正文只存在于资料库原文：这里不复制，阅读区直接渲染主题正文。
+    explanation: reading ? ['讲解与示例以上方「主题原文」为准；本页不另存一份教材。'] : [],
+    examples: [],
+    guidedSteps: [],
+    exercise: exercise?.prompt ?? '本单元暂无独立练习契约（缺口已登记在同步报告）。',
+    variant: '',
+    projectTask: lesson.projectTaskRef ?? '本单元暂无项目任务编排。',
+    mistakes: [],
+    runCommand: runCommandLabel(lesson),
+    completion: exercise?.rubric?.length
+      ? `验收标准：${exercise.rubric.join('；')}`
+      : '本单元为阅读/编排条目，完成与否以证据清单与阶段测试为准，本页不自动判定掌握。',
+    // #33 裁定 2：单元级 `null` 是「本单元没写」，透传成 null 让它继承发布规则；
+    // 改版前这里的 `?? []` 把「没写」伪装成「空计划」，而调度端读不懂这层差别。
+    reviewOffsetsDays: lesson.reviewOffsetsDays ?? null,
+    stageId: stageIds[0],
+    runEnvironment: lesson.runEnvironment,
+    estimatedMinutes: lesson.estimatedMinutes ?? undefined,
+    acceptanceCriteria: exercise?.rubric ?? [],
+    evidenceChecklist: exercise?.evidenceChecklist ?? [],
+  }
+  /**
+   * 来源定位有两个来源：目录摘要给 sourcePath/sourceHeadingPath，详情响应给 sectionRefs。
+   * 两者都可能缺字段，因此逐级回退而不是直接下标访问（曾因此整页崩溃）。
+   */
+  const sectionRefs = lesson.sectionRefs ?? []
+  const headingPath = reading?.headingPath ?? lesson.sourceHeadingPath ?? sectionRefs[0]?.headingPath ?? []
+  const sourcePath = reading?.path ?? lesson.sourcePath ?? sectionRefs[0]?.path ?? ''
+  const subjectMeta = subjectMetaOf(lesson.subject, shortLabelOf(lesson.subject))
+  return {
+    id: lesson.contentId,
+    contentId: lesson.contentId,
+    language: language ?? 'javascript',
+    languageLabel: lesson.subject,
+    subject: lesson.subject,
+    subjectId: subjectMeta.id,
+    subjectLabel: subjectMeta.label,
+    subjectShort: subjectMeta.short,
+    label: stageIds[0] ?? '—',
+    title: lesson.title,
+    description: lesson.objective,
+    duration: lesson.estimatedMinutes ? `${lesson.estimatedMinutes} min` : '未设定',
+    level: levelLabel(lesson),
+    progress: 0,
+    code: exercise?.starterCode ?? '',
+    // 资料库条目没有已核验的流程元数据：不显示假流程图。
+    flow: [],
+    insight: '',
+    fileName: exercise ? `${exercise.exerciseId}.${extensionOf(exercise.language)}` : fileNameOf(sourcePath),
+    runtime: runCommandLabel(lesson),
+    content: unit,
+    legacy: false,
+    executable,
+    source: {
+      path: sourcePath,
+      headingPath,
+      verificationStatus: reading?.verificationStatus ?? lesson.verificationStatus,
+      sourceIds: lesson.sourceIds,
+      contentHash: reading?.contentHash,
+    },
+    reading: reading
+      ? {
+          markdown: reading.markdown,
+          path: reading.path,
+          headingPath: reading.headingPath,
+          verificationStatus: reading.verificationStatus,
+          headings: reading.headings,
+        }
+      : undefined,
+    exercise: exercise
+      ? {
+          exerciseId: exercise.exerciseId,
+          title: exercise.title,
+          prompt: exercise.prompt,
+          starterCode: exercise.starterCode,
+          starterLanguage: exercise.starterLanguage,
+          expectedOutput: exercise.expectedOutput,
+          executionPolicy: exercise.executionPolicy,
+        }
+      : undefined,
+    acceptance: exercise
+      ? {
+          rubric: exercise.rubric,
+          evidenceChecklist: exercise.evidenceChecklist,
+          testCases: exercise.testCases,
+          hints: exercise.hintLevels,
+        }
+      : undefined,
+  }
+}
+
+const EXTENSIONS: Record<string, string> = { java: 'java', javascript: 'js', python: 'py', c: 'c', csharp: 'cs', none: 'txt', text: 'txt' }
+
+function extensionOf(language: string): string {
+  return EXTENSIONS[language] ?? 'txt'
+}
+
+function fileNameOf(path: string): string {
+  const name = path.split('/').pop()
+  return name && name.endsWith('.md') ? name : 'note.md'
+}
+

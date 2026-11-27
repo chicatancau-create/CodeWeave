@@ -1,0 +1,78 @@
+    }
+    const auto ascii_path = [](const std::filesystem::path& path) {
+      const auto text = path.wstring();
+      return std::all_of(text.begin(), text.end(), [](wchar_t character) { return character > 0 && character < 128; });
+    };
+    // This Windows GDB decodes Python script arguments using its host charset.
+    // Decide capability before compilation/execution, never rerun learner code.
+    if (!ascii_path(temporary_root) || !ascii_path(cpp_debugger)) cpp_debugger.clear();
+  }
+  if (!cpp_debugger.empty()) {
+    std::error_code error;
+    cpp_trace_directory = unique_source_trace_directory(temporary_root, "codeweave-cpp");
+    if (!std::filesystem::create_directory(cpp_trace_directory, error) || error) {
+      trace.append(EventKind::Failed, "cpp_trace_directory_failed");
+      return {app::Result::failure("无法创建 C++ 源码追踪目录"), std::nullopt, std::move(trace)};
+    }
+    cpp_trace_cleanup = std::make_unique<TemporaryDirectory>(cpp_trace_directory);
+    const auto source_name = source_path.filename().wstring();
+    const auto program_name = program_path.filename().wstring();
+    source_path = cpp_trace_directory / source_name;
+    program_path = cpp_trace_directory / program_name;
+    for (auto& argument : plan.process.arguments) {
+      if (argument == source_name) argument = source_path.wstring();
+      if (argument == program_name) argument = program_path.wstring();
+    }
+    plan.process.arguments.insert(plan.process.arguments.end(), {L"-iquote", working_directory.wstring()});
+  }
+  if (!source_path.empty() || !program_path.empty()) {
+    std::error_code exists_error;
+    if ((!source_path.empty() && std::filesystem::exists(source_path, exists_error)) ||
+        exists_error ||
+        (!program_path.empty() && std::filesystem::exists(program_path, exists_error)) ||
+        exists_error) {
+      trace.append(EventKind::Failed, "temporary_path_already_exists");
+      return {app::Result::failure("执行临时文件路径已存在"), std::nullopt, std::move(trace)};
+    }
+  }
+  TemporaryFile source_cleanup(source_path);
+  TemporaryFile program_cleanup(program_path);
+  if (!source_path.empty()) {
+    std::ofstream source_file(source_path, std::ios::binary | std::ios::trunc);
+    if (!source_file) {
+      trace.append(EventKind::Failed, "cpp_source_write_failed");
+      return {app::Result::failure("无法创建 C++ 源文件"), std::nullopt, std::move(trace)};
+    }
+    source_file.write(request.source.data(), static_cast<std::streamsize>(request.source.size()));
+    source_file.flush();
+    if (!source_file) {
+      std::error_code ignored;
+      std::filesystem::remove(source_path, ignored);
+      trace.append(EventKind::Failed, "cpp_source_write_failed");
+      return {app::Result::failure("写入 C++ 源文件失败"), std::nullopt, std::move(trace)};
+    }
+    plan.source.clear();
+  }
+  auto process = runner_.run(plan, cancellation, control);
+  if (request.language == "cpp") {
+    const bool compilation_succeeded = process.started && process.error_code.empty() &&
+        process.exit_code == 0 && !(cancellation && cancellation->load());
+    if (!compilation_succeeded) {
+      process.execution_output_valid = false;
+      if (!process.output.empty()) trace.append(EventKind::Output, process.output);
+    } else {
+      ProcessPlan runtime_plan{
+          {program_path, {}, working_directory, "cpp-runtime"},
+          {}, plan.timeout_ms, plan.output_limit, executable.parent_path()};
+      const auto runtime_valid = validate_process_request(runtime_plan.process);
+      if (!runtime_valid.ok) {
+        process.started = false;
+        process.error_code = "compiled_program_invalid";
+        process.execution_output_valid = false;
+      } else {
+        if (cpp_debugger.empty()) {
+          process = run_observed(runner_, runtime_plan, cancellation, control, trace);
+        } else {
+          const auto& trace_directory = cpp_trace_directory;
+          std::error_code error;
+          const auto script_path = trace_directory / "runner.py";

@@ -1,0 +1,5 @@
+  await writeFile(resolve(output, 'report.json'), JSON.stringify(report, null, 2))
+  throw error
+} finally {
+  await browser.close()
+}

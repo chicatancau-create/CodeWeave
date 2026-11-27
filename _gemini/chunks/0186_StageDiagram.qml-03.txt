@@ -1,0 +1,81 @@
+                Accessible.onPressAction: if (node.lastEventIndex >= 0) diagram.nodeSelected(node.lastEventIndex)
+                Keys.onReturnPressed: diagram.nodeSelected(node.lastEventIndex)
+                Keys.onSpacePressed: diagram.nodeSelected(node.lastEventIndex)
+                TapHandler { enabled: nodeItem.node.lastEventIndex >= 0; onTapped: diagram.nodeSelected(nodeItem.node.lastEventIndex) }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: nodeItem.activeFocus
+                    color: Qt.alpha(diagram.ds.panel, 0)
+                    border.color: diagram.ds.accent
+                    radius: diagram.ds.radiusSm
+                }
+                Text {
+                    x: 0; y: -27; width: parent.width
+                    visible: nodeItem.node.state === "now"
+                    text: "↓ 此刻"
+                    color: diagram.ds.accent
+                    font.family: diagram.ds.ui
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                Column {
+                    x: 22; y: 12; width: 112
+                    spacing: 5
+                    Text {
+                        width: parent.width
+                        text: (nodeItem.node.ordinal === null ? "--" : nodeItem.node.ordinal) + " · " + nodeItem.node.label
+                        textFormat: Text.PlainText
+                        color: nodeItem.node.failed ? diagram.ds.danger : diagram.ds.ink
+                        font.family: diagram.ds.ui
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        width: parent.width
+                        text: nodeItem.node.state === "todo" ? "尚未执行" : nodeItem.node.visits > 1
+                              ? "访问 " + nodeItem.node.visits + " 次" : nodeItem.node.line > 0 ? "L" + nodeItem.node.line : ""
+                        color: diagram.ds.muted
+                        font.family: diagram.ds.mono
+                        font.pixelSize: 10
+                    }
+                    Repeater {
+                        model: nodeItem.node.cells.slice(0, 3)
+                        Text {
+                            required property var modelData
+                            width: 112
+                            text: modelData.name + " = " + modelData.value
+                            textFormat: Text.PlainText
+                            color: modelData.changed ? diagram.ds.warning : modelData.born ? diagram.ds.success : diagram.ds.ink
+                            font.family: diagram.ds.mono
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                        }
+                    }
+                    Text {
+                        width: parent.width
+                        visible: nodeItem.node.cells.length === 0
+                        text: nodeItem.node.detail || (nodeItem.node.state === "todo" ? "尚未落值" : "无变量快照")
+                        textFormat: Text.PlainText
+                        color: diagram.ds.faint
+                        font.family: diagram.ds.mono
+                        font.pixelSize: 11
+                        maximumLineCount: 2
+                        wrapMode: Text.WrapAnywhere
+                        elide: Text.ElideRight
+                    }
+                }
+                HoverHandler { id: nodeHover }
+                ToolTip.visible: nodeHover.hovered
+                ToolTip.text: nodeItem.Accessible.name + (nodeItem.node.detail ? "\n" + nodeItem.node.detail : "")
+            }
+        }
+    }
+    Text {
+        anchors.centerIn: parent
+        visible: diagram.nodeCount === 0
+        text: diagram.emptyText
+        color: diagram.ds.faint
+        font.family: diagram.ds.ui
+        font.pixelSize: 12
+    }
+}

@@ -1,0 +1,85 @@
+/**
+ * 附件白名单与路径合法性判据（**后端副本**，契约源见 `contracts/asset-whitelist.json`）。
+ *
+ * 为什么后端要有一份纯函数：`tests/content.asset.test.mjs` 要证明「前后端是同一份白名单」，
+ * 以前它是直接 `import` 网页端 `src/content/wikilink.ts` 的 `ASSET_ALLOWED_EXTENSIONS`、
+ * `ASSET_IMAGE_EXTENSIONS`、`resolveImageAttachment` 来比对的——那正是分离方案 §2 耦合表里
+ * 「后端测试直接导入 `../../frontend/src/...`」这一条。§5 允许跨边界共享的只有「不含业务状态的
+ * 格式定义」，所以白名单与路径规则被抽成契约数据，本文件按契约实现，行为逐字对齐原前端函数。
+ *
+ * 加载即自证的三件事（任何一件不成立就直接抛，不留「绿着骗人」的余地）：
+ * 1. 契约里的类别扩展名并集 == `asset.mjs` 的 `ASSET_TYPES` 键集（服务端放行面与共享契约同源）；
+ * 2. `neverOpened` 里那些可执行/可嵌入类型必须**确实不在**白名单里（防止有人从表里删一行就当排除）；
+ * 3. `pathRules.rules` 的顺序、判定对象与文案齐全且可执行（判据形状变了这里就红，而不是悄悄换语义）。
+ *
+ * 与网页端 `resolveImageAttachment()` 的口径差别只有一处：本函数**不生成 `<img>`**，
+ * 只给出 `kind` / `relPath` / `src` 三个判定结果。是否真的可读仍由服务端的白名单 +
+ * 已发布目录门禁 + 鉴权决定（见 `asset.mjs` 的 `resolveContentAsset()`）。
+ */
+import { readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+
+import { ASSET_TYPES, assetExtensionOf } from './asset.mjs'
+
+export const ATTACHMENT_CONTRACT_PATH = join(resolve(import.meta.dirname, '..', '..', '..'), 'contracts', 'asset-whitelist.json')
+export const ATTACHMENT_CONTRACT_SCHEMA_VERSION = 1
+
+const KNOWN_TARGETS = new Set(['raw', 'compact', 'compactSegments'])
+const KNOWN_TESTS = new Set(['codepointRanges', 'isEmpty', 'longerThanMax', 'regex', 'startsWith', 'someSegmentEquals', 'someSegmentRegex'])
+
+function loadContract() {
+  const raw = JSON.parse(readFileSync(ATTACHMENT_CONTRACT_PATH, 'utf8'))
+  if (raw.schemaVersion !== ATTACHMENT_CONTRACT_SCHEMA_VERSION) {
+    throw new Error(`附件契约 schemaVersion=${raw.schemaVersion}，本副本只认 ${ATTACHMENT_CONTRACT_SCHEMA_VERSION}`)
+  }
+  const categories = Array.isArray(raw.categories) ? raw.categories : []
+  if (categories.length === 0) throw new Error('附件契约没有任何类别：白名单会被读成「什么都不放行」')
+  for (const category of categories) {
+    if (!Array.isArray(category?.extensions) || category.extensions.some((ext) => typeof ext !== 'string' || ext === '')) {
+      throw new Error(`附件契约类别 ${category?.id} 的 extensions 不合法`)
+    }
+  }
+  const rules = raw.pathRules?.rules
+  if (!Array.isArray(rules) || rules.length === 0) throw new Error('附件契约的 pathRules.rules 是空的：越界判定会一条都不执行')
+  for (const [index, rule] of rules.entries()) {
+    if (!KNOWN_TARGETS.has(rule?.on)) throw new Error(`附件契约规则 ${rule?.id} 的 on=${rule?.on} 不可识别`)
+    if (!KNOWN_TESTS.has(rule?.test)) throw new Error(`附件契约规则 ${rule?.id} 的 test=${rule?.test} 不可识别`)
+    if (typeof rule?.reason !== 'string' || rule.reason.trim() === '') throw new Error(`附件契约规则 ${rule?.id} 缺少拒绝理由文案`)
+    if (rule.test === 'regex' || rule.test === 'someSegmentRegex') {
+      if (typeof rule.source !== 'string') throw new Error(`附件契约规则 ${rule.id} 缺少 source`)
+      try {
+        new RegExp(rule.source, rule.flags ?? '')
+      } catch (error) {
+        throw new Error(`附件契约规则 ${rule.id} 的正则无法编译：${error.message}`)
+      }
+    }
+  }
+  return raw
+}
+
+const CONTRACT = loadContract()
+
+/** 客户端可内嵌的位图（与网页端 `ASSET_IMAGE_EXTENSIONS` 同序）。 */
+export const ATTACHMENT_IMAGE_EXTENSIONS = Object.freeze(
+  CONTRACT.categories.filter((category) => category.embeddedByClient).flatMap((category) => category.extensions),
+)
+/** 白名单全集：类别扩展名的并集，顺序按类别书写顺序。 */
+export const ATTACHMENT_ALLOWED_EXTENSIONS = Object.freeze(CONTRACT.categories.flatMap((category) => category.extensions))
+export const ATTACHMENT_ENDPOINT = CONTRACT.endpoint
+
+const IMAGE_SET = new Set(ATTACHMENT_IMAGE_EXTENSIONS)
+const ALLOWED_SET = new Set(ATTACHMENT_ALLOWED_EXTENSIONS)
+
+/** 扩展名 → 契约类别 id；不在白名单里返回 `null`。 */
+export function assetCategoryOf(extension) {
+  const ext = String(extension ?? '').toLowerCase()
+  for (const category of CONTRACT.categories) {
+    if (category.extensions.includes(ext)) return category.id
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// 加载即自证：副本与同包的放行面（ASSET_TYPES）必须一字不差
+// ---------------------------------------------------------------------------
+const mimeKeys = Object.keys(ASSET_TYPES).sort()

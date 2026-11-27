@@ -1,0 +1,44 @@
+  it('§4 disabled 行：忙态按钮不靠降透明度，改用虚线描边 + 一句可见的条件说明', () => {
+    const btn = declarationBlock('.cw-source .cs-btn:disabled')
+    expect(btn).toMatch(/opacity:\s*1/)          // 顶回共享层 styles.css 的 opacity:.5
+    expect(btn).toMatch(/border-style:\s*dashed/)
+    expect(btn).toMatch(/cursor:\s*not-allowed/)
+    // 说明句是渲染出来的文字（有正文字号档），不是 title 提示
+    const hint = declarationBlock('.cw-source .cs-disabled-hint')
+    expect(hint).toContain('color: var(--cs-dim)')
+    expect(hint).toContain('font-size: var(--cs-meta)')
+  })
+
+  it('§4 loading 行：读取中这一档不给 ok / warn 的结论色', () => {
+    const loading = declarationBlock('.cw-source.content-source-banner.loading')
+    expect(loading).toContain('color: var(--cs-dim)')
+    expect(loading).not.toMatch(/var\(--c-|var\(--ds-status-/)
+  })
+
+  it('本页零持续动画，两条降级通道都真停止', () => {    expect(cssCode).not.toMatch(/animation[^;]*\binfinite\b/)
+    expect(cssCode).not.toMatch(/@keyframes/)
+    const system = mediaBlock('prefers-reduced-motion: reduce')
+    expect(system).toContain('animation: none')
+    expect(system).toContain('transition: none')
+    expect(
+      declarationBlock(
+        '.reduce-motion .cw-source, .reduce-motion .cw-source *, .reduce-motion .cw-source *::before, .reduce-motion .cw-source *::after',
+      ),
+    ).toContain('animation: none')
+  })
+})
+
+describe('M4 来源区 · 无障碍（axe-core）', () => {
+  it('specs 五块 + 展开原文按钮无 axe 违规', async () => {
+    const { container } = render(
+      <ContentProviderHost.Provider value={vaultContent}>
+        <ContentSourceBanner />
+        <LessonSourceDetail lesson={lessonAt()} />
+      </ContentProviderHost.Provider>,
+    )
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } },
+    })
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+  })
+})

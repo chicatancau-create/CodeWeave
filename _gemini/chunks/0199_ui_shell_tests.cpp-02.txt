@@ -1,0 +1,82 @@
+  assert(store.append(external, records).ok && records.size() == 3);
+  assert(store.review(external.value("id").toString(), false, "attempted", records).ok);
+  assert(records.last().toMap().value("status") == "rejected");
+  // A different account's empty directory cannot see this account's history.
+  QTemporaryDir other_account;
+  QVariantList other;
+  assert(ChallengeSubmissionStore(other_account.path()).read(other).ok && other.isEmpty());
+  const auto file_path = QDir(root).filePath("learning/challenge-submissions.v1.json");
+  QLockFile lock(file_path + ".lock");
+  assert(lock.tryLock(0));
+  assert(!store.append(record, records).ok);
+  lock.unlock();
+  QFile file(file_path);
+  assert(file.open(QIODevice::ReadOnly));
+  const auto original = file.readAll();
+  file.close();
+  assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  assert(file.write("broken-json") == 11);
+  file.close();
+  assert(!store.read(records).ok && !store.append(record, records).ok);
+  assert(file.open(QIODevice::ReadOnly) && file.readAll() == "broken-json");
+  file.close();
+  assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  assert(file.write(original) == original.size());
+  file.close();
+  auto bad = record;
+  bad["status"] = "verified";
+  assert(!store.append(bad, records).ok);
+  bad = record; bad["output"] = QVariantList{QStringLiteral("150")};
+  assert(!store.append(bad, records).ok);
+  bad = record; bad["code"] = QString(65537, 'x');
+  assert(!store.append(bad, records).ok);
+  bad = record; bad["challengeId"] = "../outside";
+  assert(!store.append(bad, records).ok);
+  QTemporaryDir blocked;
+  const auto blocked_root = std::filesystem::path(blocked.path().toStdWString());
+  std::ofstream(blocked_root / "learning") << "not a directory";
+  assert(!ChallengeSubmissionStore(blocked.path()).append(record, records).ok);
+  assert(read_file(blocked_root / "learning") == "not a directory");
+}
+void test_checkin_store() {
+  QTemporaryDir temporary;
+  assert(temporary.isValid());
+  const auto root = QDir(temporary.path()).filePath("account-a");
+  const CheckinStore store(root);
+  QStringList dates;
+  assert(store.read(dates).ok && dates.isEmpty());
+  assert(!QDir(root).exists());
+  const QDate today(2028, 3, 1);
+  assert(!store.checkIn(QDate{}, dates).ok);
+  assert(store.checkIn(today.addDays(-2), dates).ok);
+  assert(store.checkIn(today.addDays(-1), dates).ok);
+  assert(CheckinStore::streak(dates, today) == 2);
+  assert(store.checkIn(today, dates).ok && dates.size() == 3);
+  assert(CheckinStore::streak(dates, today) == 3);
+  assert(CheckinStore::streak(dates, today.addDays(1)) == 3);
+  assert(CheckinStore::streak(dates, today.addDays(2)) == 0);
+  const auto path = QDir(root).filePath("learning/checkin.v1.json");
+  auto read_bytes = [&] {
+    QFile file(path);
+    assert(file.open(QIODevice::ReadOnly));
+    return file.readAll();
+  };
+  const auto original = read_bytes();
+  QFile file(path);
+  const auto modified = QFileInfo(path).lastModified();
+  assert(store.checkIn(today, dates).ok && dates.size() == 3);
+  assert(read_bytes() == original && QFileInfo(path).lastModified() == modified);
+  dates.clear();
+  assert(CheckinStore(root).read(dates).ok && dates.size() == 3);
+  assert(CheckinStore(QDir(temporary.path()).filePath("account-b")).read(dates).ok && dates.isEmpty());
+  QLockFile lock(path + ".lock");
+  assert(lock.tryLock(0));
+  assert(!store.checkIn(today.addDays(1), dates).ok && read_bytes() == original);
+  lock.unlock();
+  for (const auto& bytes : {QByteArray("broken-json"), QByteArray("{\"schemaVersion\":2,\"dates\":[]}"),
+                          QByteArray("{\"schemaVersion\":1,\"dates\":[\"2028-02-30\"]}"),
+                          QByteArray("{\"schemaVersion\":1,\"dates\":[true]}"),
+                          QByteArray("{\"schemaVersion\":1,\"dates\":null}")}) {
+    assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    assert(file.write(bytes) == bytes.size());
+    file.close();

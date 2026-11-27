@@ -1,0 +1,96 @@
+import type { ExecutionResult, LanguageId, Lesson, TraceEvent, VariableValue } from '../types/lesson'
+
+const makeVariable = (name: string, value: string, type: string, color: VariableValue['color']): VariableValue => ({ name, value, type, color })
+/**
+ * 造一个事件。`variables` 在这里**复制一份快照**再挂上去——这是逐拍值能画对的前提。
+ *
+ * 不复制会怎样：调用方为省事复用同一个数组对象（`for-sum` 的 `variables[0] = …` 原地改写，
+ * 再把同一个引用推进每一拍），于是**所有事件读到的都是终值**——`start` 那一拍就报
+ * `i=6,total=15`。画布的「这一格刚被改过」与流程图的 `a = 4` 明细都因此永远显示最后一步。
+ * 契约本来就是「这一拍的变量快照」，之前只是实现没兑现；在唯一的出口补上，六个模板一次覆盖。
+ */
+const snapshot = (variables: VariableValue[]): VariableValue[] => variables.map((v) => ({ ...v }))
+const event = (id: string, type: TraceEvent['type'], line: number, label: string, detail: string, variables: VariableValue[], nodeId?: string): TraceEvent => ({ id, type, line, label, detail, variables: snapshot(variables), nodeId })
+
+function findLine(lines: string[], pattern: RegExp, fallback = 1): number { const index = lines.findIndex((line) => pattern.test(line)); return index >= 0 ? index + 1 : fallback }
+function getNumber(source: string, pattern: RegExp, fallback: number): number { const match = source.match(pattern); return match?.[1] ? Number(match[1]) : fallback }
+function checkBrackets(code: string): { line: number; message: string } | undefined {
+  const pairs: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
+  const stack: { char: string; line: number }[] = []
+  let line = 1
+  for (const char of code) { if (char === '\n') line += 1; if ('([{'.includes(char)) stack.push({ char, line }); if (')]}'.includes(char)) { const last = stack.pop(); if (!last || last.char !== pairs[char]) return { line, message: `括号不匹配：这里遇到了 ${char}` } } }
+  const last = stack.at(-1)
+  return last ? { line: last.line, message: '代码还缺少一个结束括号' } : undefined
+}
+
+/**
+ * 支持模板登记表（R4 G.3 第 5 条）。
+ * 每个模板显式声明：可识别的语法特征、输入语法、输出规则与不支持变体。
+ * 运行器只按模板匹配结果输出；无法识别时返回 unsupported，禁止猜测成功。
+ */
+export type TeachingTemplate = {
+  id: string
+  /** 模板说明（展示给用户） */
+  title: string
+  /** 输入语法：模板读取的变量与形式 */
+  inputSyntax: string
+  /** 输出规则 */
+  outputRule: string
+  /** 这个模板认领哪几种语言的写法；不在名单里的语言直接跳过。 */
+  languages: LanguageId[]
+  /** 该模板支持的代码特征（全部命中才算匹配）。判定只看剥掉注释与字符串后的代码栏。 */
+  requires: (match: TeachingMatch) => boolean
+}
+
+const ALL_LANGUAGES: LanguageId[] = ['python', 'c', 'csharp', 'java', 'javascript']
+/** `int a = …` 这种声明只存在于 C 系；Python/JS 里出现的只可能是巧合的子串。 */
+const INT_DECLARING: LanguageId[] = ['c', 'csharp', 'java']
+const PRINT_TOKEN = /\b(?:print|println|printf|puts|console\.log|writeline)\b/i
+
+export const TEACHING_TEMPLATES: TeachingTemplate[] = [
+  {
+    id: 'greeting-call',
+    title: '函数调用与返回',
+    inputSyntax: 'greet("名字")，或变量 name = "名字"',
+    outputRule: '输出「你好，<名字>」',
+    languages: ALL_LANGUAGES,
+    requires: (m) => /\bgreet\s*\(/.test(m.code),
+  },
+  {
+    id: 'greeting-cn',
+    title: '中文问候输出',
+    inputSyntax: '包含中文问候字面量与 print 输出',
+    outputRule: '输出「你好，<name>」',
+    languages: ALL_LANGUAGES,
+    // 「你好」只可能出现在字符串里，所以这条是唯一读字面量栏的模板。
+    requires: (m) => /你好/.test(m.literals) && /\bname\s*=\s*["']/.test(m.code) && PRINT_TOKEN.test(m.code),
+  },
+  {
+    id: 'parity',
+    title: '奇偶判断',
+    inputSyntax: 'number = <整数>，使用 % 2 取模',
+    outputRule: '输出「偶数」或「奇数」',
+    languages: ALL_LANGUAGES,
+    requires: (m) => /\bnumber\s*=\s*-?\d+/.test(m.code) && /%\s*2\b/.test(m.code),
+  },
+  {
+    id: 'while-loop',
+    title: 'while 计数循环',
+    inputSyntax: 'count/i = <起始值>，while (count <= <上限>)',
+    outputRule: '逐行输出每轮计数值',
+    languages: ALL_LANGUAGES,
+    requires: (m) => /\b(?:count|i)\s*=\s*-?\d+/.test(m.code) && /\bwhile\b/.test(m.code) && !/\bfor\b/.test(m.code),
+  },
+  {
+    id: 'score-branch',
+    title: '成绩及格分支',
+    inputSyntax: 'score = <整数>，配合 if 条件',
+    outputRule: '输出「通过」或「再试一次」',
+    languages: ALL_LANGUAGES,
+    requires: (m) => /\bscore\s*=\s*-?\d+/.test(m.code) && /\bif\b/.test(m.code),
+  },
+  {
+    id: 'max-of-two',
+    title: '两数取较大值',
+    inputSyntax: 'int a = <整数>; int b = <整数>; 配合 if',
+    outputRule: '输出较大的整数',

@@ -1,0 +1,72 @@
+    progress: language.id === 'python' ? 78 : 8,
+    code: snippet.code,
+    flow: sumFlow(language.id === 'java' ? '进入 main' : '开始', 'total = 0', 'i ≤ 5 ?', 'total += i', '输出 total'),
+    insight: snippet.insight,
+    fileName: snippet.fileName,
+    runtime: language.runtime,
+    content: unit(
+      '理解变量如何在循环中不断更新，并观察最终输出。',
+      {
+        prerequisites: ['知道什么是变量', '会读写一行代码'],
+        explanation: [
+          'total 是累加器：每轮循环把当前 i 加进去，循环结束后保存总和。',
+          'for 循环由三部分组成：初始化（i = 1）、继续条件（i <= 5）、步进（i += 1）。',
+          'range(1, 6)（Python）表示 1 到 5，不包含 6；C/Java 写法是 i <= 5。',
+        ],
+        examples: [
+          { good: 'total = total + i 把当前值累计起来', bad: 'total = i 只保存了本轮的 i，之前加过的都丢了', why: '累加必须“加上旧值”，否则每轮覆盖' },
+        ],
+        guidedSteps: [
+          '运行示例代码，确认输出 15。',
+          '把循环上限改成 10，先在纸上预测结果，再运行验证（应为 55）。',
+          '单步执行 3 轮，观察变量面板里 i 和 total 的交替变化。',
+        ],
+        exercise: '独立写出 1 到 100 的累加程序，不运行先说出答案（5050），再用运行结果验证。',
+        variant: '改成只累加偶数（2 + 4 + … + 100），提示：在循环体里加一个 if 判断。',
+        projectTask: '把这个累加函数作为命令行通讯录（阶段 B 项目）里“统计联系人数量”的雏形。',
+        mistakes: ['忘记初始化 total', '把 < 和 <= 混淆导致少加或多加一次', '忘记在循环体中更新 total'],
+        runCommand: '运行按钮（教学运行器支持变量、循环、输出子集）',
+        completion: '能不看示例写出循环累加，并解释任意一轮 total 的值。',
+      },
+      stageByLanguage[language.id],
+    ),
+  }
+}
+
+const extraLessons: Record<LanguageId, Lesson[]> = {
+  python: [
+    {
+      id: 'python-function', language: 'python', languageLabel: 'Python', label: '03', title: '第一次写函数', description: '把重复的动作打包成一个工具', duration: '10 min', level: '基础', progress: 12,
+      code: 'def greet(name):\n    message = "你好，" + name\n    return message\n\nresult = greet("小明")\nprint(result)',
+      flow: [
+        { id: 'start', label: '开始', kind: 'start', tone: 'purple', line: 1 },
+        { id: 'call', label: '调用 greet()', kind: 'process', tone: 'blue', line: 5 },
+        { id: 'message', label: '拼接 message', kind: 'process', tone: 'yellow', line: 2 },
+        { id: 'return', label: 'return message', kind: 'process', tone: 'coral', line: 3 },
+        { id: 'output', label: '输出问候', kind: 'output', tone: 'green', line: 6 },
+        { id: 'end', label: '结束', kind: 'end', tone: 'purple' },
+      ],
+      insight: '函数是一个可以重复使用的小盒子：给它输入，它会返回一个结果。', fileName: 'greet.py', runtime: 'Python 3.11',
+      content: unit('理解参数、返回值和函数调用。', {
+        prerequisites: ['python-output 单元', 'python-loop-sum 单元'],
+        explanation: ['def 定义函数；参数是函数的输入。', 'return 把结果交还给调用方，函数内部不负责打印。', '调用 greet("小明") 时，函数体内的 name 就是 "小明"。'],
+        examples: [{ good: 'return message 把结果交出来，调用方决定怎么用', bad: '在函数里 print 而 return 空，调用方拿不到值', why: '输出与计算职责要分离，函数才可复用、可测试' }],
+        guidedSteps: ['运行示例确认输出「你好，小明」。', '给函数增加 age 参数，输出「你好，小明（12 岁）」。', '连续调用两次，观察两次结果互不影响。'],
+        exercise: '独立写 add(a, b) 返回两数之和，并用三个不同输入验证。',
+        variant: '写 max_of_two(a, b)，用 if 比较 a、b 并返回较大值。',
+        projectTask: '把“添加联系人”“查找联系人”各写成一个函数，为阶段 B 的命令行 CRUD 做准备。',
+        mistakes: ['函数体需要缩进', 'return 只返回不负责输出', '调用时实参个数与形参不一致'],
+        runCommand: '运行按钮（教学运行器支持 greet 函数子集）',
+        completion: '能独立定义带参数和返回值的函数，并说明调用过程。',
+      }),
+    },
+    {
+      id: 'python-output', language: 'python', languageLabel: 'Python', label: '04', title: '让程序说话', description: '使用 print 输出文字和数字', duration: '5 min', level: '入门', progress: 0,
+      code: 'name = "小明"\nprint("你好，" + name)', flow: sumFlow('开始', '读取 name', '准备输出？', '拼接文本', '输出问候'),
+      insight: '输出是观察程序的窗口，先让结果可见，再继续理解内部变化。', fileName: 'output.py', runtime: 'Python 3.11',
+      content: unit('掌握文本变量与 print 输出。', {
+        prerequisites: ['知道如何运行一个 Python 程序'],
+        explanation: ['print() 把括号里的内容打印到控制台。', '字符串必须用引号包裹，+ 可以拼接两段文本。'],
+        examples: [{ good: 'print("你好，" + name) 输出 你好，小明', bad: 'print(你好) 没有引号会当成变量名报 NameError', why: '文本是字面量，必须有引号' }],
+        guidedSteps: ['运行示例确认输出「你好，小明」。', '把名字改成你的名字再运行。', '尝试 print(1 + 1) 与 print("1" + "1")，解释差别。'],
+        exercise: '输出一句话自我介绍，包含名字和年龄两个变量。',

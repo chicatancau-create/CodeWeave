@@ -1,0 +1,65 @@
+            auto* list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"));
+            auto* line = u3_find_item(view.rootObject(), QStringLiteral("executionTraceSourceLine"));
+            auto* variables = u3_find_item(view.rootObject(), QStringLiteral("executionTraceVariables"));
+            u3_record(*context, QStringLiteral("cpp-source-snapshot-line-and-variables"),
+                shell.documentId() == "free-cpp" && shell.executionOutput() == "15\n" &&
+                source_step != events.end() && list && line && variables &&
+                list->setProperty("currentIndex", static_cast<int>(std::distance(events.begin(), source_step))) &&
+                line->property("visible").toBool() && line->property("text").toString() == QStringLiteral("源码第 5 行") &&
+                variables->property("visible").toBool() &&
+                variables->property("text").toString().contains(QStringLiteral("total = 15")));
+            u3_record(*context, QStringLiteral("cpp-source-snapshot-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-cpp-source-snapshot")));
+          }
+          shell.discardDraftChanges();
+          shell.openFreeProgram(QStringLiteral("python"));
+          context->step = 59;
+          return;
+        case 59:
+          if (shell.contentBusy()) return;
+          u3_record(*context, QStringLiteral("execution-trace-free-program-clears-lesson"),
+              shell.documentId() == QStringLiteral("free-python") && shell.selectedContentBody().isEmpty() &&
+              shell.executionTrace().isEmpty());
+          shell.updateDraftCode(QStringLiteral("import time\nfor i in range(100):\n    print(i, flush=True)\n    time.sleep(0.02)\n"));
+          shell.setExecutionTimeout(5000);
+          shell.runCode();
+          context->step++;
+          return;
+        case 60:
+          if (!shell.executionBusy()) {
+            u3_record(*context, QStringLiteral("execution-pause"), false,
+                QStringLiteral("长任务未进入运行状态；status=%1；content=%2；language=%3；active=%4；dirty=%5；blocked=%6")
+                    .arg(shell.operationStatus(), shell.contentStatus(), shell.starterLanguage())
+                    .arg(shell.hasActiveAccount()).arg(shell.draftDirty()).arg(shell.draftPersistenceBlocked()));
+            context->step = 99;
+            return;
+          }
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            const bool source_seen = std::any_of(events.begin(), events.end(), [](const auto& value) {
+              return value.toMap().value(QStringLiteral("kind")).toString() == "source_step";
+            });
+            if (!source_seen || !shell.executionOutput().contains(QStringLiteral("0\n"))) return;
+            u3_record(*context, QStringLiteral("execution-live-output-and-source-before-exit"), shell.executionBusy());
+          }
+          shell.pauseExecution();
+          if (!shell.executionPaused()) return;
+          u3_record(*context, QStringLiteral("execution-pause"), true);
+          context->step++;
+          return;
+        case 61:
+          if (!shell.executionPaused()) {
+            u3_record(*context, QStringLiteral("execution-step"), false,
+                QStringLiteral("暂停状态丢失"));
+            context->step = 99;
+            return;
+          }
+          {
+            const auto events = shell.executionTrace().value(QStringLiteral("events")).toList();
+            if (std::none_of(events.begin(), events.end(), [](const auto& value) {
+                  return value.toMap().value(QStringLiteral("kind")).toString() == "paused";
+                })) return;
+            u3_record(*context, QStringLiteral("execution-live-paused-screenshot"),
+                u3_screenshot(*context, view, QStringLiteral("u3-execution-trace-live")));
+            if (auto* list = u3_find_item(view.rootObject(), QStringLiteral("executionEventList"))) {
+              list->forceActiveFocus();

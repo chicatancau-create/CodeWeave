@@ -1,0 +1,53 @@
+> 2026-11-06 目录规则：本端外层只留一个启动链接；源码在 `项目/`，工程说明在 `工程文件/`。当前入口和命令以仓库根 `AGENTS.md`、`工程文件/项目结构索引.md` 为准。下文旧根 EXE、旧构建树、旧备份目录及其历史测试记录不再作为当前操作指令，不得据此重建旧布局。
+
+# UI 复刻计划 - Phase 4（结构复刻补全）
+
+**创建时间**：2026-10-10
+**状态**：原始修缮附件37项已完成（2026-11-15）；Phase4额外整页视觉精修与P3继续按本计划跟踪。Android仅完成允许的静态基线，APK未编译；正式账户/资料库未联调。下方历史检查点保留原日期与范围。
+**前置文档**：`UI复刻计划-Phase2.md`、`UI复刻计划-Phase3.md`
+
+## 2026-11-15 原始修缮终验复核
+
+本节以原始修缮附件阶段 0–7 的 37 项为范围；下文最初盘点的行号、main 分支操作、完成比例和阶段检查点均保留为历史，不作为当前执行指令。当前继续使用 `codex/project-layout-20261106`。Phase4 超出原始修缮的整页视觉精修与 P3 不冒充本轮必做项，也不因本轮交付而删除。
+
+- [通过] 网页端 `corepack pnpm verify`：88 文件/1323 项；覆盖率 89.83%/83.07%/87.49%/92.83%；当前外部 Chromium 验收覆盖 375/768/1280/1440 四档布局、12 项键盘交互和 1440×900 四页截图，浏览器错误为空。
+- [通过] 原始 4.1 受控历史拆分证据：重新核验 SHA-256 65/65、两报告各 8 项检查、七页业务状态与像素指标。七页每通道最大差均为 1/255，保留原始历史加载警告，不宣称逐像素完全相同或所有状态等价。结构、八文件补丁 blob 与资源核验见 `验收证据/修缮当前验收-20261112/split-audit.md`；本次复算见根 `工程文件/验收证据/修缮收口-20261115/historical-validation.json`。
+- [先失败，修复后通过] Qt 标准构建入口原固定 VS2022 BuildTools 路径已不存在；新增 `vswhere` 查找已安装的 VS2022 C++ 工具。用 `--fresh` 重建过期的工具链缓存后，构建与 CTest 11/11 通过；最后一次构建/CTest 11/11（124.78秒）；Windows窗口/software矩阵226/226、60图、退出0。保留全部失败报告，原断言和500 tick上限未放宽；仅QQmlEngine创建/加载期零警告，不等于全局运行期零警告。
+- [未执行] Android APK/Lint/设备：仍无 Android SDK；按原始任务 6.1 明确允许的静态基线交付。正式账户/资料库未触碰。
+
+新证据：`验收证据/修缮收口-20261115/`、`../../网页端/工程文件/验收证据/修缮收口-20261115/`；原始37项已按允许边界完成；7.2四页差异已记录，无需宣称整页像素等价。临时部署删除被自动审批拒绝并保留（见终验报告），正式用户现场未操作。原始任务逐项状态见根 `工程文件/修缮逐项核对-20261108.md`。
+
+---
+
+## 0. 结论：UI 复刻尚未完成，继续以复刻为主
+
+Phase 2/3 主要打磨已有区块。下表保留最初盘点中的历史粗估，不能作为当前完成比例；已更新的功能状态和证据以第 5 节为准。2026-11-07 已完成学习明细、顶栏浮层、复习表格及挑战详情结构的运行验收，整体视觉等价仍未验收，不再沿用“整体约 35%”作为当前进度。
+
+内容计数口径（2026-11-12 复核）：原生 `catalog.v1.tsv` 有 74 条 published rows；Qt 当前从 `curriculum.v1.json` 展示 61 门课程、13 个挑战和 13 个阶段，其中 13 条 catalog 记录不在 UI curriculum 中。Web runtime 有 61 门课程；跨端比较的是两端 UI ID 集合（各 61，交集 61），不表示两个内容源的全部记录相等。QML smoke 的 `qmlWarnings` 仅来自 `QQmlEngine::warnings` 创建/加载期采集；它不能证明 resize 后没有其它 Qt/QML 警告。A1 窄窗侧栏由 1100×720 真实窗口几何断言另行验证。
+
+| 范围 | 网页端来源 | QML 对应 | 粗估完成度 |
+|---|---|---|---|
+| 外壳（顶栏/侧栏/浮层/弹窗） | `app.tsx`、`components/topbar/*`、`modals.tsx` | Main.qml L1-L1100 | ~55% |
+| 学习概览 + 阶段明细 | `desktop-learning-home.tsx`、`learning-path-view.tsx` | `qml/pages/StudyPage.qml`、`LearningDetailsPage.qml` | 筛选与明细交互已实测；同尺寸视觉仍待收尾 |
+| 学习工作台 | `learning-workspace-view.tsx` + `learning-workspace/*`、`run-stage`、`flow-chart`、`variable-panel`、`console-panel` | `qml/pages/EditorPage.qml`、`components/{LessonGuide,ExecutionTracePanel,StageDiagram}.qml` | 代码/阅读模式、指南、帮助、真实事件与变量回看已验收；工具栏/面板比例、指南交互与节点排列仍不同 |
+| 实战挑战 | `challenges-view.tsx` + `challenges/*` | `qml/pages/ChallengePage.qml` | 筛选、分页、详情、隔离运行、逐条判定及账户提交/复核历史已验收；持久化草稿、全局统计联动和网页端视觉等价待做 |
+| 代码草稿 | `projects-view.tsx` | DraftsPage L3744 | ~50% |
+| 复习中心 | `review-center-view.tsx` | `qml/pages/ReviewPage.qml` | 三组非空表格与行操作已运行验收；同状态网页视觉对比待做 |
+| 学习分析 | `analytics-view.tsx` | `qml/pages/AnalyticsPage.qml` | 本地 7 日课程/练习/挑战/复测与账户打卡数据已验收；时长及到期任务分母无数据源，显示空态；视觉等价未验收 |
+| 账户域（个人中心/安全/隐私/证据写回/资料库进度） | `profile-view`、`account-security-view`、`data-privacy-view`、`evidence-writeback-view`、`vault-progress-view` | AccountPage L3018（压成一页） | ~20% |
+| **整体** | | | **未重新量化；按第 5 节逐项验收，不以历史粗估代替完成证据** |
+
+因此 Phase 3 剩余的中/低优先级微交互任务（6/7/8/10/11）**全部降级到 P3**，在结构补全之后再做。
+
+### 发现的 Phase 3 问题（需先纠偏）
+1. **规格出处不可靠**：Phase 3 引用的行号不存在，例如 `panel-shell.css L200-L350`（文件仅 109 行）、`console-panel.css L150-L250`（仅 126 行）。导航项的真实规格在 `网页端/项目/src/styles.css:457-504`。今后每条规格必须写成真实存在的 `file:line`。
+2. **导航项（任务 1）与网页端不一致**，对照 `styles.css:457-504`：
+   - 选中态底色应为 `accentSoft → transparent 85%` 的横向渐变，外加 1px `line-accent` 内描边。现在是纯遮光层。
+   - 左条应在上下各内缩 10px，并自带 10px 泛光。现在是贯通全高。
+   - 编号应为 accent 色、选中时 accent-hover。现在静止态是 faint。
+   - 字重应为 600。现在是 Medium。
+   - 选中图标应为 accent 色加 drop-shadow。现在是 ink。
+   - 整块 `Glow` layer 会让文字一起发光，应删掉，泛光只加在左条和图标上。
+3. **项目卡左条语义错误**（Main.qml 约 L3935）：左条颜色绑定了 `uiShell.draftDirty`，但网页端左条表达的是「悬停/选中」。
+4. **依赖与构建待确认**：
+   - 新增的 `import Qt5Compat.GraphicalEffects` 已被官方弃用，建议改用 Qt 6.8 自带的 `QtQuick.Effects`（`MultiEffect`）。

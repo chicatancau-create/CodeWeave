@@ -1,0 +1,80 @@
+  const auto generation = account_generation_;
+  const auto operation_id = operation_id_for("review");
+  const auto evidence_id = "review-" + operation_id.substr(3);
+  const auto timestamp = utc_timestamp();
+  const auto review_note = note.toUtf8().toStdString();
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-review-record-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Evidence;
+  request.work = [root, item, passed, review_note, operation_id, evidence_id, timestamp](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("复测提交已取消");
+    codeweave::learning::MasteryStore store(root);
+    codeweave::learning::MasteryEvidence evidence{
+        evidence_id, codeweave::learning::MasteryEvidenceKind::Review,
+        item.toUtf8().toStdString(), review_note, timestamp, passed,
+        codeweave::learning::CompletionVerification::SelfDeclared,
+        codeweave::learning::RanBy::Learner, true, "L1", operation_id};
+    bool duplicate = false;
+    codeweave::learning::MasterySnapshot snapshot;
+    return codeweave::learning::MasteryService(store).record_evidence(
+        evidence, codeweave::learning::ReviewPlan{}, duplicate, snapshot);
+  };
+  operation_task_id_ = task_name;
+  const auto submitted = backend_tasks_.submit(std::move(request),
+      [this, account, generation, task_name](codeweave::backend::TaskResult result) {
+        QMetaObject::invokeMethod(this, [this, account, generation, task_name,
+            result = std::move(result)]() mutable {
+          if (task_name != operation_task_id_) return;
+          operation_task_id_.clear();
+          operation_busy_ = false;
+          emit operationBusyChanged();
+          if (account != active_account_id_ || generation != account_generation_) return;
+          setOperationStatus(result.cancelled ? QStringLiteral("复测提交已取消")
+                                              : QString::fromUtf8(result.result.message));
+          if (result.result.ok) refreshReviewSummary();
+        }, Qt::QueuedConnection);
+      });
+  if (!submitted.ok) {
+    operation_task_id_.clear();
+    operation_busy_ = false;
+    emit operationBusyChanged();
+    setOperationStatus(QString::fromUtf8(submitted.message));
+  }
+}
+
+void UiShell::snoozeReview(const QString& itemId) {
+  if (closing_ || operation_busy_ || execution_busy_ || account_busy_ || !hasActiveAccount()) {
+    setOperationStatus(QStringLiteral("请先登录，并等待当前任务完成"));
+    return;
+  }
+  const auto item = itemId.trimmed();
+  if (item.isEmpty()) {
+    setOperationStatus(QStringLiteral("复测项目标识不能为空"));
+    return;
+  }
+  const auto root = data_root_;
+  const auto account = active_account_id_;
+  const auto generation = account_generation_;
+  const auto operation_id = operation_id_for("snooze");
+  const auto evidence_id = "snooze-" + operation_id.substr(3);
+  const auto timestamp = utc_timestamp();
+  operation_busy_ = true;
+  emit operationBusyChanged();
+  codeweave::backend::TaskRequest request;
+  const auto task_name = QStringLiteral("qt-review-snooze-%1").arg(next_task_id_++);
+  request.task_id = task_name.toStdString();
+  request.account_id = account.toStdString();
+  request.account_generation = generation;
+  request.kind = codeweave::backend::TaskKind::Evidence;
+  request.work = [root, item, operation_id, evidence_id, timestamp](const auto& token) {
+    if (token.cancelled()) return codeweave::app::Result::failure("复习延期已取消");
+    codeweave::learning::MasteryStore store(root);
+    codeweave::learning::MasteryEvidence evidence{
+        evidence_id, codeweave::learning::MasteryEvidenceKind::Snooze,
+        item.toUtf8().toStdString(), "用户将复习延期一天", timestamp, false,
+        codeweave::learning::CompletionVerification::SelfDeclared,

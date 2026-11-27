@@ -1,0 +1,99 @@
+      const current = await readPointer()
+      const pointer = current?.bundleId === bundleId ? current : await readOptionalJson(markerPath(bundleId))
+      if (!pointer) return { status: 'content_bundle_retired', bundle: null }
+      if (pointer.bundleId !== bundleId) throw new Error('已发布快照标识不匹配')
+      return authorize({ status: STATUS.READY, bundle: await readVerifiedBundle(pointer), pointer })
+    } catch {
+      return { status: STATUS.INVALID, bundle: null }
+    }
+  }
+
+  /** 读快照记录里的发布时间；读不到（损坏或手写）记为空串，按最旧处理。 */
+  async function publishedAtOf(bundleId) {
+    try {
+      const raw = JSON.parse(await readFile(snapshotPath(bundleId), 'utf8'))
+      return typeof raw?.publishedAt === 'string' ? raw.publishedAt : ''
+    } catch {
+      return ''
+    }
+  }
+
+  /**
+   * 列出已发布快照（新→旧），顺序 = 各记录自身的 publishedAt。
+   *
+   * 绝不能按文件名排序：bundleId 是内容 hash，字典序与发布先后无关。
+   * 2026-09-29 那次发布就是因此删掉了「上一版」（7a29e08f…）而留下了两个更老的包，
+   * 回滚只能靠仓外备份——保留窗口的设计意图是留最近 N 代，不是留 hash 最大的 N 个。
+   * publishedAt 也不取文件 mtime：从备份恢复回来的文件，mtime 是恢复那一刻。
+   */
+  async function listSnapshots() {
+    let files
+    try {
+      files = await readdir(snapshotsDir)
+    } catch {
+      return []
+    }
+    const ids = files.filter((file) => file.endsWith('.json')).map((file) => file.replace(/\.json$/, ''))
+    const stamped = await Promise.all(ids.map(async (id) => ({ id, at: await publishedAtOf(id) })))
+    // 同一毫秒发布两个包时用字典序兜底，保证排序稳定（否则 stale 判定随 readdir 顺序漂移）。
+    return stamped.sort((a, b) => (a.at === b.at ? compareIdDesc(b.id, a.id) : a.at < b.at ? 1 : -1)).map((entry) => entry.id)
+  }
+
+  function compareIdDesc(a, b) {
+    return a < b ? 1 : a > b ? -1 : 0
+  }
+
+  /** 离线引用可跨进程存在。没有完整的引用清单前，保留磁盘快照和 CAS。 */
+  async function retireOldSnapshots() {
+    return []
+  }
+
+  /**
+   * 阶段 1：只把候选包落到快照目录，不改变对外生效版本。
+   * 失败或中断时旧版本继续生效，不会形成混包。
+   */
+  async function stageCandidate(bundle) {
+    await ensureDirs()
+    // 先做一次 JSON 往返规范化：`undefined` 字段在落盘时会被丢弃，
+    // 若直接对内存对象取 hash，读回后校验必然失败（假报“载荷损坏”）。
+    const normalized = JSON.parse(JSON.stringify(bundle))
+    const payloadHash = hashPayload(normalized)
+    const record = { bundleId: normalized.bundleId, publishedAt: new Date().toISOString(), payloadHash, bundle: normalized }
+    const finalPath = snapshotPath(normalized.bundleId)
+    if (!validBundleId(normalized.bundleId)) throw new Error('无效的候选快照标识')
+    const existing = await readOptionalJson(finalPath)
+    if (existing !== null) {
+      const verified = await readVerifiedBundle({ bundleId: normalized.bundleId, payloadHash: existing.payloadHash })
+      const { buildTime: _previousBuildTime, ...previous } = verified
+      const { buildTime: _newBuildTime, ...next } = normalized
+      if (hashPayload(previous) !== hashPayload(next)) throw new Error('相同快照标识对应不同载荷')
+      return { bundle: verified, payloadHash: existing.payloadHash, publishedAt: existing.publishedAt, created: false }
+    }
+    const tempPath = `${finalPath}.${process.pid}.tmp`
+    await writeFile(tempPath, JSON.stringify(record), 'utf8')
+    await rename(tempPath, finalPath)
+    return { bundle: normalized, payloadHash, publishedAt: record.publishedAt, created: true }
+  }
+
+  async function readRecord(bundleId) {
+    return JSON.parse(await readFile(snapshotPath(bundleId), 'utf8'))
+  }
+
+  /** 阶段 2：切换活动指针。 */
+  async function flipPointer(bundleId, payloadHash, { schemaVersion = null, publishedAt = null } = {}) {
+    await ensureDirs()
+    const previous = await readPointer()
+    if (previous && previous.bundleId !== bundleId) {
+      await readVerifiedBundle(previous)
+      await markPublished(previous)
+    }
+    const pointer = { bundleId, publishedAt: publishedAt ?? new Date().toISOString(), payloadHash, schemaVersion }
+    const temp = `${currentPath}.${process.pid}.tmp`
+    await writeFile(temp, JSON.stringify(pointer), 'utf8')
+    await rename(temp, currentPath)
+    return pointer
+  }
+
+  /** 回滚到此前已知有效的指针；指针本就为空时清除。 */
+  async function restorePointer(previous) {
+    if (!previous?.bundleId) {

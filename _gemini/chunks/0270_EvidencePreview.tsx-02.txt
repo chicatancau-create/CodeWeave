@@ -1,0 +1,105 @@
+              <span className="ewb-diff-legend-text">新增行（整段追加，不覆盖日志已有内容）</span>
+            </p>
+            <div className="ewb-diff-body" role="group" aria-label="日志追加行（可横向滚动）" tabIndex={0}>
+              {logLines.map((line, index) => (
+                <div className="ewb-diff-line" key={`${index}-${line.slice(0, 24)}`}>
+                  <span className="ewb-sign ewb-sign--plus">+</span>
+                  <span className="ewb-diff-text">{line === '' ? ' ' : line}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {progressPreview && (
+        <>
+          <h5 className="evidence-subtitle">进度追踪的逐字段变更</h5>
+          {progressPreview.edits.length === 0 ? (
+            <p className="vault-progress-notice">进度追踪无需变更（日期未推进或字段已一致）。</p>
+          ) : (
+            <div
+              className="ewb-scroll"
+              role="group"
+              aria-label="进度追踪逐字段差异（窄视口下可横向滚动）"
+              tabIndex={0}
+            >
+              <table className="ewb-table ewb-table--diff">
+                <caption className="sr-only">进度追踪逐字段变更</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">变更字段</th>
+                    <th scope="col">写入前</th>
+                    <th scope="col">写入后</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {progressPreview.edits.map((edit) => (
+                    <tr key={edit.field}>
+                      <td>
+                        <strong>{edit.field}</strong>
+                      </td>
+                      <td>
+                        <span className="ewb-sign ewb-sign--minus">旧 −</span>
+                        <span className="evidence-before">{edit.before}</span>
+                      </td>
+                      <td>
+                        <span className="ewb-sign ewb-sign--plus">新 +</span>
+                        <span className="evidence-after">{edit.after}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {progressPreview.masteryBlocked.length > 0 && (
+            <>
+              <h5 className="evidence-subtitle">被阻止的掌握提升</h5>
+              <ul className="evidence-blocked">
+                {progressPreview.masteryBlocked.map((item) => (
+                  <li key={`${item.skill}-${item.level}`}>
+                    <StateMark tone="notice" />
+                    <span className="ewb-li-text">
+                      已阻止提升「{item.skill}」到 {item.level}：{item.reason}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+
+      {indexPreview && (
+        <p className="ewb-index-note">
+          <span className="ewb-index-key">总计划索引</span>
+          <span className="ewb-index-value">
+            {indexPreview.changed ? `将新增一行 ${indexPreview.line}` : indexPreview.reason ?? '无需变更'}
+          </span>
+        </p>
+      )}
+
+      <ul className="evidence-notices">
+        {preview.notices.map((notice) => (
+          <li key={notice}>{notice}</li>
+        ))}
+      </ul>
+
+      <label className="vault-binding-toggle ewb-confirm">
+        <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmChange(event.target.checked)} />
+        我已核对以上将写入的内容，确认写入资料库
+      </label>
+      <div className="evidence-actions">
+        <button
+          className="primary-action"
+          disabled={commitBlockers.length > 0}
+          {...ewbDisabledProps(commitBlockers.length > 0, 'ewb-commit-disabled-hint')}
+          onClick={() =>
+            void onCommit(
+              preview.operationId,
+              Object.fromEntries(preview.targets.map((target) => [target.path, target.expectedHash])),
+            )
+          }
+        >
+          {busy ? <LoaderCircle className="ewb-icon-spin" size={16} aria-hidden="true" /> : null}
